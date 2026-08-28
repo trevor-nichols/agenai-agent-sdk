@@ -10,16 +10,16 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "pnpm --filter @agenai/validation build && pnpm --filter @agenai/agent-protocol build && pnpm --filter @agenai/agent-runtime build",
+    "build": "pnpm --filter @agen-ai/validation build && pnpm --filter @agen-ai/agent-protocol build && pnpm --filter @agen-ai/agent-runtime build",
     "check": "pnpm check:repository && pnpm check:generated && pnpm build && pnpm typecheck:packages && pnpm test:unit && pnpm test:external-consumer",
-    "check:generated": "pnpm --filter @agenai/agent-protocol check:contracts && pnpm --filter @agenai/agent-protocol check:json-schema",
+    "check:generated": "pnpm --filter @agen-ai/agent-protocol check:contracts && pnpm --filter @agen-ai/agent-protocol check:json-schema",
     "check:repository": "node scripts/check-repository.mjs",
     "clean": "pnpm -r --if-present clean",
     "test": "pnpm build && pnpm test:unit && pnpm test:external-consumer",
     "test:external-consumer": "node scripts/architecture/check-agent-sdk-external-consumer.mjs",
-    "test:unit": "pnpm --filter @agenai/validation test && pnpm --filter @agenai/agent-protocol test && pnpm --filter @agenai/agent-runtime test",
+    "test:unit": "pnpm --filter @agen-ai/validation test && pnpm --filter @agen-ai/agent-protocol test && pnpm --filter @agen-ai/agent-runtime test",
     "typecheck": "pnpm build && pnpm typecheck:packages",
-    "typecheck:packages": "pnpm --filter @agenai/validation typecheck && pnpm --filter @agenai/agent-protocol typecheck && pnpm --filter @agenai/agent-runtime typecheck"
+    "typecheck:packages": "pnpm --filter @agen-ai/validation typecheck && pnpm --filter @agen-ai/agent-protocol typecheck && pnpm --filter @agen-ai/agent-runtime typecheck"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

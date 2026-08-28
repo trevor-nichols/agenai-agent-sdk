@@ -10,7 +10,7 @@ import {
   agentProtocolSerializedJsonBytes,
   parseAgentArtifactId,
   type AgentJsonValue,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   AgentArtifactCandidateError,

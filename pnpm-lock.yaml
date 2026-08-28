@@ -32,7 +32,7 @@ importers:
 
   packages/agent-protocol:
     dependencies:
-      '@agenai/validation':
+      '@agen-ai/validation':
         specifier: workspace:^
         version: link:../validation
       zod:
@@ -48,7 +48,7 @@ importers:
 
   packages/agent-runtime:
     dependencies:
-      '@agenai/agent-protocol':
+      '@agen-ai/agent-protocol':
         specifier: workspace:^
         version: link:../agent-protocol
     devDependencies:

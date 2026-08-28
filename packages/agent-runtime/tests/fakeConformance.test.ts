@@ -12,7 +12,7 @@ import {
   parseAgentSessionId,
   parseAgentTurnId,
   type AgentSessionConfiguration,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   AgentProviderConformanceError,

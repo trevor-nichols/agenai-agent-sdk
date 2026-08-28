@@ -24,7 +24,7 @@ import {
   type AgentRequest,
   type AgentSessionConfiguration,
   type AgentTurnId,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   AgentProviderContractError,

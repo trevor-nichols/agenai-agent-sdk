@@ -15,7 +15,7 @@ import type {
   AgentTurnInteractionMode,
   AgentTurnInputPart,
   AgentTurnInterruptionReason,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import type { MaybePromise } from "./foundation.js";
 import type { AgentProviderOutput } from "./outputs.js";

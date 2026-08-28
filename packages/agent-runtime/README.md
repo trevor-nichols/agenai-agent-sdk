@@ -1,20 +1,20 @@
-# `@agenai/agent-runtime`
+# `@agen-ai/agent-runtime`
 
-`@agenai/agent-runtime` is the process-local service-provider interface for coding-agent
+`@agen-ai/agent-runtime` is the process-local service-provider interface for coding-agent
 implementations. It preserves a small ownership chain: a driver parses host configuration and
 materializes an instance; the instance owns one opaque ID, technical capabilities, an adapter,
 readiness, and disposal; the adapter opens provider-native sessions; each returned session owns
 its binding and conversation-local operations.
 
-The runtime depends only on `@agenai/agent-protocol`. It has no concept of tenants, SaaS
+The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 leases, or storage policy. A host must authorize and select an instance before calling this SPI.
 
 ## Entrypoints
 
-- `@agenai/agent-runtime` exports the public driver, instance, adapter, session, output,
+- `@agen-ai/agent-runtime` exports the public driver, instance, adapter, session, output,
   readiness, bounded-evidence, artifact-candidate, and registry APIs.
-- `@agenai/agent-runtime/testing` exports the deterministic fake provider and reusable
+- `@agen-ai/agent-runtime/testing` exports the deterministic fake provider and reusable
   conformance runner.
 
 ## Lifecycle and ownership
@@ -70,11 +70,11 @@ scheduling and provider-native queue modes are intentionally outside this SPI.
 import {
   defineAgentProviderDriver,
   type MaterializedAgentProviderInstance,
-} from "@agenai/agent-runtime";
+} from "@agen-ai/agent-runtime";
 import {
   parseAgentInstanceId,
   parseAgentProviderKey,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 const providerKey = parseAgentProviderKey("third-party-provider");
 
@@ -117,7 +117,7 @@ not attach credentials, raw prompts, product identities, or unbounded output to 
 ## Conformance and release
 
 Every external driver should run `runAgentProviderConformance` from
-`@agenai/agent-runtime/testing`. The deterministic suite exercises duplicate-instance rejection,
+`@agen-ai/agent-runtime/testing`. The deterministic suite exercises duplicate-instance rejection,
 instance identity, capabilities, readiness, create/resume/branch, binding callbacks, abort,
 turn/request ordering, request resolution, steering, interruption, configuration, idempotent
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
@@ -125,7 +125,10 @@ must not expose handlers.
 
 The package is at `0.1.0` while the public SPI is being proven with external adapters. Minor
 releases may include breaking changes during this beta period, and those changes will be called out
-in the release notes. The runtime package version remains independent of Agent Protocol V6.
+in the release notes.
+
+The current version tuple is Agent Protocol V6, private host V14/catalog V8, and Workspaces event V8.
+The runtime package version remains independent of Agent Protocol V6.
 
 Run the clean packed-consumer proof before any release:
 

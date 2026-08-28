@@ -9,7 +9,7 @@ import {
   parseAgentCapabilities,
   parseAgentInstanceId,
   parseAgentProviderKey,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   AgentProviderRegistryError,

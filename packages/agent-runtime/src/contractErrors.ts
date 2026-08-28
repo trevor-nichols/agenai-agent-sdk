@@ -2,7 +2,7 @@
 //                contractErrors.ts - Stable provider SPI contract failures - Dependencies: protocol
 // ------------------------------------------------------------------------------------------------
 
-import type { AgentProviderKey } from "@agenai/agent-protocol";
+import type { AgentProviderKey } from "@agen-ai/agent-protocol";
 
 // ------------------------------------------------------------------------------------------------
 //                Contract Error Taxonomy

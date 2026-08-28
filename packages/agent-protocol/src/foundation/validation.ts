@@ -2,9 +2,9 @@
 //                validation.ts - Validator-neutral protocol result and error contracts
 // ------------------------------------------------------------------------------------------------
 
-import type { ValidationIssue } from '@agenai/validation';
+import type { ValidationIssue } from '@agen-ai/validation';
 
-export type { ValidationIssue, ValidationPathSegment } from '@agenai/validation';
+export type { ValidationIssue, ValidationPathSegment } from '@agen-ai/validation';
 
 export interface AgentProtocolParseSuccess<T> {
   readonly success: true;

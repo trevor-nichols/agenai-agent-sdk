@@ -7,7 +7,7 @@ import {
   parseAgentIsoDateTime,
   type AgentError,
   type AgentIsoDateTime,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   createBoundedAgentProviderData,

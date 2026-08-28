@@ -9,7 +9,7 @@ import {
   parseAgentIsoDateTime,
   parseAgentSessionOpenInput,
   type AgentCapabilities,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   assertAgentSessionConfigurationSupported,

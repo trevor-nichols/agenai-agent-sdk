@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "187d3f5650eacddb8451e3c7c9ef4f6cb3c4c506",
+  "sourceRevision": "48a0addf75d54dd3cfc4e5e335dbc4f38eba0df1",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
-      "packageName": "@agenai/validation",
+      "packageName": "@agen-ai/validation",
       "source": "packages/platform/validation",
       "destination": "packages/validation"
     },
     {
-      "packageName": "@agenai/agent-protocol",
+      "packageName": "@agen-ai/agent-protocol",
       "source": "packages/ai/agent-protocol",
       "destination": "packages/agent-protocol"
     },
     {
-      "packageName": "@agenai/agent-runtime",
+      "packageName": "@agen-ai/agent-runtime",
       "source": "packages/ai/agent-runtime",
       "destination": "packages/agent-runtime"
     }

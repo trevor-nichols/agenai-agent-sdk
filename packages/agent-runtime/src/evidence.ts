@@ -10,7 +10,7 @@ import {
   agentProtocolSerializedJsonBytes,
   parseAgentJsonValue,
   type AgentJsonValue,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import { parseAgentBoundedText } from "./foundation.js";
 import { containsAgentControlCharacter } from "./internal/controlCharacters.js";

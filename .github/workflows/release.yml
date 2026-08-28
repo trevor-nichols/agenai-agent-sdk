@@ -71,16 +71,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir release
-          pnpm --filter @agenai/validation pack --pack-destination "$GITHUB_WORKSPACE/release"
-          pnpm --filter @agenai/agent-protocol pack --pack-destination "$GITHUB_WORKSPACE/release"
-          pnpm --filter @agenai/agent-runtime pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/validation pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/agent-protocol pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/agent-runtime pack --pack-destination "$GITHUB_WORKSPACE/release"
           ls -1 release/*.tgz
 
       - name: Publish validation
-        run: npm publish release/agenai-validation-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+        run: npm publish release/agen-ai-validation-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
       - name: Publish agent protocol
-        run: npm publish release/agenai-agent-protocol-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+        run: npm publish release/agen-ai-agent-protocol-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
       - name: Publish agent runtime
-        run: npm publish release/agenai-agent-runtime-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+        run: npm publish release/agen-ai-agent-runtime-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"

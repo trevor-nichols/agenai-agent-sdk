@@ -2,7 +2,7 @@
 //                serializedJsonBytes.ts - JSON byte accounting without payload materialization - Dependencies: agent protocol
 // ------------------------------------------------------------------------------------------------
 
-import type { AgentJsonValue } from "@agenai/agent-protocol";
+import type { AgentJsonValue } from "@agen-ai/agent-protocol";
 
 // ------------------------------------------------------------------------------------------------
 //                Exact JSON and UTF-8 Accounting

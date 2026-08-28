@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Status: `0.1.0` beta. The packages are available here as source and are not published to npm yet.
+> Status: `0.1.0` beta.
 
 ## Why this exists
 
@@ -25,18 +25,29 @@ Write the host once. Adapt each agent once.
 
 | Package | Purpose |
 | --- | --- |
-| `@agenai/validation` | Validator-neutral issue data with an optional Zod 4 adapter. |
-| `@agenai/agent-protocol` | Sessions, turns, requests, capabilities, events, artifacts, parsers, and schemas. |
-| `@agenai/agent-runtime` | Drivers, instances, adapters, sessions, lifecycle validation, registry mechanics, and conformance tools. |
+| `@agen-ai/validation` | Validator-neutral issue data with an optional Zod 4 adapter. |
+| `@agen-ai/agent-protocol` | Sessions, turns, requests, capabilities, events, artifacts, parsers, and schemas. |
+| `@agen-ai/agent-runtime` | Drivers, instances, adapters, sessions, lifecycle validation, registry mechanics, and conformance tools. |
 
 The dependency chain is intentionally narrow:
 
 ```text
-@agenai/agent-runtime
-  -> @agenai/agent-protocol
-       -> @agenai/validation
+@agen-ai/agent-runtime
+  -> @agen-ai/agent-protocol
+       -> @agen-ai/validation
        -> zod
 ```
+
+## Install
+
+Install the runtime package from the `beta` release channel:
+
+```sh
+pnpm add @agen-ai/agent-runtime@beta
+```
+
+The protocol and validation packages are installed automatically. Install them directly only when
+you need their public APIs without the runtime.
 
 ## Runtime shape
 
@@ -76,9 +87,9 @@ a temporary project. Nothing is published by that command.
 
 Package-specific API and lifecycle notes live in each package README:
 
-- [`@agenai/validation`](packages/validation/README.md)
-- [`@agenai/agent-protocol`](packages/agent-protocol/README.md)
-- [`@agenai/agent-runtime`](packages/agent-runtime/README.md)
+- [`@agen-ai/validation`](packages/validation/README.md)
+- [`@agen-ai/agent-protocol`](packages/agent-protocol/README.md)
+- [`@agen-ai/agent-runtime`](packages/agent-runtime/README.md)
 
 ## Beta expectations
 

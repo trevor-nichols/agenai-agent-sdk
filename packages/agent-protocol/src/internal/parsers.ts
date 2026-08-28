@@ -2,7 +2,7 @@
 //                parsers.ts - Validator-neutral parser facade - Dependencies: validation, Zod 4
 // ------------------------------------------------------------------------------------------------
 
-import { normalizeZodValidationError } from '@agenai/validation/zod';
+import { normalizeZodValidationError } from '@agen-ai/validation/zod';
 import type { ZodType } from 'zod/v4';
 
 import {

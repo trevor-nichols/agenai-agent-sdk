@@ -48,22 +48,22 @@ const PUBLIC_HOMEPAGE_URL = "https://github.com/trevor-nichols/agenai-agent-sdk#
 const PUBLIC_BUGS_URL = "https://github.com/trevor-nichols/agenai-agent-sdk/issues";
 const PACKAGES = [
   {
-    name: "@agenai/validation",
+    name: "@agen-ai/validation",
     root: "packages/validation",
     directory: "packages/validation",
     dependencies: { zod: "4.4.3" },
   },
   {
-    name: "@agenai/agent-protocol",
+    name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agenai/validation": "^0.1.0", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.1.0", zod: "4.4.3" },
   },
   {
-    name: "@agenai/agent-runtime",
+    name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agenai/agent-protocol": "^0.1.0" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.1.0" },
   },
 ];
 
@@ -248,7 +248,7 @@ async function inspectTarball(definition, tarballPath, extractedRoot) {
     }
     if (
       relativeFile.endsWith(".d.ts") &&
-      definition.name !== "@agenai/validation"
+      definition.name !== "@agen-ai/validation"
     ) {
       assert.doesNotMatch(
         source,
@@ -273,8 +273,8 @@ async function inspectTarball(definition, tarballPath, extractedRoot) {
 const CONSUMER_SOURCE = `import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 
-import { normalizeValidationIssues } from "@agenai/validation";
-import { normalizeZodValidationError } from "@agenai/validation/zod";
+import { normalizeValidationIssues } from "@agen-ai/validation";
+import { normalizeZodValidationError } from "@agen-ai/validation/zod";
 import {
   parseAgentConfigurationRevisionId,
   parseAgentInstanceId,
@@ -284,30 +284,30 @@ import {
   parseAgentSessionId,
   parseAgentTurnId,
   type AgentItemSnapshot,
-} from "@agenai/agent-protocol";
-import { parseAgentSessionBinding } from "@agenai/agent-protocol/sessions";
-import { parseAgentTurnRunInput } from "@agenai/agent-protocol/turns";
-import { parseAgentRequest } from "@agenai/agent-protocol/requests";
-import { parseAgentEvent } from "@agenai/agent-protocol/events";
-import { parseAgentCapabilities } from "@agenai/agent-protocol/capabilities";
-import { parseAgentArtifactDescriptor } from "@agenai/agent-protocol/artifacts";
-import { AgentEventSchema } from "@agenai/agent-protocol/zod";
-import { AGENT_EVENT_JSON_SCHEMA } from "@agenai/agent-protocol/json-schema";
+} from "@agen-ai/agent-protocol";
+import { parseAgentSessionBinding } from "@agen-ai/agent-protocol/sessions";
+import { parseAgentTurnRunInput } from "@agen-ai/agent-protocol/turns";
+import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
+import { parseAgentEvent } from "@agen-ai/agent-protocol/events";
+import { parseAgentCapabilities } from "@agen-ai/agent-protocol/capabilities";
+import { parseAgentArtifactDescriptor } from "@agen-ai/agent-protocol/artifacts";
+import { AgentEventSchema } from "@agen-ai/agent-protocol/zod";
+import { AGENT_EVENT_JSON_SCHEMA } from "@agen-ai/agent-protocol/json-schema";
 import {
   AGENT_PROVIDER_CONTRACT_ERROR_CODES,
   createAgentEventOutput,
   createAgentProviderReadiness,
   defineAgentProviderDriver,
   type AgentProviderSession,
-} from "@agenai/agent-runtime";
+} from "@agen-ai/agent-runtime";
 import {
   createFakeAgentProvider,
   runAgentProviderConformance,
-} from "@agenai/agent-runtime/testing";
+} from "@agen-ai/agent-runtime/testing";
 import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
-const protocolManifest = require("@agenai/agent-protocol/package.json") as { version: string };
+const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
 assert.equal(protocolManifest.version, "0.1.0");
 
 assert.equal(typeof parseAgentSessionBinding, "function");
@@ -642,9 +642,9 @@ async function runConsumer(tempRoot, artifacts) {
     packageManager: "pnpm@11.7.0",
     engines: { node: ">=22.0.0" },
     dependencies: {
-      "@agenai/validation": fileDependency("@agenai/validation"),
-      "@agenai/agent-protocol": fileDependency("@agenai/agent-protocol"),
-      "@agenai/agent-runtime": fileDependency("@agenai/agent-runtime"),
+      "@agen-ai/validation": fileDependency("@agen-ai/validation"),
+      "@agen-ai/agent-protocol": fileDependency("@agen-ai/agent-protocol"),
+      "@agen-ai/agent-runtime": fileDependency("@agen-ai/agent-runtime"),
       zod: "4.4.3",
     },
     devDependencies: { "@types/node": "24.10.1", typescript: "5.9.3" },
@@ -676,9 +676,9 @@ async function runConsumer(tempRoot, artifacts) {
   await writeFile(
     path.join(consumerRoot, ".pnpmfile.cjs"),
     `const packedDependencies = ${JSON.stringify({
-      "@agenai/validation": fileDependency("@agenai/validation"),
-      "@agenai/agent-protocol": fileDependency("@agenai/agent-protocol"),
-      "@agenai/agent-runtime": fileDependency("@agenai/agent-runtime"),
+      "@agen-ai/validation": fileDependency("@agen-ai/validation"),
+      "@agen-ai/agent-protocol": fileDependency("@agen-ai/agent-protocol"),
+      "@agen-ai/agent-runtime": fileDependency("@agen-ai/agent-runtime"),
     })};\nmodule.exports = { hooks: { readPackage(pkg) {\n  for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {\n    if (!pkg[section]) continue;\n    for (const [name, tarball] of Object.entries(packedDependencies)) {\n      if (Object.hasOwn(pkg[section], name)) pkg[section][name] = tarball;\n    }\n  }\n  return pkg;\n} } };\n`,
   );
   await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], {

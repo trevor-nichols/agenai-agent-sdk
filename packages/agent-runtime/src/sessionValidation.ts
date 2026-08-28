@@ -20,7 +20,7 @@ import {
   type AgentSessionBinding,
   type AgentSessionId,
   type AgentTurnId,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   assertAgentSessionConfigurationSupported,

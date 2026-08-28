@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                tsup.config.ts - Build orchestration for @agenai/agent-runtime - Dependencies: tsup
+//                tsup.config.ts - Build orchestration for @agen-ai/agent-runtime - Dependencies: tsup
 // ------------------------------------------------------------------------------------------------
 
 import { defineConfig } from 'tsup';

@@ -8,7 +8,7 @@ import {
   defineAgentProviderDriver,
   type AgentProviderSession,
   type AgentTurnSteeringResult,
-} from "@agenai/agent-runtime";
+} from "@agen-ai/agent-runtime";
 import {
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
@@ -18,7 +18,7 @@ import {
   parseAgentProviderKey,
   parseAgentSessionId,
   type AgentItemSnapshot,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 const providerKey = parseAgentProviderKey("external-provider");
 const capabilities = parseAgentCapabilities({
@@ -170,6 +170,6 @@ const delivered: AgentTurnSteeringResult = { status: "delivered" };
 delivered.outputs;
 
 // @ts-expect-error Provider queue modes were deleted from the runtime SPI.
-type RemovedActiveTurnInput = import("@agenai/agent-runtime").AgentActiveTurnInput;
+type RemovedActiveTurnInput = import("@agen-ai/agent-runtime").AgentActiveTurnInput;
 
 void (null as unknown as RemovedActiveTurnInput);

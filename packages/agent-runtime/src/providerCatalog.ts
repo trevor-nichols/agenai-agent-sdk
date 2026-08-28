@@ -7,7 +7,7 @@ import {
   type AgentCapabilities,
   type AgentInstanceId,
   type AgentProviderKey,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import type {
   AgentProviderDriver,

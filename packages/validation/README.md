@@ -1,17 +1,17 @@
-# `@agenai/validation`
+# `@agen-ai/validation`
 
-`@agenai/validation` defines a small, validator-neutral issue format for reusable packages. It
+`@agen-ai/validation` defines a small, validator-neutral issue format for reusable packages. It
 normalizes validation failures without making an ordinary public API expose a particular schema
 library. The optional Zod entrypoint adapts Zod 4 issues to the same stable shape.
 
 ## Entrypoints
 
-- `@agenai/validation` exports plain issue types plus normalization functions. Its declarations do
+- `@agen-ai/validation` exports plain issue types plus normalization functions. Its declarations do
   not expose Zod.
-- `@agenai/validation/zod` exports the deliberate Zod 4 adapter and may expose Zod types.
+- `@agen-ai/validation/zod` exports the deliberate Zod 4 adapter and may expose Zod types.
 
 ```ts
-import { normalizeValidationIssues } from "@agenai/validation";
+import { normalizeValidationIssues } from "@agen-ai/validation";
 
 const issues = normalizeValidationIssues(
   [{ code: "invalid_type", path: ["sessionId"], message: "Invalid input" }],

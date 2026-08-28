@@ -9,7 +9,7 @@ import {
   type AgentError,
   type AgentEvent,
   type AgentIsoDateTime,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   createAgentArtifactCandidate,

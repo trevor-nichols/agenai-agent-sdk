@@ -1,5 +1,5 @@
 {
-  "name": "@agenai/agent-protocol",
+  "name": "@agen-ai/agent-protocol",
   "version": "0.1.0",
   "private": false,
   "description": "Provider-neutral sessions, turns, requests, capabilities, artifacts, and events for coding-agent runtimes.",
@@ -69,7 +69,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@agenai/validation": "workspace:^",
+    "@agen-ai/validation": "workspace:^",
     "zod": "catalog:"
   },
   "devDependencies": {

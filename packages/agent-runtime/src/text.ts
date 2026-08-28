@@ -2,7 +2,7 @@
 //                text.ts - Canonical provider text chunking - Dependencies: agent protocol
 // ------------------------------------------------------------------------------------------------
 
-import { AGENT_PROTOCOL_TEXT_MAX_LENGTH } from "@agenai/agent-protocol";
+import { AGENT_PROTOCOL_TEXT_MAX_LENGTH } from "@agen-ai/agent-protocol";
 
 // ------------------------------------------------------------------------------------------------
 //                Canonical Text Chunks

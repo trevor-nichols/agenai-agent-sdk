@@ -8,7 +8,7 @@ import {
   parseAgentProviderKey,
   type AgentInstanceId,
   type AgentProviderKey,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import { validateAgentProviderAdapter } from "./adapterValidation.js";
 import {

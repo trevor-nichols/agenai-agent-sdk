@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import {
   parseAgentArtifactDescriptor,
   type AgentArtifactDescriptor,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import { containsAgentControlCharacter } from "./internal/controlCharacters.js";
 

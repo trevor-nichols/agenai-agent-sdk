@@ -1,5 +1,5 @@
 {
-  "name": "@agenai/agent-runtime",
+  "name": "@agen-ai/agent-runtime",
   "version": "0.1.0",
   "private": false,
   "description": "Provider-neutral driver, instance, adapter, session, output, and conformance contracts for coding-agent runtimes.",
@@ -38,7 +38,7 @@
     "clean": "rimraf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@agenai/agent-protocol": "workspace:^"
+    "@agen-ai/agent-protocol": "workspace:^"
   },
   "devDependencies": {
     "tsup": "^8.5.0"

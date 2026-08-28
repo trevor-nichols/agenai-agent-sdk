@@ -2,7 +2,7 @@
 //                foundation.ts - Runtime primitives and abort semantics - Dependencies: protocol
 // ------------------------------------------------------------------------------------------------
 
-import { AGENT_PROTOCOL_ID_MAX_LENGTH } from "@agenai/agent-protocol";
+import { AGENT_PROTOCOL_ID_MAX_LENGTH } from "@agen-ai/agent-protocol";
 
 import { containsAgentControlCharacter } from "./internal/controlCharacters.js";
 
@@ -10,7 +10,7 @@ import { containsAgentControlCharacter } from "./internal/controlCharacters.js";
 //                Package and Promise Contracts
 // ------------------------------------------------------------------------------------------------
 
-export const AGENT_RUNTIME_PACKAGE_NAME = "@agenai/agent-runtime" as const;
+export const AGENT_RUNTIME_PACKAGE_NAME = "@agen-ai/agent-runtime" as const;
 
 export type MaybePromise<Value> = Value | Promise<Value>;
 

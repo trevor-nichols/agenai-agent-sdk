@@ -9,7 +9,7 @@ import {
   parseAgentSessionId,
   type AgentInstanceId,
   type AgentSessionId,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import {
   createAgentEventOutput,

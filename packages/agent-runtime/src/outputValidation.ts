@@ -11,7 +11,7 @@ import {
   type AgentProviderKey,
   type AgentSessionId,
   type AgentTurnId,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import { throwAgentProviderContractError } from "./contractErrors.js";
 import {

@@ -5,7 +5,7 @@
 import type {
   AgentCapabilities,
   AgentSessionConfiguration,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import { throwAgentProviderContractError } from "./contractErrors.js";
 

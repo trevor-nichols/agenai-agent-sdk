@@ -2,7 +2,7 @@
 //                parsers.ts - Plain request parsers and exact resolution checks
 // ------------------------------------------------------------------------------------------------
 
-import type { ValidationIssue } from '@agenai/validation';
+import type { ValidationIssue } from '@agen-ai/validation';
 
 import {
   AgentProtocolValidationError,

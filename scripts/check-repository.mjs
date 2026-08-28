@@ -18,18 +18,18 @@ const BUGS_URL = "https://github.com/trevor-nichols/agenai-agent-sdk/issues";
 const PACKAGE_POLICIES = [
   {
     root: "packages/validation",
-    name: "@agenai/validation",
+    name: "@agen-ai/validation",
     dependencies: { zod: "catalog:" },
   },
   {
     root: "packages/agent-protocol",
-    name: "@agenai/agent-protocol",
-    dependencies: { "@agenai/validation": "workspace:^", zod: "catalog:" },
+    name: "@agen-ai/agent-protocol",
+    dependencies: { "@agen-ai/validation": "workspace:^", zod: "catalog:" },
   },
   {
     root: "packages/agent-runtime",
-    name: "@agenai/agent-runtime",
-    dependencies: { "@agenai/agent-protocol": "workspace:^" },
+    name: "@agen-ai/agent-runtime",
+    dependencies: { "@agen-ai/agent-protocol": "workspace:^" },
   },
 ];
 const IGNORED_DIRECTORIES = new Set([".git", ".turbo", "coverage", "dist", "node_modules"]);
@@ -114,7 +114,7 @@ for (const policy of PACKAGE_POLICIES) {
   assert.equal(manifest.bugs?.url, BUGS_URL);
   assert.equal(manifest.publishConfig?.access, "public");
   assert.equal(manifest.publishConfig?.provenance, true);
-  if (policy.name === "@agenai/agent-protocol") {
+  if (policy.name === "@agen-ai/agent-protocol") {
     assert.equal(manifest.devDependencies?.ajv, "8.17.1");
   }
   assert.equal(

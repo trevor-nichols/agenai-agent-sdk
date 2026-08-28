@@ -2,9 +2,9 @@
 
 The three packages ship together at one version. Publish them in dependency order:
 
-1. `@agenai/validation`
-2. `@agenai/agent-protocol`
-3. `@agenai/agent-runtime`
+1. `@agen-ai/validation`
+2. `@agen-ai/agent-protocol`
+3. `@agen-ai/agent-runtime`
 
 The public repository uses npm trusted publishing. GitHub Actions receives a short-lived npm
 credential through OIDC, so the repository does not need an npm token secret. npm attaches
@@ -15,7 +15,7 @@ provenance to releases made from the workflow.
 The first release needs a one-time bootstrap because npm trusted publishing is configured on an
 existing package.
 
-1. Create the `agenai` organization on npm with the free public-package plan.
+1. Create the `agen-ai` organization on npm with the free public-package plan.
 2. Enable two-factor authentication on the maintainer account.
 3. Sign in locally with `npm login`.
 4. Run `pnpm check` from a clean `main` checkout.
@@ -56,19 +56,19 @@ Allowed action: npm publish
 The npm CLI can create the relationships after the bootstrap release:
 
 ```sh
-npm trust github @agenai/validation \
+npm trust github @agen-ai/validation \
   --repo trevor-nichols/agenai-agent-sdk \
   --file release.yml \
   --allow-publish \
   --yes
 
-npm trust github @agenai/agent-protocol \
+npm trust github @agen-ai/agent-protocol \
   --repo trevor-nichols/agenai-agent-sdk \
   --file release.yml \
   --allow-publish \
   --yes
 
-npm trust github @agenai/agent-runtime \
+npm trust github @agen-ai/agent-runtime \
   --repo trevor-nichols/agenai-agent-sdk \
   --file release.yml \
   --allow-publish \

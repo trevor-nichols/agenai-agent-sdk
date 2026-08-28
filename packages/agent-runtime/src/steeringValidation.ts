@@ -5,7 +5,7 @@
 import {
   parseAgentError,
   type AgentProviderKey,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import { throwAgentProviderContractError } from "./contractErrors.js";
 import type { AgentTurnSteeringResult } from "./sessions.js";

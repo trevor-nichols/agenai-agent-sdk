@@ -13,7 +13,7 @@ import {
   type AgentSessionId,
   type AgentTurnId,
   type AgentTurnInputContent,
-} from "@agenai/agent-protocol";
+} from "@agen-ai/agent-protocol";
 
 import { isAgentOperationAbortError } from "../foundation.js";
 import {
