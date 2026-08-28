@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "rootDir": ".",
+    "incremental": false
+  },
+  "include": [
+    "src/**/*",
+    "tests/publicApi.typecheck.ts"
+  ],
+  "references": []
+}

@@ -1,0 +1,136 @@
+# `@agenai/agent-runtime`
+
+`@agenai/agent-runtime` is the process-local service-provider interface for coding-agent
+implementations. It preserves a small ownership chain: a driver parses host configuration and
+materializes an instance; the instance owns one opaque ID, technical capabilities, an adapter,
+readiness, and disposal; the adapter opens provider-native sessions; each returned session owns
+its binding and conversation-local operations.
+
+The runtime depends only on `@agenai/agent-protocol`. It has no concept of tenants, SaaS
+workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
+leases, or storage policy. A host must authorize and select an instance before calling this SPI.
+
+## Entrypoints
+
+- `@agenai/agent-runtime` exports the public driver, instance, adapter, session, output,
+  readiness, bounded-evidence, artifact-candidate, and registry APIs.
+- `@agenai/agent-runtime/testing` exports the deterministic fake provider and reusable
+  conformance runner.
+
+## Lifecycle and ownership
+
+1. Define an `AgentProviderDriver` with `defineAgentProviderDriver`.
+2. Give caller-owned instance definitions to `createAgentProviderRegistry`.
+3. Select a materialized instance by opaque `instanceId`.
+4. Create, resume, or branch a provider session through its adapter.
+5. Consume each `runTurn` or `resolveRequest` output stream incrementally. Neutral `AgentEvent`
+   output carries bounded provider source evidence atomically. A `request.opened` output may also
+   carry separately bounded, non-truncated provider request context for continuation; lifecycle,
+   authentication, artifact, and standalone diagnostic evidence remain separate output variants.
+   Evidence reports an exact truncation reason. `originalDataBytes` is `null` when a structural
+   collection, depth, object-key, cycle, accessor, unsupported-value, or inspectability constraint
+   prevents honest measurement of the original provider payload.
+6. Close sessions idempotently, then dispose the instance or registry.
+
+Instance IDs never repeat in session calls. `workingDirectory` is resolved by the host and is not
+an authorization credential. Create and branch implementations must invoke `onBindingCreated`
+exactly once before returning the matching session. Capability-dependent operations use explicit
+`supported`/`unsupported` discriminants, and the runtime rejects handlers that disagree with the
+instance capability declaration.
+
+The host should serialize mutating operations for a given session. Separate session objects may
+run concurrently, so provider implementations must isolate their conversation-local state.
+`runTurn` and `resolveRequest` both preserve consumer backpressure: the provider does not resume
+until the consumer requests the next output. Each stream must end at a completed turn or exactly
+one newly pending request. If a consumer abandons a stream, a provider throws, or either stream
+ends before that stable boundary, the validated session becomes unusable and must be closed rather
+than retried. The validated `runTurn` input may observe `onProviderExecutionStarted`; validation
+invokes it exactly at candidate-port delegation, after runtime prechecks pass, and never forwards it
+to the candidate adapter. A delegated mutating operation that throws or returns an invalid result
+has the same effect. Pre-aborted operations fail with `AbortError`; close and disposal must be safe
+to call repeatedly. An accepted interruption of an already-waiting turn does not prove that the
+turn terminalized; unless the result also carries a terminal event, the validated session becomes
+unusable and must be closed and rematerialized. A close failure makes the session unusable while
+leaving close itself retryable.
+
+When `capabilities.turns.steer` is true, the session exposes `steering.steerTurn`. Steering accepts
+the existing turn ID plus the same canonical `parts` and optional `summary` used to start a turn.
+It does not create or own an output stream: model output continues on the original `runTurn`
+iterator. The receipt is exactly `delivered`, `rejected` with a bounded neutral error, or
+`delivery_uncertain` with a bounded neutral error. A provider must use uncertainty when delivery
+may have started but its authoritative acknowledgement was lost; callers cannot safely replay that
+result. The validated runtime preserves pre-delegation validation and abort errors unchanged, while
+provider-delegated steering failures throw `AgentProviderDelegatedOperationError` with the original
+cause and explicit started-execution evidence so a host can retire the unusable session. Platform
+scheduling and provider-native queue modes are intentionally outside this SPI.
+
+## Minimal driver
+
+```ts
+import {
+  defineAgentProviderDriver,
+  type MaterializedAgentProviderInstance,
+} from "@agenai/agent-runtime";
+import {
+  parseAgentInstanceId,
+  parseAgentProviderKey,
+} from "@agenai/agent-protocol";
+
+const providerKey = parseAgentProviderKey("third-party-provider");
+
+export const driver = defineAgentProviderDriver({
+  providerKey,
+  supportsMultipleInstances: true,
+  parseConfiguration(input) {
+    if (input === null || typeof input !== "object")
+      throw new TypeError("Invalid config.");
+    return input;
+  },
+  createInstance({ instanceId }): MaterializedAgentProviderInstance {
+    // Construct capabilities, adapter, readiness, and disposal here.
+    throw new Error(`Implement ${parseAgentInstanceId(instanceId)}.`);
+  },
+});
+```
+
+Use the `/testing` conformance runner for lifecycle, binding, turn-ordering, live steering and
+interruption, interaction results, capability ports, cancellation, close, and disposal checks.
+Registry publication and provider package discovery are intentionally outside this package.
+
+## Errors and cancellation
+
+The runtime distinguishes programmer/contract failures from provider failures:
+
+- `AgentProviderContractError` reports a stable `code` when an adapter contradicts its declared
+  capabilities, emits invalid output, violates turn/request ordering, or returns a mismatched
+  binding.
+- `AgentProviderRegistryError` reports stable registry/materialization/disposal codes and retains
+  provider/instance correlation when available.
+- `AgentProviderConfigurationError` wraps driver configuration rejection without exposing product
+  configuration policy.
+- malformed primitive input may raise `TypeError` or `RangeError`; an aborted operation preserves
+  an `AbortError`-named reason.
+
+Provider-native exceptions should be normalized or safely wrapped at the provider boundary. Do
+not attach credentials, raw prompts, product identities, or unbounded output to public errors.
+
+## Conformance and release
+
+Every external driver should run `runAgentProviderConformance` from
+`@agenai/agent-runtime/testing`. The deterministic suite exercises duplicate-instance rejection,
+instance identity, capabilities, readiness, create/resume/branch, binding callbacks, abort,
+turn/request ordering, request resolution, steering, interruption, configuration, idempotent
+close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
+must not expose handlers.
+
+The package is at `0.1.0` while the public SPI is being proven with external adapters. Minor
+releases may include breaking changes during this beta period, and those changes will be called out
+in the release notes. The runtime package version remains independent of Agent Protocol V6.
+
+Run the clean packed-consumer proof before any release:
+
+From the public repository root, run `pnpm check`.
+
+It installs tarballs into a temporary project outside the workspace, typechecks every documented
+entrypoint, runs the fake provider and parser flow, and removes the temporary directory. It never
+publishes or accesses release credentials.

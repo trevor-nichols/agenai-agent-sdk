@@ -1,0 +1,61 @@
+{
+  "name": "@agenai/validation",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Validator-neutral issue contracts and optional Zod 4 normalization for reusable AgenAI packages.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./zod": {
+      "types": "./dist/zod.d.ts",
+      "import": "./dist/zod.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "pnpm run clean && pnpm run build:runtime && pnpm run build:types",
+    "build:runtime": "tsup",
+    "build:types": "tsc --project tsconfig.json --emitDeclarationOnly --outDir dist",
+    "dev": "pnpm run build:runtime -- --watch",
+    "dev:types": "tsc --project tsconfig.json --emitDeclarationOnly --outDir dist --watch",
+    "test": "node --import tsx --test src/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trevor-nichols/agenai-agent-sdk.git",
+    "directory": "packages/validation"
+  },
+  "homepage": "https://github.com/trevor-nichols/agenai-agent-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/trevor-nichols/agenai-agent-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

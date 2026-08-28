@@ -1,0 +1,101 @@
+# AgenAI Agent SDK
+
+A provider-neutral TypeScript contract for hosting coding agents.
+
+> Status: `0.1.0` beta. The packages are available here as source and are not published to npm yet.
+
+## Why this exists
+
+Claude Code, Cursor, Codex, OpenCode, Grok, and custom agent CLIs all model sessions differently.
+Their turn APIs, interaction requests, streaming output, capabilities, and shutdown behavior rarely
+line up. A host that supports several agents can end up rebuilding the same lifecycle code for every
+provider.
+
+The AgenAI Agent SDK gives those providers one process-local interface to implement. A driver
+materializes an instance, the instance exposes an adapter, and the adapter opens sessions. The host
+works with the same validated session contract regardless of the native API behind it.
+
+Provider-specific protocols, credentials, process management, and native session identifiers stay
+inside the adapter. Product concerns such as users, workspaces, authorization, billing, persistence,
+and scheduling stay in the host.
+
+Write the host once. Adapt each agent once.
+
+## Packages
+
+| Package | Purpose |
+| --- | --- |
+| `@agenai/validation` | Validator-neutral issue data with an optional Zod 4 adapter. |
+| `@agenai/agent-protocol` | Sessions, turns, requests, capabilities, events, artifacts, parsers, and schemas. |
+| `@agenai/agent-runtime` | Drivers, instances, adapters, sessions, lifecycle validation, registry mechanics, and conformance tools. |
+
+The dependency chain is intentionally narrow:
+
+```text
+@agenai/agent-runtime
+  -> @agenai/agent-protocol
+       -> @agenai/validation
+       -> zod
+```
+
+## Runtime shape
+
+```text
+host policy
+    |
+    v
+driver -> materialized instance -> adapter -> provider session
+                                      |
+                                      +-> validated streaming output
+```
+
+The host selects and authorizes an instance before entering the SDK. The runtime validates the
+materialized instance, capability declarations, adapter behavior, stream boundaries, readiness,
+and disposal. A session covers create, resume, branch, turns, interaction requests, steering,
+interruption, and close according to the capabilities reported by its provider.
+
+This is a service-provider interface, not a network protocol and not a lowest-common-denominator
+wrapper. An adapter translates its native provider behavior at the boundary while keeping useful
+provider mechanics intact.
+
+## Work from source
+
+You need Node.js 22 or newer and pnpm 11.7.0.
+
+```sh
+git clone https://github.com/trevor-nichols/agenai-agent-sdk.git
+cd agenai-agent-sdk
+corepack enable
+pnpm install
+pnpm check
+```
+
+`pnpm check` validates repository metadata, checks generated protocol surfaces, builds and
+typechecks all three packages, runs their tests, packs each package, and installs the tarballs into
+a temporary project. Nothing is published by that command.
+
+Package-specific API and lifecycle notes live in each package README:
+
+- [`@agenai/validation`](packages/validation/README.md)
+- [`@agenai/agent-protocol`](packages/agent-protocol/README.md)
+- [`@agenai/agent-runtime`](packages/agent-runtime/README.md)
+
+## Beta expectations
+
+The SDK starts at `0.1.0` because external provider adapters are still proving the public surface.
+Minor releases may contain breaking API changes during the beta period. Those changes will be
+called out in release notes.
+
+## Contributing
+
+Issues and pull requests are welcome. AgenAI develops the SDK alongside private host code in a
+private monorepo, which remains the source authority. Maintainers import accepted public changes
+there, run the full integration suite, and export the canonical public result back to this
+repository. Contributor authorship is preserved through that process.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [SECURITY.md](SECURITY.md)
+for private vulnerability reporting.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
