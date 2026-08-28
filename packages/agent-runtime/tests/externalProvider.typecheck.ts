@@ -33,7 +33,10 @@ const capabilities = parseAgentCapabilities({
       input: { text: true, images: { kind: "unsupported" } },
     },
   },
-  requests: { approval: false, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: { kind: "unsupported" },
+    elicitation: { kind: "unsupported" },
+  },
   input: { text: true, images: { kind: "unsupported" } },
   output: {
     streaming: false,

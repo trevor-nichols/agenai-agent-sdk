@@ -93,6 +93,37 @@ test('events enforce reference, state, terminal, progress, and byte invariants',
   );
 });
 
+test('context usage preserves partial observations and rejects fabricated values', () => {
+  const base = {
+    protocolVersion: 6,
+    sessionId: 'session:context-usage',
+    turnId: 'turn:context-usage',
+    occurredAt: protocolTimestamp,
+    type: 'context.usage.updated',
+  } as const;
+
+  for (const payload of [
+    { usedTokens: 0 },
+    { totalTokens: 8_192 },
+    { usedPercent: 0 },
+    { usedTokens: 1_024, totalTokens: 8_192, usedPercent: 12.5 },
+  ]) {
+    assert.equal(safeParseAgentEvent({ ...base, payload }).success, true);
+  }
+
+  for (const payload of [
+    {},
+    { usedTokens: -1 },
+    { usedTokens: 1.5 },
+    { totalTokens: 0 },
+    { totalTokens: Number.POSITIVE_INFINITY },
+    { usedPercent: -0.1 },
+    { usedPercent: 100.1 },
+  ]) {
+    assert.equal(safeParseAgentEvent({ ...base, payload }).success, false);
+  }
+});
+
 test('events reject noncanonical identifiers and diagnostic strings', () => {
   const base = {
     protocolVersion: 6,

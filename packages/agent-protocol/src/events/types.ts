@@ -37,6 +37,7 @@ export const AGENT_EVENT_TYPES = [
   'turn.diff.updated',
   'request.opened',
   'progress.updated',
+  'context.usage.updated',
   'artifact.referenced',
   'runtime.warning',
   'runtime.error',
@@ -148,6 +149,15 @@ export type AgentProgressUpdatedEvent = AgentTurnEventBase<
   }>
 >;
 
+export type AgentContextUsageUpdatedEvent = AgentTurnEventBase<
+  'context.usage.updated',
+  Readonly<{
+    usedTokens?: number;
+    totalTokens?: number;
+    usedPercent?: number;
+  }>
+>;
+
 export type AgentArtifactReferencedEvent = AgentOptionallyTurnScopedEventBase<
   'artifact.referenced',
   Readonly<{ artifact: AgentArtifactDescriptor }>
@@ -190,6 +200,7 @@ export type AgentEvent =
   | AgentDiffUpdatedEvent
   | AgentRequestOpenedEvent
   | AgentProgressUpdatedEvent
+  | AgentContextUsageUpdatedEvent
   | AgentArtifactReferencedEvent
   | AgentRuntimeWarningEvent
   | AgentRuntimeErrorEvent

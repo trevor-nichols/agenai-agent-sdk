@@ -102,6 +102,11 @@ const validItemSnapshots = [
     itemId: 'item:compaction',
     itemKind: 'context_compaction',
     status: 'completed',
+    details: {
+      trigger: 'auto',
+      preTokens: 12_000,
+      summaryAvailable: true,
+    },
   },
   { itemId: 'item:unknown', itemKind: 'unknown', status: 'unknown' },
 ] as const;
@@ -195,6 +200,38 @@ test('optional detail objects require their semantic identifying fields', () => 
       }).success,
       false,
       itemKind,
+    );
+  }
+});
+
+test('context compaction details are sparse, bounded observations', () => {
+  const common = {
+    itemId: 'item:compaction',
+    itemKind: 'context_compaction',
+    status: 'completed',
+  } as const;
+
+  assert.equal(safeParseAgentItemSnapshot(common).success, true);
+  for (const details of [
+    { trigger: 'manual' },
+    { preTokens: 0 },
+    { summaryAvailable: false },
+  ]) {
+    assert.equal(
+      safeParseAgentItemSnapshot({ ...common, details }).success,
+      true,
+    );
+  }
+  for (const details of [
+    {},
+    { trigger: 'unknown' },
+    { preTokens: -1 },
+    { preTokens: 1.5 },
+    { preTokens: Number.POSITIVE_INFINITY },
+  ]) {
+    assert.equal(
+      safeParseAgentItemSnapshot({ ...common, details }).success,
+      false,
     );
   }
 });

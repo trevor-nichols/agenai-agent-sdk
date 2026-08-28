@@ -102,6 +102,27 @@ const ProgressUpdatedPayloadSchema = z
   .strict()
   .readonly();
 
+const ContextUsageUpdatedPayloadSchema = z
+  .object({
+    usedTokens: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+    totalTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    usedPercent: z.number().min(0).max(100).optional(),
+  })
+  .strict()
+  .superRefine((usage, context) => {
+    if (
+      usage.usedTokens === undefined &&
+      usage.totalTokens === undefined &&
+      usage.usedPercent === undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Context usage requires at least one observed measurement.',
+      });
+    }
+  })
+  .readonly();
+
 // ------------------------------------------------------------------------------------------------
 //                Portable Union and Authoritative Refinements
 // ------------------------------------------------------------------------------------------------
@@ -158,6 +179,7 @@ export const AgentEventPortableSchema = z.discriminatedUnion('type', [
     z.object({ request: AgentRequestPortableSchema }).strict().readonly(),
   ),
   turnEvent('progress.updated', ProgressUpdatedPayloadSchema),
+  turnEvent('context.usage.updated', ContextUsageUpdatedPayloadSchema),
   optionallyTurnScopedEvent(
     'artifact.referenced',
     z.object({ artifact: AgentArtifactDescriptorSchema }).strict().readonly(),

@@ -9,15 +9,17 @@ import {
   AGENT_PROTOCOL_SUMMARY_MAX_LENGTH,
   AGENT_PROTOCOL_TEXT_MAX_LENGTH,
 } from '../foundation/types.js';
-import type {
-  AgentElicitationRequest,
-  AgentRequest,
-  AgentRequestResolution,
+import {
+  AGENT_APPROVAL_SCOPES,
+  type AgentElicitationRequest,
+  type AgentRequest,
+  type AgentRequestResolution,
 } from '../requests/types.js';
 import {
   AgentArtifactIdSchema,
   AgentCanonicalIdValueSchema,
   AgentIsoDateTimeSchema,
+  AgentItemIdSchema,
   AgentRequestFieldIdSchema,
   AgentRequestIdSchema,
 } from './foundation.js';
@@ -43,9 +45,19 @@ const AgentApprovalRequestSchema = z
         .readonly(),
       z
         .object({
-          kind: z.enum(['command', 'file_change', 'tool', 'other']),
+          kind: z.enum(['command', 'file_change', 'tool']),
           title: z.string().min(1).max(200),
           description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
+          itemId: AgentItemIdSchema,
+        })
+        .strict()
+        .readonly(),
+      z
+        .object({
+          kind: z.literal('other'),
+          title: z.string().min(1).max(200),
+          description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
+          itemId: AgentItemIdSchema.optional(),
         })
         .strict()
         .readonly(),
@@ -215,7 +227,16 @@ export const AgentRequestResolutionPortableSchema = z.union([
     .object({
       requestKind: z.literal('approval'),
       requestId: AgentRequestIdSchema,
-      decision: z.enum(['approved', 'denied', 'canceled']),
+      decision: z.literal('approved'),
+      scope: z.enum(AGENT_APPROVAL_SCOPES),
+    })
+    .strict()
+    .readonly(),
+  z
+    .object({
+      requestKind: z.literal('approval'),
+      requestId: AgentRequestIdSchema,
+      decision: z.enum(['denied', 'canceled']),
     })
     .strict()
     .readonly(),

@@ -838,7 +838,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
     "unique_field_ids",
     "unique_choice_values"
   ],
-  "sha256": "6effd40d27037be8d25661daf9897e21bcb9fa90c4a937ba3a675ea1d5031250",
+  "sha256": "5fec8a336cf6ca90bcf934294364d642ada9f3ef53ffa799d15171ad680136d9",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1063,13 +1063,43 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
                     "maxLength": 2000,
                     "type": "string"
                   },
+                  "itemId": {
+                    "$ref": "#/$defs/__schema0"
+                  },
                   "kind": {
                     "enum": [
                       "command",
                       "file_change",
-                      "tool",
-                      "other"
+                      "tool"
                     ],
+                    "type": "string"
+                  },
+                  "title": {
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "title",
+                  "itemId"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "maxLength": 2000,
+                    "type": "string"
+                  },
+                  "itemId": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "kind": {
+                    "const": "other",
                     "type": "string"
                   },
                   "title": {
@@ -1147,7 +1177,7 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
     "request_resolution_correlation",
     "unique_choice_selections"
   ],
-  "sha256": "eaea1e3085e8aa12cfadbd46f0e10b8c03074c5ebd817c4afbc9353aafcec378",
+  "sha256": "93ac53c30b6ada15a4162d595df6589969b860075d69d7c04aad6f2b8521a84e",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1258,8 +1288,38 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
         "additionalProperties": false,
         "properties": {
           "decision": {
+            "const": "approved",
+            "type": "string"
+          },
+          "requestId": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "requestKind": {
+            "const": "approval",
+            "type": "string"
+          },
+          "scope": {
             "enum": [
-              "approved",
+              "once",
+              "session"
+            ],
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "requestKind",
+          "requestId",
+          "decision",
+          "scope"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
               "denied",
               "canceled"
             ],
@@ -1346,6 +1406,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
+    "canonical_approval_scopes",
     "canonical_artifact_kinds",
     "canonical_authentication_flows",
     "canonical_configuration_field_keys",
@@ -1356,7 +1417,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
     "image_input_total_bytes_admits_max_image",
     "image_input_total_bytes_bounded_by_count"
   ],
-  "sha256": "cf141867eaa720f2f5a0bc7bbfd337c86c9b37d0932abdf4fc88386d1cc26194",
+  "sha256": "89f0a87e8dd31d79532cef9f908784336615a39f6c5f9e322c589b86496802cb",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1449,14 +1510,26 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "type": "object"
       },
       "__schema10": {
+        "enum": [
+          "plan",
+          "diff",
+          "file",
+          "log",
+          "image",
+          "report",
+          "other"
+        ],
+        "type": "string"
+      },
+      "__schema11": {
         "additionalProperties": false,
         "properties": {
           "key": {
-            "$ref": "#/$defs/__schema11"
+            "$ref": "#/$defs/__schema12"
           },
           "optionIds": {
             "items": {
-              "$ref": "#/$defs/__schema11"
+              "$ref": "#/$defs/__schema12"
             },
             "maxItems": 100,
             "minItems": 1,
@@ -1472,13 +1545,13 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "object"
       },
-      "__schema11": {
+      "__schema12": {
         "maxLength": 100,
         "minLength": 1,
         "pattern": "^[a-z][a-z0-9._:-]*$",
         "type": "string"
       },
-      "__schema12": {
+      "__schema13": {
         "enum": [
           "device_code",
           "browser",
@@ -1536,13 +1609,8 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
       },
       "__schema9": {
         "enum": [
-          "plan",
-          "diff",
-          "file",
-          "log",
-          "image",
-          "report",
-          "other"
+          "once",
+          "session"
         ],
         "type": "string"
       }
@@ -1572,7 +1640,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "flows": {
                 "items": {
-                  "$ref": "#/$defs/__schema12"
+                  "$ref": "#/$defs/__schema13"
                 },
                 "maxItems": 3,
                 "minItems": 1,
@@ -1615,7 +1683,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "fields": {
                 "items": {
-                  "$ref": "#/$defs/__schema10"
+                  "$ref": "#/$defs/__schema11"
                 },
                 "maxItems": 100,
                 "minItems": 1,
@@ -1669,7 +1737,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "properties": {
           "artifactKinds": {
             "items": {
-              "$ref": "#/$defs/__schema9"
+              "$ref": "#/$defs/__schema10"
             },
             "maxItems": 7,
             "readOnly": true,
@@ -1714,7 +1782,47 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "additionalProperties": false,
         "properties": {
           "approval": {
-            "type": "boolean"
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "unsupported",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "supported",
+                    "type": "string"
+                  },
+                  "scopes": {
+                    "items": {
+                      "$ref": "#/$defs/__schema9"
+                    },
+                    "maxItems": 2,
+                    "minItems": 1,
+                    "readOnly": true,
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "scopes"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "elicitation": {
             "oneOf": [
@@ -1991,6 +2099,8 @@ export const AGENT_EVENT_JSON_SCHEMA = {
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
+    "context_compaction_details_non_empty",
+    "context_usage_measurements_non_empty",
     "event_state_correlation",
     "file_change_path_ordering_and_uniqueness",
     "item_detail_identification",
@@ -1999,7 +2109,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
     "serialized_bytes",
     "terminal_error_consistency"
   ],
-  "sha256": "9dce4047572c25423b2d3701e5722c58dc63a89e764d38c87db886c02342a929",
+  "sha256": "f0deb61ad220ea8a53fd10bce130cb0cd5cd122a72a653845a7d078290f0eb91",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -2182,6 +2292,27 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         "type": "string"
       },
       "__schema39": {
+        "enum": [
+          "auto",
+          "manual",
+          "provider"
+        ],
+        "type": "string"
+      },
+      "__schema4": {
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+        "type": "string"
+      },
+      "__schema40": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "__schema41": {
+        "type": "boolean"
+      },
+      "__schema42": {
         "additionalProperties": false,
         "properties": {
           "priority": {
@@ -2217,12 +2348,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         ],
         "type": "object"
       },
-      "__schema4": {
-        "format": "date-time",
-        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
-        "type": "string"
-      },
-      "__schema40": {
+      "__schema43": {
         "oneOf": [
           {
             "additionalProperties": false,
@@ -2286,7 +2412,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
               },
               "options": {
                 "items": {
-                  "$ref": "#/$defs/__schema41"
+                  "$ref": "#/$defs/__schema44"
                 },
                 "maxItems": 100,
                 "minItems": 1,
@@ -2343,7 +2469,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
           }
         ]
       },
-      "__schema41": {
+      "__schema44": {
         "additionalProperties": false,
         "properties": {
           "description": {
@@ -2373,6 +2499,21 @@ export const AGENT_EVENT_JSON_SCHEMA = {
           "label"
         ],
         "type": "object"
+      },
+      "__schema45": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "__schema46": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema47": {
+        "maximum": 100,
+        "minimum": 0,
+        "type": "number"
       },
       "__schema5": {
         "additionalProperties": false,
@@ -3041,6 +3182,22 @@ export const AGENT_EVENT_JSON_SCHEMA = {
           {
             "additionalProperties": false,
             "properties": {
+              "details": {
+                "additionalProperties": false,
+                "properties": {
+                  "preTokens": {
+                    "$ref": "#/$defs/__schema40"
+                  },
+                  "summaryAvailable": {
+                    "$ref": "#/$defs/__schema41"
+                  },
+                  "trigger": {
+                    "$ref": "#/$defs/__schema39"
+                  }
+                },
+                "readOnly": true,
+                "type": "object"
+              },
               "itemId": {
                 "$ref": "#/$defs/__schema1"
               },
@@ -3454,7 +3611,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
               },
               "steps": {
                 "items": {
-                  "$ref": "#/$defs/__schema39"
+                  "$ref": "#/$defs/__schema42"
                 },
                 "maxItems": 100,
                 "readOnly": true,
@@ -3691,13 +3848,43 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                                 "maxLength": 2000,
                                 "type": "string"
                               },
+                              "itemId": {
+                                "$ref": "#/$defs/__schema1"
+                              },
                               "kind": {
                                 "enum": [
                                   "command",
                                   "file_change",
-                                  "tool",
-                                  "other"
+                                  "tool"
                                 ],
+                                "type": "string"
+                              },
+                              "title": {
+                                "maxLength": 200,
+                                "minLength": 1,
+                                "type": "string"
+                              }
+                            },
+                            "readOnly": true,
+                            "required": [
+                              "kind",
+                              "title",
+                              "itemId"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "description": {
+                                "maxLength": 2000,
+                                "type": "string"
+                              },
+                              "itemId": {
+                                "$ref": "#/$defs/__schema1"
+                              },
+                              "kind": {
+                                "const": "other",
                                 "type": "string"
                               },
                               "title": {
@@ -3733,7 +3920,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                       },
                       "fields": {
                         "items": {
-                          "$ref": "#/$defs/__schema40"
+                          "$ref": "#/$defs/__schema43"
                         },
                         "maxItems": 100,
                         "minItems": 1,
@@ -3869,6 +4056,56 @@ export const AGENT_EVENT_JSON_SCHEMA = {
           },
           "type": {
             "const": "progress.updated",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "occurredAt",
+          "type",
+          "turnId",
+          "payload"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "occurredAt": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "totalTokens": {
+                "$ref": "#/$defs/__schema46"
+              },
+              "usedPercent": {
+                "$ref": "#/$defs/__schema47"
+              },
+              "usedTokens": {
+                "$ref": "#/$defs/__schema45"
+              }
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "protocolVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "providerRefs": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "sessionId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "turnId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "type": {
+            "const": "context.usage.updated",
             "type": "string"
           }
         },

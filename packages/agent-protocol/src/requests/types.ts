@@ -5,9 +5,14 @@
 import type {
   AgentArtifactId,
   AgentIsoDateTime,
+  AgentItemId,
   AgentRequestFieldId,
   AgentRequestId,
 } from '../foundation/index.js';
+
+export const AGENT_APPROVAL_SCOPES = ['once', 'session'] as const;
+
+export type AgentApprovalScope = (typeof AGENT_APPROVAL_SCOPES)[number];
 
 // ------------------------------------------------------------------------------------------------
 //                Request Contracts
@@ -22,9 +27,16 @@ export type AgentApprovalSubject =
   | (AgentApprovalSubjectBase & Readonly<{
       kind: 'plan';
       artifactId: AgentArtifactId;
+      itemId?: never;
     }>)
   | (AgentApprovalSubjectBase & Readonly<{
-      kind: 'command' | 'file_change' | 'tool' | 'other';
+      kind: 'command' | 'file_change' | 'tool';
+      itemId: AgentItemId;
+      artifactId?: never;
+    }>)
+  | (AgentApprovalSubjectBase & Readonly<{
+      kind: 'other';
+      itemId?: AgentItemId;
       artifactId?: never;
     }>);
 
@@ -84,11 +96,23 @@ export type AgentRequest = AgentApprovalRequest | AgentElicitationRequest;
 //                Resolution Contracts
 // ------------------------------------------------------------------------------------------------
 
-export interface AgentApprovalResolution {
+export interface AgentApprovedResolution {
   readonly requestKind: 'approval';
   readonly requestId: AgentRequestId;
-  readonly decision: 'approved' | 'denied' | 'canceled';
+  readonly decision: 'approved';
+  readonly scope: AgentApprovalScope;
 }
+
+export interface AgentRejectedApprovalResolution {
+  readonly requestKind: 'approval';
+  readonly requestId: AgentRequestId;
+  readonly decision: 'denied' | 'canceled';
+  readonly scope?: never;
+}
+
+export type AgentApprovalResolution =
+  | AgentApprovedResolution
+  | AgentRejectedApprovalResolution;
 
 export interface AgentTextElicitationAnswer {
   readonly fieldId: AgentRequestFieldId;

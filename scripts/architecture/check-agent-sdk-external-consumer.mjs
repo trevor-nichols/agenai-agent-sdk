@@ -4,6 +4,8 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   mkdir,
   mkdtemp,
@@ -57,13 +59,13 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.1.0", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.2.0", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.1.0" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.2.0" },
   },
 ];
 
@@ -126,6 +128,14 @@ async function packPackage(definition, packsRoot) {
   return path.join(packsRoot, created[0]);
 }
 
+async function sha256File(filePath) {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(filePath)) {
+    hash.update(chunk);
+  }
+  return hash.digest("hex");
+}
+
 function collectStringLeaves(value, output = []) {
   if (typeof value === "string") output.push(value);
   else if (Array.isArray(value)) {
@@ -152,7 +162,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.2.0");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -263,7 +273,12 @@ async function inspectTarball(definition, tarballPath, extractedRoot) {
     }
   }
 
-  return { manifest, tarballPath };
+  return {
+    manifest,
+    tarballPath,
+    sha256: await sha256File(tarballPath),
+    files: [...archiveFiles].sort(),
+  };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -291,7 +306,10 @@ import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
 import { parseAgentEvent } from "@agen-ai/agent-protocol/events";
 import { parseAgentCapabilities } from "@agen-ai/agent-protocol/capabilities";
 import { parseAgentArtifactDescriptor } from "@agen-ai/agent-protocol/artifacts";
-import { AgentEventSchema } from "@agen-ai/agent-protocol/zod";
+import {
+  AgentContextCompactionDetailsSchema,
+  AgentEventSchema,
+} from "@agen-ai/agent-protocol/zod";
 import { AGENT_EVENT_JSON_SCHEMA } from "@agen-ai/agent-protocol/json-schema";
 import {
   AGENT_PROVIDER_CONTRACT_ERROR_CODES,
@@ -308,7 +326,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.1.0");
+assert.equal(protocolManifest.version, "0.2.0");
 
 assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
@@ -365,7 +383,10 @@ const steeringCapabilities = parseAgentCapabilities({
       input: { text: true, images: { kind: "unsupported" } },
     },
   },
-  requests: { approval: false, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: { kind: "unsupported" },
+    elicitation: { kind: "unsupported" },
+  },
   input: { text: true, images: { kind: "unsupported" } },
   output: {
     streaming: false,
@@ -505,6 +526,7 @@ const report = await runAgentProviderConformance({
     requestKind: "approval",
     requestId: request.requestId,
     decision: "approved",
+    scope: "once",
   }),
   branchSource: (binding, turnId) => ({
     sessionId: parseAgentSessionId("external-session:create"),
@@ -532,7 +554,10 @@ const limited = createFakeAgentProvider({
       interrupt: false,
       steer: { kind: "unsupported" },
     },
-    requests: { approval: false, elicitation: { kind: "unsupported" } },
+    requests: {
+      approval: { kind: "unsupported" },
+      elicitation: { kind: "unsupported" },
+    },
     input: { text: true, images: { kind: "unsupported" } },
     output: {
       streaming: false,
@@ -592,6 +617,43 @@ const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 assert.deepEqual(roundTripped, event);
 assert.deepEqual(AgentEventSchema.parse(event), event);
 
+const usageEvent = parseAgentEvent({
+  protocolVersion: 6,
+  type: "context.usage.updated",
+  sessionId: parseAgentSessionId("round-trip-session"),
+  turnId: parseAgentTurnId("round-trip-turn"),
+  occurredAt: "2026-08-04T00:00:00.000Z",
+  payload: { usedTokens: 4_096, totalTokens: 32_768, usedPercent: 12.5 },
+});
+assert.equal(usageEvent.type, "context.usage.updated");
+if (usageEvent.type !== "context.usage.updated") {
+  throw new Error("Packed context usage event lost its discriminant.");
+}
+assert.equal(usageEvent.payload.usedPercent, 12.5);
+
+const approvalRequest = parseAgentRequest({
+  requestKind: "approval",
+  requestId: "packed-command-approval",
+  prompt: "Run the packed command?",
+  subject: {
+    kind: "command",
+    itemId: "packed-command",
+    title: "Packed command",
+  },
+});
+assert.equal(approvalRequest.requestKind, "approval");
+if (approvalRequest.requestKind !== "approval") {
+  throw new Error("Packed approval request lost its discriminant.");
+}
+assert.equal(approvalRequest.subject.itemId, "packed-command");
+assert.throws(
+  () => parseAgentRequest({
+    ...approvalRequest,
+    subject: { kind: "command", title: "Uncorrelated command" },
+  }),
+  TypeError,
+);
+
 const commandItem: AgentItemSnapshot = {
   itemId: parseAgentItemId("packed-command"),
   itemKind: "command_execution",
@@ -611,6 +673,20 @@ const itemEvent = parseAgentEvent({
   payload: commandItem,
 });
 assert.deepEqual(itemEvent.payload, commandItem);
+const compactionItem: AgentItemSnapshot = {
+  itemId: parseAgentItemId("packed-compaction"),
+  itemKind: "context_compaction",
+  status: "completed",
+  details: {
+    trigger: "provider",
+    preTokens: 24_000,
+    summaryAvailable: true,
+  },
+};
+assert.deepEqual(
+  AgentContextCompactionDetailsSchema.parse(compactionItem.details),
+  compactionItem.details,
+);
 assert.throws(
   () => parseAgentEvent({
     ...itemEvent,
@@ -723,7 +799,15 @@ async function main() {
     }
     await runConsumer(tempRoot, artifacts);
     process.stdout.write(
-      "Agent SDK tarballs, manifests, declarations, and external consumer passed.\n",
+      `${JSON.stringify({
+        packages: artifacts.map((artifact) => ({
+          name: artifact.manifest.name,
+          version: artifact.manifest.version,
+          sha256: artifact.sha256,
+          files: artifact.files,
+        })),
+      }, null, 2)}\n` +
+        "Agent SDK tarballs, manifests, declarations, and external consumer passed.\n",
     );
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

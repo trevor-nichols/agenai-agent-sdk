@@ -36,7 +36,10 @@ Instance IDs never repeat in session calls. `workingDirectory` is resolved by th
 an authorization credential. Create and branch implementations must invoke `onBindingCreated`
 exactly once before returning the matching session. Capability-dependent operations use explicit
 `supported`/`unsupported` discriminants, and the runtime rejects handlers that disagree with the
-instance capability declaration.
+instance capability declaration. Approval capabilities also declare the scopes an adapter can
+honor. The validated session rejects an approved resolution with an undeclared scope before the
+provider sees it; a failed pre-delegation check leaves the pending request available for a valid
+resolution.
 
 The host should serialize mutating operations for a given session. Separate session objects may
 run concurrently, so provider implementations must isolate their conversation-local state.

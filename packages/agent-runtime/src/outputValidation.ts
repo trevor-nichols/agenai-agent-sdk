@@ -113,7 +113,7 @@ function isEventCapabilitySupported(
       );
     case "request.opened":
       return event.payload.request.requestKind === "approval"
-        ? capabilities.requests.approval
+        ? capabilities.requests.approval.kind === "supported"
         : capabilities.requests.elicitation.kind === "structured"
           || (capabilities.requests.elicitation.kind === "text"
             && event.payload.request.fields.every(
@@ -123,6 +123,7 @@ function isEventCapabilitySupported(
     case "turn.state_changed":
     case "turn.completed":
     case "progress.updated":
+    case "context.usage.updated":
     case "runtime.warning":
     case "runtime.error":
     case "provider.diagnostic":

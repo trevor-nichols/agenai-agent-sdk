@@ -35,6 +35,8 @@ issues. Their declarations do not expose Zod.
 ```ts
 import {
   parseAgentEvent,
+  parseAgentRequest,
+  parseAgentRequestResolutionFor,
   parseAgentSessionId,
   parseAgentTurnId,
   type AgentEvent,
@@ -54,6 +56,47 @@ const event: AgentEvent = parseAgentEvent({
 });
 
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
+
+const approval = parseAgentRequest({
+  requestKind: 'approval',
+  requestId: 'approval:42',
+  prompt: 'Apply the proposed edit?',
+  subject: {
+    kind: 'file_change',
+    itemId: 'tool-item:17',
+    title: 'Edit package metadata',
+  },
+});
+
+const resolution = parseAgentRequestResolutionFor(approval, {
+  requestKind: 'approval',
+  requestId: approval.requestId,
+  decision: 'approved',
+  scope: 'session',
+});
+
+const usage = parseAgentEvent({
+  protocolVersion: 6,
+  type: 'context.usage.updated',
+  sessionId: 'external-session:42',
+  turnId: 'external-turn:9',
+  occurredAt: '2026-08-03T20:01:00.000Z',
+  payload: { usedPercent: 62.5 },
+});
+
+const compaction = parseAgentEvent({
+  protocolVersion: 6,
+  type: 'item.completed',
+  sessionId: 'external-session:42',
+  turnId: 'external-turn:9',
+  occurredAt: '2026-08-03T20:02:00.000Z',
+  payload: {
+    itemId: 'compaction:1',
+    itemKind: 'context_compaction',
+    status: 'completed',
+    details: { trigger: 'auto', preTokens: 100_000, summaryAvailable: true },
+  },
+});
 ```
 
 Serialized values carry `protocolVersion: 6`; TypeScript API names remain unsuffixed. Unknown
@@ -61,12 +104,23 @@ fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
 shared, while commands, file changes, managed tools, web/computer activity, image views, and
-reviews expose only their bounded semantic `details`. Message, reasoning, plan, compaction, and
-unknown items have no details. Review details are required and distinguish an entered target from
-an exited report. There is no metadata or provider-native attribute bag; source evidence belongs
-outside the portable event. File-change producers can use `compareStringsByUnicodeCodePoint` to
-emit the canonical path ordering required by the protocol across both BMP and supplementary
-Unicode characters.
+reviews expose only their bounded semantic `details`. Context-compaction items may report a
+bounded trigger, pre-compaction token count, and whether a summary was observed; absent values stay
+unknown. Message, reasoning, plan, and unknown items have no details. Review details are required
+and distinguish an entered target from an exited report. There is no metadata or provider-native
+attribute bag; source evidence belongs outside the portable event. File-change producers can use
+`compareStringsByUnicodeCodePoint` to emit the canonical path ordering required by the protocol
+across both BMP and supplementary Unicode characters.
+
+Approval capabilities are explicit `supported`/`unsupported` values. A supporting provider lists
+the canonical scopes it can honor: `once` and, when implemented by the adapter, `session`.
+Approvals for commands, file changes, and tools carry the exact portable `itemId` of the affected
+item. An approved resolution must select one declared scope; denied and canceled resolutions carry
+no scope. The runtime rejects undeclared scopes before provider delegation.
+
+`context.usage.updated` reports only provider-observed context measurements. Each event includes at
+least one of used tokens, total tokens, or used percent, so partial telemetry remains representable
+without fabricating zero for an unknown value.
 
 ## Errors and trust
 

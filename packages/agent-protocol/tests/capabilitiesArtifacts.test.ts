@@ -27,7 +27,10 @@ test('all accepted provider capability fixtures preserve truthful differences', 
   assert.equal(parsed.opencode.sessions.branch.kind, 'through_turn');
   assert.equal(parsed.cursor.sessions.branch.kind, 'unsupported');
   assert.equal(parsed.grokBuild.sessions.branch.kind, 'unsupported');
-  assert.equal(parsed.grokBuild.requests.approval, true);
+  assert.deepEqual(parsed.grokBuild.requests.approval, {
+    kind: 'supported',
+    scopes: ['once'],
+  });
   assert.equal(parsed.grokBuild.requests.elicitation.kind, 'unsupported');
   assert.equal(parsed.codex.turns.steer.kind, 'supported');
   assert.equal(parsed.opencode.turns.steer.kind, 'unsupported');
@@ -50,6 +53,22 @@ test('capabilities reject noncanonical collections and product-shaped additions'
     }).success,
     false,
   );
+  for (const approval of [
+    { kind: 'supported', scopes: [] },
+    { kind: 'supported', scopes: ['session', 'once'] },
+    { kind: 'supported', scopes: ['once', 'once'] },
+  ]) {
+    assert.equal(
+      safeParseAgentCapabilities({
+        ...providerCapabilityFixtures.fixture,
+        requests: {
+          ...providerCapabilityFixtures.fixture.requests,
+          approval,
+        },
+      }).success,
+      false,
+    );
+  }
   for (const interactionModes of [
     [],
     ['plan', 'default'],

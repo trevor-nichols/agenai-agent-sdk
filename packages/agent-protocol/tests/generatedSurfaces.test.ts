@@ -160,6 +160,7 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
         requestKind: 'approval',
         requestId: 'request:1',
         decision: 'approved',
+        scope: 'once',
       },
       rejected: { requestKind: 'approval', requestId: 'request:1' },
     },
@@ -279,6 +280,7 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
   );
   assert.ok(artifact);
   assert.deepEqual(artifact.parserInvariants, [
+    'canonical_approval_scopes',
     'canonical_artifact_kinds',
     'canonical_authentication_flows',
     'canonical_configuration_field_keys',
@@ -342,6 +344,13 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
 
   assert.equal(fixture.input.images.kind, 'supported');
   const parserOnlyCases = [
+    {
+      ...fixture,
+      requests: {
+        ...fixture.requests,
+        approval: { kind: 'supported', scopes: ['session', 'once'] },
+      },
+    },
     {
       ...fixture,
       configuration: {
@@ -420,6 +429,8 @@ test('event JSON Schema declares residual V6 semantic parser invariants', () => 
   );
   assert.ok(artifact);
   assert.deepEqual(artifact.parserInvariants, [
+    'context_compaction_details_non_empty',
+    'context_usage_measurements_non_empty',
     'event_state_correlation',
     'file_change_path_ordering_and_uniqueness',
     'item_detail_identification',
@@ -475,6 +486,20 @@ test('event JSON Schema declares residual V6 semantic parser invariants', () => 
   }
 
   for (const parserOnlyInvalid of [
+    {
+      protocolVersion: 6,
+      type: 'context.usage.updated',
+      sessionId: 'session:1',
+      turnId: 'turn:1',
+      occurredAt: protocolTimestamp,
+      payload: {},
+    },
+    eventWithPayload({
+      itemId: 'item:compaction',
+      itemKind: 'context_compaction',
+      status: 'completed',
+      details: {},
+    }),
     eventWithPayload({
       itemId: 'item:command',
       itemKind: 'command_execution',

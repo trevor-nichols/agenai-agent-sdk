@@ -38,6 +38,7 @@ export {
   AgentCommandExecutionDetailsSchema,
   AgentComputerActionDetailsSchema,
   AgentContentStreamKindSchema,
+  AgentContextCompactionDetailsSchema,
   AgentDiffSummarySchema,
   AgentDynamicToolCallDetailsSchema,
   AgentFileChangeDetailsSchema,

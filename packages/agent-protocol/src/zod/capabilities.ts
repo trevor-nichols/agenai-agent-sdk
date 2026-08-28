@@ -14,6 +14,7 @@ import {
   AGENT_FILE_CHANGE_MODES,
   type AgentCapabilities,
 } from '../capabilities/types.js';
+import { AGENT_APPROVAL_SCOPES } from '../requests/types.js';
 import {
   AGENT_IMAGE_INPUT_MEDIA_TYPES,
   AGENT_IMAGE_INPUT_SOURCE_KINDS,
@@ -193,7 +194,21 @@ export const AgentCapabilitiesPortableSchema = z
       .readonly(),
     requests: z
       .object({
-        approval: z.boolean(),
+        approval: z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+          z
+            .object({
+              kind: z.literal('supported'),
+              scopes: z
+                .array(z.enum(AGENT_APPROVAL_SCOPES))
+                .min(1)
+                .max(AGENT_APPROVAL_SCOPES.length)
+                .meta({ uniqueItems: true })
+                .readonly(),
+            })
+            .strict()
+            .readonly(),
+        ]),
         elicitation: z.discriminatedUnion('kind', [
           z.object({ kind: z.literal('unsupported') }).strict().readonly(),
           z.object({ kind: z.literal('text') }).strict().readonly(),
@@ -323,6 +338,18 @@ export const AgentCapabilitiesSchema: z.ZodType<AgentCapabilities> =
           canonicalOrder: AGENT_AUTHENTICATION_FLOWS,
           path: ['authentication', 'flows'],
           label: 'Authentication flows',
+        },
+        context,
+      );
+    }
+
+    if (capabilities.requests.approval.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.requests.approval.scopes,
+          canonicalOrder: AGENT_APPROVAL_SCOPES,
+          path: ['requests', 'approval', 'scopes'],
+          label: 'Approval scopes',
         },
         context,
       );

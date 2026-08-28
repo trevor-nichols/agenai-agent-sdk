@@ -61,6 +61,7 @@ test("the deterministic fake passes the reusable provider conformance suite", as
       requestKind: "approval",
       requestId: request.requestId,
       decision: "approved",
+      scope: "once",
     }),
     branchSource: (binding, turnId) => ({
       sessionId: parseAgentSessionId("external-session:create"),
@@ -141,7 +142,10 @@ test("conformance verifies explicit unsupported operation discriminants", async 
         interrupt: false,
         steer: { kind: "unsupported" },
       },
-      requests: { approval: false, elicitation: { kind: "unsupported" } },
+      requests: {
+        approval: { kind: "unsupported" },
+        elicitation: { kind: "unsupported" },
+      },
       input: { text: true, images: { kind: "unsupported" } },
       output: {
         streaming: false,
@@ -237,6 +241,7 @@ test("conformance rejects a definitive steering rejection on a live turn", async
         requestKind: "approval",
         requestId: request.requestId,
         decision: "approved",
+        scope: "once",
       }),
       branchSource: (binding, turnId) => ({
         sessionId: parseAgentSessionId("rejected-steering:create"),

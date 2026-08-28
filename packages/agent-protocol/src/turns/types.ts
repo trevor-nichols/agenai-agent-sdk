@@ -168,9 +168,25 @@ export interface AgentPlanItemSnapshot extends AgentItemSnapshotBase {
   readonly itemKind: 'plan';
 }
 
+export const AGENT_CONTEXT_COMPACTION_TRIGGERS = [
+  'auto',
+  'manual',
+  'provider',
+] as const;
+
+export type AgentContextCompactionTrigger =
+  (typeof AGENT_CONTEXT_COMPACTION_TRIGGERS)[number];
+
+export interface AgentContextCompactionDetails {
+  readonly trigger?: AgentContextCompactionTrigger;
+  readonly preTokens?: number;
+  readonly summaryAvailable?: boolean;
+}
+
 export interface AgentContextCompactionItemSnapshot
   extends AgentItemSnapshotBase {
   readonly itemKind: 'context_compaction';
+  readonly details?: AgentContextCompactionDetails;
 }
 
 export interface AgentUnknownItemSnapshot extends AgentItemSnapshotBase {

@@ -17,6 +17,7 @@ import {
   type AgentOperationInputCapability,
   type AgentProviderKey,
   type AgentRequest,
+  type AgentRequestResolution,
   type AgentSessionBinding,
   type AgentSessionId,
   type AgentTurnId,
@@ -131,6 +132,30 @@ function invalidTurnSequence(
   );
 }
 
+function assertApprovalResolutionCapability(input: {
+  readonly capabilities: AgentCapabilities;
+  readonly providerKey: AgentProviderKey;
+  readonly resolution: AgentRequestResolution;
+}): void {
+  if (
+    input.resolution.requestKind !== "approval" ||
+    input.resolution.decision !== "approved"
+  ) {
+    return;
+  }
+  const approval = input.capabilities.requests.approval;
+  if (
+    approval.kind !== "supported" ||
+    !approval.scopes.includes(input.resolution.scope)
+  ) {
+    throwAgentProviderContractError(
+      input.providerKey,
+      "request_resolution_mismatch",
+      `Provider ${input.providerKey} does not support ${input.resolution.scope} approval.`,
+    );
+  }
+}
+
 function completeTurnSequence(input: {
   readonly providerKey: AgentProviderKey;
   readonly state: AgentTurnSequenceState;
@@ -148,6 +173,7 @@ function completeTurnSequence(input: {
 
 const FINAL_DIFF_TRAILING_EVENT_TYPES: readonly AgentEvent["type"][] = [
   "artifact.referenced",
+  "context.usage.updated",
   "provider.diagnostic",
   "runtime.error",
   "runtime.warning",
@@ -632,6 +658,11 @@ export function validateAgentProviderSession(input: {
         "Provider request resolution does not match the opened request.",
       );
     }
+    assertApprovalResolutionCapability({
+      capabilities,
+      providerKey,
+      resolution,
+    });
     const nextPendingRequests = new Map(pendingRequests);
     nextPendingRequests.delete(resolution.requestId);
     if (activeTurn !== null) {

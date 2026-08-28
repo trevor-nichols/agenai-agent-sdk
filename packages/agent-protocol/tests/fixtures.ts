@@ -35,7 +35,10 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'supported', input: supportedInput },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: {
+      approval: { kind: 'supported', scopes: ['once', 'session'] },
+      elicitation: { kind: 'structured' },
+    },
     input: supportedInput,
     output: {
       streaming: true,
@@ -70,7 +73,10 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'supported', input: unsupportedInput },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: {
+      approval: { kind: 'supported', scopes: ['once'] },
+      elicitation: { kind: 'structured' },
+    },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -97,7 +103,10 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: {
+      approval: { kind: 'supported', scopes: ['once'] },
+      elicitation: { kind: 'structured' },
+    },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -124,7 +133,10 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: {
+      approval: { kind: 'supported', scopes: ['once'] },
+      elicitation: { kind: 'structured' },
+    },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -151,7 +163,10 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: {
+      approval: { kind: 'supported', scopes: ['once'] },
+      elicitation: { kind: 'structured' },
+    },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -178,7 +193,10 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'unsupported' } },
+    requests: {
+      approval: { kind: 'supported', scopes: ['once'] },
+      elicitation: { kind: 'unsupported' },
+    },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -285,7 +303,11 @@ export const eventFixtureCorpus = [
         requestKind: 'approval',
         requestId: 'request:1',
         prompt: 'Apply the change?',
-        subject: { kind: 'file_change', title: 'Update README' },
+        subject: {
+          kind: 'file_change',
+          itemId: 'item:file-change-1',
+          title: 'Update README',
+        },
       },
     },
   },
@@ -299,6 +321,11 @@ export const eventFixtureCorpus = [
       current: 1,
       total: 2,
     },
+  },
+  {
+    ...eventBase,
+    type: 'context.usage.updated',
+    payload: { usedTokens: 1_024, totalTokens: 8_192, usedPercent: 12.5 },
   },
   {
     ...eventBase,

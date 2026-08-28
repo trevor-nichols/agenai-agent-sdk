@@ -18,11 +18,13 @@ import {
   AGENT_IMAGE_INPUT_MEDIA_TYPES,
   AGENT_ITEM_KINDS,
   AGENT_ITEM_STATUSES,
+  AGENT_CONTEXT_COMPACTION_TRIGGERS,
   AGENT_TURN_INTERACTION_MODES,
   type AgentBrowserActionDetails,
   type AgentCollaborationToolCallDetails,
   type AgentCommandExecutionDetails,
   type AgentComputerActionDetails,
+  type AgentContextCompactionDetails,
   type AgentDiffSummary,
   type AgentDynamicToolCallDetails,
   type AgentFileChange,
@@ -489,6 +491,28 @@ const AgentItemSnapshotCommonShape = {
   summary: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
 } as const;
 
+export const AgentContextCompactionDetailsSchema: z.ZodType<AgentContextCompactionDetails> =
+  z
+    .object({
+      trigger: z.enum(AGENT_CONTEXT_COMPACTION_TRIGGERS).optional(),
+      preTokens: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+      summaryAvailable: z.boolean().optional(),
+    })
+    .strict()
+    .superRefine((details, context) => {
+      if (
+        details.trigger === undefined &&
+        details.preTokens === undefined &&
+        details.summaryAvailable === undefined
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Context compaction details require at least one observation.',
+        });
+      }
+    })
+    .readonly();
+
 function itemWithoutDetails<Kind extends (typeof AGENT_ITEM_KINDS)[number]>(
   itemKind: Kind,
 ) {
@@ -587,7 +611,14 @@ export const AgentItemSnapshotSchema: z.ZodType<AgentItemSnapshot> =
       })
       .strict()
       .readonly(),
-    itemWithoutDetails('context_compaction'),
+    z
+      .object({
+        ...AgentItemSnapshotCommonShape,
+        itemKind: z.literal('context_compaction'),
+        details: AgentContextCompactionDetailsSchema.optional(),
+      })
+      .strict()
+      .readonly(),
     itemWithoutDetails('unknown'),
   ]);
 

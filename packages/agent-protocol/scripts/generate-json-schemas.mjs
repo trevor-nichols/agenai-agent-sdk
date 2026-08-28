@@ -98,6 +98,7 @@ const definitions = [
     direction: 'output',
     schema: AgentCapabilitiesPortableSchema,
     parserInvariants: [
+      'canonical_approval_scopes',
       'canonical_artifact_kinds',
       'canonical_authentication_flows',
       'canonical_configuration_field_keys',
@@ -121,6 +122,8 @@ const definitions = [
     direction: 'output',
     schema: AgentEventPortableSchema,
     parserInvariants: [
+      'context_compaction_details_non_empty',
+      'context_usage_measurements_non_empty',
       'event_state_correlation',
       'file_change_path_ordering_and_uniqueness',
       'item_detail_identification',

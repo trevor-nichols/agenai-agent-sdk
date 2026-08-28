@@ -52,7 +52,10 @@ const capabilities: AgentCapabilities = parseAgentCapabilities({
     interrupt: false,
     steer: { kind: "unsupported" },
   },
-  requests: { approval: false, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: { kind: "unsupported" },
+    elicitation: { kind: "unsupported" },
+  },
   input: { text: true, images: { kind: "unsupported" } },
   output: {
     streaming: true,
@@ -72,7 +75,10 @@ const capabilities: AgentCapabilities = parseAgentCapabilities({
 });
 const requestCapabilities: AgentCapabilities = parseAgentCapabilities({
   ...capabilities,
-  requests: { approval: true, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: { kind: "supported", scopes: ["once"] },
+    elicitation: { kind: "unsupported" },
+  },
 });
 const interruptibleRequestCapabilities: AgentCapabilities =
   parseAgentCapabilities({
@@ -969,6 +975,11 @@ test("final_diff enforces one terminal materialization while structured diffs re
           source: { kind: "bytes", bytes: new Uint8Array([1]) },
           delivery: "best_effort",
         }),
+        createAgentEventOutput({
+          ...eventBase(turnId, occurredAt),
+          type: "context.usage.updated",
+          payload: { usedPercent: 75 },
+        }),
         completedOutput(turnId),
       ],
     },
@@ -1083,11 +1094,17 @@ test("text elicitation accepts only text fields while structured elicitation acc
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
   const textCapabilities = parseAgentCapabilities({
     ...capabilities,
-    requests: { approval: false, elicitation: { kind: "text" } },
+    requests: {
+      approval: { kind: "unsupported" },
+      elicitation: { kind: "text" },
+    },
   });
   const structuredCapabilities = parseAgentCapabilities({
     ...capabilities,
-    requests: { approval: false, elicitation: { kind: "structured" } },
+    requests: {
+      approval: { kind: "unsupported" },
+      elicitation: { kind: "structured" },
+    },
   });
   const textRequest: AgentRequest = {
     requestKind: "elicitation",
@@ -1257,6 +1274,95 @@ test("validated sessions reject cross-session output and malformed turn ordering
     (error: unknown) =>
       error instanceof AgentProviderContractError &&
       error.code === "output_session_mismatch",
+  );
+});
+
+test("validated sessions reject cross-turn output", async () => {
+  const requestedTurnId = parseAgentTurnId("contract-requested-turn");
+  const wrongTurn = validateAgentProviderAdapter(
+    capabilities,
+    adapter((input) => {
+      const opened = session({
+        runTurn: async function* () {
+          yield createAgentEventOutput({
+            ...eventBase(
+              parseAgentTurnId("contract-wrong-turn"),
+              parseAgentIsoDateTime("2026-08-04T00:00:00.000Z"),
+            ),
+            type: "turn.started",
+            payload: {},
+          });
+        },
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const wrongTurnSession = await wrongTurn.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  await assert.rejects(
+    collectOutputs(wrongTurnSession.runTurn({
+      turnId: requestedTurnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Reject cross-turn output." }],
+    })),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError &&
+      error.code === "output_turn_mismatch",
+  );
+});
+
+test("validated sessions reject concurrent pending requests", async () => {
+  const requestedTurnId = parseAgentTurnId("contract-requested-turn");
+  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
+  const requests = ["first", "second"].map((suffix) => ({
+    requestKind: "approval" as const,
+    requestId: parseAgentRequestId(`request:concurrent-${suffix}`),
+    prompt: `Approve the ${suffix} operation?`,
+    subject: { kind: "other" as const, title: `${suffix} operation` },
+  }));
+  const multipleRequests = validateAgentProviderAdapter(
+    requestCapabilities,
+    adapter((input) => {
+      const opened = session({
+        runTurn: async function* () {
+          yield createAgentEventOutput({
+            ...eventBase(requestedTurnId, occurredAt),
+            type: "turn.started",
+            payload: {},
+          });
+          for (const request of requests) {
+            yield createAgentEventOutput({
+              ...eventBase(requestedTurnId, occurredAt),
+              type: "request.opened",
+              payload: { request },
+            });
+          }
+        },
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const multipleRequestSession = await multipleRequests.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  await assert.rejects(
+    collectOutputs(multipleRequestSession.runTurn({
+      turnId: requestedTurnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Reject concurrent requests." }],
+    })),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError &&
+      error.code === "invalid_turn_sequence",
   );
 });
 
@@ -1892,6 +1998,7 @@ test("validated sessions never delegate a resolution for an unknown request", as
             requestKind: "approval",
             requestId: parseAgentRequestId("request:not-opened"),
             decision: "approved",
+            scope: "once",
           },
         }),
       ),
@@ -1900,6 +2007,81 @@ test("validated sessions never delegate a resolution for an unknown request", as
       error.code === "request_resolution_mismatch",
   );
   assert.equal(delegated, false);
+});
+
+test("validated sessions reject approval scopes the provider did not declare", async () => {
+  const turnId = parseAgentTurnId("contract-unsupported-approval-scope");
+  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
+  const request = {
+    requestKind: "approval" as const,
+    requestId: parseAgentRequestId("request:unsupported-approval-scope"),
+    prompt: "Approve the operation?",
+    subject: { kind: "other" as const, title: "Operation" },
+  };
+  let delegated = false;
+  const validated = validateAgentProviderAdapter(
+    requestCapabilities,
+    adapter((input) => {
+      const opened = session({
+        runTurn: async function* () {
+          yield createAgentEventOutput({
+            ...eventBase(turnId, occurredAt),
+            type: "turn.started",
+            payload: {},
+          });
+          yield* waitingForRequestOutputs({ turnId, request, occurredAt });
+        },
+        resolveRequest: async function* () {
+          delegated = true;
+          yield* completedTurnOutputs(turnId, occurredAt);
+        },
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  await collectOutputs(
+    opened.runTurn({
+      turnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Open an approval request." }],
+    }),
+  );
+
+  await assert.rejects(
+    collectOutputs(
+      opened.resolveRequest({
+        resolution: {
+          requestKind: "approval",
+          requestId: request.requestId,
+          decision: "approved",
+          scope: "session",
+        },
+      }),
+    ),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError &&
+      error.code === "request_resolution_mismatch",
+  );
+  assert.equal(delegated, false);
+
+  await collectOutputs(
+    opened.resolveRequest({
+      resolution: {
+        requestKind: "approval",
+        requestId: request.requestId,
+        decision: "approved",
+        scope: "once",
+      },
+    }),
+  );
+  assert.equal(delegated, true);
 });
 
 test("validated sessions track sequential requests from one turn", async () => {
@@ -1975,6 +2157,7 @@ test("validated sessions track sequential requests from one turn", async () => {
         requestKind: "approval",
         requestId: firstRequestId,
         decision: "approved",
+        scope: "once",
       },
     }),
   );
@@ -1990,6 +2173,7 @@ test("validated sessions track sequential requests from one turn", async () => {
         requestKind: "approval",
         requestId: secondRequestId,
         decision: "approved",
+        scope: "once",
       },
     }),
   );
@@ -2093,6 +2277,7 @@ test("steering remains active while a request continuation executes", async () =
         requestKind: "approval",
         requestId: request.requestId,
         decision: "approved",
+        scope: "once",
       },
     }),
   ).then((outputs) => {
@@ -2169,6 +2354,7 @@ test("validated sessions reject request IDs reused after resolution", async () =
         requestKind: "approval",
         requestId: request.requestId,
         decision: "approved",
+        scope: "once",
       },
     }),
   );
@@ -2234,6 +2420,7 @@ test("an incomplete request continuation makes its session unusable", async () =
     requestKind: "approval" as const,
     requestId: request.requestId,
     decision: "approved" as const,
+    scope: "once" as const,
   };
 
   await assert.rejects(
@@ -2911,6 +3098,7 @@ test("an accepted waiting-turn interruption without a terminal makes the session
           requestKind: "approval",
           requestId: request.requestId,
           decision: "approved",
+          scope: "once",
         },
       }),
     ),

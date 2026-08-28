@@ -123,7 +123,10 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
       interrupt: true,
       steer: { kind: "supported", input },
     },
-    requests: { approval: true, elicitation: { kind: "structured" } },
+    requests: {
+      approval: { kind: "supported", scopes: ["once", "session"] },
+      elicitation: { kind: "structured" },
+    },
     input,
     output: {
       streaming: true,
@@ -228,7 +231,7 @@ function fakeSession(input: {
       });
     }
 
-    if (input.capabilities.requests.approval) {
+    if (input.capabilities.requests.approval.kind === "supported") {
       const request = requestForTurn(turnInput.turnId);
       pendingRequests.set(request.requestId, {
         request,

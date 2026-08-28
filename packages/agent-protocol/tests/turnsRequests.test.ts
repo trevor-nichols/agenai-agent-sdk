@@ -307,7 +307,11 @@ test('approval and structured elicitation requests are strict discriminated valu
       requestKind: 'approval',
       requestId: 'request:approval',
       prompt: 'Run the command?',
-      subject: { kind: 'command', title: 'Run tests' },
+      subject: {
+        kind: 'command',
+        itemId: 'item:command-1',
+        title: 'Run tests',
+      },
     }).requestKind,
     'approval',
   );
@@ -339,9 +343,70 @@ test('approval and structured elicitation requests are strict discriminated valu
     }],
   };
   assert.equal(safeParseAgentRequest(noncanonicalChoice).success, false);
+  for (const subject of [
+    { kind: 'command', title: 'Missing item' },
+    { kind: 'file_change', title: 'Missing item' },
+    { kind: 'tool', title: 'Missing item' },
+  ]) {
+    assert.equal(
+      safeParseAgentRequest({
+        requestKind: 'approval',
+        requestId: 'request:missing-item',
+        prompt: 'Approve?',
+        subject,
+      }).success,
+      false,
+    );
+  }
 });
 
 test('request resolutions must match request identity, kind, fields, and choices', () => {
+  const approvalRequest = {
+    requestKind: 'approval',
+    requestId: 'request:approval',
+    prompt: 'Run the command?',
+    subject: {
+      kind: 'command',
+      itemId: 'item:command-1',
+      title: 'Run tests',
+    },
+  } as const;
+  assert.deepEqual(
+    parseAgentRequestResolutionFor(approvalRequest, {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      decision: 'approved',
+      scope: 'session',
+    }),
+    {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      decision: 'approved',
+      scope: 'session',
+    },
+  );
+  for (const invalid of [
+    {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      decision: 'approved',
+    },
+    {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      decision: 'denied',
+      scope: 'once',
+    },
+    {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      decision: 'canceled',
+      scope: 'session',
+    },
+  ]) {
+    assert.equal(safeParseAgentRequestResolution(invalid).success, false);
+  }
+
   const acceptedResolution = {
     requestKind: 'elicitation',
     requestId: 'request:settings',

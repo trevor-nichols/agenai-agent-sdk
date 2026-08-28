@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Status: `0.1.0` beta.
+> Status: `0.2.0` beta.
 
 ## Why this exists
 

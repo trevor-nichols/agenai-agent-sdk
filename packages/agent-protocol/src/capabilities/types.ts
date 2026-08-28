@@ -4,6 +4,7 @@
 
 import type { AgentArtifactKind } from '../artifacts/index.js';
 import type { AgentProviderKey } from '../foundation/index.js';
+import type { AgentApprovalScope } from '../requests/types.js';
 import type {
   AgentImageInputMediaType,
   AgentImageInputSourceKind,
@@ -39,6 +40,13 @@ export type AgentElicitationCapability =
   | Readonly<{ kind: 'unsupported' }>
   | Readonly<{ kind: 'text' }>
   | Readonly<{ kind: 'structured' }>;
+
+export type AgentApprovalCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      scopes: readonly AgentApprovalScope[];
+    }>;
 
 export interface AgentConfigurationFieldCapability {
   readonly key: string;
@@ -100,7 +108,7 @@ export interface AgentCapabilities {
     steer: AgentTurnSteeringCapability;
   }>;
   readonly requests: Readonly<{
-    approval: boolean;
+    approval: AgentApprovalCapability;
     elicitation: AgentElicitationCapability;
   }>;
   readonly input: AgentOperationInputCapability;

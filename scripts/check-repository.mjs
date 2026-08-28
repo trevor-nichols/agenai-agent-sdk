@@ -70,7 +70,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.1.0");
+assert.equal(rootManifest.version, "0.2.0");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
@@ -98,7 +98,7 @@ assert.match(workspaceConfig, /overrides:\n  fast-uri: 3\.1\.0/u);
 for (const policy of PACKAGE_POLICIES) {
   const manifest = await readJson(`${policy.root}/package.json`);
   assert.equal(manifest.name, policy.name);
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.2.0");
   assert.equal(manifest.private, false);
   assert.equal(manifest.license, "MIT");
   assert.equal(manifest.type, "module");

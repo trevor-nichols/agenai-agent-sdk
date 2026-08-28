@@ -132,7 +132,10 @@ test("registry validates materialized instance identity and capability ownership
           interrupt: false,
           steer: { kind: "unsupported" },
         },
-        requests: { approval: false, elicitation: { kind: "unsupported" } },
+        requests: {
+          approval: { kind: "unsupported" },
+          elicitation: { kind: "unsupported" },
+        },
         input: { text: true, images: { kind: "unsupported" } },
         output: {
           streaming: false,
@@ -227,7 +230,10 @@ test("registry cleans earlier instances when a rejected instance also fails clea
           interrupt: false,
           steer: { kind: "unsupported" },
         },
-        requests: { approval: false, elicitation: { kind: "unsupported" } },
+        requests: {
+          approval: { kind: "unsupported" },
+          elicitation: { kind: "unsupported" },
+        },
         input: { text: true, images: { kind: "unsupported" } },
         output: {
           streaming: false,
