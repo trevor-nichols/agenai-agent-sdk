@@ -93,8 +93,9 @@ private monorepo, which remains the source authority. Maintainers import accepte
 there, run the full integration suite, and export the canonical public result back to this
 repository. Contributor authorship is preserved through that process.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [SECURITY.md](SECURITY.md)
-for private vulnerability reporting.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, [RELEASING.md](RELEASING.md)
+for the maintainer release process, and [SECURITY.md](SECURITY.md) for private vulnerability
+reporting.
 
 ## License
 

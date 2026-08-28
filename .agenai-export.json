@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "edac61b6b026e73c3aabc116595bbfbbd7120cb9",
+  "sourceRevision": "187d3f5650eacddb8451e3c7c9ef4f6cb3c4c506",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -23,12 +23,14 @@
   "ownedFiles": [
     ".agenai-export.json",
     ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
     ".gitignore",
     ".npmrc",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
     "LICENSE",
     "README.md",
+    "RELEASING.md",
     "SECURITY.md",
     "package.json",
     "packages/agent-protocol/LICENSE",
