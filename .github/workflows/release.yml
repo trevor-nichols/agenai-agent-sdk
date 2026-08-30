@@ -75,12 +75,12 @@ jobs:
             fi
           done
 
+          release_commit="$(git rev-parse "$RELEASE_REF^{commit}")"
           if [[ "$GITHUB_REF" != "$RELEASE_REF" ]]; then
             if [[ "$GITHUB_REF" != "refs/heads/main" || -z "${{ inputs.release_ref }}" ]]; then
               echo "Release recovery must run from main with an explicit release_ref." >&2
               exit 1
             fi
-            release_commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
             git diff --exit-code "$release_commit" HEAD -- \
               .npmrc \
               package.json \
@@ -91,7 +91,11 @@ jobs:
               packages/agent-protocol \
               packages/agent-runtime \
               scripts/architecture/check-agent-sdk-external-consumer.mjs
+          elif [[ "$release_commit" != "$GITHUB_SHA" ]]; then
+            echo "Release tag $RELEASE_TAG does not resolve to workflow commit $GITHUB_SHA." >&2
+            exit 1
           fi
+          echo "RELEASE_SHA=$release_commit" >> "$GITHUB_ENV"
 
       - name: Check SDK
         run: pnpm check
@@ -113,6 +117,7 @@ jobs:
           --tarball release/agen-ai-validation-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
           --github-output "$GITHUB_OUTPUT"
 
       - name: Publish validation
@@ -125,6 +130,7 @@ jobs:
           --tarball release/agen-ai-validation-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
           --require-present --attempts 30 --delay-ms 5000
 
       - name: Inspect agent protocol publication
@@ -134,6 +140,7 @@ jobs:
           --tarball release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
           --github-output "$GITHUB_OUTPUT"
 
       - name: Publish agent protocol
@@ -146,6 +153,7 @@ jobs:
           --tarball release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
           --require-present --attempts 30 --delay-ms 5000
 
       - name: Inspect agent runtime publication
@@ -155,6 +163,7 @@ jobs:
           --tarball release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
           --github-output "$GITHUB_OUTPUT"
 
       - name: Publish agent runtime
@@ -167,6 +176,7 @@ jobs:
           --tarball release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
           --require-present --attempts 30 --delay-ms 5000
 
       - name: Verify registry signatures and provenance

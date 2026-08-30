@@ -17,6 +17,7 @@ import {
   type AgentContextMeasurementScope,
   type AgentContextUsage,
   type AgentEvent,
+  type AgentItemKind,
   type AgentItemStatus,
   type AgentOperationInputCapability,
   type AgentProviderKey,
@@ -109,9 +110,16 @@ interface PendingAgentRequest {
   readonly turnId: AgentTurnId;
 }
 
+interface ObservedAgentItem {
+  readonly itemKind: AgentItemKind;
+  readonly status: AgentItemStatus;
+  readonly inProgressObserved: boolean;
+  readonly terminal: boolean;
+}
+
 interface AgentTurnSequenceState {
   readonly fileChangeMode: AgentCapabilities["output"]["fileChanges"];
-  readonly observedItems: Map<string, AgentItemStatus>;
+  readonly observedItems: Map<string, ObservedAgentItem>;
   readonly proposedPlans: Map<string, string>;
   started: boolean;
   terminal: boolean;
@@ -169,12 +177,70 @@ const FINAL_DIFF_TRAILING_EVENT_TYPES: readonly AgentEvent["type"][] = [
   "turn.completed",
 ];
 
-function assertApprovalSubjectCorrelation(input: {
+const TERMINAL_ITEM_STATUSES = new Set<AgentItemStatus>([
+  "completed",
+  "failed",
+  "canceled",
+]);
+
+function observeItemLifecycle(input: {
   readonly providerKey: AgentProviderKey;
-  readonly event: Extract<AgentEvent, { readonly type: "request.opened" }>;
+  readonly event: Extract<
+    AgentEvent,
+    {
+      readonly type: "item.started" | "item.updated" | "item.completed";
+    }
+  >;
   readonly state: AgentTurnSequenceState;
 }): void {
-  const request = input.event.payload.request;
+  const { event, providerKey, state } = input;
+  const previous = state.observedItems.get(event.payload.itemId);
+  if (previous?.terminal) {
+    invalidTurnSequence(
+      providerKey,
+      "Provider emitted an item lifecycle event after the item became terminal.",
+    );
+  }
+  if (
+    previous?.itemKind !== undefined
+    && previous.itemKind !== event.payload.itemKind
+  ) {
+    invalidTurnSequence(
+      providerKey,
+      "Provider changed the kind of an existing item identity.",
+    );
+  }
+  if (previous !== undefined && event.type === "item.started") {
+    invalidTurnSequence(
+      providerKey,
+      "Provider started an item identity more than once.",
+    );
+  }
+  if (previous?.inProgressObserved && event.payload.status === "pending") {
+    invalidTurnSequence(
+      providerKey,
+      "Provider regressed an in-progress item to pending.",
+    );
+  }
+
+  state.observedItems.set(event.payload.itemId, {
+    itemKind: event.payload.itemKind,
+    status: event.payload.status,
+    inProgressObserved:
+      previous?.inProgressObserved === true
+      || event.payload.status === "in_progress",
+    terminal:
+      event.type === "item.completed"
+      || TERMINAL_ITEM_STATUSES.has(event.payload.status),
+  });
+}
+
+function assertApprovalSubjectCorrelation(input: {
+  readonly providerKey: AgentProviderKey;
+  readonly request: AgentRequest;
+  readonly state: AgentTurnSequenceState;
+}): void {
+  const { request } = input;
   if (request.requestKind !== "approval") return;
   if (request.subject.kind === "plan") {
     if (
@@ -188,12 +254,26 @@ function assertApprovalSubjectCorrelation(input: {
     }
     return;
   }
-  const status = input.state.observedItems.get(request.subject.itemId);
-  if (status !== "pending" && status !== "in_progress") {
+  const item = input.state.observedItems.get(request.subject.itemId);
+  if (item?.status !== "pending" && item?.status !== "in_progress") {
     invalidTurnSequence(
       input.providerKey,
       "Provider approval request does not identify a live item from this turn.",
     );
+  }
+}
+
+function assertPendingApprovalSubjectCorrelations(input: {
+  readonly providerKey: AgentProviderKey;
+  readonly pendingRequests: ReadonlyMap<string, PendingAgentRequest>;
+  readonly state: AgentTurnSequenceState;
+}): void {
+  for (const pending of input.pendingRequests.values()) {
+    assertApprovalSubjectCorrelation({
+      providerKey: input.providerKey,
+      request: pending.request,
+      state: input.state,
+    });
   }
 }
 
@@ -316,7 +396,12 @@ function observeTurnEvent(input: {
     || event.type === "item.updated"
     || event.type === "item.completed"
   ) {
-    state.observedItems.set(event.payload.itemId, event.payload.status);
+    observeItemLifecycle({ providerKey, event, state });
+    assertPendingApprovalSubjectCorrelations({
+      providerKey,
+      pendingRequests,
+      state,
+    });
     if (
       event.payload.itemKind === "context_compaction"
       && event.type === "item.completed"
@@ -351,7 +436,11 @@ function observeTurnEvent(input: {
         "Provider reused a request ID within a session.",
       );
     }
-    assertApprovalSubjectCorrelation({ providerKey, event, state });
+    assertApprovalSubjectCorrelation({
+      providerKey,
+      request: event.payload.request,
+      state,
+    });
     openedRequestIds.add(requestId);
     pendingRequests.set(requestId, {
       request: event.payload.request,
@@ -454,24 +543,21 @@ function observeTurnOperationOutputs(input: {
 function reconstructWaitingTurn(input: {
   readonly pendingRequests: ReadonlyMap<string, PendingAgentRequest>;
   readonly turnId: AgentTurnId;
-  readonly fileChangeMode: AgentCapabilities["output"]["fileChanges"];
+  readonly state: AgentTurnSequenceState | undefined;
 }): Pick<ActiveAgentTurn, "state" | "pendingRequests"> | null {
   const targetedPendingRequests = new Map(
     [...input.pendingRequests].filter(
       ([, pending]) => pending.turnId === input.turnId,
     ),
   );
-  if (targetedPendingRequests.size === 0) return null;
+  if (
+    targetedPendingRequests.size === 0
+    || input.state === undefined
+    || input.state.terminal
+    || !input.state.waiting
+  ) return null;
   return {
-    state: {
-      fileChangeMode: input.fileChangeMode,
-      observedItems: new Map<string, AgentItemStatus>(),
-      proposedPlans: new Map<string, string>(),
-      started: true,
-      terminal: false,
-      waiting: true,
-      finalDiffObserved: false,
-    },
+    state: input.state,
     pendingRequests: targetedPendingRequests,
   };
 }
@@ -596,6 +682,7 @@ export function validateAgentProviderSession(input: {
   validateSessionPorts(capabilities, input.candidate);
 
   const pendingRequests = new Map<string, PendingAgentRequest>();
+  const waitingTurnStates = new Map<AgentTurnId, AgentTurnSequenceState>();
   const openedRequestIds = new Set<string>();
   const contextUsageState: AgentContextUsageSequenceState = {
     latestByScope: new Map<AgentContextMeasurementScope, AgentContextUsage>(),
@@ -699,7 +786,7 @@ export function validateAgentProviderSession(input: {
       pendingRequests: new Map<string, PendingAgentRequest>(),
       state: {
         fileChangeMode: capabilities.output.fileChanges,
-        observedItems: new Map<string, AgentItemStatus>(),
+        observedItems: new Map<string, ObservedAgentItem>(),
         proposedPlans: new Map<string, string>(),
         started: false,
         terminal: false,
@@ -747,6 +834,9 @@ export function validateAgentProviderSession(input: {
       });
       if (currentTurn.state.waiting) {
         replacePendingRequests(pendingRequests, currentTurn.pendingRequests);
+        waitingTurnStates.set(currentTurn.turnId, currentTurn.state);
+      } else {
+        waitingTurnStates.delete(currentTurn.turnId);
       }
       reachedStableBoundary = true;
     } finally {
@@ -798,18 +888,23 @@ export function validateAgentProviderSession(input: {
         "Provider session already has an active turn.",
       );
     }
+    const waitingTurnState = waitingTurnStates.get(pending.turnId);
+    if (
+      waitingTurnState === undefined
+      || waitingTurnState.terminal
+      || !waitingTurnState.waiting
+    ) {
+      throwAgentProviderContractError(
+        providerKey,
+        "request_resolution_mismatch",
+        "Provider request resolution does not identify a waiting turn.",
+      );
+    }
+    waitingTurnState.waiting = false;
     const currentTurn: ActiveAgentTurn = {
       turnId: pending.turnId,
       pendingRequests: nextPendingRequests,
-      state: {
-        fileChangeMode: capabilities.output.fileChanges,
-        observedItems: new Map<string, AgentItemStatus>(),
-        proposedPlans: new Map<string, string>(),
-        started: true,
-        terminal: false,
-        waiting: false,
-        finalDiffObserved: false,
-      },
+      state: waitingTurnState,
       inFlightOperations: new Set<Promise<void>>(),
     };
     let reachedStableBoundary = false;
@@ -846,6 +941,11 @@ export function validateAgentProviderSession(input: {
         pendingRequests: currentTurn.pendingRequests,
       });
       replacePendingRequests(pendingRequests, currentTurn.pendingRequests);
+      if (currentTurn.state.waiting) {
+        waitingTurnStates.set(currentTurn.turnId, currentTurn.state);
+      } else {
+        waitingTurnStates.delete(currentTurn.turnId);
+      }
       reachedStableBoundary = true;
     } finally {
       if (!reachedStableBoundary) unusable = true;
@@ -877,7 +977,7 @@ export function validateAgentProviderSession(input: {
               ? reconstructWaitingTurn({
                   pendingRequests,
                   turnId: parsed.turnId,
-                  fileChangeMode: capabilities.output.fileChanges,
+                  state: waitingTurnStates.get(parsed.turnId),
                 })
               : null;
             const targetedTurn = targetedActiveTurn ?? targetedWaitingTurn;
@@ -913,6 +1013,7 @@ export function validateAgentProviderSession(input: {
                   parsed.turnId,
                 );
                 targetedTurn.state.waiting = false;
+                waitingTurnStates.delete(parsed.turnId);
               }
               try {
                 observeTurnOperationOutputs({

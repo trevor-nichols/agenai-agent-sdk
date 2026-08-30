@@ -16,6 +16,7 @@ import { pathToFileURL } from "node:url";
 const execFileAsync = promisify(execFile);
 const DEFAULT_REGISTRY_URL = "https://registry.npmjs.org";
 const DEFAULT_WORKFLOW_PATH = ".github/workflows/release.yml";
+const GUARDED_RECOVERY_REF = "refs/heads/main";
 const PUBLISH_PREDICATE = "https://github.com/npm/attestation/tree/main/specs/publish/v0.1";
 const PROVENANCE_PREDICATES = new Set([
   "https://slsa.dev/provenance/v0.2",
@@ -47,6 +48,14 @@ function assertNonEmptyString(value, label) {
     throw new Error(`${label} must be a non-empty string.`);
   }
   return value;
+}
+
+function assertCommitIdentity(value, label) {
+  const commit = assertNonEmptyString(value, label);
+  if (!/^[a-f0-9]{40}$/u.test(commit)) {
+    throw new Error(`${label} must be a full lowercase commit identity.`);
+  }
+  return commit;
 }
 
 function canonicalJson(value) {
@@ -141,14 +150,18 @@ function assertProvenanceStatement(statement, expected) {
     const buildDefinition = statement.predicate?.buildDefinition;
     const workflow = buildDefinition?.externalParameters?.workflow;
     const dependencies = buildDefinition?.resolvedDependencies;
-    const commitMatches = Array.isArray(dependencies) && dependencies.some((dependency) => (
-      dependency?.digest?.gitCommit === expected.githubSha
+    const identityMatches = expected.provenanceIdentities.some((identity) => (
+      workflow?.ref === identity.githubRef
+      && Array.isArray(dependencies)
+      && dependencies.some((dependency) => (
+        dependency?.uri === `git+${repositoryUrl}@${identity.githubRef}`
+        && dependency?.digest?.gitCommit === identity.githubSha
+      ))
     ));
     if (
       workflow?.repository !== repositoryUrl
       || workflow?.path !== expected.workflowPath
-      || workflow?.ref !== expected.githubRef
-      || !commitMatches
+      || !identityMatches
       || statement.predicate?.runDetails?.builder?.id
         !== "https://github.com/actions/runner/github-hosted"
     ) {
@@ -160,13 +173,16 @@ function assertProvenanceStatement(statement, expected) {
   const invocation = statement.predicate?.invocation;
   const configSource = invocation?.configSource;
   const environment = invocation?.environment;
+  const identityMatches = expected.provenanceIdentities.some((identity) => (
+    configSource?.uri === `git+${repositoryUrl}@${identity.githubRef}`
+    && configSource?.digest?.sha1 === identity.githubSha
+    && configSource?.entryPoint?.endsWith(`/${expected.workflowPath}@${identity.githubRef}`)
+    && environment?.GITHUB_REF === identity.githubRef
+    && environment?.GITHUB_SHA === identity.githubSha
+  ));
   if (
-    configSource?.uri !== `git+${repositoryUrl}@${expected.githubRef}`
-    || configSource?.digest?.sha1 !== expected.githubSha
-    || !configSource?.entryPoint?.endsWith(`/${expected.workflowPath}@${expected.githubRef}`)
-    || environment?.GITHUB_REPOSITORY !== expected.githubRepository
-    || environment?.GITHUB_REF !== expected.githubRef
-    || environment?.GITHUB_SHA !== expected.githubSha
+    environment?.GITHUB_REPOSITORY !== expected.githubRepository
+    || !identityMatches
   ) {
     throw new Error(`npm provenance does not match the expected GitHub release identity.`);
   }
@@ -220,6 +236,7 @@ export async function inspectPackagePublication({
   githubRef,
   githubSha,
   releaseRef = githubRef,
+  releaseSha,
   workflowPath = DEFAULT_WORKFLOW_PATH,
   registryUrl = DEFAULT_REGISTRY_URL,
   fetchImpl = fetch,
@@ -229,17 +246,24 @@ export async function inspectPackagePublication({
   const expectedTag = assertNonEmptyString(npmTag, "npm tag");
   const expectedRepository = assertNonEmptyString(githubRepository, "GitHub repository");
   const expectedRef = assertNonEmptyString(githubRef, "GitHub ref");
-  const expectedSha = assertNonEmptyString(githubSha, "GitHub SHA");
+  const expectedSha = assertCommitIdentity(githubSha, "GitHub SHA");
   const expectedReleaseRef = assertNonEmptyString(releaseRef, "Release ref");
+  const expectedReleaseSha = assertCommitIdentity(
+    releaseSha ?? (expectedReleaseRef === expectedRef ? expectedSha : undefined),
+    "Release SHA",
+  );
   const expectedWorkflow = assertNonEmptyString(workflowPath, "Workflow path");
-  if (!/^[a-f0-9]{40}$/u.test(expectedSha)) {
-    throw new Error(`GitHub SHA must be a full lowercase commit identity.`);
-  }
-  if (!expectedRef.startsWith("refs/tags/v") && expectedRef !== "refs/heads/main") {
+  if (!expectedRef.startsWith("refs/tags/v") && expectedRef !== GUARDED_RECOVERY_REF) {
     throw new Error(`GitHub ref must identify a version tag or the guarded main recovery.`);
   }
   if (!expectedReleaseRef.startsWith("refs/tags/v")) {
     throw new Error(`Release ref must identify a version tag.`);
+  }
+  if (
+    expectedRef !== GUARDED_RECOVERY_REF
+    && (expectedReleaseRef !== expectedRef || expectedReleaseSha !== expectedSha)
+  ) {
+    throw new Error(`Tagged release and release provenance identities must match exactly.`);
   }
 
   const registryOrigin = assertRegistryUrl(registryUrl, allowInsecureRegistry);
@@ -250,6 +274,14 @@ export async function inspectPackagePublication({
   const version = assertNonEmptyString(manifest.version, "Tarball package version");
   if (expectedReleaseRef !== `refs/tags/v${version}`) {
     throw new Error(`Tarball version ${version} does not match ${expectedReleaseRef}.`);
+  }
+
+  const provenanceIdentities = [{ githubRef: expectedRef, githubSha: expectedSha }];
+  if (expectedRef === GUARDED_RECOVERY_REF) {
+    provenanceIdentities.push({
+      githubRef: expectedReleaseRef,
+      githubSha: expectedReleaseSha,
+    });
   }
 
   const packumentUrl = `${registryOrigin}/${registryPackagePath(name)}`;
@@ -329,8 +361,9 @@ export async function inspectPackagePublication({
     sha512: tarballIdentity.sha512,
     registryUrl: registryOrigin,
     githubRepository: expectedRepository,
-    githubRef: expectedRef,
-    githubSha: expectedSha,
+    provenanceIdentities: Object.freeze(
+      provenanceIdentities.map((identity) => Object.freeze(identity)),
+    ),
     workflowPath: expectedWorkflow,
   });
   const publishStatement = decodeStatement(publishAttestation);
@@ -378,6 +411,7 @@ function parseArguments(argv) {
     if (argument === "--tarball") options.tarballPath = value;
     else if (argument === "--npm-tag") options.npmTag = value;
     else if (argument === "--release-ref") options.releaseRef = value;
+    else if (argument === "--release-sha") options.releaseSha = value;
     else if (argument === "--github-output") options.githubOutput = value;
     else if (argument === "--attempts") options.attempts = Number.parseInt(value, 10);
     else if (argument === "--delay-ms") options.delayMs = Number.parseInt(value, 10);

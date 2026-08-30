@@ -43,7 +43,11 @@ Approval continuations are refusal-first. Before delegating to the candidate ada
 validated session proves that the request is still pending and unexpired and that a selected
 `optionId` was offered by that exact request. Provider-emitted approval requests must correlate to
 a live item or exact proposed-plan artifact, and every option must fit an advertised
-persistence/scope mode.
+persistence/scope mode. Item identities are monotonic throughout a turn, including every request
+continuation: an adapter cannot restart an observed identity, change its kind, erase prior progress
+through an unknown-status update, regress it from in-progress to pending, or revive it after a
+terminal event or status. Completion-only snapshots remain valid when no earlier lifecycle event was
+observed.
 
 The host should serialize mutating operations for a given session. Separate session objects may
 run concurrently, so provider implementations must isolate their conversation-local state.

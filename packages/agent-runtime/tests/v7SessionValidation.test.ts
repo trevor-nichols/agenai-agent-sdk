@@ -382,6 +382,257 @@ test("V7 refuses uncorrelated approvals and unadvertised approval modes", async 
   }
 });
 
+test("V7 rejects terminal item revival before approval visibility", async () => {
+  const scenarios = [
+    {
+      name: "completed-event",
+      terminalEventType: "item.completed",
+      terminalStatus: "completed",
+    },
+    {
+      name: "terminal-status-update",
+      terminalEventType: "item.updated",
+      terminalStatus: "canceled",
+    },
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const turnId = parseAgentTurnId(`turn:v7-${scenario.name}-revival`);
+    const request = approvalRequest({
+      requestId: parseAgentRequestId(`request:v7-${scenario.name}-revival`),
+    });
+    assert.notEqual(request.subject.kind, "plan");
+    if (request.subject.kind === "plan") {
+      throw new TypeError("The test fixture requires an item-correlated approval.");
+    }
+    const itemId = request.subject.itemId;
+    let delegatedResolutions = 0;
+    const opened = await openSession(
+      approvalCapabilities,
+      candidateSession({
+        runTurn: async function* () {
+          yield event(turnId, "turn.started", {});
+          yield event(turnId, scenario.terminalEventType, {
+            itemId,
+            itemKind: "dynamic_tool_call",
+            status: scenario.terminalStatus,
+          });
+          yield event(turnId, "item.updated", {
+            itemId,
+            itemKind: "dynamic_tool_call",
+            status: "in_progress",
+          });
+          yield event(turnId, "request.opened", { request });
+          yield event(turnId, "turn.state_changed", {
+            state: "waiting_for_request",
+            requestId: request.requestId,
+          });
+        },
+        resolveRequest: async function* () {
+          delegatedResolutions += 1;
+        },
+      }),
+    );
+
+    await assert.rejects(
+      collect(opened.runTurn({
+        turnId,
+        interactionMode: "default",
+        parts: [{ type: "text", text: "Reject terminal item revival." }],
+      })),
+      (error: unknown) =>
+        error instanceof AgentProviderContractError
+        && error.code === "invalid_turn_sequence",
+    );
+    assert.equal(delegatedResolutions, 0);
+  }
+});
+
+test("V7 rejects a pending approval when its subject becomes terminal", async () => {
+  const scenarios = [
+    {
+      name: "completed-event",
+      terminalEventType: "item.completed",
+      terminalStatus: "completed",
+    },
+    {
+      name: "terminal-status-update",
+      terminalEventType: "item.updated",
+      terminalStatus: "canceled",
+    },
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const turnId = parseAgentTurnId(`turn:v7-${scenario.name}-pending-approval`);
+    const request = approvalRequest({
+      requestId: parseAgentRequestId(
+        `request:v7-${scenario.name}-pending-approval`,
+      ),
+    });
+    assert.notEqual(request.subject.kind, "plan");
+    if (request.subject.kind === "plan") {
+      throw new TypeError("The test fixture requires an item-correlated approval.");
+    }
+    const itemId = request.subject.itemId;
+    let delegatedResolutions = 0;
+    const opened = await openSession(
+      approvalCapabilities,
+      candidateSession({
+        runTurn: async function* () {
+          yield event(turnId, "turn.started", {});
+          yield event(turnId, "item.started", {
+            itemId,
+            itemKind: "dynamic_tool_call",
+            status: "pending",
+          });
+          yield event(turnId, "request.opened", { request });
+          yield event(turnId, scenario.terminalEventType, {
+            itemId,
+            itemKind: "dynamic_tool_call",
+            status: scenario.terminalStatus,
+          });
+          yield event(turnId, "turn.state_changed", {
+            state: "waiting_for_request",
+            requestId: request.requestId,
+          });
+        },
+        resolveRequest: async function* () {
+          delegatedResolutions += 1;
+        },
+      }),
+    );
+
+    await assert.rejects(
+      collect(opened.runTurn({
+        turnId,
+        interactionMode: "default",
+        parts: [{ type: "text", text: "Reject terminal approval subjects." }],
+      })),
+      (error: unknown) =>
+        error instanceof AgentProviderContractError
+        && error.code === "invalid_turn_sequence",
+    );
+    assert.equal(delegatedResolutions, 0);
+  }
+});
+
+test("V7 preserves terminal item authority across request continuations", async () => {
+  const turnId = parseAgentTurnId("turn:v7-continuation-item-revival");
+  const firstRequest = approvalRequest({
+    requestId: parseAgentRequestId("request:v7-continuation-first"),
+  });
+  const revivedRequest = approvalRequest({
+    requestId: parseAgentRequestId("request:v7-continuation-revived"),
+  });
+  assert.notEqual(firstRequest.subject.kind, "plan");
+  assert.notEqual(revivedRequest.subject.kind, "plan");
+  if (
+    firstRequest.subject.kind === "plan"
+    || revivedRequest.subject.kind === "plan"
+  ) {
+    throw new TypeError("The test fixture requires item-correlated approvals.");
+  }
+  const firstItemId = firstRequest.subject.itemId;
+  const revivedItemId = revivedRequest.subject.itemId;
+  let delegatedResolutions = 0;
+  const opened = await openSession(
+    approvalCapabilities,
+    candidateSession({
+      runTurn: async function* () {
+        yield event(turnId, "turn.started", {});
+        yield event(turnId, "item.completed", {
+          itemId: revivedItemId,
+          itemKind: "dynamic_tool_call",
+          status: "completed",
+        });
+        yield event(turnId, "item.started", {
+          itemId: firstItemId,
+          itemKind: "dynamic_tool_call",
+          status: "in_progress",
+        });
+        yield event(turnId, "request.opened", { request: firstRequest });
+        yield event(turnId, "turn.state_changed", {
+          state: "waiting_for_request",
+          requestId: firstRequest.requestId,
+        });
+      },
+      resolveRequest: async function* () {
+        delegatedResolutions += 1;
+        yield event(turnId, "item.updated", {
+          itemId: revivedItemId,
+          itemKind: "dynamic_tool_call",
+          status: "in_progress",
+        });
+        yield event(turnId, "request.opened", { request: revivedRequest });
+        yield event(turnId, "turn.state_changed", {
+          state: "waiting_for_request",
+          requestId: revivedRequest.requestId,
+        });
+      },
+    }),
+  );
+
+  await collect(opened.runTurn({
+    turnId,
+    interactionMode: "default",
+    parts: [{ type: "text", text: "Preserve item authority while waiting." }],
+  }));
+  await assert.rejects(
+    collect(opened.resolveRequest({
+      resolution: {
+        requestKind: "approval",
+        requestId: firstRequest.requestId,
+        disposition: "selected",
+        optionId: allowOnceOptionId,
+      },
+    })),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "invalid_turn_sequence",
+  );
+  assert.equal(delegatedResolutions, 1);
+});
+
+test("V7 preserves the in-progress watermark through unknown item updates", async () => {
+  const turnId = parseAgentTurnId("turn:v7-indirect-item-regression");
+  const itemId = parseAgentItemId("item:v7-indirect-item-regression");
+  const opened = await openSession(
+    baseCapabilities,
+    candidateSession({
+      runTurn: async function* () {
+        yield event(turnId, "turn.started", {});
+        yield event(turnId, "item.started", {
+          itemId,
+          itemKind: "dynamic_tool_call",
+          status: "in_progress",
+        });
+        yield event(turnId, "item.updated", {
+          itemId,
+          itemKind: "dynamic_tool_call",
+          status: "unknown",
+        });
+        yield event(turnId, "item.updated", {
+          itemId,
+          itemKind: "dynamic_tool_call",
+          status: "pending",
+        });
+        yield event(turnId, "turn.completed", { outcome: "completed" });
+      },
+    }),
+  );
+
+  await assert.rejects(
+    collect(opened.runTurn({
+      turnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Reject an indirect lifecycle regression." }],
+    })),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "invalid_turn_sequence",
+  );
+});
+
 // ------------------------------------------------------------------------------------------------
 //                Context Usage and Compaction State
 // ------------------------------------------------------------------------------------------------

@@ -48,12 +48,13 @@ provenance cryptographically with `npm audit signatures`.
 npm never permits the same package name and version to be published twice. If published bytes do
 not match, stop and release a new patch version rather than overwriting or unpublishing casually.
 
-If a tagged workflow fails before npm accepts any package because the workflow itself needs a
-non-package correction, commit that correction to `main` without moving the tag. Dispatch the
-workflow from `main` with `release_ref` set to the existing `v<version>` tag. Recovery is admitted
-only when every package-producing source, manifest, lockfile, and consumer proof is byte-identical
-to the tag. npm provenance then truthfully identifies the corrected workflow commit. Never use
-recovery to publish changed package sources under an existing version.
+If a tagged workflow fails because the workflow itself needs a non-package correction, commit that
+correction to `main` without moving the tag. Dispatch the workflow from `main` with `release_ref`
+set to the existing `v<version>` tag. Recovery is admitted only when every package-producing source,
+manifest, lockfile, and consumer proof is byte-identical to the tag. An exact package published by
+the original run retains the tag and resolved tag commit in its immutable provenance and is skipped;
+packages first published by the recovery run identify the corrected `main` workflow commit. Never
+use recovery to publish changed package sources under an existing version.
 
 ## Promoting an exact release to latest
 

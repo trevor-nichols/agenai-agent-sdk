@@ -113,6 +113,9 @@ assert.ok(protocolPublish < runtimeInspection && runtimeInspection < runtimePubl
 assert.match(releaseWorkflow, /verify-package-publication\.mjs/u);
 assert.match(releaseWorkflow, /--require-present --attempts 30 --delay-ms 5000/u);
 assert.match(releaseWorkflow, /release_ref:/u);
+assert.match(releaseWorkflow, /release_commit="\$\(git rev-parse "\$RELEASE_REF\^\{commit\}"\)"/u);
+assert.match(releaseWorkflow, /RELEASE_SHA=\$release_commit/u);
+assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 6);
 assert.match(releaseWorkflow, /git diff --exit-code/u);
 assert.equal(releaseWorkflow.match(/npm publish \.\/release\//gu)?.length, 3);
 assert.match(releaseWorkflow, /npm audit signatures/u);

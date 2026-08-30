@@ -21,6 +21,7 @@ const REGISTRY_URL = "http://registry.test";
 const GITHUB_REPOSITORY = "trevor-nichols/agenai-agent-sdk";
 const GITHUB_REF = "refs/tags/v0.2.0";
 const GITHUB_SHA = "0123456789abcdef0123456789abcdef01234567";
+const RECOVERY_SHA = "abcdef0123456789abcdef0123456789abcdef01";
 const MANIFEST = Object.freeze({
   name: "@agen-ai/validation",
   version: "0.2.0",
@@ -235,10 +236,9 @@ test("rejects a missing provenance attestation", async (t) => {
   await assert.rejects(() => inspect(tarball, fixture), /missing npm publish or provenance/u);
 });
 
-test("accepts an exact-tag package through guarded main recovery provenance", async (t) => {
+test("accepts a package published by the guarded main recovery", async (t) => {
   const tarball = await createTarball(t);
   const fixture = publicationFixture(tarball);
-  const recoverySha = "abcdef0123456789abcdef0123456789abcdef01";
   const provenance = fixture.attestations.find((entry) => (
     entry.predicateType === "https://slsa.dev/provenance/v1"
   ));
@@ -246,7 +246,10 @@ test("accepts an exact-tag package through guarded main recovery provenance", as
     Buffer.from(provenance.bundle.dsseEnvelope.payload, "base64").toString("utf8"),
   );
   statement.predicate.buildDefinition.externalParameters.workflow.ref = "refs/heads/main";
-  statement.predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit = recoverySha;
+  statement.predicate.buildDefinition.resolvedDependencies[0].uri = (
+    `git+https://github.com/${GITHUB_REPOSITORY}@refs/heads/main`
+  );
+  statement.predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit = RECOVERY_SHA;
   provenance.bundle.dsseEnvelope.payload = Buffer.from(JSON.stringify(statement)).toString("base64");
 
   const result = await inspectPackagePublication({
@@ -254,13 +257,68 @@ test("accepts an exact-tag package through guarded main recovery provenance", as
     npmTag: "beta",
     githubRepository: GITHUB_REPOSITORY,
     githubRef: "refs/heads/main",
-    githubSha: recoverySha,
+    githubSha: RECOVERY_SHA,
     releaseRef: GITHUB_REF,
+    releaseSha: GITHUB_SHA,
     registryUrl: REGISTRY_URL,
     fetchImpl: fixtureFetch(fixture),
     allowInsecureRegistry: true,
   });
   assert.equal(result.action, "skip");
+});
+
+test("accepts an original tagged publication during guarded main recovery", async (t) => {
+  const tarball = await createTarball(t);
+  const result = await inspectPackagePublication({
+    tarballPath: tarball.tarballPath,
+    npmTag: "beta",
+    githubRepository: GITHUB_REPOSITORY,
+    githubRef: "refs/heads/main",
+    githubSha: RECOVERY_SHA,
+    releaseRef: GITHUB_REF,
+    releaseSha: GITHUB_SHA,
+    registryUrl: REGISTRY_URL,
+    fetchImpl: fixtureFetch(publicationFixture(tarball)),
+    allowInsecureRegistry: true,
+  });
+  assert.equal(result.action, "skip");
+});
+
+test("rejects original tag provenance from a different resolved commit", async (t) => {
+  const tarball = await createTarball(t);
+  await assert.rejects(
+    () => inspectPackagePublication({
+      tarballPath: tarball.tarballPath,
+      npmTag: "beta",
+      githubRepository: GITHUB_REPOSITORY,
+      githubRef: "refs/heads/main",
+      githubSha: RECOVERY_SHA,
+      releaseRef: GITHUB_REF,
+      releaseSha: "f".repeat(40),
+      registryUrl: REGISTRY_URL,
+      fetchImpl: fixtureFetch(publicationFixture(tarball)),
+      allowInsecureRegistry: true,
+    }),
+    /expected GitHub release identity/u,
+  );
+});
+
+test("requires a resolved release commit for guarded main recovery", async (t) => {
+  const tarball = await createTarball(t);
+  await assert.rejects(
+    () => inspectPackagePublication({
+      tarballPath: tarball.tarballPath,
+      npmTag: "beta",
+      githubRepository: GITHUB_REPOSITORY,
+      githubRef: "refs/heads/main",
+      githubSha: RECOVERY_SHA,
+      releaseRef: GITHUB_REF,
+      registryUrl: REGISTRY_URL,
+      fetchImpl: fixtureFetch(publicationFixture(tarball)),
+      allowInsecureRegistry: true,
+    }),
+    /Release SHA must be a non-empty string/u,
+  );
 });
 
 test("rejects a recovery release ref that does not match the tarball version", async (t) => {
@@ -273,6 +331,7 @@ test("rejects a recovery release ref that does not match the tarball version", a
       githubRef: "refs/heads/main",
       githubSha: GITHUB_SHA,
       releaseRef: "refs/tags/v0.2.1",
+      releaseSha: GITHUB_SHA,
       registryUrl: REGISTRY_URL,
       fetchImpl: fixtureFetch(publicationFixture(tarball)),
       allowInsecureRegistry: true,
