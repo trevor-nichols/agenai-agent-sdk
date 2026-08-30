@@ -435,6 +435,11 @@ function observeTurnEvent(input: {
   }
   if (event.type === "turn.plan.proposed") {
     state.proposedPlans.set(event.payload.artifactId, event.payload.requestId);
+    assertPendingApprovalSubjectCorrelations({
+      providerKey,
+      pendingRequests,
+      state,
+    });
   }
   if (event.type === "context.usage.updated") {
     observeContextUsage({

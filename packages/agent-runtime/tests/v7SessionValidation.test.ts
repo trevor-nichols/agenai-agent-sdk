@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   parseAgentApprovalOptionId,
+  parseAgentArtifactId,
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
   parseAgentIsoDateTime,
@@ -91,6 +92,14 @@ const approvalCapabilities = parseAgentCapabilities({
   },
 });
 
+const planApprovalCapabilities = parseAgentCapabilities({
+  ...approvalCapabilities,
+  output: {
+    ...approvalCapabilities.output,
+    plans: true,
+  },
+});
+
 const contextCapabilities = parseAgentCapabilities({
   ...baseCapabilities,
   context: {
@@ -112,12 +121,16 @@ function approvalRequest(input: {
   readonly expiresAt?: ReturnType<typeof parseAgentIsoDateTime>;
   readonly persistence?: "once" | "session";
   readonly scopeKind?: "exact_action" | "tool";
+  readonly subject?: Extract<
+    AgentRequest,
+    { readonly requestKind: "approval" }
+  >["subject"];
 }): Extract<AgentRequest, { readonly requestKind: "approval" }> {
   return {
     requestKind: "approval",
     requestId: input.requestId,
     prompt: "Approve the correlated operation?",
-    subject: {
+    subject: input.subject ?? {
       kind: "tool",
       title: "Run the correlated tool",
       itemId: parseAgentItemId(`item:${input.requestId}`),
@@ -381,6 +394,62 @@ test("V7 refuses uncorrelated approvals and unadvertised approval modes", async 
         && error.code === "output_capability_mismatch",
     );
   }
+});
+
+test("V7 rejects a pending plan approval when its correlation is replaced", async () => {
+  const turnId = parseAgentTurnId("turn:v7-replaced-plan-correlation");
+  const artifactId = parseAgentArtifactId("artifact:v7-replaced-plan-correlation");
+  const request = approvalRequest({
+    requestId: parseAgentRequestId("request:v7-original-plan-approval"),
+    subject: {
+      kind: "plan",
+      title: "Approve the proposed plan",
+      artifactId,
+    },
+  });
+  const replacementRequestId = parseAgentRequestId(
+    "request:v7-replacement-plan-approval",
+  );
+  let delegatedResolutions = 0;
+  const opened = await openSession(
+    planApprovalCapabilities,
+    candidateSession({
+      runTurn: async function* () {
+        yield event(turnId, "turn.started", {});
+        yield event(turnId, "turn.plan.proposed", {
+          artifactId,
+          requestId: request.requestId,
+        });
+        yield event(turnId, "request.opened", { request });
+        yield event(turnId, "turn.plan.proposed", {
+          artifactId,
+          requestId: replacementRequestId,
+        });
+        yield event(turnId, "turn.state_changed", {
+          state: "waiting_for_request",
+          requestId: request.requestId,
+        });
+      },
+      resolveRequest: async function* () {
+        delegatedResolutions += 1;
+      },
+    }),
+  );
+
+  await assert.rejects(
+    collect(opened.runTurn({
+      turnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Reject stale plan approval authority." }],
+    })),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "invalid_turn_sequence"
+      && error.message.includes(
+        "does not identify a proposed plan from this turn",
+      ),
+  );
+  assert.equal(delegatedResolutions, 0);
 });
 
 test("V7 rejects terminal item revival before approval visibility", async () => {
