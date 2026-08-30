@@ -3,6 +3,19 @@
 All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. The three
 packages always ship together at one version during beta.
 
+## 0.2.1 - 2026-08-30
+
+This coordinated patch release is published under both the `beta` and `latest` npm tags.
+
+### Fixed
+
+- Preserve cumulative context counters across later usage samples that omit individual fields, so
+  a subsequent regression cannot bypass materialization-scoped monotonicity validation.
+- Accept the protocol-safe `unknown` compaction trigger when a provider supports compaction while
+  continuing to reject unadvertised known triggers and all compaction from unsupported providers.
+- Permit neutral cancellation after an approval request expires while continuing to reject expired
+  option selections before provider delegation.
+
 ## 0.2.0 - 2026-08-29
 
 This coordinated release is published under both the `beta` and `latest` npm tags.

@@ -283,6 +283,46 @@ test("V7 refuses unoffered and expired approval choices before provider delegati
   }
 });
 
+test("V7 admits only neutral cancellation after approval expiry", async () => {
+  const turnId = parseAgentTurnId("turn:v7-expired-cancellation");
+  const request = approvalRequest({
+    requestId: parseAgentRequestId("request:v7-expired-cancellation"),
+    expiresAt: parseAgentIsoDateTime("2000-01-01T00:00:00.000Z"),
+  });
+  let delegatedResolutions = 0;
+  const opened = await openSession(
+    approvalCapabilities,
+    candidateSession({
+      runTurn: async function* () {
+        yield* waitingApprovalOutputs(turnId, request);
+      },
+      resolveRequest: async function* ({ resolution }) {
+        delegatedResolutions += 1;
+        assert.deepEqual(resolution, {
+          requestKind: "approval",
+          requestId: request.requestId,
+          disposition: "canceled",
+        });
+        yield event(turnId, "turn.completed", { outcome: "canceled" });
+      },
+    }),
+  );
+  await collect(opened.runTurn({
+    turnId,
+    interactionMode: "default",
+    parts: [{ type: "text", text: "Request approval." }],
+  }));
+
+  await collect(opened.resolveRequest({
+    resolution: {
+      requestKind: "approval",
+      requestId: request.requestId,
+      disposition: "canceled",
+    },
+  }));
+  assert.equal(delegatedResolutions, 1);
+});
+
 test("V7 refuses uncorrelated approvals and unadvertised approval modes", async () => {
   const uncorrelatedTurnId = parseAgentTurnId("turn:v7-uncorrelated");
   const uncorrelatedRequest = approvalRequest({
@@ -406,6 +446,60 @@ test("V7 accepts monotonic usage and one post-compaction occupancy decrease", as
   assert.equal(runs, 2);
 });
 
+test("V7 accepts unknown compaction only as a supported-provider fallback", async () => {
+  const manualOnlyCapabilities = parseAgentCapabilities({
+    ...baseCapabilities,
+    context: {
+      usage: { kind: "unsupported" },
+      compaction: {
+        kind: "supported",
+        triggers: ["manual"],
+        sameSessionContinuation: true,
+      },
+    },
+  });
+  const runCompaction = async (
+    capabilities: AgentCapabilities,
+    trigger: "automatic" | "unknown",
+  ): Promise<void> => {
+    const turnId = parseAgentTurnId(`turn:v7-${trigger}-compaction`);
+    const opened = await openSession(
+      capabilities,
+      candidateSession({
+        runTurn: async function* () {
+          yield event(turnId, "turn.started", {});
+          yield event(turnId, "item.completed", {
+            itemId: parseAgentItemId(`item:v7-${trigger}-compaction`),
+            itemKind: "context_compaction",
+            status: "completed",
+            details: { trigger },
+          });
+          yield event(turnId, "turn.completed", { outcome: "completed" });
+        },
+      }),
+    );
+    await collect(opened.runTurn({
+      turnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Observe provider compaction." }],
+    }));
+  };
+
+  await runCompaction(manualOnlyCapabilities, "unknown");
+  await assert.rejects(
+    runCompaction(manualOnlyCapabilities, "automatic"),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "output_capability_mismatch",
+  );
+  await assert.rejects(
+    runCompaction(baseCapabilities, "unknown"),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "output_capability_mismatch",
+  );
+});
+
 test("V7 rejects duplicate, regressing, and post-terminal context samples", async () => {
   const scenarios: readonly {
     readonly name: string;
@@ -423,6 +517,29 @@ test("V7 rejects duplicate, regressing, and post-terminal context samples", asyn
       outputs: (turnId) => [
         contextUsage(turnId, 50, 100, 1),
         contextUsage(turnId, 60, 99, 2),
+      ],
+    },
+    {
+      name: "cumulative regression after omitted field",
+      outputs: (turnId) => [
+        event(turnId, "context.usage.updated", {
+          measurementScope: "materialization",
+          usedTokens: 50,
+          maxTokens: 100,
+          cumulative: { inputTokens: 100 },
+        }),
+        event(turnId, "context.usage.updated", {
+          measurementScope: "materialization",
+          usedTokens: 60,
+          maxTokens: 100,
+          cumulative: { turns: 2 },
+        }),
+        event(turnId, "context.usage.updated", {
+          measurementScope: "materialization",
+          usedTokens: 70,
+          maxTokens: 100,
+          cumulative: { inputTokens: 99 },
+        }),
       ],
     },
     {

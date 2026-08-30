@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/validation",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "description": "Validator-neutral issue contracts and optional Zod 4 normalization for reusable AgenAI packages.",
   "type": "module",

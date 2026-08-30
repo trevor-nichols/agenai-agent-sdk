@@ -142,7 +142,10 @@ function isEventCapabilitySupported(
       if (event.payload.itemKind === "context_compaction") {
         const compaction = capabilities.context.compaction;
         return compaction.kind === "supported"
-          && compaction.triggers.includes(event.payload.details.trigger);
+          && (
+            event.payload.details.trigger === "unknown"
+            || compaction.triggers.includes(event.payload.details.trigger)
+          );
       }
       return isItemKindCapabilitySupported(capabilities, event.payload.itemKind);
     }

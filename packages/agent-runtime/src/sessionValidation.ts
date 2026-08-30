@@ -13,6 +13,7 @@ import {
   parseAgentTurnInterruptionInput,
   parseAgentTurnRunInput,
   type AgentCapabilities,
+  type AgentContextCumulativeUsage,
   type AgentContextMeasurementScope,
   type AgentContextUsage,
   type AgentEvent,
@@ -120,6 +121,10 @@ interface AgentTurnSequenceState {
 
 interface AgentContextUsageSequenceState {
   readonly latestByScope: Map<AgentContextMeasurementScope, AgentContextUsage>;
+  readonly cumulativeByScope: Map<
+    AgentContextMeasurementScope,
+    AgentContextCumulativeUsage
+  >;
   readonly compactionReadyScopes: Set<AgentContextMeasurementScope>;
 }
 
@@ -205,17 +210,6 @@ function observeContextUsage(input: {
         "Provider emitted a duplicate context usage sample.",
       );
     }
-    for (const [field, value] of Object.entries(input.usage.cumulative ?? {})) {
-      const previousValue = previous.cumulative?.[
-        field as keyof NonNullable<AgentContextUsage["cumulative"]>
-      ];
-      if (previousValue !== undefined && value < previousValue) {
-        invalidTurnSequence(
-          input.providerKey,
-          "Provider context cumulative counters cannot decrease.",
-        );
-      }
-    }
     if (
       input.usage.usedTokens < previous.usedTokens
       && !input.state.compactionReadyScopes.has(input.usage.measurementScope)
@@ -225,6 +219,32 @@ function observeContextUsage(input: {
         "Provider context occupancy cannot decrease without completed compaction.",
       );
     }
+  }
+  const cumulative = input.usage.cumulative;
+  if (cumulative !== undefined) {
+    const previousCumulative = input.state.cumulativeByScope.get(
+      input.usage.measurementScope,
+    );
+    for (const field of Object.keys(cumulative) as Array<
+      keyof AgentContextCumulativeUsage
+    >) {
+      const value = cumulative[field];
+      const previousValue = previousCumulative?.[field];
+      if (
+        value !== undefined
+        && previousValue !== undefined
+        && value < previousValue
+      ) {
+        invalidTurnSequence(
+          input.providerKey,
+          "Provider context cumulative counters cannot decrease.",
+        );
+      }
+    }
+    input.state.cumulativeByScope.set(input.usage.measurementScope, {
+      ...previousCumulative,
+      ...cumulative,
+    });
   }
   input.state.latestByScope.set(input.usage.measurementScope, input.usage);
   input.state.compactionReadyScopes.delete(input.usage.measurementScope);
@@ -579,6 +599,10 @@ export function validateAgentProviderSession(input: {
   const openedRequestIds = new Set<string>();
   const contextUsageState: AgentContextUsageSequenceState = {
     latestByScope: new Map<AgentContextMeasurementScope, AgentContextUsage>(),
+    cumulativeByScope: new Map<
+      AgentContextMeasurementScope,
+      AgentContextCumulativeUsage
+    >(),
     compactionReadyScopes: new Set<AgentContextMeasurementScope>(),
   };
   let activeTurn: ActiveAgentTurn | null = null;
@@ -757,6 +781,7 @@ export function validateAgentProviderSession(input: {
     if (
       pending.request.expiresAt !== undefined
       && Date.parse(pending.request.expiresAt) <= Date.now()
+      && resolution.disposition !== "canceled"
     ) {
       throwAgentProviderContractError(
         providerKey,
