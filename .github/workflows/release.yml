@@ -12,6 +12,11 @@ on:
           - beta
           - next
           - latest
+      release_ref:
+        description: Existing v-prefixed tag for a guarded main-branch recovery
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -23,12 +28,19 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish ${{ github.ref_name }}
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publish ${{ inputs.release_ref || github.ref_name }}
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.ref == 'refs/heads/main' && startsWith(inputs.release_ref, 'v'))
     runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: ${{ inputs.release_ref != '' && inputs.release_ref || github.ref_name }}
+      RELEASE_REF: ${{ inputs.release_ref != '' && format('refs/tags/{0}', inputs.release_ref) || github.ref }}
     steps:
       - name: Check out release tag
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -47,11 +59,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_version="${GITHUB_REF_NAME#v}"
+          expected_version="${RELEASE_TAG#v}"
           root_version="$(node --print "require('./package.json').version")"
 
-          if [[ "$GITHUB_REF_NAME" != "v$root_version" ]]; then
-            echo "Release tag $GITHUB_REF_NAME does not match root version $root_version." >&2
+          if [[ "$RELEASE_TAG" != "v$root_version" || "$RELEASE_REF" != "refs/tags/$RELEASE_TAG" ]]; then
+            echo "Release tag $RELEASE_TAG does not match root version $root_version." >&2
             exit 1
           fi
 
@@ -62,6 +74,24 @@ jobs:
               exit 1
             fi
           done
+
+          if [[ "$GITHUB_REF" != "$RELEASE_REF" ]]; then
+            if [[ "$GITHUB_REF" != "refs/heads/main" || -z "${{ inputs.release_ref }}" ]]; then
+              echo "Release recovery must run from main with an explicit release_ref." >&2
+              exit 1
+            fi
+            release_commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
+            git diff --exit-code "$release_commit" HEAD -- \
+              .npmrc \
+              package.json \
+              pnpm-lock.yaml \
+              pnpm-workspace.yaml \
+              tsconfig.base.json \
+              packages/validation \
+              packages/agent-protocol \
+              packages/agent-runtime \
+              scripts/architecture/check-agent-sdk-external-consumer.mjs
+          fi
 
       - name: Check SDK
         run: pnpm check
@@ -80,57 +110,63 @@ jobs:
         id: validation
         run: >-
           node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-validation-${GITHUB_REF_NAME#v}.tgz
+          --tarball release/agen-ai-validation-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
           --github-output "$GITHUB_OUTPUT"
 
       - name: Publish validation
         if: steps.validation.outputs.action == 'publish'
-        run: npm publish release/agen-ai-validation-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+        run: npm publish ./release/agen-ai-validation-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
       - name: Verify validation publication
         run: >-
           node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-validation-${GITHUB_REF_NAME#v}.tgz
+          --tarball release/agen-ai-validation-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
           --require-present --attempts 20 --delay-ms 3000
 
       - name: Inspect agent protocol publication
         id: agent_protocol
         run: >-
           node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-protocol-${GITHUB_REF_NAME#v}.tgz
+          --tarball release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
           --github-output "$GITHUB_OUTPUT"
 
       - name: Publish agent protocol
         if: steps.agent_protocol.outputs.action == 'publish'
-        run: npm publish release/agen-ai-agent-protocol-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+        run: npm publish ./release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
       - name: Verify agent protocol publication
         run: >-
           node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-protocol-${GITHUB_REF_NAME#v}.tgz
+          --tarball release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
           --require-present --attempts 20 --delay-ms 3000
 
       - name: Inspect agent runtime publication
         id: agent_runtime
         run: >-
           node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-runtime-${GITHUB_REF_NAME#v}.tgz
+          --tarball release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
           --github-output "$GITHUB_OUTPUT"
 
       - name: Publish agent runtime
         if: steps.agent_runtime.outputs.action == 'publish'
-        run: npm publish release/agen-ai-agent-runtime-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+        run: npm publish ./release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
       - name: Verify agent runtime publication
         run: >-
           node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-runtime-${GITHUB_REF_NAME#v}.tgz
+          --tarball release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
           --require-present --attempts 20 --delay-ms 3000
 
       - name: Verify registry signatures and provenance
@@ -142,7 +178,7 @@ jobs:
           cd "$verification_root"
           npm init --yes >/dev/null
           npm install --ignore-scripts --no-audit --no-fund \
-            "@agen-ai/validation@${GITHUB_REF_NAME#v}" \
-            "@agen-ai/agent-protocol@${GITHUB_REF_NAME#v}" \
-            "@agen-ai/agent-runtime@${GITHUB_REF_NAME#v}"
+            "@agen-ai/validation@${RELEASE_TAG#v}" \
+            "@agen-ai/agent-protocol@${RELEASE_TAG#v}" \
+            "@agen-ai/agent-runtime@${RELEASE_TAG#v}"
           npm audit signatures

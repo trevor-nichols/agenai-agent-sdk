@@ -234,3 +234,49 @@ test("rejects a missing provenance attestation", async (t) => {
   ));
   await assert.rejects(() => inspect(tarball, fixture), /missing npm publish or provenance/u);
 });
+
+test("accepts an exact-tag package through guarded main recovery provenance", async (t) => {
+  const tarball = await createTarball(t);
+  const fixture = publicationFixture(tarball);
+  const recoverySha = "abcdef0123456789abcdef0123456789abcdef01";
+  const provenance = fixture.attestations.find((entry) => (
+    entry.predicateType === "https://slsa.dev/provenance/v1"
+  ));
+  const statement = JSON.parse(
+    Buffer.from(provenance.bundle.dsseEnvelope.payload, "base64").toString("utf8"),
+  );
+  statement.predicate.buildDefinition.externalParameters.workflow.ref = "refs/heads/main";
+  statement.predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit = recoverySha;
+  provenance.bundle.dsseEnvelope.payload = Buffer.from(JSON.stringify(statement)).toString("base64");
+
+  const result = await inspectPackagePublication({
+    tarballPath: tarball.tarballPath,
+    npmTag: "beta",
+    githubRepository: GITHUB_REPOSITORY,
+    githubRef: "refs/heads/main",
+    githubSha: recoverySha,
+    releaseRef: GITHUB_REF,
+    registryUrl: REGISTRY_URL,
+    fetchImpl: fixtureFetch(fixture),
+    allowInsecureRegistry: true,
+  });
+  assert.equal(result.action, "skip");
+});
+
+test("rejects a recovery release ref that does not match the tarball version", async (t) => {
+  const tarball = await createTarball(t);
+  await assert.rejects(
+    () => inspectPackagePublication({
+      tarballPath: tarball.tarballPath,
+      npmTag: "beta",
+      githubRepository: GITHUB_REPOSITORY,
+      githubRef: "refs/heads/main",
+      githubSha: GITHUB_SHA,
+      releaseRef: "refs/tags/v0.2.1",
+      registryUrl: REGISTRY_URL,
+      fetchImpl: fixtureFetch(publicationFixture(tarball)),
+      allowInsecureRegistry: true,
+    }),
+    /Tarball version 0\.2\.0 does not match refs\/tags\/v0\.2\.1/u,
+  );
+});

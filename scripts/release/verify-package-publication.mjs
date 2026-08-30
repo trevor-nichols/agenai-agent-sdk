@@ -219,6 +219,7 @@ export async function inspectPackagePublication({
   githubRepository,
   githubRef,
   githubSha,
+  releaseRef = githubRef,
   workflowPath = DEFAULT_WORKFLOW_PATH,
   registryUrl = DEFAULT_REGISTRY_URL,
   fetchImpl = fetch,
@@ -229,12 +230,16 @@ export async function inspectPackagePublication({
   const expectedRepository = assertNonEmptyString(githubRepository, "GitHub repository");
   const expectedRef = assertNonEmptyString(githubRef, "GitHub ref");
   const expectedSha = assertNonEmptyString(githubSha, "GitHub SHA");
+  const expectedReleaseRef = assertNonEmptyString(releaseRef, "Release ref");
   const expectedWorkflow = assertNonEmptyString(workflowPath, "Workflow path");
   if (!/^[a-f0-9]{40}$/u.test(expectedSha)) {
     throw new Error(`GitHub SHA must be a full lowercase commit identity.`);
   }
-  if (!expectedRef.startsWith("refs/tags/v")) {
-    throw new Error(`GitHub ref must identify a version tag.`);
+  if (!expectedRef.startsWith("refs/tags/v") && expectedRef !== "refs/heads/main") {
+    throw new Error(`GitHub ref must identify a version tag or the guarded main recovery.`);
+  }
+  if (!expectedReleaseRef.startsWith("refs/tags/v")) {
+    throw new Error(`Release ref must identify a version tag.`);
   }
 
   const registryOrigin = assertRegistryUrl(registryUrl, allowInsecureRegistry);
@@ -243,8 +248,8 @@ export async function inspectPackagePublication({
   const manifest = await readTarballManifest(resolvedTarballPath);
   const name = assertNonEmptyString(manifest.name, "Tarball package name");
   const version = assertNonEmptyString(manifest.version, "Tarball package version");
-  if (expectedRef !== `refs/tags/v${version}`) {
-    throw new Error(`Tarball version ${version} does not match ${expectedRef}.`);
+  if (expectedReleaseRef !== `refs/tags/v${version}`) {
+    throw new Error(`Tarball version ${version} does not match ${expectedReleaseRef}.`);
   }
 
   const packumentUrl = `${registryOrigin}/${registryPackagePath(name)}`;
@@ -372,6 +377,7 @@ function parseArguments(argv) {
     index += 1;
     if (argument === "--tarball") options.tarballPath = value;
     else if (argument === "--npm-tag") options.npmTag = value;
+    else if (argument === "--release-ref") options.releaseRef = value;
     else if (argument === "--github-output") options.githubOutput = value;
     else if (argument === "--attempts") options.attempts = Number.parseInt(value, 10);
     else if (argument === "--delay-ms") options.delayMs = Number.parseInt(value, 10);
