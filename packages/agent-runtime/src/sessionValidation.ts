@@ -195,6 +195,15 @@ function observeItemLifecycle(input: {
 }): void {
   const { event, providerKey, state } = input;
   const previous = state.observedItems.get(event.payload.itemId);
+  if (
+    event.type === "item.completed"
+    && !TERMINAL_ITEM_STATUSES.has(event.payload.status)
+  ) {
+    invalidTurnSequence(
+      providerKey,
+      "Provider completed an item without a terminal item status.",
+    );
+  }
   if (previous?.terminal) {
     invalidTurnSequence(
       providerKey,
@@ -255,7 +264,11 @@ function assertApprovalSubjectCorrelation(input: {
     return;
   }
   const item = input.state.observedItems.get(request.subject.itemId);
-  if (item?.status !== "pending" && item?.status !== "in_progress") {
+  if (
+    item === undefined
+    || item.terminal
+    || (item.status !== "pending" && item.status !== "in_progress")
+  ) {
     invalidTurnSequence(
       input.providerKey,
       "Provider approval request does not identify a live item from this turn.",

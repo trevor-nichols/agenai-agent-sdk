@@ -448,6 +448,47 @@ test("V7 rejects terminal item revival before approval visibility", async () => 
   }
 });
 
+test("V7 rejects approvals opened after completion with a live status", async () => {
+  const turnId = parseAgentTurnId("turn:v7-completed-live-approval");
+  const request = approvalRequest({
+    requestId: parseAgentRequestId("request:v7-completed-live-approval"),
+  });
+  assert.notEqual(request.subject.kind, "plan");
+  if (request.subject.kind === "plan") {
+    throw new TypeError("The test fixture requires an item-correlated approval.");
+  }
+  const itemId = request.subject.itemId;
+  const opened = await openSession(
+    approvalCapabilities,
+    candidateSession({
+      runTurn: async function* () {
+        yield event(turnId, "turn.started", {});
+        yield event(turnId, "item.completed", {
+          itemId,
+          itemKind: "dynamic_tool_call",
+          status: "in_progress",
+        });
+        yield event(turnId, "request.opened", { request });
+        yield event(turnId, "turn.state_changed", {
+          state: "waiting_for_request",
+          requestId: request.requestId,
+        });
+      },
+    }),
+  );
+
+  await assert.rejects(
+    collect(opened.runTurn({
+      turnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Reject a terminal approval subject." }],
+    })),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "invalid_turn_sequence",
+  );
+});
+
 test("V7 rejects a pending approval when its subject becomes terminal", async () => {
   const scenarios = [
     {
@@ -459,6 +500,11 @@ test("V7 rejects a pending approval when its subject becomes terminal", async ()
       name: "terminal-status-update",
       terminalEventType: "item.updated",
       terminalStatus: "canceled",
+    },
+    {
+      name: "completed-event-live-status",
+      terminalEventType: "item.completed",
+      terminalStatus: "in_progress",
     },
   ] as const;
 

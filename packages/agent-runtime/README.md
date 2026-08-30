@@ -46,8 +46,8 @@ a live item or exact proposed-plan artifact, and every option must fit an advert
 persistence/scope mode. Item identities are monotonic throughout a turn, including every request
 continuation: an adapter cannot restart an observed identity, change its kind, erase prior progress
 through an unknown-status update, regress it from in-progress to pending, or revive it after a
-terminal event or status. Completion-only snapshots remain valid when no earlier lifecycle event was
-observed.
+terminal event or status. An `item.completed` event must carry `completed`, `failed`, or `canceled`
+status. Completion-only snapshots remain valid when no earlier lifecycle event was observed.
 
 The host should serialize mutating operations for a given session. Separate session objects may
 run concurrently, so provider implementations must isolate their conversation-local state.
