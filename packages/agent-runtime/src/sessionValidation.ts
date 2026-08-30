@@ -343,6 +343,14 @@ function observeContextUsage(input: {
   input.state.compactionReadyScopes.delete(input.usage.measurementScope);
 }
 
+function observeContextMaterializationBoundary(
+  state: AgentContextUsageSequenceState,
+): void {
+  state.latestByScope.delete("materialization");
+  state.cumulativeByScope.delete("materialization");
+  state.compactionReadyScopes.delete("materialization");
+}
+
 function observeTurnEvent(input: {
   readonly providerKey: AgentProviderKey;
   readonly event: AgentEvent;
@@ -477,6 +485,31 @@ function observeTurnEvent(input: {
   }
 }
 
+function observeTurnOutput(input: {
+  readonly providerKey: AgentProviderKey;
+  readonly output: AgentProviderOutput;
+  readonly state: AgentTurnSequenceState;
+  readonly pendingRequests: Map<string, PendingAgentRequest>;
+  readonly openedRequestIds: Set<string>;
+  readonly contextUsageState: AgentContextUsageSequenceState;
+}): void {
+  if (
+    input.output.kind === "lifecycle"
+    && input.output.lifecycle.type === "process.started"
+  ) {
+    observeContextMaterializationBoundary(input.contextUsageState);
+  }
+  if (input.output.kind !== "event") return;
+  observeTurnEvent({
+    providerKey: input.providerKey,
+    event: input.output.event,
+    state: input.state,
+    pendingRequests: input.pendingRequests,
+    openedRequestIds: input.openedRequestIds,
+    contextUsageState: input.contextUsageState,
+  });
+}
+
 function assertStableTurnBoundary(input: {
   readonly providerKey: AgentProviderKey;
   readonly state: AgentTurnSequenceState;
@@ -541,10 +574,9 @@ function observeTurnOperationOutputs(input: {
   readonly contextUsageState: AgentContextUsageSequenceState;
 }): void {
   for (const output of input.outputs ?? []) {
-    if (output.kind !== "event") continue;
-    observeTurnEvent({
+    observeTurnOutput({
       providerKey: input.providerKey,
-      event: output.event,
+      output,
       state: input.state,
       pendingRequests: input.pendingRequests,
       openedRequestIds: input.openedRequestIds,
@@ -819,16 +851,14 @@ export function validateAgentProviderSession(input: {
           candidate,
           outputContext(parsedInput.turnId),
         );
-        if (output.kind === "event") {
-          observeTurnEvent({
-            providerKey,
-            event: output.event,
-            state: currentTurn.state,
-            pendingRequests: currentTurn.pendingRequests,
-            openedRequestIds,
-            contextUsageState,
-          });
-        }
+        observeTurnOutput({
+          providerKey,
+          output,
+          state: currentTurn.state,
+          pendingRequests: currentTurn.pendingRequests,
+          openedRequestIds,
+          contextUsageState,
+        });
         yield output;
       }
       while (currentTurn.inFlightOperations.size > 0) {
@@ -933,16 +963,14 @@ export function validateAgentProviderSession(input: {
           candidate,
           outputContext(pending.turnId),
         );
-        if (output.kind === "event") {
-          observeTurnEvent({
-            providerKey,
-            event: output.event,
-            state: currentTurn.state,
-            pendingRequests: currentTurn.pendingRequests,
-            openedRequestIds,
-            contextUsageState,
-          });
-        }
+        observeTurnOutput({
+          providerKey,
+          output,
+          state: currentTurn.state,
+          pendingRequests: currentTurn.pendingRequests,
+          openedRequestIds,
+          contextUsageState,
+        });
         yield output;
       }
       while (currentTurn.inFlightOperations.size > 0) {

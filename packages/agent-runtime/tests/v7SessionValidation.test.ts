@@ -24,6 +24,7 @@ import {
 import {
   AgentProviderContractError,
   createAgentEventOutput,
+  createAgentLifecycleOutput,
   validateAgentProviderAdapter,
   type AgentProviderAdapter,
   type AgentProviderOutput,
@@ -697,6 +698,14 @@ function contextUsage(
   });
 }
 
+function processStarted() {
+  return createAgentLifecycleOutput({
+    type: "process.started",
+    occurredAt,
+    message: "Provider materialization started.",
+  });
+}
+
 test("V7 accepts monotonic usage and one post-compaction occupancy decrease", async () => {
   const turnId = parseAgentTurnId("turn:v7-valid-compaction");
   const nextTurnId = parseAgentTurnId("turn:v7-valid-next");
@@ -741,6 +750,59 @@ test("V7 accepts monotonic usage and one post-compaction occupancy decrease", as
     parts: [{ type: "text", text: "Continue the same materialization." }],
   }));
   assert.equal(runs, 2);
+});
+
+test("V7 resets only materialization usage at an observed process boundary", async () => {
+  const runScenario = async (
+    measurementScope: "session" | "materialization",
+  ): Promise<void> => {
+    const firstTurnId = parseAgentTurnId(`turn:v7-${measurementScope}-first`);
+    const secondTurnId = parseAgentTurnId(`turn:v7-${measurementScope}-second`);
+    const opened = await openSession(
+      contextCapabilities,
+      candidateSession({
+        runTurn: async function* ({ turnId }) {
+          yield processStarted();
+          yield event(turnId, "turn.started", {});
+          const firstMaterialization = turnId === firstTurnId;
+          yield event(turnId, "context.usage.updated", {
+            measurementScope,
+            usedTokens: firstMaterialization ? 80 : 20,
+            maxTokens: 100,
+            cumulative: {
+              inputTokens: firstMaterialization ? 100 : 10,
+              turns: 1,
+            },
+          });
+          yield event(turnId, "turn.completed", { outcome: "completed" });
+        },
+      }),
+    );
+
+    await collect(opened.runTurn({
+      turnId: firstTurnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Record the first process usage." }],
+    }));
+    const secondTurn = collect(opened.runTurn({
+      turnId: secondTurnId,
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Start a replacement process." }],
+    }));
+    if (measurementScope === "materialization") {
+      await secondTurn;
+      return;
+    }
+    await assert.rejects(
+      secondTurn,
+      (error: unknown) =>
+        error instanceof AgentProviderContractError
+        && error.code === "invalid_turn_sequence",
+    );
+  };
+
+  await runScenario("materialization");
+  await runScenario("session");
 });
 
 test("V7 accepts unknown compaction only as a supported-provider fallback", async () => {

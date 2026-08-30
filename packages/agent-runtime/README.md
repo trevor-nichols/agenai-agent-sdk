@@ -51,6 +51,12 @@ status. Completion-only snapshots remain valid when no earlier lifecycle event w
 
 The host should serialize mutating operations for a given session. Separate session objects may
 run concurrently, so provider implementations must isolate their conversation-local state.
+
+Materialization-scoped context usage remains monotonic only within one native provider process. A
+provider that replaces that process emits a `process.started` lifecycle output as the explicit
+boundary before reporting usage from the replacement. Validation then clears only the
+`materialization` occupancy, cumulative counters, and compaction allowance; logical `session`
+measurements remain continuous.
 `runTurn` and `resolveRequest` both preserve consumer backpressure: the provider does not resume
 until the consumer requests the next output. Each stream must end at a completed turn or exactly
 one newly pending request. If a consumer abandons a stream, a provider throws, or either stream
