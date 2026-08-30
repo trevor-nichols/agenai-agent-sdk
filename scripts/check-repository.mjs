@@ -111,7 +111,7 @@ assert.ok(validationInspection >= 0 && validationInspection < validationPublish)
 assert.ok(validationPublish < protocolInspection && protocolInspection < protocolPublish);
 assert.ok(protocolPublish < runtimeInspection && runtimeInspection < runtimePublish);
 assert.match(releaseWorkflow, /verify-package-publication\.mjs/u);
-assert.match(releaseWorkflow, /--require-present --attempts 20 --delay-ms 3000/u);
+assert.match(releaseWorkflow, /--require-present --attempts 30 --delay-ms 5000/u);
 assert.match(releaseWorkflow, /release_ref:/u);
 assert.match(releaseWorkflow, /git diff --exit-code/u);
 assert.equal(releaseWorkflow.match(/npm publish \.\/release\//gu)?.length, 3);

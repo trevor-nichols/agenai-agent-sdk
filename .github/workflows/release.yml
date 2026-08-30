@@ -125,7 +125,7 @@ jobs:
           --tarball release/agen-ai-validation-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
-          --require-present --attempts 20 --delay-ms 3000
+          --require-present --attempts 30 --delay-ms 5000
 
       - name: Inspect agent protocol publication
         id: agent_protocol
@@ -146,7 +146,7 @@ jobs:
           --tarball release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
-          --require-present --attempts 20 --delay-ms 3000
+          --require-present --attempts 30 --delay-ms 5000
 
       - name: Inspect agent runtime publication
         id: agent_runtime
@@ -167,7 +167,7 @@ jobs:
           --tarball release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
-          --require-present --attempts 20 --delay-ms 3000
+          --require-present --attempts 30 --delay-ms 5000
 
       - name: Verify registry signatures and provenance
         shell: bash
