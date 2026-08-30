@@ -16,6 +16,7 @@ import {
   safeParseAgentTurnInputContent,
   safeParseAgentTurnRunInput,
 } from '../src/public/index.js';
+import { AGENT_PROTOCOL_TEXT_MAX_LENGTH } from '../src/foundation/types.js';
 
 const elicitationRequest = {
   requestKind: 'elicitation',
@@ -331,6 +332,20 @@ test('approval and structured elicitation requests are strict discriminated valu
   assert.equal(
     parseAgentRequest(approvalRequest).requestKind,
     'approval',
+  );
+  assert.equal(
+    safeParseAgentRequest({
+      ...approvalRequest,
+      prompt: 'p'.repeat(AGENT_PROTOCOL_TEXT_MAX_LENGTH),
+    }).success,
+    true,
+  );
+  assert.equal(
+    safeParseAgentRequest({
+      ...approvalRequest,
+      prompt: 'p'.repeat(AGENT_PROTOCOL_TEXT_MAX_LENGTH + 1),
+    }).success,
+    false,
   );
   assert.equal(parseAgentRequest(elicitationRequest).requestKind, 'elicitation');
 

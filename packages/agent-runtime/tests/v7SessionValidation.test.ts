@@ -632,6 +632,49 @@ test("V7 rejects a pending approval when its subject becomes terminal", async ()
   }
 });
 
+test("V7 preserves a pending approval across an unknown item update", async () => {
+  const turnId = parseAgentTurnId("turn:v7-pending-approval-unknown-update");
+  const request = approvalRequest({
+    requestId: parseAgentRequestId(
+      "request:v7-pending-approval-unknown-update",
+    ),
+  });
+  assert.notEqual(request.subject.kind, "plan");
+  if (request.subject.kind === "plan") {
+    throw new TypeError("The test fixture requires an item-correlated approval.");
+  }
+  const itemId = request.subject.itemId;
+  const opened = await openSession(
+    approvalCapabilities,
+    candidateSession({
+      runTurn: async function* () {
+        yield event(turnId, "turn.started", {});
+        yield event(turnId, "item.started", {
+          itemId,
+          itemKind: "dynamic_tool_call",
+          status: "in_progress",
+        });
+        yield event(turnId, "request.opened", { request });
+        yield event(turnId, "item.updated", {
+          itemId,
+          itemKind: "dynamic_tool_call",
+          status: "unknown",
+        });
+        yield event(turnId, "turn.state_changed", {
+          state: "waiting_for_request",
+          requestId: request.requestId,
+        });
+      },
+    }),
+  );
+
+  await collect(opened.runTurn({
+    turnId,
+    interactionMode: "default",
+    parts: [{ type: "text", text: "Keep the live approval correlated." }],
+  }));
+});
+
 test("V7 preserves terminal item authority across request continuations", async () => {
   const turnId = parseAgentTurnId("turn:v7-continuation-item-revival");
   const firstRequest = approvalRequest({

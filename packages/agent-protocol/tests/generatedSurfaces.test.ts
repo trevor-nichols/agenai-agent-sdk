@@ -25,6 +25,7 @@ import {
   safeParseAgentTurnInputContent,
   safeParseAgentTurnRunInput,
 } from '../src/public/index.js';
+import { AGENT_PROTOCOL_TEXT_MAX_LENGTH } from '../src/foundation/types.js';
 import {
   eventFixtureCorpus,
   protocolTimestamp,
@@ -148,7 +149,7 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
       accepted: {
         requestKind: 'approval',
         requestId: 'request:1',
-        prompt: 'Proceed?',
+        prompt: 'p'.repeat(AGENT_PROTOCOL_TEXT_MAX_LENGTH),
         subject: {
           kind: 'other',
           title: 'Proceed',

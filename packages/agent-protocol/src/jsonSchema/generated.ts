@@ -839,7 +839,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
     "unique_field_ids",
     "unique_choice_values"
   ],
-  "sha256": "f451cb5d1fe75b7b1821c66a71fa550780f1cae7e4c15dd252104c57521097a4",
+  "sha256": "a839f3191f467d7c8013d222c03c8101db67a3316d6bdb5495cefd23804afe70",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -849,13 +849,13 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
         "type": "string"
       },
       "__schema1": {
-        "maxLength": 1000,
+        "maxLength": 120,
         "minLength": 1,
         "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
         "type": "string"
       },
       "__schema2": {
-        "maxLength": 120,
+        "maxLength": 1000,
         "minLength": 1,
         "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
         "type": "string"
@@ -871,10 +871,10 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
             "type": "string"
           },
           "description": {
-            "$ref": "#/$defs/__schema1"
+            "$ref": "#/$defs/__schema2"
           },
           "label": {
-            "$ref": "#/$defs/__schema2"
+            "$ref": "#/$defs/__schema1"
           },
           "optionId": {
             "$ref": "#/$defs/__schema0"
@@ -1096,7 +1096,10 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
             "type": "array"
           },
           "prompt": {
-            "$ref": "#/$defs/__schema1"
+            "maxLength": 4000,
+            "minLength": 1,
+            "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+            "type": "string"
           },
           "requestId": {
             "$ref": "#/$defs/__schema0"
@@ -1114,14 +1117,14 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
                     "$ref": "#/$defs/__schema0"
                   },
                   "description": {
-                    "$ref": "#/$defs/__schema1"
+                    "$ref": "#/$defs/__schema2"
                   },
                   "kind": {
                     "const": "plan",
                     "type": "string"
                   },
                   "title": {
-                    "$ref": "#/$defs/__schema2"
+                    "$ref": "#/$defs/__schema1"
                   }
                 },
                 "readOnly": true,
@@ -1136,7 +1139,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
                 "additionalProperties": false,
                 "properties": {
                   "description": {
-                    "$ref": "#/$defs/__schema1"
+                    "$ref": "#/$defs/__schema2"
                   },
                   "itemId": {
                     "$ref": "#/$defs/__schema0"
@@ -1151,7 +1154,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
                     "type": "string"
                   },
                   "title": {
-                    "$ref": "#/$defs/__schema2"
+                    "$ref": "#/$defs/__schema1"
                   }
                 },
                 "readOnly": true,
@@ -2330,7 +2333,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
     "serialized_bytes",
     "terminal_error_consistency"
   ],
-  "sha256": "4f4aafd983446decc2782f9c7534c038ceb2d0dc247920639bb5afc659fe35c3",
+  "sha256": "baa35aad07a0211df72ef43b6c972da7df1b37cebf6544161673b64f69adadd5",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -2581,13 +2584,13 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         "type": "object"
       },
       "__schema45": {
-        "maxLength": 1000,
+        "maxLength": 120,
         "minLength": 1,
         "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
         "type": "string"
       },
       "__schema46": {
-        "maxLength": 120,
+        "maxLength": 1000,
         "minLength": 1,
         "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
         "type": "string"
@@ -2603,10 +2606,10 @@ export const AGENT_EVENT_JSON_SCHEMA = {
             "type": "string"
           },
           "description": {
-            "$ref": "#/$defs/__schema45"
+            "$ref": "#/$defs/__schema46"
           },
           "label": {
-            "$ref": "#/$defs/__schema46"
+            "$ref": "#/$defs/__schema45"
           },
           "optionId": {
             "$ref": "#/$defs/__schema1"
@@ -4138,7 +4141,10 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                         "type": "array"
                       },
                       "prompt": {
-                        "$ref": "#/$defs/__schema45"
+                        "maxLength": 4000,
+                        "minLength": 1,
+                        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                        "type": "string"
                       },
                       "requestId": {
                         "$ref": "#/$defs/__schema1"
@@ -4156,14 +4162,14 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                                 "$ref": "#/$defs/__schema1"
                               },
                               "description": {
-                                "$ref": "#/$defs/__schema45"
+                                "$ref": "#/$defs/__schema46"
                               },
                               "kind": {
                                 "const": "plan",
                                 "type": "string"
                               },
                               "title": {
-                                "$ref": "#/$defs/__schema46"
+                                "$ref": "#/$defs/__schema45"
                               }
                             },
                             "readOnly": true,
@@ -4178,7 +4184,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                             "additionalProperties": false,
                             "properties": {
                               "description": {
-                                "$ref": "#/$defs/__schema45"
+                                "$ref": "#/$defs/__schema46"
                               },
                               "itemId": {
                                 "$ref": "#/$defs/__schema1"
@@ -4193,7 +4199,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                                 "type": "string"
                               },
                               "title": {
-                                "$ref": "#/$defs/__schema46"
+                                "$ref": "#/$defs/__schema45"
                               }
                             },
                             "readOnly": true,

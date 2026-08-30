@@ -47,6 +47,11 @@ const AgentApprovalDescriptionSchema = z
   .min(1)
   .max(AGENT_APPROVAL_DESCRIPTION_MAX_LENGTH)
   .regex(/^(?:\S|\S[\s\S]*\S)$/u);
+const AgentApprovalPromptSchema = z
+  .string()
+  .min(1)
+  .max(AGENT_PROTOCOL_TEXT_MAX_LENGTH)
+  .regex(/^(?:\S|\S[\s\S]*\S)$/u);
 
 const AgentApprovalOptionSchema = z
   .object({
@@ -67,7 +72,7 @@ export const AgentApprovalRequestPortableSchema = z
   .object({
     requestKind: z.literal('approval'),
     requestId: AgentRequestIdSchema,
-    prompt: AgentApprovalDescriptionSchema,
+    prompt: AgentApprovalPromptSchema,
     subject: z.discriminatedUnion('kind', [
       z
         .object({

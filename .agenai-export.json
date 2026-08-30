@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "d6b77ab3ebc2f709b8bf8f4b83c37a3d81f87366",
+  "sourceRevision": "3b7411354243e2e91b6f5c4560a6959cd5524c61",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {

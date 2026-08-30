@@ -264,11 +264,14 @@ function assertApprovalSubjectCorrelation(input: {
     return;
   }
   const item = input.state.observedItems.get(request.subject.itemId);
-  if (
-    item === undefined
-    || item.terminal
-    || (item.status !== "pending" && item.status !== "in_progress")
-  ) {
+  const itemIsLive = item !== undefined
+    && !item.terminal
+    && (
+      item.status === "pending"
+      || item.status === "in_progress"
+      || (item.status === "unknown" && item.inProgressObserved)
+    );
+  if (!itemIsLive) {
     invalidTurnSequence(
       input.providerKey,
       "Provider approval request does not identify a live item from this turn.",
