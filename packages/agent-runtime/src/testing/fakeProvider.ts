@@ -6,6 +6,8 @@ import {
   parseAgentCapabilities,
   parseAgentInstanceId,
   parseAgentIsoDateTime,
+  parseAgentItemId,
+  parseAgentApprovalOptionId,
   parseAgentProviderConversationId,
   parseAgentProviderHistoryAnchor,
   parseAgentProviderKey,
@@ -115,7 +117,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
@@ -123,7 +125,17 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
       interrupt: true,
       steer: { kind: "supported", input },
     },
-    requests: { approval: true, elicitation: { kind: "structured" } },
+    requests: {
+      approval: {
+        kind: "supported",
+        modes: [{ persistence: "once", scopeKinds: ["exact_action"] }],
+      },
+      elicitation: { kind: "structured" },
+    },
+    context: {
+      usage: { kind: "unsupported" },
+      compaction: { kind: "unsupported" },
+    },
     input,
     output: {
       streaming: true,
@@ -172,7 +184,7 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 6 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 7 as const, sessionId, turnId, occurredAt };
 }
 
 function requestForTurn(turnId: AgentTurnId): AgentRequest {
@@ -180,7 +192,27 @@ function requestForTurn(turnId: AgentTurnId): AgentRequest {
     requestKind: "approval",
     requestId: parseAgentRequestId(`fake-request:${turnId}`),
     prompt: "Approve the deterministic fake operation?",
-    subject: { kind: "other", title: "Fake provider operation" },
+    subject: {
+      kind: "other",
+      title: "Fake provider operation",
+      itemId: parseAgentItemId(`fake-item:${turnId}`),
+    },
+    options: [
+      {
+        optionId: parseAgentApprovalOptionId("approval:allow-once"),
+        label: "Allow once",
+        decision: "approved",
+        persistence: "once",
+        scope: { kind: "exact_action" },
+      },
+      {
+        optionId: parseAgentApprovalOptionId("approval:deny-once"),
+        label: "Deny",
+        decision: "denied",
+        persistence: "once",
+        scope: { kind: "exact_action" },
+      },
+    ],
   };
 }
 
@@ -216,6 +248,15 @@ function fakeSession(input: {
       type: "turn.started",
       payload: { message: "Fake provider turn started." },
     });
+    yield createAgentEventOutput({
+      ...eventBase(input.context.sessionId, turnInput.turnId, occurredAt),
+      type: "item.started",
+      payload: {
+        itemId: parseAgentItemId(`fake-item:${turnInput.turnId}`),
+        itemKind: "assistant_message",
+        status: "in_progress",
+      },
+    });
     if (input.capabilities.output.streaming) {
       yield createAgentEventOutput({
         ...eventBase(input.context.sessionId, turnInput.turnId, occurredAt),
@@ -228,7 +269,7 @@ function fakeSession(input: {
       });
     }
 
-    if (input.capabilities.requests.approval) {
+    if (input.capabilities.requests.approval.kind === "supported") {
       const request = requestForTurn(turnInput.turnId);
       pendingRequests.set(request.requestId, {
         request,

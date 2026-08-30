@@ -13,7 +13,10 @@ import {
   parseAgentTurnInterruptionInput,
   parseAgentTurnRunInput,
   type AgentCapabilities,
+  type AgentContextMeasurementScope,
+  type AgentContextUsage,
   type AgentEvent,
+  type AgentItemStatus,
   type AgentOperationInputCapability,
   type AgentProviderKey,
   type AgentRequest,
@@ -107,10 +110,17 @@ interface PendingAgentRequest {
 
 interface AgentTurnSequenceState {
   readonly fileChangeMode: AgentCapabilities["output"]["fileChanges"];
+  readonly observedItems: Map<string, AgentItemStatus>;
+  readonly proposedPlans: Map<string, string>;
   started: boolean;
   terminal: boolean;
   waiting: boolean;
   finalDiffObserved: boolean;
+}
+
+interface AgentContextUsageSequenceState {
+  readonly latestByScope: Map<AgentContextMeasurementScope, AgentContextUsage>;
+  readonly compactionReadyScopes: Set<AgentContextMeasurementScope>;
 }
 
 interface ActiveAgentTurn {
@@ -154,14 +164,88 @@ const FINAL_DIFF_TRAILING_EVENT_TYPES: readonly AgentEvent["type"][] = [
   "turn.completed",
 ];
 
+function assertApprovalSubjectCorrelation(input: {
+  readonly providerKey: AgentProviderKey;
+  readonly event: Extract<AgentEvent, { readonly type: "request.opened" }>;
+  readonly state: AgentTurnSequenceState;
+}): void {
+  const request = input.event.payload.request;
+  if (request.requestKind !== "approval") return;
+  if (request.subject.kind === "plan") {
+    if (
+      input.state.proposedPlans.get(request.subject.artifactId)
+      !== request.requestId
+    ) {
+      invalidTurnSequence(
+        input.providerKey,
+        "Provider approval request does not identify a proposed plan from this turn.",
+      );
+    }
+    return;
+  }
+  const status = input.state.observedItems.get(request.subject.itemId);
+  if (status !== "pending" && status !== "in_progress") {
+    invalidTurnSequence(
+      input.providerKey,
+      "Provider approval request does not identify a live item from this turn.",
+    );
+  }
+}
+
+function observeContextUsage(input: {
+  readonly providerKey: AgentProviderKey;
+  readonly usage: AgentContextUsage;
+  readonly state: AgentContextUsageSequenceState;
+}): void {
+  const previous = input.state.latestByScope.get(input.usage.measurementScope);
+  if (previous !== undefined) {
+    if (JSON.stringify(previous) === JSON.stringify(input.usage)) {
+      invalidTurnSequence(
+        input.providerKey,
+        "Provider emitted a duplicate context usage sample.",
+      );
+    }
+    for (const [field, value] of Object.entries(input.usage.cumulative ?? {})) {
+      const previousValue = previous.cumulative?.[
+        field as keyof NonNullable<AgentContextUsage["cumulative"]>
+      ];
+      if (previousValue !== undefined && value < previousValue) {
+        invalidTurnSequence(
+          input.providerKey,
+          "Provider context cumulative counters cannot decrease.",
+        );
+      }
+    }
+    if (
+      input.usage.usedTokens < previous.usedTokens
+      && !input.state.compactionReadyScopes.has(input.usage.measurementScope)
+    ) {
+      invalidTurnSequence(
+        input.providerKey,
+        "Provider context occupancy cannot decrease without completed compaction.",
+      );
+    }
+  }
+  input.state.latestByScope.set(input.usage.measurementScope, input.usage);
+  input.state.compactionReadyScopes.delete(input.usage.measurementScope);
+}
+
 function observeTurnEvent(input: {
   readonly providerKey: AgentProviderKey;
   readonly event: AgentEvent;
   readonly state: AgentTurnSequenceState;
   readonly pendingRequests: Map<string, PendingAgentRequest>;
   readonly openedRequestIds: Set<string>;
+  readonly contextUsageState: AgentContextUsageSequenceState;
 }): void {
-  const { event, openedRequestIds, pendingRequests, providerKey, state } = input;
+  const {
+    contextUsageState,
+    event,
+    openedRequestIds,
+    pendingRequests,
+    providerKey,
+    state,
+  } = input;
   if (state.terminal) {
     invalidTurnSequence(
       providerKey,
@@ -207,6 +291,32 @@ function observeTurnEvent(input: {
       );
     }
   }
+  if (
+    event.type === "item.started"
+    || event.type === "item.updated"
+    || event.type === "item.completed"
+  ) {
+    state.observedItems.set(event.payload.itemId, event.payload.status);
+    if (
+      event.payload.itemKind === "context_compaction"
+      && event.type === "item.completed"
+      && event.payload.status === "completed"
+    ) {
+      for (const scope of ["session", "materialization"] as const) {
+        contextUsageState.compactionReadyScopes.add(scope);
+      }
+    }
+  }
+  if (event.type === "turn.plan.proposed") {
+    state.proposedPlans.set(event.payload.artifactId, event.payload.requestId);
+  }
+  if (event.type === "context.usage.updated") {
+    observeContextUsage({
+      providerKey,
+      usage: event.payload,
+      state: contextUsageState,
+    });
+  }
   if (event.type === "request.opened") {
     if (pendingRequests.size > 0) {
       invalidTurnSequence(
@@ -221,6 +331,7 @@ function observeTurnEvent(input: {
         "Provider reused a request ID within a session.",
       );
     }
+    assertApprovalSubjectCorrelation({ providerKey, event, state });
     openedRequestIds.add(requestId);
     pendingRequests.set(requestId, {
       request: event.payload.request,
@@ -305,6 +416,7 @@ function observeTurnOperationOutputs(input: {
   readonly state: AgentTurnSequenceState;
   readonly pendingRequests: Map<string, PendingAgentRequest>;
   readonly openedRequestIds: Set<string>;
+  readonly contextUsageState: AgentContextUsageSequenceState;
 }): void {
   for (const output of input.outputs ?? []) {
     if (output.kind !== "event") continue;
@@ -314,6 +426,7 @@ function observeTurnOperationOutputs(input: {
       state: input.state,
       pendingRequests: input.pendingRequests,
       openedRequestIds: input.openedRequestIds,
+      contextUsageState: input.contextUsageState,
     });
   }
 }
@@ -332,6 +445,8 @@ function reconstructWaitingTurn(input: {
   return {
     state: {
       fileChangeMode: input.fileChangeMode,
+      observedItems: new Map<string, AgentItemStatus>(),
+      proposedPlans: new Map<string, string>(),
       started: true,
       terminal: false,
       waiting: true,
@@ -462,6 +577,10 @@ export function validateAgentProviderSession(input: {
 
   const pendingRequests = new Map<string, PendingAgentRequest>();
   const openedRequestIds = new Set<string>();
+  const contextUsageState: AgentContextUsageSequenceState = {
+    latestByScope: new Map<AgentContextMeasurementScope, AgentContextUsage>(),
+    compactionReadyScopes: new Set<AgentContextMeasurementScope>(),
+  };
   let activeTurn: ActiveAgentTurn | null = null;
   let closePromise: Promise<void> | null = null;
   let closed = false;
@@ -556,6 +675,8 @@ export function validateAgentProviderSession(input: {
       pendingRequests: new Map<string, PendingAgentRequest>(),
       state: {
         fileChangeMode: capabilities.output.fileChanges,
+        observedItems: new Map<string, AgentItemStatus>(),
+        proposedPlans: new Map<string, string>(),
         started: false,
         terminal: false,
         waiting: false,
@@ -581,6 +702,7 @@ export function validateAgentProviderSession(input: {
             state: currentTurn.state,
             pendingRequests: currentTurn.pendingRequests,
             openedRequestIds,
+            contextUsageState,
           });
         }
         yield output;
@@ -632,6 +754,16 @@ export function validateAgentProviderSession(input: {
         "Provider request resolution does not match the opened request.",
       );
     }
+    if (
+      pending.request.expiresAt !== undefined
+      && Date.parse(pending.request.expiresAt) <= Date.now()
+    ) {
+      throwAgentProviderContractError(
+        providerKey,
+        "request_resolution_mismatch",
+        "Provider request resolution identifies an expired request.",
+      );
+    }
     const nextPendingRequests = new Map(pendingRequests);
     nextPendingRequests.delete(resolution.requestId);
     if (activeTurn !== null) {
@@ -646,6 +778,8 @@ export function validateAgentProviderSession(input: {
       pendingRequests: nextPendingRequests,
       state: {
         fileChangeMode: capabilities.output.fileChanges,
+        observedItems: new Map<string, AgentItemStatus>(),
+        proposedPlans: new Map<string, string>(),
         started: true,
         terminal: false,
         waiting: false,
@@ -673,6 +807,7 @@ export function validateAgentProviderSession(input: {
             state: currentTurn.state,
             pendingRequests: currentTurn.pendingRequests,
             openedRequestIds,
+            contextUsageState,
           });
         }
         yield output;
@@ -761,6 +896,7 @@ export function validateAgentProviderSession(input: {
                   state: targetedTurn.state,
                   pendingRequests: targetedTurn.pendingRequests,
                   openedRequestIds,
+                  contextUsageState,
                 });
                 if (terminalized && !targetedTurn.state.terminal) {
                   completeTurnSequence({

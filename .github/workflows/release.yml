@@ -76,11 +76,73 @@ jobs:
           pnpm --filter @agen-ai/agent-runtime pack --pack-destination "$GITHUB_WORKSPACE/release"
           ls -1 release/*.tgz
 
+      - name: Inspect validation publication
+        id: validation
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-validation-${GITHUB_REF_NAME#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --github-output "$GITHUB_OUTPUT"
+
       - name: Publish validation
+        if: steps.validation.outputs.action == 'publish'
         run: npm publish release/agen-ai-validation-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
+      - name: Verify validation publication
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-validation-${GITHUB_REF_NAME#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --require-present --attempts 20 --delay-ms 3000
+
+      - name: Inspect agent protocol publication
+        id: agent_protocol
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-agent-protocol-${GITHUB_REF_NAME#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --github-output "$GITHUB_OUTPUT"
+
       - name: Publish agent protocol
+        if: steps.agent_protocol.outputs.action == 'publish'
         run: npm publish release/agen-ai-agent-protocol-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
+      - name: Verify agent protocol publication
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-agent-protocol-${GITHUB_REF_NAME#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --require-present --attempts 20 --delay-ms 3000
+
+      - name: Inspect agent runtime publication
+        id: agent_runtime
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-agent-runtime-${GITHUB_REF_NAME#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --github-output "$GITHUB_OUTPUT"
+
       - name: Publish agent runtime
+        if: steps.agent_runtime.outputs.action == 'publish'
         run: npm publish release/agen-ai-agent-runtime-${GITHUB_REF_NAME#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Verify agent runtime publication
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-agent-runtime-${GITHUB_REF_NAME#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --require-present --attempts 20 --delay-ms 3000
+
+      - name: Verify registry signatures and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          verification_root="$(mktemp -d)"
+          trap 'find "$verification_root" -depth -delete' EXIT
+          cd "$verification_root"
+          npm init --yes >/dev/null
+          npm install --ignore-scripts --no-audit --no-fund \
+            "@agen-ai/validation@${GITHUB_REF_NAME#v}" \
+            "@agen-ai/agent-protocol@${GITHUB_REF_NAME#v}" \
+            "@agen-ai/agent-runtime@${GITHUB_REF_NAME#v}"
+          npm audit signatures

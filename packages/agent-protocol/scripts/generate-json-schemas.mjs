@@ -80,7 +80,11 @@ const definitions = [
     contractId: 'agenai.agent-protocol.request',
     direction: 'output',
     schema: AgentRequestPortableSchema,
-    parserInvariants: ['unique_field_ids', 'unique_choice_values'],
+    parserInvariants: [
+      'unique_approval_option_ids',
+      'unique_field_ids',
+      'unique_choice_values',
+    ],
   },
   {
     exportName: 'AGENT_REQUEST_RESOLUTION_JSON_SCHEMA',
@@ -99,11 +103,16 @@ const definitions = [
     schema: AgentCapabilitiesPortableSchema,
     parserInvariants: [
       'canonical_artifact_kinds',
+      'canonical_approval_modes',
+      'canonical_approval_scope_kinds',
       'canonical_authentication_flows',
       'canonical_configuration_field_keys',
       'canonical_configuration_option_ids',
       'canonical_image_input_media_types',
       'canonical_image_input_source_kinds',
+      'canonical_context_compaction_triggers',
+      'canonical_context_cumulative_usage_fields',
+      'canonical_context_measurement_scopes',
       'image_input_pixels_bounded_by_dimensions',
       'image_input_total_bytes_admits_max_image',
       'image_input_total_bytes_bounded_by_count',
@@ -122,6 +131,7 @@ const definitions = [
     schema: AgentEventPortableSchema,
     parserInvariants: [
       'event_state_correlation',
+      'context_usage_bounds',
       'file_change_path_ordering_and_uniqueness',
       'item_detail_identification',
       'non_empty_provider_refs',

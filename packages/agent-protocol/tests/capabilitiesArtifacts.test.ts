@@ -27,7 +27,19 @@ test('all accepted provider capability fixtures preserve truthful differences', 
   assert.equal(parsed.opencode.sessions.branch.kind, 'through_turn');
   assert.equal(parsed.cursor.sessions.branch.kind, 'unsupported');
   assert.equal(parsed.grokBuild.sessions.branch.kind, 'unsupported');
-  assert.equal(parsed.grokBuild.requests.approval, true);
+  assert.equal(parsed.grokBuild.requests.approval.kind, 'supported');
+  assert.deepEqual(parsed.grokBuild.context.usage, {
+    kind: 'supported',
+    measurementScopes: ['materialization'],
+    cumulativeFields: [
+      'inputTokens',
+      'outputTokens',
+      'cachedReadTokens',
+      'reasoningTokens',
+      'modelCalls',
+      'turns',
+    ],
+  });
   assert.equal(parsed.grokBuild.requests.elicitation.kind, 'unsupported');
   assert.equal(parsed.codex.turns.steer.kind, 'supported');
   assert.equal(parsed.opencode.turns.steer.kind, 'unsupported');

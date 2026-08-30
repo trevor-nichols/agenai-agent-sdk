@@ -542,7 +542,7 @@ test("provider source evidence is atomic with its event and standalone evidence 
   });
   const eventOutput = createAgentEventOutput(
     {
-      protocolVersion: 6,
+      protocolVersion: 7,
       type: "turn.started",
       sessionId: "session:external",
       turnId: "turn:external",
@@ -555,7 +555,7 @@ test("provider source evidence is atomic with its event and standalone evidence 
 
   const requestOutput = createAgentEventOutput(
     {
-      protocolVersion: 6,
+      protocolVersion: 7,
       type: "request.opened",
       sessionId: "session:external",
       turnId: "turn:external",
@@ -565,7 +565,20 @@ test("provider source evidence is atomic with its event and standalone evidence 
           requestKind: "approval",
           requestId: "request:external",
           prompt: "Approve?",
-          subject: { kind: "other", title: "External operation" },
+          subject: {
+            kind: "other",
+            title: "External operation",
+            itemId: "item:external",
+          },
+          options: [
+            {
+              optionId: "approval:allow-once",
+              label: "Allow once",
+              decision: "approved",
+              persistence: "once",
+              scope: { kind: "exact_action" },
+            },
+          ],
         },
       },
     },
@@ -642,7 +655,7 @@ test("provider source evidence is atomic with its event and standalone evidence 
 
 test("event outputs reject Agent V4 and malformed V5 item variants before yielding", () => {
   const eventBase = {
-    protocolVersion: 6,
+    protocolVersion: 7,
     type: "item.completed",
     sessionId: "session:external",
     turnId: "turn:external",

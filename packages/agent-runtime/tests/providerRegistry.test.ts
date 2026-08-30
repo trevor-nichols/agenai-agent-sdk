@@ -120,7 +120,7 @@ test("registry validates materialized instance identity and capability ownership
     createInstance: () => ({
       instanceId: parseAgentInstanceId("another-instance"),
       capabilities: parseAgentCapabilities({
-        protocolVersion: 6,
+        protocolVersion: 7,
         providerKey,
         sessions: {
           create: true,
@@ -132,7 +132,14 @@ test("registry validates materialized instance identity and capability ownership
           interrupt: false,
           steer: { kind: "unsupported" },
         },
-        requests: { approval: false, elicitation: { kind: "unsupported" } },
+        requests: {
+          approval: { kind: "unsupported" },
+          elicitation: { kind: "unsupported" },
+        },
+        context: {
+          usage: { kind: "unsupported" },
+          compaction: { kind: "unsupported" },
+        },
         input: { text: true, images: { kind: "unsupported" } },
         output: {
           streaming: false,
@@ -215,7 +222,7 @@ test("registry cleans earlier instances when a rejected instance also fails clea
     createInstance: () => ({
       instanceId: parseAgentInstanceId("wrong-instance"),
       capabilities: parseAgentCapabilities({
-        protocolVersion: 6,
+        protocolVersion: 7,
         providerKey,
         sessions: {
           create: true,
@@ -227,7 +234,14 @@ test("registry cleans earlier instances when a rejected instance also fails clea
           interrupt: false,
           steer: { kind: "unsupported" },
         },
-        requests: { approval: false, elicitation: { kind: "unsupported" } },
+        requests: {
+          approval: { kind: "unsupported" },
+          elicitation: { kind: "unsupported" },
+        },
+        context: {
+          usage: { kind: "unsupported" },
+          compaction: { kind: "unsupported" },
+        },
         input: { text: true, images: { kind: "unsupported" } },
         output: {
           streaming: false,

@@ -72,7 +72,7 @@ test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shap
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 6);
+    assert.equal(artifact.protocolVersion, 7);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -149,7 +149,18 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
         requestKind: 'approval',
         requestId: 'request:1',
         prompt: 'Proceed?',
-        subject: { kind: 'other', title: 'Proceed' },
+        subject: {
+          kind: 'other',
+          title: 'Proceed',
+          itemId: 'item:1',
+        },
+        options: [{
+          optionId: 'approval:allow-once',
+          label: 'Allow once',
+          decision: 'approved',
+          persistence: 'once',
+          scope: { kind: 'exact_action' },
+        }],
       },
       rejected: { requestKind: 'unknown' },
     },
@@ -159,7 +170,8 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
       accepted: {
         requestKind: 'approval',
         requestId: 'request:1',
-        decision: 'approved',
+        disposition: 'selected',
+        optionId: 'approval:allow-once',
       },
       rejected: { requestKind: 'approval', requestId: 'request:1' },
     },
@@ -280,11 +292,16 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
   assert.ok(artifact);
   assert.deepEqual(artifact.parserInvariants, [
     'canonical_artifact_kinds',
+    'canonical_approval_modes',
+    'canonical_approval_scope_kinds',
     'canonical_authentication_flows',
     'canonical_configuration_field_keys',
     'canonical_configuration_option_ids',
     'canonical_image_input_media_types',
     'canonical_image_input_source_kinds',
+    'canonical_context_compaction_triggers',
+    'canonical_context_cumulative_usage_fields',
+    'canonical_context_measurement_scopes',
     'image_input_pixels_bounded_by_dimensions',
     'image_input_total_bytes_admits_max_image',
     'image_input_total_bytes_bounded_by_count',
@@ -414,13 +431,14 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
   }
 });
 
-test('event JSON Schema declares residual V6 semantic parser invariants', () => {
+test('event JSON Schema declares residual V7 semantic parser invariants', () => {
   const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find(
     (candidate) => candidate.contractId === 'agenai.agent-protocol.event',
   );
   assert.ok(artifact);
   assert.deepEqual(artifact.parserInvariants, [
     'event_state_correlation',
+    'context_usage_bounds',
     'file_change_path_ordering_and_uniqueness',
     'item_detail_identification',
     'non_empty_provider_refs',
@@ -435,7 +453,7 @@ test('event JSON Schema declares residual V6 semantic parser invariants', () => 
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 6,
+    protocolVersion: 7,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',

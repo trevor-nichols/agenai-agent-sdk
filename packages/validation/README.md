@@ -25,6 +25,10 @@ imports `/zod`.
 
 ## Versioning and release
 
+The package source is `0.2.0` and ships in lockstep with Agent Protocol V7 and
+`@agen-ai/agent-runtime@0.2.0`. Its ordinary validator-neutral surface is unchanged from `0.1.0`;
+the coordinated version advance prevents consumers from resolving a mixed SDK release set.
+
 The package follows semantic versioning. Breaking changes to ordinary types, normalized issue
 semantics, or exported entrypoints require a major release. Additive issue helpers and compatible
 normalization improvements may be minor releases; fixes that preserve the public contract are

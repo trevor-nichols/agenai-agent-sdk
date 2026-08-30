@@ -57,13 +57,13 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.1.0", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.2.0", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.1.0" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.2.0" },
   },
 ];
 
@@ -152,7 +152,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.2.0");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -252,7 +252,7 @@ async function inspectTarball(definition, tarballPath, extractedRoot) {
     ) {
       assert.doesNotMatch(
         source,
-        /(?:workspace|link|catalog):|\bfile:\/\//u,
+        /(?:workspace|link|catalog):(?:[~^*]|\d|\.{0,2}\/)|\bfile:\/\//u,
         `${definition.name}/${relativeFile} contains a workspace-only reference`,
       );
       assert.doesNotMatch(
@@ -308,13 +308,13 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.1.0");
+assert.equal(protocolManifest.version, "0.2.0");
 
 assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 6);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 7);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -354,7 +354,7 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 6,
+  protocolVersion: 7,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -365,7 +365,14 @@ const steeringCapabilities = parseAgentCapabilities({
       input: { text: true, images: { kind: "unsupported" } },
     },
   },
-  requests: { approval: false, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: { kind: "unsupported" },
+    elicitation: { kind: "unsupported" },
+  },
+  context: {
+    usage: { kind: "unsupported" },
+    compaction: { kind: "unsupported" },
+  },
   input: { text: true, images: { kind: "unsupported" } },
   output: {
     streaming: false,
@@ -389,7 +396,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
   },
   runTurn: async function* (input) {
     yield createAgentEventOutput({
-      protocolVersion: 6,
+      protocolVersion: 7,
       type: "turn.started",
       sessionId,
       turnId: input.turnId,
@@ -397,7 +404,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
       payload: {},
     });
     yield createAgentEventOutput({
-      protocolVersion: 6,
+      protocolVersion: 7,
       type: "turn.completed",
       sessionId,
       turnId: input.turnId,
@@ -501,11 +508,20 @@ const report = await runAgentProviderConformance({
     interactionMode: "default",
     parts: [{ type: "text", text: "Interrupt this packed provider turn." }],
   },
-  resolutionFor: (request) => ({
-    requestKind: "approval",
-    requestId: request.requestId,
-    decision: "approved",
-  }),
+  resolutionFor: (request) => {
+    assert.equal(request.requestKind, "approval");
+    if (request.requestKind !== "approval") {
+      throw new TypeError("The deterministic fake must open an approval request.");
+    }
+    const option = request.options.find((candidate) => candidate.decision === "approved");
+    assert.ok(option);
+    return {
+      requestKind: "approval",
+      requestId: request.requestId,
+      disposition: "selected",
+      optionId: option.optionId,
+    };
+  },
   branchSource: (binding, turnId) => ({
     sessionId: parseAgentSessionId("external-session:create"),
     binding,
@@ -524,7 +540,7 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
@@ -532,7 +548,14 @@ const limited = createFakeAgentProvider({
       interrupt: false,
       steer: { kind: "unsupported" },
     },
-    requests: { approval: false, elicitation: { kind: "unsupported" } },
+    requests: {
+      approval: { kind: "unsupported" },
+      elicitation: { kind: "unsupported" },
+    },
+    context: {
+      usage: { kind: "unsupported" },
+      compaction: { kind: "unsupported" },
+    },
     input: { text: true, images: { kind: "unsupported" } },
     output: {
       streaming: false,
@@ -581,12 +604,12 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 6,
+  protocolVersion: 7,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
   occurredAt: "2026-08-04T00:00:00.000Z",
-  payload: { message: "Packed event." },
+  payload: {},
 });
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 assert.deepEqual(roundTripped, event);
@@ -603,7 +626,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 6,
+  protocolVersion: 7,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -625,6 +648,14 @@ assert.throws(
 );
 
 process.stdout.write("External packed agent SDK consumer passed.\\n");
+`;
+
+const INTENTIONALLY_INVALID_CONSUMER_SOURCE = `import type {
+  AgentCapabilities,
+} from "@agen-ai/agent-protocol";
+
+const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 6;
+void retiredProtocolVersion;
 `;
 
 async function runConsumer(tempRoot, artifacts) {
@@ -662,7 +693,7 @@ async function runConsumer(tempRoot, artifacts) {
       skipLibCheck: false,
       types: ["node"],
     },
-    include: ["src/**/*.ts"],
+    include: ["src/scenario.ts"],
   };
   await writeFile(
     path.join(consumerRoot, "package.json"),
@@ -673,6 +704,18 @@ async function runConsumer(tempRoot, artifacts) {
     `${JSON.stringify(tsconfig, null, 2)}\n`,
   );
   await writeFile(path.join(sourceRoot, "scenario.ts"), CONSUMER_SOURCE);
+  await writeFile(
+    path.join(sourceRoot, "intentionally-invalid.ts"),
+    INTENTIONALLY_INVALID_CONSUMER_SOURCE,
+  );
+  await writeFile(
+    path.join(consumerRoot, "tsconfig.invalid.json"),
+    `${JSON.stringify({
+      ...tsconfig,
+      compilerOptions: { ...tsconfig.compilerOptions, noEmit: true },
+      include: ["src/intentionally-invalid.ts"],
+    }, null, 2)}\n`,
+  );
   await writeFile(
     path.join(consumerRoot, ".pnpmfile.cjs"),
     `const packedDependencies = ${JSON.stringify({
@@ -687,6 +730,13 @@ async function runConsumer(tempRoot, artifacts) {
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], {
     cwd: consumerRoot,
   });
+  await assert.rejects(
+    run("pnpm", ["exec", "tsc", "--project", "tsconfig.invalid.json"], {
+      cwd: consumerRoot,
+    }),
+    (error) => error instanceof Error && /TS2322/u.test(error.message),
+    "The retired V6 discriminator must fail in an independent TypeScript consumer.",
+  );
   const execution = await run("node", ["dist/scenario.js"], {
     cwd: consumerRoot,
   });

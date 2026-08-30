@@ -10,10 +10,14 @@ import {
 } from '../foundation/index.js';
 import { parseWithSchema, safeParseWithSchema } from '../internal/parsers.js';
 import {
+  AgentApprovalRequestSchema,
+  AgentApprovalResolutionSchema,
   AgentRequestResolutionSchema,
   AgentRequestSchema,
 } from '../zod/requests.js';
 import type {
+  AgentApprovalRequest,
+  AgentApprovalResolution,
   AgentChoiceElicitationAnswer,
   AgentChoiceElicitationField,
   AgentElicitationAnswer,
@@ -25,6 +29,16 @@ import type {
 
 export function parseAgentRequest(input: unknown): AgentRequest {
   return parseWithSchema(AgentRequestSchema, input);
+}
+
+export function parseAgentApprovalRequest(input: unknown): AgentApprovalRequest {
+  return parseWithSchema(AgentApprovalRequestSchema, input);
+}
+
+export function safeParseAgentApprovalRequest(
+  input: unknown,
+): AgentProtocolParseResult<AgentApprovalRequest> {
+  return safeParseWithSchema(AgentApprovalRequestSchema, input);
 }
 
 export function safeParseAgentRequest(
@@ -43,6 +57,18 @@ export function safeParseAgentRequestResolution(
   input: unknown,
 ): AgentProtocolParseResult<AgentRequestResolution> {
   return safeParseWithSchema(AgentRequestResolutionSchema, input);
+}
+
+export function parseAgentApprovalResolution(
+  input: unknown,
+): AgentApprovalResolution {
+  return parseWithSchema(AgentApprovalResolutionSchema, input);
+}
+
+export function safeParseAgentApprovalResolution(
+  input: unknown,
+): AgentProtocolParseResult<AgentApprovalResolution> {
+  return safeParseWithSchema(AgentApprovalResolutionSchema, input);
 }
 
 function issue(path: readonly (string | number)[], message: string): ValidationIssue {
@@ -122,6 +148,19 @@ function resolutionIssues(
     issues.push(issue(
       ['requestId'],
       'Resolution requestId must match the opened request.',
+    ));
+  }
+  if (
+    request.requestKind === 'approval'
+    && resolution.requestKind === 'approval'
+    && resolution.disposition === 'selected'
+    && !request.options.some(
+      (option) => option.optionId === resolution.optionId,
+    )
+  ) {
+    issues.push(issue(
+      ['optionId'],
+      'Approval resolution must select an option declared by the request.',
     ));
   }
   if (

@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                itemSnapshots.test.ts - V6 item-union strictness and bounds coverage
+//                itemSnapshots.test.ts - V7 item-union strictness and bounds coverage
 // ------------------------------------------------------------------------------------------------
 
 import assert from 'node:assert/strict';
@@ -102,11 +102,18 @@ const validItemSnapshots = [
     itemId: 'item:compaction',
     itemKind: 'context_compaction',
     status: 'completed',
+    details: {
+      trigger: 'manual',
+      beforeTokens: 84_000,
+      afterTokens: 31_000,
+      durationMs: 1_250,
+      summaryPreview: 'Earlier context was compacted for continued work.',
+    },
   },
   { itemId: 'item:unknown', itemKind: 'unknown', status: 'unknown' },
 ] as const;
 
-test('V6 item fixtures cover and round-trip every item discriminant', () => {
+test('V7 item fixtures cover and round-trip every item discriminant', () => {
   assert.deepEqual(
     validItemSnapshots.map((item) => item.itemKind).sort(),
     [...AGENT_ITEM_KINDS].sort(),

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "48a0addf75d54dd3cfc4e5e335dbc4f38eba0df1",
+  "sourceRevision": "aa7c0cca84b759b2b21bcce52de8cd82772e42c5",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -26,9 +26,11 @@
     ".github/workflows/release.yml",
     ".gitignore",
     ".npmrc",
+    "CHANGELOG.md",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
     "LICENSE",
+    "MIGRATING-TO-0.2.md",
     "README.md",
     "RELEASING.md",
     "SECURITY.md",
@@ -89,6 +91,7 @@
     "packages/agent-protocol/tests/itemSnapshots.test.ts",
     "packages/agent-protocol/tests/removedSymbols.typecheck.ts",
     "packages/agent-protocol/tests/turnsRequests.test.ts",
+    "packages/agent-protocol/tests/v7ContractFreeze.test.ts",
     "packages/agent-protocol/tsconfig.json",
     "packages/agent-protocol/tsconfig.test.json",
     "packages/agent-protocol/tsup.config.ts",
@@ -123,6 +126,7 @@
     "packages/agent-runtime/tests/fakeConformance.test.ts",
     "packages/agent-runtime/tests/providerRegistry.test.ts",
     "packages/agent-runtime/tests/publicApi.typecheck.ts",
+    "packages/agent-runtime/tests/v7SessionValidation.test.ts",
     "packages/agent-runtime/tsconfig.external.json",
     "packages/agent-runtime/tsconfig.json",
     "packages/agent-runtime/tsconfig.test.json",
@@ -140,6 +144,8 @@
     "pnpm-workspace.yaml",
     "scripts/architecture/check-agent-sdk-external-consumer.mjs",
     "scripts/check-repository.mjs",
+    "scripts/release/verify-package-publication.mjs",
+    "scripts/release/verify-package-publication.test.mjs",
     "tsconfig.base.json"
   ]
 }

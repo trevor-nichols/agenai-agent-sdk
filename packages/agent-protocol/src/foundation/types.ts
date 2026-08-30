@@ -15,7 +15,7 @@ export { AgentProtocolValidationError } from './validation.js';
 //                Protocol Version and Limits
 // ------------------------------------------------------------------------------------------------
 
-export const AGENT_PROTOCOL_VERSION = 6 as const;
+export const AGENT_PROTOCOL_VERSION = 7 as const;
 export const AGENT_PROTOCOL_ID_MAX_LENGTH = 256;
 export const AGENT_PROTOCOL_PROVIDER_REFERENCE_MAX_LENGTH = 512;
 export const AGENT_PROTOCOL_PROVIDER_KEY_MAX_LENGTH = 100;
@@ -44,6 +44,7 @@ export type AgentSessionId = AgentProtocolId<'AgentSessionId'>;
 export type AgentTurnId = AgentProtocolId<'AgentTurnId'>;
 export type AgentItemId = AgentProtocolId<'AgentItemId'>;
 export type AgentRequestId = AgentProtocolId<'AgentRequestId'>;
+export type AgentApprovalOptionId = AgentProtocolId<'AgentApprovalOptionId'>;
 export type AgentRequestFieldId = AgentProtocolId<'AgentRequestFieldId'>;
 export type AgentArtifactId = AgentProtocolId<'AgentArtifactId'>;
 export type AgentConfigurationRevisionId =

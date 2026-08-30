@@ -46,7 +46,7 @@ test('events reject unsupported versions, unknown fields, and product coordinate
 
 test('events enforce reference, state, terminal, progress, and byte invariants', () => {
   const base = {
-    protocolVersion: 6,
+    protocolVersion: 7,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -95,7 +95,7 @@ test('events enforce reference, state, terminal, progress, and byte invariants',
 
 test('events reject noncanonical identifiers and diagnostic strings', () => {
   const base = {
-    protocolVersion: 6,
+    protocolVersion: 7,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -165,7 +165,7 @@ test('events reject noncanonical identifiers and diagnostic strings', () => {
 
 test('plan snapshots preserve canceled status and optional canonical priority', () => {
   const base = {
-    protocolVersion: 6,
+    protocolVersion: 7,
     sessionId: 'session:plan-semantics',
     turnId: 'turn:plan-semantics',
     occurredAt: protocolTimestamp,

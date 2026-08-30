@@ -25,9 +25,39 @@ const supportedInput = {
   },
 } as const;
 
+const onceApproval = {
+  kind: 'supported',
+  modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }],
+} as const;
+
+const unsupportedContext = {
+  usage: { kind: 'unsupported' },
+  compaction: { kind: 'unsupported' },
+} as const;
+
+const supportedContext = {
+  usage: {
+    kind: 'supported',
+    measurementScopes: ['materialization'],
+    cumulativeFields: [
+      'inputTokens',
+      'outputTokens',
+      'cachedReadTokens',
+      'reasoningTokens',
+      'modelCalls',
+      'turns',
+    ],
+  },
+  compaction: {
+    kind: 'supported',
+    triggers: ['manual'],
+    sameSessionContinuation: true,
+  },
+} as const;
+
 export const providerCapabilityFixtures = {
   fixture: {
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey: 'fixture',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -35,7 +65,8 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'supported', input: supportedInput },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    context: supportedContext,
     input: supportedInput,
     output: {
       streaming: true,
@@ -62,7 +93,7 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   codex: {
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey: 'codex',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -70,7 +101,8 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'supported', input: unsupportedInput },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    context: unsupportedContext,
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -89,7 +121,7 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   claudeCode: {
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey: 'claude_code',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -97,7 +129,8 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    context: unsupportedContext,
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -116,7 +149,7 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   opencode: {
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey: 'opencode',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -124,7 +157,8 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    context: unsupportedContext,
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -143,7 +177,7 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   cursor: {
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey: 'cursor_acp',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -151,7 +185,8 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    context: unsupportedContext,
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -170,7 +205,7 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   grokBuild: {
-    protocolVersion: 6,
+    protocolVersion: 7,
     providerKey: 'grok_build',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -178,7 +213,8 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: true, elicitation: { kind: 'unsupported' } },
+    requests: { approval: onceApproval, elicitation: { kind: 'unsupported' } },
+    context: supportedContext,
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -199,7 +235,7 @@ export const providerCapabilityFixtures = {
 } as const;
 
 const eventBase = {
-  protocolVersion: 6,
+  protocolVersion: 7,
   sessionId: 'session:external-42',
   turnId: 'turn:external-9',
   occurredAt: protocolTimestamp,
@@ -285,7 +321,27 @@ export const eventFixtureCorpus = [
         requestKind: 'approval',
         requestId: 'request:1',
         prompt: 'Apply the change?',
-        subject: { kind: 'file_change', title: 'Update README' },
+        subject: {
+          kind: 'file_change',
+          title: 'Update README',
+          itemId: 'item:1',
+        },
+        options: [
+          {
+            optionId: 'approval:allow-once',
+            label: 'Allow once',
+            decision: 'approved',
+            persistence: 'once',
+            scope: { kind: 'exact_action' },
+          },
+          {
+            optionId: 'approval:deny-once',
+            label: 'Deny',
+            decision: 'denied',
+            persistence: 'once',
+            scope: { kind: 'exact_action' },
+          },
+        ],
       },
     },
   },
@@ -298,6 +354,23 @@ export const eventFixtureCorpus = [
       phase: 'updated',
       current: 1,
       total: 2,
+    },
+  },
+  {
+    ...eventBase,
+    type: 'context.usage.updated',
+    payload: {
+      measurementScope: 'materialization',
+      usedTokens: 3_933,
+      maxTokens: 500_000,
+      cumulative: {
+        inputTokens: 3_933,
+        outputTokens: 54,
+        reasoningTokens: 43,
+        modelCalls: 1,
+        turns: 1,
+      },
+      compaction: { state: 'idle' },
     },
   },
   {

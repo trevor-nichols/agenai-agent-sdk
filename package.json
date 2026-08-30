@@ -1,6 +1,6 @@
 {
   "name": "agenai-agent-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Provider-neutral TypeScript contracts for hosting coding agents.",
   "type": "module",
@@ -11,12 +11,13 @@
   },
   "scripts": {
     "build": "pnpm --filter @agen-ai/validation build && pnpm --filter @agen-ai/agent-protocol build && pnpm --filter @agen-ai/agent-runtime build",
-    "check": "pnpm check:repository && pnpm check:generated && pnpm build && pnpm typecheck:packages && pnpm test:unit && pnpm test:external-consumer",
+    "check": "pnpm check:repository && pnpm test:release && pnpm check:generated && pnpm build && pnpm typecheck:packages && pnpm test:unit && pnpm test:external-consumer",
     "check:generated": "pnpm --filter @agen-ai/agent-protocol check:contracts && pnpm --filter @agen-ai/agent-protocol check:json-schema",
     "check:repository": "node scripts/check-repository.mjs",
     "clean": "pnpm -r --if-present clean",
-    "test": "pnpm build && pnpm test:unit && pnpm test:external-consumer",
+    "test": "pnpm test:release && pnpm build && pnpm test:unit && pnpm test:external-consumer",
     "test:external-consumer": "node scripts/architecture/check-agent-sdk-external-consumer.mjs",
+    "test:release": "node --test scripts/release/*.test.mjs",
     "test:unit": "pnpm --filter @agen-ai/validation test && pnpm --filter @agen-ai/agent-protocol test && pnpm --filter @agen-ai/agent-runtime test",
     "typecheck": "pnpm build && pnpm typecheck:packages",
     "typecheck:packages": "pnpm --filter @agen-ai/validation typecheck && pnpm --filter @agen-ai/agent-protocol typecheck && pnpm --filter @agen-ai/agent-runtime typecheck"

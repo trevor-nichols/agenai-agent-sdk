@@ -5,6 +5,7 @@
 import { parseWithSchema, safeParseWithSchema } from '../internal/parsers.js';
 import {
   AgentArtifactIdSchema,
+  AgentApprovalOptionIdSchema,
   AgentConfigurationRevisionIdSchema,
   AgentErrorSchema,
   AgentInstanceIdSchema,
@@ -25,6 +26,7 @@ import {
 } from '../zod/foundation.js';
 import type {
   AgentArtifactId,
+  AgentApprovalOptionId,
   AgentConfigurationRevisionId,
   AgentError,
   AgentInstanceId,
@@ -62,6 +64,9 @@ const sessionIdParser = idParser<AgentSessionId>(AgentSessionIdSchema);
 const turnIdParser = idParser<AgentTurnId>(AgentTurnIdSchema);
 const itemIdParser = idParser<AgentItemId>(AgentItemIdSchema);
 const requestIdParser = idParser<AgentRequestId>(AgentRequestIdSchema);
+const approvalOptionIdParser = idParser<AgentApprovalOptionId>(
+  AgentApprovalOptionIdSchema,
+);
 const requestFieldIdParser = idParser<AgentRequestFieldId>(
   AgentRequestFieldIdSchema,
 );
@@ -95,6 +100,8 @@ export const parseAgentItemId = itemIdParser.parse;
 export const safeParseAgentItemId = itemIdParser.safeParse;
 export const parseAgentRequestId = requestIdParser.parse;
 export const safeParseAgentRequestId = requestIdParser.safeParse;
+export const parseAgentApprovalOptionId = approvalOptionIdParser.parse;
+export const safeParseAgentApprovalOptionId = approvalOptionIdParser.safeParse;
 export const parseAgentRequestFieldId = requestFieldIdParser.parse;
 export const safeParseAgentRequestFieldId = requestFieldIdParser.safeParse;
 export const parseAgentArtifactId = artifactIdParser.parse;

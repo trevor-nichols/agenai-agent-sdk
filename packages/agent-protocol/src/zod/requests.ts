@@ -10,13 +10,24 @@ import {
   AGENT_PROTOCOL_TEXT_MAX_LENGTH,
 } from '../foundation/types.js';
 import type {
+  AgentApprovalRequest,
+  AgentApprovalResolution,
   AgentElicitationRequest,
   AgentRequest,
   AgentRequestResolution,
 } from '../requests/types.js';
 import {
+  AGENT_APPROVAL_DESCRIPTION_MAX_LENGTH,
+  AGENT_APPROVAL_LABEL_MAX_LENGTH,
+  AGENT_APPROVAL_OPTIONS_MAX_LENGTH,
+  AGENT_APPROVAL_PERSISTENCES,
+  AGENT_APPROVAL_SCOPE_KINDS,
+} from '../requests/types.js';
+import {
+  AgentApprovalOptionIdSchema,
   AgentArtifactIdSchema,
   AgentCanonicalIdValueSchema,
+  AgentItemIdSchema,
   AgentIsoDateTimeSchema,
   AgentRequestFieldIdSchema,
   AgentRequestIdSchema,
@@ -26,17 +37,43 @@ import {
 //                Requests
 // ------------------------------------------------------------------------------------------------
 
-const AgentApprovalRequestSchema = z
+const AgentApprovalLabelSchema = z
+  .string()
+  .min(1)
+  .max(AGENT_APPROVAL_LABEL_MAX_LENGTH)
+  .regex(/^(?:\S|\S[\s\S]*\S)$/u);
+const AgentApprovalDescriptionSchema = z
+  .string()
+  .min(1)
+  .max(AGENT_APPROVAL_DESCRIPTION_MAX_LENGTH)
+  .regex(/^(?:\S|\S[\s\S]*\S)$/u);
+
+const AgentApprovalOptionSchema = z
+  .object({
+    optionId: AgentApprovalOptionIdSchema,
+    label: AgentApprovalLabelSchema,
+    description: AgentApprovalDescriptionSchema.optional(),
+    decision: z.enum(['approved', 'denied']),
+    persistence: z.enum(AGENT_APPROVAL_PERSISTENCES),
+    scope: z
+      .object({ kind: z.enum(AGENT_APPROVAL_SCOPE_KINDS) })
+      .strict()
+      .readonly(),
+  })
+  .strict()
+  .readonly();
+
+export const AgentApprovalRequestPortableSchema = z
   .object({
     requestKind: z.literal('approval'),
     requestId: AgentRequestIdSchema,
-    prompt: z.string().min(1).max(AGENT_PROTOCOL_TEXT_MAX_LENGTH),
+    prompt: AgentApprovalDescriptionSchema,
     subject: z.discriminatedUnion('kind', [
       z
         .object({
           kind: z.literal('plan'),
-          title: z.string().min(1).max(200),
-          description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
+          title: AgentApprovalLabelSchema,
+          description: AgentApprovalDescriptionSchema.optional(),
           artifactId: AgentArtifactIdSchema,
         })
         .strict()
@@ -44,16 +81,37 @@ const AgentApprovalRequestSchema = z
       z
         .object({
           kind: z.enum(['command', 'file_change', 'tool', 'other']),
-          title: z.string().min(1).max(200),
-          description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
+          title: AgentApprovalLabelSchema,
+          description: AgentApprovalDescriptionSchema.optional(),
+          itemId: AgentItemIdSchema,
         })
         .strict()
         .readonly(),
     ]),
+    options: z
+      .array(AgentApprovalOptionSchema)
+      .min(1)
+      .max(AGENT_APPROVAL_OPTIONS_MAX_LENGTH)
+      .readonly(),
     expiresAt: AgentIsoDateTimeSchema.optional(),
   })
   .strict()
   .readonly();
+
+export const AgentApprovalRequestSchema: z.ZodType<AgentApprovalRequest> =
+  AgentApprovalRequestPortableSchema.superRefine((request, context) => {
+    const optionIds = new Set<string>();
+    request.options.forEach((option, optionIndex) => {
+      if (optionIds.has(option.optionId)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['options', optionIndex, 'optionId'],
+          message: 'Approval option IDs must be unique within a request.',
+        });
+      }
+      optionIds.add(option.optionId);
+    });
+  });
 
 const AgentRequestChoiceValueSchema = AgentCanonicalIdValueSchema.and(
   z.string().max(160),
@@ -152,14 +210,15 @@ export const AgentElicitationRequestSchema: z.ZodType<AgentElicitationRequest> =
   });
 
 export const AgentRequestPortableSchema = z.discriminatedUnion('requestKind', [
-  AgentApprovalRequestSchema,
+  AgentApprovalRequestPortableSchema,
   AgentElicitationRequestPortableSchema,
 ]);
 
 export const AgentRequestSchema: z.ZodType<AgentRequest> =
   AgentRequestPortableSchema.superRefine((request, context) => {
-    if (request.requestKind !== 'elicitation') return;
-    const parsed = AgentElicitationRequestSchema.safeParse(request);
+    const parsed = request.requestKind === 'approval'
+      ? AgentApprovalRequestSchema.safeParse(request)
+      : AgentElicitationRequestSchema.safeParse(request);
     if (parsed.success) return;
     for (const issue of parsed.error.issues) {
       context.addIssue({
@@ -210,15 +269,29 @@ const AgentElicitationAnswerSchema = z.discriminatedUnion('kind', [
     .readonly(),
 ]);
 
+export const AgentApprovalResolutionSchema: z.ZodType<AgentApprovalResolution> =
+  z.discriminatedUnion('disposition', [
+    z
+      .object({
+        requestKind: z.literal('approval'),
+        requestId: AgentRequestIdSchema,
+        disposition: z.literal('selected'),
+        optionId: AgentApprovalOptionIdSchema,
+      })
+      .strict()
+      .readonly(),
+    z
+      .object({
+        requestKind: z.literal('approval'),
+        requestId: AgentRequestIdSchema,
+        disposition: z.literal('canceled'),
+      })
+      .strict()
+      .readonly(),
+  ]);
+
 export const AgentRequestResolutionPortableSchema = z.union([
-  z
-    .object({
-      requestKind: z.literal('approval'),
-      requestId: AgentRequestIdSchema,
-      decision: z.enum(['approved', 'denied', 'canceled']),
-    })
-    .strict()
-    .readonly(),
+  AgentApprovalResolutionSchema,
   z
     .object({
       requestKind: z.literal('elicitation'),

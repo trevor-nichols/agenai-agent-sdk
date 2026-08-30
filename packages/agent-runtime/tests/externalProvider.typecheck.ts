@@ -22,7 +22,7 @@ import {
 
 const providerKey = parseAgentProviderKey("external-provider");
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 6,
+  protocolVersion: 7,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -33,7 +33,14 @@ const capabilities = parseAgentCapabilities({
       input: { text: true, images: { kind: "unsupported" } },
     },
   },
-  requests: { approval: false, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: { kind: "unsupported" },
+    elicitation: { kind: "unsupported" },
+  },
+  context: {
+    usage: { kind: "unsupported" },
+    compaction: { kind: "unsupported" },
+  },
   input: { text: true, images: { kind: "unsupported" } },
   output: {
     streaming: false,
@@ -80,7 +87,7 @@ function providerSession(
     },
     runTurn: async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 6,
+        protocolVersion: 7,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -88,7 +95,7 @@ function providerSession(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 6,
+        protocolVersion: 7,
         type: "item.completed",
         sessionId,
         turnId: input.turnId,
@@ -96,7 +103,7 @@ function providerSession(
         payload: commandItem,
       });
       yield createAgentEventOutput({
-        protocolVersion: 6,
+        protocolVersion: 7,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,

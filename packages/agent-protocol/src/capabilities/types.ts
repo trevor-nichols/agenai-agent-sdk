@@ -5,10 +5,17 @@
 import type { AgentArtifactKind } from '../artifacts/index.js';
 import type { AgentProviderKey } from '../foundation/index.js';
 import type {
+  AgentContextCompactionTrigger,
+  AgentContextCumulativeUsageField,
+  AgentContextMeasurementScope,
   AgentImageInputMediaType,
   AgentImageInputSourceKind,
   AgentTurnInteractionMode,
 } from '../turns/types.js';
+import type {
+  AgentApprovalPersistence,
+  AgentApprovalScopeKind,
+} from '../requests/types.js';
 
 export const AGENT_ELICITATION_MODES = [
   'unsupported',
@@ -59,6 +66,34 @@ export type AgentAuthenticationCapability =
       flows: readonly AgentAuthenticationFlow[];
     }>;
 
+export interface AgentApprovalCapabilityMode {
+  readonly persistence: AgentApprovalPersistence;
+  readonly scopeKinds: readonly AgentApprovalScopeKind[];
+}
+
+export type AgentApprovalCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      modes: readonly AgentApprovalCapabilityMode[];
+    }>;
+
+export type AgentContextUsageCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      measurementScopes: readonly AgentContextMeasurementScope[];
+      cumulativeFields: readonly AgentContextCumulativeUsageField[];
+    }>;
+
+export type AgentContextCompactionCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      triggers: readonly AgentContextCompactionTrigger[];
+      sameSessionContinuation: boolean;
+    }>;
+
 export type AgentImageInputCapability =
   | Readonly<{ kind: 'unsupported' }>
   | Readonly<{
@@ -87,7 +122,7 @@ export type AgentTurnSteeringCapability =
     }>;
 
 export interface AgentCapabilities {
-  readonly protocolVersion: 6;
+  readonly protocolVersion: 7;
   readonly providerKey: AgentProviderKey;
   readonly sessions: Readonly<{
     create: true;
@@ -100,8 +135,12 @@ export interface AgentCapabilities {
     steer: AgentTurnSteeringCapability;
   }>;
   readonly requests: Readonly<{
-    approval: boolean;
+    approval: AgentApprovalCapability;
     elicitation: AgentElicitationCapability;
+  }>;
+  readonly context: Readonly<{
+    usage: AgentContextUsageCapability;
+    compaction: AgentContextCompactionCapability;
   }>;
   readonly input: AgentOperationInputCapability;
   readonly output: Readonly<{

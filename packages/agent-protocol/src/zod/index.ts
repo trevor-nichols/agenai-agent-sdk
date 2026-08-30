@@ -3,6 +3,7 @@
 // ------------------------------------------------------------------------------------------------
 
 export {
+  AgentApprovalOptionIdSchema,
   AgentArtifactIdSchema,
   AgentConfigurationRevisionIdSchema,
   AgentErrorContextSchema,
@@ -38,6 +39,7 @@ export {
   AgentCommandExecutionDetailsSchema,
   AgentComputerActionDetailsSchema,
   AgentContentStreamKindSchema,
+  AgentContextCompactionDetailsSchema,
   AgentDiffSummarySchema,
   AgentDynamicToolCallDetailsSchema,
   AgentFileChangeDetailsSchema,
@@ -57,11 +59,16 @@ export {
   AgentWebSearchDetailsSchema,
 } from './turns.js';
 export {
+  AgentApprovalRequestSchema,
+  AgentApprovalResolutionSchema,
   AgentElicitationRequestSchema,
   AgentRequestResolutionSchema,
   AgentRequestSchema,
 } from './requests.js';
-export { AgentCapabilitiesSchema } from './capabilities.js';
+export {
+  AgentApprovalCapabilitySchema,
+  AgentCapabilitiesSchema,
+} from './capabilities.js';
 export { AgentArtifactDescriptorSchema } from './artifacts.js';
-export { AgentEventSchema } from './events.js';
+export { AgentContextUsageSchema, AgentEventSchema } from './events.js';
 export type { AgentProtocolSchemaTypeAssertions } from './typeEquality.generated.js';

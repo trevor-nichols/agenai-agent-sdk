@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   AGENT_PROTOCOL_TURN_INPUT_CONTENT_BYTES_LIMIT,
   parseAgentArtifactId,
+  parseAgentApprovalOptionId,
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
   parseAgentIsoDateTime,
@@ -44,7 +45,7 @@ import { createFakeAgentProvider } from "../src/testing/index.js";
 
 const providerKey = parseAgentProviderKey("contract-fixture");
 const capabilities: AgentCapabilities = parseAgentCapabilities({
-  protocolVersion: 6,
+  protocolVersion: 7,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -52,7 +53,14 @@ const capabilities: AgentCapabilities = parseAgentCapabilities({
     interrupt: false,
     steer: { kind: "unsupported" },
   },
-  requests: { approval: false, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: { kind: "unsupported" },
+    elicitation: { kind: "unsupported" },
+  },
+  context: {
+    usage: { kind: "unsupported" },
+    compaction: { kind: "unsupported" },
+  },
   input: { text: true, images: { kind: "unsupported" } },
   output: {
     streaming: true,
@@ -72,7 +80,13 @@ const capabilities: AgentCapabilities = parseAgentCapabilities({
 });
 const requestCapabilities: AgentCapabilities = parseAgentCapabilities({
   ...capabilities,
-  requests: { approval: true, elicitation: { kind: "unsupported" } },
+  requests: {
+    approval: {
+      kind: "supported",
+      modes: [{ persistence: "once", scopeKinds: ["exact_action"] }],
+    },
+    elicitation: { kind: "unsupported" },
+  },
 });
 const interruptibleRequestCapabilities: AgentCapabilities =
   parseAgentCapabilities({
@@ -107,8 +121,53 @@ const configuration = {
   values: {},
 };
 
+const allowOnceOptionId = parseAgentApprovalOptionId("approval:allow-once");
+const denyOnceOptionId = parseAgentApprovalOptionId("approval:deny-once");
+
+function approvalRequest(input: {
+  readonly requestId: ReturnType<typeof parseAgentRequestId>;
+  readonly itemId?: ReturnType<typeof parseAgentItemId>;
+  readonly title?: string;
+}): Extract<AgentRequest, { readonly requestKind: "approval" }> {
+  return {
+    requestKind: "approval",
+    requestId: input.requestId,
+    prompt: "Approve the operation?",
+    subject: {
+      kind: "other",
+      title: input.title ?? "Pending operation",
+      itemId: input.itemId ?? parseAgentItemId(`item:${input.requestId}`),
+    },
+    options: [
+      {
+        optionId: allowOnceOptionId,
+        label: "Allow once",
+        decision: "approved",
+        persistence: "once",
+        scope: { kind: "exact_action" },
+      },
+      {
+        optionId: denyOnceOptionId,
+        label: "Deny",
+        decision: "denied",
+        persistence: "once",
+        scope: { kind: "exact_action" },
+      },
+    ],
+  };
+}
+
+function allowOnceResolution(requestId: ReturnType<typeof parseAgentRequestId>) {
+  return {
+    requestKind: "approval" as const,
+    requestId,
+    disposition: "selected" as const,
+    optionId: allowOnceOptionId,
+  };
+}
+
 function eventBase(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
-  return { protocolVersion: 6 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 7 as const, sessionId, turnId, occurredAt };
 }
 
 function waitingForRequestOutputs(input: {
@@ -116,7 +175,32 @@ function waitingForRequestOutputs(input: {
   readonly request: AgentRequest;
   readonly occurredAt: AgentIsoDateTime;
 }) {
+  const correlationOutputs = input.request.requestKind !== "approval"
+    ? []
+    : input.request.subject.kind === "plan"
+      ? [
+          createAgentEventOutput({
+            ...eventBase(input.turnId, input.occurredAt),
+            type: "turn.plan.proposed",
+            payload: {
+              artifactId: input.request.subject.artifactId,
+              requestId: input.request.requestId,
+            },
+          }),
+        ]
+      : [
+          createAgentEventOutput({
+            ...eventBase(input.turnId, input.occurredAt),
+            type: "item.started",
+            payload: {
+              itemId: input.request.subject.itemId,
+              itemKind: "unknown",
+              status: "in_progress",
+            },
+          }),
+        ];
   return [
+    ...correlationOutputs,
     createAgentEventOutput({
       ...eventBase(input.turnId, input.occurredAt),
       type: "request.opened",
@@ -166,7 +250,7 @@ function session(
     binding: { conversationId: "contract-conversation" as never },
     runTurn: async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 6,
+        protocolVersion: 7,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -174,7 +258,7 @@ function session(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 6,
+        protocolVersion: 7,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -829,12 +913,10 @@ test("provider output cannot exceed declared event, item, artifact, or request c
           ...eventBase(turnId, occurredAt),
           type: "request.opened",
           payload: {
-            request: {
-              requestKind: "approval",
+            request: approvalRequest({
               requestId: parseAgentRequestId("contract-output-approval"),
-              prompt: "Approve undeclared output?",
-              subject: { kind: "other", title: "Undeclared approval" },
-            },
+              title: "Undeclared approval",
+            }),
           },
         }),
     },
@@ -911,12 +993,10 @@ test("final_diff enforces one terminal materialization while structured diffs re
       fileChanges: "structured",
     },
   });
-  const approvalRequest: AgentRequest = {
-    requestKind: "approval",
+  const finalDiffApprovalRequest = approvalRequest({
     requestId: parseAgentRequestId("request:final-diff-boundary"),
-    prompt: "Approve the pending operation?",
-    subject: { kind: "other", title: "Pending operation" },
-  };
+    title: "Pending operation",
+  });
   const diffOutput = (turnId: AgentTurnId) =>
     createAgentEventOutput({
       ...eventBase(turnId, occurredAt),
@@ -999,7 +1079,7 @@ test("final_diff enforces one terminal materialization while structured diffs re
       outputs: (turnId) => [
         ...waitingForRequestOutputs({
           turnId,
-          request: approvalRequest,
+          request: finalDiffApprovalRequest,
           occurredAt,
         }),
         diffOutput(turnId),
@@ -1012,7 +1092,7 @@ test("final_diff enforces one terminal materialization while structured diffs re
       outputs: (turnId) => [
         ...waitingForRequestOutputs({
           turnId,
-          request: approvalRequest,
+          request: finalDiffApprovalRequest,
           occurredAt,
         }),
         diffOutput(turnId),
@@ -1083,11 +1163,17 @@ test("text elicitation accepts only text fields while structured elicitation acc
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
   const textCapabilities = parseAgentCapabilities({
     ...capabilities,
-    requests: { approval: false, elicitation: { kind: "text" } },
+    requests: {
+      approval: { kind: "unsupported" },
+      elicitation: { kind: "text" },
+    },
   });
   const structuredCapabilities = parseAgentCapabilities({
     ...capabilities,
-    requests: { approval: false, elicitation: { kind: "structured" } },
+    requests: {
+      approval: { kind: "unsupported" },
+      elicitation: { kind: "structured" },
+    },
   });
   const textRequest: AgentRequest = {
     requestKind: "elicitation",
@@ -1225,7 +1311,7 @@ test("validated sessions reject cross-session output and malformed turn ordering
       const opened = session({
         runTurn: async function* (turnInput) {
           yield createAgentEventOutput({
-            protocolVersion: 6,
+            protocolVersion: 7,
             type: "turn.started",
             sessionId: "another-session",
             turnId: turnInput.turnId,
@@ -1349,12 +1435,10 @@ test("run delegation observation follows validated prechecks and precedes the ca
 
 test("an incomplete provider stream makes its validated session unusable", async () => {
   const turnId = parseAgentTurnId("contract-failed-stream-turn");
-  const request: AgentRequest = {
-    requestKind: "approval",
+  const request = approvalRequest({
     requestId: parseAgentRequestId("request:failed-stream"),
-    prompt: "Approve before the provider fails?",
-    subject: { kind: "other", title: "Failed provider operation" },
-  };
+    title: "Failed provider operation",
+  });
   let closeCount = 0;
   const validated = validateAgentProviderAdapter(
     requestCapabilities,
@@ -1368,6 +1452,20 @@ test("an incomplete provider stream makes its validated session unusable", async
             ),
             type: "turn.started",
             payload: {},
+          });
+          yield createAgentEventOutput({
+            ...eventBase(
+              turnId,
+              parseAgentIsoDateTime("2026-08-04T00:00:01.000Z"),
+            ),
+            type: "item.started",
+            payload: {
+              itemId: request.subject.kind === "plan"
+                ? parseAgentItemId("item:failed-stream-fallback")
+                : request.subject.itemId,
+              itemKind: "unknown",
+              status: "in_progress",
+            },
           });
           yield createAgentEventOutput({
             ...eventBase(
@@ -1888,11 +1986,9 @@ test("validated sessions never delegate a resolution for an unknown request", as
     async () =>
       collectOutputs(
         opened.resolveRequest({
-          resolution: {
-            requestKind: "approval",
-            requestId: parseAgentRequestId("request:not-opened"),
-            decision: "approved",
-          },
+          resolution: allowOnceResolution(
+            parseAgentRequestId("request:not-opened"),
+          ),
         }),
       ),
     (error: unknown) =>
@@ -1909,18 +2005,14 @@ test("validated sessions track sequential requests from one turn", async () => {
   const completedAt = parseAgentIsoDateTime("2026-08-04T00:00:02.000Z");
   const firstRequestId = parseAgentRequestId("request:first");
   const secondRequestId = parseAgentRequestId("request:second");
-  const firstRequest = {
-    requestKind: "approval" as const,
+  const firstRequest = approvalRequest({
     requestId: firstRequestId,
-    prompt: "Approve the first operation?",
-    subject: { kind: "other" as const, title: "First operation" },
-  };
-  const secondRequest = {
-    requestKind: "approval" as const,
+    title: "First operation",
+  });
+  const secondRequest = approvalRequest({
     requestId: secondRequestId,
-    prompt: "Approve the second operation?",
-    subject: { kind: "other" as const, title: "Second operation" },
-  };
+    title: "Second operation",
+  });
   let delegatedSecondResolution = false;
   const validated = validateAgentProviderAdapter(
     requestCapabilities,
@@ -1971,11 +2063,7 @@ test("validated sessions track sequential requests from one turn", async () => {
 
   const firstOutputs = await collectOutputs(
     opened.resolveRequest({
-      resolution: {
-        requestKind: "approval",
-        requestId: firstRequestId,
-        decision: "approved",
-      },
+      resolution: allowOnceResolution(firstRequestId),
     }),
   );
   const firstFinalOutput = firstOutputs.at(-1);
@@ -1986,11 +2074,7 @@ test("validated sessions track sequential requests from one turn", async () => {
 
   const secondOutputs = await collectOutputs(
     opened.resolveRequest({
-      resolution: {
-        requestKind: "approval",
-        requestId: secondRequestId,
-        decision: "approved",
-      },
+      resolution: allowOnceResolution(secondRequestId),
     }),
   );
   const secondFinalOutput = secondOutputs.at(-1);
@@ -2004,12 +2088,10 @@ test("validated sessions track sequential requests from one turn", async () => {
 test("steering remains active while a request continuation executes", async () => {
   const turnId = parseAgentTurnId("contract-steered-continuation-turn");
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const request = {
-    requestKind: "approval" as const,
+  const request = approvalRequest({
     requestId: parseAgentRequestId("request:steered-continuation"),
-    prompt: "Approve the continuation?",
-    subject: { kind: "other" as const, title: "Continuation" },
-  };
+    title: "Continuation",
+  });
   let markContinuationStarted!: () => void;
   const continuationStarted = new Promise<void>((resolve) => {
     markContinuationStarted = resolve;
@@ -2089,11 +2171,7 @@ test("steering remains active while a request continuation executes", async () =
   let continuationSettled = false;
   const continuation = collectOutputs(
     opened.resolveRequest({
-      resolution: {
-        requestKind: "approval",
-        requestId: request.requestId,
-        decision: "approved",
-      },
+      resolution: allowOnceResolution(request.requestId),
     }),
   ).then((outputs) => {
     continuationSettled = true;
@@ -2123,12 +2201,10 @@ test("validated sessions reject request IDs reused after resolution", async () =
   const firstTurnId = parseAgentTurnId("contract-request-reuse-first-turn");
   const secondTurnId = parseAgentTurnId("contract-request-reuse-second-turn");
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const request = {
-    requestKind: "approval" as const,
+  const request = approvalRequest({
     requestId: parseAgentRequestId("request:reused"),
-    prompt: "Approve the operation?",
-    subject: { kind: "other" as const, title: "Operation" },
-  };
+    title: "Operation",
+  });
   const validated = validateAgentProviderAdapter(
     requestCapabilities,
     adapter((input) => {
@@ -2165,11 +2241,7 @@ test("validated sessions reject request IDs reused after resolution", async () =
   );
   await collectOutputs(
     opened.resolveRequest({
-      resolution: {
-        requestKind: "approval",
-        requestId: request.requestId,
-        decision: "approved",
-      },
+      resolution: allowOnceResolution(request.requestId),
     }),
   );
 
@@ -2190,12 +2262,10 @@ test("validated sessions reject request IDs reused after resolution", async () =
 test("an incomplete request continuation makes its session unusable", async () => {
   const turnId = parseAgentTurnId("contract-incomplete-continuation-turn");
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const request = {
-    requestKind: "approval" as const,
+  const request = approvalRequest({
     requestId: parseAgentRequestId("request:incomplete-continuation"),
-    prompt: "Approve the incomplete continuation?",
-    subject: { kind: "other" as const, title: "Incomplete continuation" },
-  };
+    title: "Incomplete continuation",
+  });
   let resolutionCount = 0;
   const validated = validateAgentProviderAdapter(
     requestCapabilities,
@@ -2230,11 +2300,7 @@ test("an incomplete request continuation makes its session unusable", async () =
       parts: [{ type: "text", text: "Open a request." }],
     }),
   );
-  const resolution = {
-    requestKind: "approval" as const,
-    requestId: request.requestId,
-    decision: "approved" as const,
-  };
+  const resolution = allowOnceResolution(request.requestId);
 
   await assert.rejects(
     collectOutputs(opened.resolveRequest({ resolution })),
@@ -2612,12 +2678,10 @@ test("interrupting a waiting turn releases its pending request state", async () 
   const waitingTurnId = parseAgentTurnId("contract-interrupted-turn");
   const nextTurnId = parseAgentTurnId("contract-next-turn");
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const request = {
-    requestKind: "approval" as const,
+  const request = approvalRequest({
     requestId: parseAgentRequestId("request:interrupted"),
-    prompt: "Approve the interrupted operation?",
-    subject: { kind: "other" as const, title: "Interrupted operation" },
-  };
+    title: "Interrupted operation",
+  });
   let runCount = 0;
   const validated = validateAgentProviderAdapter(
     interruptibleRequestCapabilities,
@@ -2733,17 +2797,12 @@ test("waiting-turn interruptions reject invalid terminal output sequences", asyn
             ...eventBase(turnId, occurredAt),
             type: "request.opened",
             payload: {
-              request: {
-                requestKind: "approval",
+              request: approvalRequest({
                 requestId: parseAgentRequestId(
                   "request:terminal-interruption-output",
                 ),
-                prompt: "Approve a request opened by terminal status?",
-                subject: {
-                  kind: "other",
-                  title: "Terminal interruption request",
-                },
-              },
+                title: "Terminal interruption request",
+              }),
             },
           }),
         ],
@@ -2759,12 +2818,10 @@ test("waiting-turn interruptions reject invalid terminal output sequences", asyn
       const nextTurnId = parseAgentTurnId(
         `contract-after-invalid-waiting-interruption-${index}`,
       );
-      const request = {
-        requestKind: "approval" as const,
+      const request = approvalRequest({
         requestId: parseAgentRequestId(`request:waiting-interruption-${index}`),
-        prompt: "Approve the waiting operation?",
-        subject: { kind: "other" as const, title: "Waiting interruption" },
-      };
+        title: "Waiting interruption",
+      });
       let runCount = 0;
       const validated = validateAgentProviderAdapter(
         interruptibleRequestCapabilities,
@@ -2842,12 +2899,10 @@ test("an accepted waiting-turn interruption without a terminal makes the session
   const waitingTurnId = parseAgentTurnId("contract-accepted-interruption-turn");
   const nextTurnId = parseAgentTurnId("contract-after-accepted-interruption");
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const request = {
-    requestKind: "approval" as const,
+  const request = approvalRequest({
     requestId: parseAgentRequestId("request:accepted-interruption"),
-    prompt: "Approve the operation?",
-    subject: { kind: "other" as const, title: "Accepted interruption" },
-  };
+    title: "Accepted interruption",
+  });
   let runCount = 0;
   let closeCount = 0;
   const validated = validateAgentProviderAdapter(
@@ -2907,11 +2962,7 @@ test("an accepted waiting-turn interruption without a terminal makes the session
   await assert.rejects(
     collectOutputs(
       opened.resolveRequest({
-        resolution: {
-          requestKind: "approval",
-          requestId: request.requestId,
-          decision: "approved",
-        },
+        resolution: allowOnceResolution(request.requestId),
       }),
     ),
     (error: unknown) =>

@@ -57,11 +57,17 @@ test("the deterministic fake passes the reusable provider conformance suite", as
       parts: [{ type: "text", text: "Also run the integration tests." }],
       summary: "Additional validation",
     },
-    resolutionFor: (request) => ({
-      requestKind: "approval",
-      requestId: request.requestId,
-      decision: "approved",
-    }),
+    resolutionFor: (request) => {
+      if (request.requestKind !== "approval") {
+        throw new TypeError("Expected the fake approval request.");
+      }
+      return {
+        requestKind: "approval",
+        requestId: request.requestId,
+        disposition: "selected",
+        optionId: request.options[0]!.optionId,
+      };
+    },
     branchSource: (binding, turnId) => ({
       sessionId: parseAgentSessionId("external-session:create"),
       binding,
@@ -133,7 +139,7 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     providerKey,
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
-      protocolVersion: 6,
+      protocolVersion: 7,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {
@@ -141,7 +147,14 @@ test("conformance verifies explicit unsupported operation discriminants", async 
         interrupt: false,
         steer: { kind: "unsupported" },
       },
-      requests: { approval: false, elicitation: { kind: "unsupported" } },
+      requests: {
+        approval: { kind: "unsupported" },
+        elicitation: { kind: "unsupported" },
+      },
+      context: {
+        usage: { kind: "unsupported" },
+        compaction: { kind: "unsupported" },
+      },
       input: { text: true, images: { kind: "unsupported" } },
       output: {
         streaming: false,
@@ -233,11 +246,17 @@ test("conformance rejects a definitive steering rejection on a live turn", async
         interactionMode: "default",
         parts: [{ type: "text", text: "Exercise interruption." }],
       },
-      resolutionFor: (request) => ({
-        requestKind: "approval",
-        requestId: request.requestId,
-        decision: "approved",
-      }),
+      resolutionFor: (request) => {
+        if (request.requestKind !== "approval") {
+          throw new TypeError("Expected the fake approval request.");
+        }
+        return {
+          requestKind: "approval",
+          requestId: request.requestId,
+          disposition: "selected",
+          optionId: request.options[0]!.optionId,
+        };
+      },
       branchSource: (binding, turnId) => ({
         sessionId: parseAgentSessionId("rejected-steering:create"),
         binding,

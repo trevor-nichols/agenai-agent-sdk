@@ -302,13 +302,34 @@ test('turn input enforces canonical collection, summary, and aggregate content b
 });
 
 test('approval and structured elicitation requests are strict discriminated values', () => {
+  const approvalRequest = {
+    requestKind: 'approval',
+    requestId: 'request:approval',
+    prompt: 'Run the command?',
+    subject: {
+      kind: 'command',
+      title: 'Run tests',
+      itemId: 'item:command',
+    },
+    options: [
+      {
+        optionId: 'approval:allow-once',
+        label: 'Allow once',
+        decision: 'approved',
+        persistence: 'once',
+        scope: { kind: 'exact_action' },
+      },
+      {
+        optionId: 'approval:deny-once',
+        label: 'Deny',
+        decision: 'denied',
+        persistence: 'once',
+        scope: { kind: 'exact_action' },
+      },
+    ],
+  } as const;
   assert.equal(
-    parseAgentRequest({
-      requestKind: 'approval',
-      requestId: 'request:approval',
-      prompt: 'Run the command?',
-      subject: { kind: 'command', title: 'Run tests' },
-    }).requestKind,
+    parseAgentRequest(approvalRequest).requestKind,
     'approval',
   );
   assert.equal(parseAgentRequest(elicitationRequest).requestKind, 'elicitation');
@@ -339,6 +360,30 @@ test('approval and structured elicitation requests are strict discriminated valu
     }],
   };
   assert.equal(safeParseAgentRequest(noncanonicalChoice).success, false);
+
+  assert.deepEqual(
+    parseAgentRequestResolutionFor(approvalRequest, {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      disposition: 'selected',
+      optionId: 'approval:allow-once',
+    }),
+    {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      disposition: 'selected',
+      optionId: 'approval:allow-once',
+    },
+  );
+  assert.equal(
+    safeParseAgentRequestResolutionFor(approvalRequest, {
+      requestKind: 'approval',
+      requestId: 'request:approval',
+      disposition: 'selected',
+      optionId: 'approval:not-offered',
+    }).success,
+    false,
+  );
 });
 
 test('request resolutions must match request identity, kind, fields, and choices', () => {
@@ -460,7 +505,8 @@ test('request resolutions must match request identity, kind, fields, and choices
     {
       requestKind: 'approval',
       requestId: 'request:settings',
-      decision: 'approved',
+      disposition: 'selected',
+      optionId: 'approval:allow-once',
     },
     {
       requestKind: 'elicitation',

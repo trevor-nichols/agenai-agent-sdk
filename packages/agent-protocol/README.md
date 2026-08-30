@@ -41,7 +41,7 @@ import {
 } from '@agen-ai/agent-protocol';
 
 const event: AgentEvent = parseAgentEvent({
-  protocolVersion: 6,
+  protocolVersion: 7,
   type: 'content.delta',
   sessionId: parseAgentSessionId('external-session:42'),
   turnId: parseAgentTurnId('external-turn:9'),
@@ -56,17 +56,25 @@ const event: AgentEvent = parseAgentEvent({
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 ```
 
-Serialized values carry `protocolVersion: 6`; TypeScript API names remain unsuffixed. Unknown
+Serialized values carry `protocolVersion: 7`; TypeScript API names remain unsuffixed. Unknown
 fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
 shared, while commands, file changes, managed tools, web/computer activity, image views, and
-reviews expose only their bounded semantic `details`. Message, reasoning, plan, compaction, and
-unknown items have no details. Review details are required and distinguish an entered target from
-an exited report. There is no metadata or provider-native attribute bag; source evidence belongs
-outside the portable event. File-change producers can use `compareStringsByUnicodeCodePoint` to
-emit the canonical path ordering required by the protocol across both BMP and supplementary
-Unicode characters.
+reviews expose only their bounded semantic `details`. Context-compaction items require neutral
+details describing the trigger, optional before/after occupancy, duration, and bounded summary
+preview. Message, reasoning, plan, and unknown items have no details. Review details are required
+and distinguish an entered target from an exited report. There is no metadata or provider-native
+attribute bag; source evidence belongs outside the portable event. File-change producers can use
+`compareStringsByUnicodeCodePoint` to emit the canonical path ordering required by the protocol
+across both BMP and supplementary Unicode characters.
+
+V7 approval requests correlate to one live item or exact proposed-plan artifact and provide a
+bounded list of typed options. Every option declares its decision, persistence, and neutral scope;
+resolutions select one offered `optionId` or explicitly cancel. Approval capabilities advertise
+the exact persistence/scope combinations an adapter can emit. `context.usage.updated` reports
+bounded occupancy and optional monotonic cumulative counters for an advertised session or
+materialization measurement scope.
 
 ## Errors and trust
 
@@ -86,10 +94,11 @@ validated protocol output remains canonical across transports and consumers.
 
 ## Versioning and release
 
-The package is at `0.1.0` while the public API is still being proven with external adapters. Minor
+The package is at `0.2.0` while the public API is still being proven with external adapters. Minor
 releases may include breaking changes during this beta period. Every such change will be called out
-in the release notes. Protocol V6 is independent of any host transport or product persistence
-version.
+in the release notes. Protocol V7 is independent of any host transport or product persistence
+version. Version `0.2.0` is a direct break from V6/`0.1.0`; there is no compatibility parser. See
+the repository `MIGRATING-TO-0.2.md` guide for the complete API change matrix.
 
 The repository release proof builds and packs `@agen-ai/validation`, this package, and
 `@agen-ai/agent-runtime`; rejects workspace-only or private references; then typechecks and runs a

@@ -144,6 +144,67 @@ export type AgentContentStreamKind =
 export type AgentTurnState = 'running' | 'waiting_for_request';
 export type AgentTurnOutcome = 'completed' | 'failed' | 'canceled' | 'expired';
 
+export const AGENT_CONTEXT_MEASUREMENT_SCOPES = [
+  'session',
+  'materialization',
+] as const;
+export const AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS = [
+  'inputTokens',
+  'outputTokens',
+  'cachedReadTokens',
+  'cacheCreationTokens',
+  'reasoningTokens',
+  'modelCalls',
+  'turns',
+] as const;
+export const AGENT_CONTEXT_COMPACTION_STATES = [
+  'idle',
+  'approaching',
+  'in_progress',
+] as const;
+export const AGENT_CONTEXT_COMPACTION_TRIGGERS = [
+  'automatic',
+  'manual',
+  'context_limit',
+  'recovery',
+  'unknown',
+] as const;
+
+export const AGENT_CONTEXT_COMPACTION_SUMMARY_PREVIEW_MAX_LENGTH = 500;
+export const AGENT_CONTEXT_COMPACTION_DURATION_MAX_MILLISECONDS = 3_600_000;
+
+export type AgentContextMeasurementScope =
+  (typeof AGENT_CONTEXT_MEASUREMENT_SCOPES)[number];
+export type AgentContextCumulativeUsageField =
+  (typeof AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS)[number];
+export type AgentContextCompactionState =
+  (typeof AGENT_CONTEXT_COMPACTION_STATES)[number];
+export type AgentContextCompactionTrigger =
+  (typeof AGENT_CONTEXT_COMPACTION_TRIGGERS)[number];
+
+export interface AgentContextCumulativeUsage {
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly cachedReadTokens?: number;
+  readonly cacheCreationTokens?: number;
+  readonly reasoningTokens?: number;
+  readonly modelCalls?: number;
+  readonly turns?: number;
+}
+
+export interface AgentContextCompactionPressure {
+  readonly state: AgentContextCompactionState;
+  readonly thresholdTokens?: number;
+}
+
+export interface AgentContextUsage {
+  readonly measurementScope: AgentContextMeasurementScope;
+  readonly usedTokens: number;
+  readonly maxTokens: number;
+  readonly cumulative?: AgentContextCumulativeUsage;
+  readonly compaction?: AgentContextCompactionPressure;
+}
+
 export interface AgentItemSnapshotBase {
   readonly itemId: AgentItemId;
   readonly status: AgentItemStatus;
@@ -171,6 +232,15 @@ export interface AgentPlanItemSnapshot extends AgentItemSnapshotBase {
 export interface AgentContextCompactionItemSnapshot
   extends AgentItemSnapshotBase {
   readonly itemKind: 'context_compaction';
+  readonly details: AgentContextCompactionDetails;
+}
+
+export interface AgentContextCompactionDetails {
+  readonly trigger: AgentContextCompactionTrigger;
+  readonly beforeTokens?: number;
+  readonly afterTokens?: number;
+  readonly durationMs?: number;
+  readonly summaryPreview?: string;
 }
 
 export interface AgentUnknownItemSnapshot extends AgentItemSnapshotBase {

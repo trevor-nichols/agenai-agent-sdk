@@ -16,6 +16,7 @@ import {
   AGENT_PROTOCOL_TEXT_MAX_LENGTH,
   agentProtocolSerializedJsonBytes,
   type AgentArtifactId,
+  type AgentApprovalOptionId,
   type AgentConfigurationRevisionId,
   type AgentError,
   type AgentInstanceId,
@@ -95,6 +96,8 @@ export const AgentItemIdSchema =
   opaqueStringSchema<AgentItemId>(AgentCanonicalIdValueSchema);
 export const AgentRequestIdSchema =
   opaqueStringSchema<AgentRequestId>(AgentCanonicalIdValueSchema);
+export const AgentApprovalOptionIdSchema =
+  opaqueStringSchema<AgentApprovalOptionId>(AgentCanonicalIdValueSchema);
 export const AgentRequestFieldIdSchema =
   opaqueStringSchema<AgentRequestFieldId>(AgentCanonicalIdValueSchema);
 export const AgentArtifactIdSchema =

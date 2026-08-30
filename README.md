@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Status: `0.1.0` beta.
+> Status: `0.2.0` with Agent Protocol V7. The `latest` and `beta` npm tags both select this release.
 
 ## Why this exists
 
@@ -40,14 +40,15 @@ The dependency chain is intentionally narrow:
 
 ## Install
 
-Install the runtime package from the `beta` release channel:
+Install the coordinated `0.2.0` release directly or through npm's default `latest` channel:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@beta
+pnpm add @agen-ai/agent-runtime@0.2.0
 ```
 
-The protocol and validation packages are installed automatically. Install them directly only when
-you need their public APIs without the runtime.
+The `beta` tag also selects `0.2.0` for repositories that adopted the prerelease channel. The
+protocol and validation packages are installed automatically. Install them directly only when you
+need their public APIs without the runtime.
 
 ## Runtime shape
 
@@ -91,11 +92,16 @@ Package-specific API and lifecycle notes live in each package README:
 - [`@agen-ai/agent-protocol`](packages/agent-protocol/README.md)
 - [`@agen-ai/agent-runtime`](packages/agent-runtime/README.md)
 
-## Beta expectations
+## What changed in 0.2.0
 
-The SDK starts at `0.1.0` because external provider adapters are still proving the public surface.
-Minor releases may contain breaking API changes during the beta period. Those changes will be
-called out in release notes.
+Agent Protocol V7 adds bounded context-usage events, neutral compaction details, exact
+item/plan-correlated approval requests, typed approval options, advertised persistence/scope
+modes, and resolution by offered option ID. The validated runtime enforces these declarations and
+state transitions before provider delegation. See [MIGRATING-TO-0.2.md](MIGRATING-TO-0.2.md) for
+the breaking `0.1.0` migration and [CHANGELOG.md](CHANGELOG.md) for release notes.
+
+The SDK remains beta while external provider adapters prove the public surface. Minor releases may
+contain breaking API changes during this beta period, and release notes will call out each one.
 
 ## Contributing
 

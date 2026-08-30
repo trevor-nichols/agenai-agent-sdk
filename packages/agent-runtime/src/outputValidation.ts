@@ -87,6 +87,50 @@ function isContentStreamCapabilitySupported(
   return unsupportedCapabilitySemantic(streamKind);
 }
 
+function isApprovalRequestCapabilitySupported(
+  capabilities: AgentCapabilities,
+  event: Extract<AgentEvent, { readonly type: "request.opened" }>,
+): boolean {
+  const request = event.payload.request;
+  if (request.requestKind !== "approval") return false;
+  const capability = capabilities.requests.approval;
+  return capability.kind === "supported"
+    && request.options.every((option) =>
+      capability.modes.some(
+        (mode) =>
+          mode.persistence === option.persistence
+          && mode.scopeKinds.includes(option.scope.kind),
+      ),
+    );
+}
+
+function isContextUsageCapabilitySupported(
+  capabilities: AgentCapabilities,
+  event: Extract<AgentEvent, { readonly type: "context.usage.updated" }>,
+): boolean {
+  const capability = capabilities.context.usage;
+  if (
+    capability.kind !== "supported"
+    || !capability.measurementScopes.includes(
+      event.payload.measurementScope,
+    )
+  ) {
+    return false;
+  }
+  if (
+    event.payload.cumulative !== undefined
+    && Object.keys(event.payload.cumulative).some(
+      (field) => !capability.cumulativeFields.includes(
+        field as (typeof capability.cumulativeFields)[number],
+      ),
+    )
+  ) {
+    return false;
+  }
+  return event.payload.compaction === undefined
+    || capabilities.context.compaction.kind === "supported";
+}
+
 function isEventCapabilitySupported(
   capabilities: AgentCapabilities,
   event: AgentEvent,
@@ -94,8 +138,14 @@ function isEventCapabilitySupported(
   switch (event.type) {
     case "item.started":
     case "item.updated":
-    case "item.completed":
+    case "item.completed": {
+      if (event.payload.itemKind === "context_compaction") {
+        const compaction = capabilities.context.compaction;
+        return compaction.kind === "supported"
+          && compaction.triggers.includes(event.payload.details.trigger);
+      }
       return isItemKindCapabilitySupported(capabilities, event.payload.itemKind);
+    }
     case "content.delta":
       return capabilities.output.streaming
         && isContentStreamCapabilitySupported(
@@ -113,12 +163,14 @@ function isEventCapabilitySupported(
       );
     case "request.opened":
       return event.payload.request.requestKind === "approval"
-        ? capabilities.requests.approval
+        ? isApprovalRequestCapabilitySupported(capabilities, event)
         : capabilities.requests.elicitation.kind === "structured"
           || (capabilities.requests.elicitation.kind === "text"
             && event.payload.request.fields.every(
               (field) => field.kind === "text",
             ));
+    case "context.usage.updated":
+      return isContextUsageCapabilitySupported(capabilities, event);
     case "turn.started":
     case "turn.state_changed":
     case "turn.completed":

@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-runtime",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "Provider-neutral driver, instance, adapter, session, output, and conformance contracts for coding-agent runtimes.",
   "type": "module",

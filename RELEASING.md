@@ -19,7 +19,7 @@ existing package.
 2. Enable two-factor authentication on the maintainer account.
 3. Sign in locally with `npm login`.
 4. Run `pnpm check` from a clean `main` checkout.
-5. Pack the packages with pnpm and publish `0.1.0` under the `beta` dist-tag.
+5. Pack the packages with pnpm and publish the initial `0.1.0` release under the `beta` dist-tag.
 6. Add `release.yml` as the trusted GitHub Actions publisher for each package.
 7. Restrict package publishing so traditional tokens cannot publish.
 
@@ -34,12 +34,34 @@ later releases use the workflow.
 4. Tag the public commit as `v<version>` and push the tag.
 5. Open **Actions**, choose **Publish to npm**, and run it from the version tag.
 6. Keep prerelease builds on `beta` or `next`. Use `latest` only for the default stable release.
-7. Verify all three registry entries, install the runtime in a clean project, and create the GitHub
-   release from the same tag.
+7. Verify all three registry entries, their provenance, and a clean registry consumer before any
+   `latest` promotion.
+8. When separately approved, sign in with the maintainer account and move `latest` to the exact
+   verified version for all three packages. Create the GitHub release from the same tag.
 
-The workflow rejects a branch ref and rejects tags that do not match every package version. npm
-never permits the same package name and version to be published twice, so fix a failed release with
-a new version when any published tarball needs to change.
+The workflow rejects a branch ref and rejects tags that do not match every package version. Before
+each publish it compares an existing version's normalized manifest, exact tarball bytes, requested
+tag, and npm publish/provenance attestations with the intended artifact and release commit. A partial
+retry skips only an exact match, and the completed workflow verifies registry signatures and
+provenance cryptographically with `npm audit signatures`.
+
+npm never permits the same package name and version to be published twice. If published bytes do
+not match, stop and release a new patch version rather than overwriting or unpublishing casually.
+
+## Promoting an exact release to latest
+
+Trusted publishing intentionally authorizes `npm publish`; it does not authorize `npm dist-tag`
+writes. Promotion therefore uses a maintainer-authenticated npm session only after the immutable
+version and provenance have passed readback:
+
+```sh
+npm dist-tag add @agen-ai/validation@0.2.0 latest
+npm dist-tag add @agen-ai/agent-protocol@0.2.0 latest
+npm dist-tag add @agen-ai/agent-runtime@0.2.0 latest
+```
+
+Read every tag back after the three commands. A promotion changes package resolution, not tarball
+bytes; `beta` may continue to select the same exact version.
 
 ## Trusted publisher configuration
 

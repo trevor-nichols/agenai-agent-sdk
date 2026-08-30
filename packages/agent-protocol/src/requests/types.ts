@@ -3,8 +3,10 @@
 // ------------------------------------------------------------------------------------------------
 
 import type {
+  AgentApprovalOptionId,
   AgentArtifactId,
   AgentIsoDateTime,
+  AgentItemId,
   AgentRequestFieldId,
   AgentRequestId,
 } from '../foundation/index.js';
@@ -12,6 +14,29 @@ import type {
 // ------------------------------------------------------------------------------------------------
 //                Request Contracts
 // ------------------------------------------------------------------------------------------------
+
+export const AGENT_APPROVAL_PERSISTENCES = [
+  'once',
+  'session',
+  'workspace',
+] as const;
+export const AGENT_APPROVAL_SCOPE_KINDS = [
+  'exact_action',
+  'command_pattern',
+  'domain',
+  'tool',
+  'server',
+  'all_edits',
+] as const;
+
+export const AGENT_APPROVAL_OPTIONS_MAX_LENGTH = 16;
+export const AGENT_APPROVAL_LABEL_MAX_LENGTH = 120;
+export const AGENT_APPROVAL_DESCRIPTION_MAX_LENGTH = 1_000;
+
+export type AgentApprovalPersistence =
+  (typeof AGENT_APPROVAL_PERSISTENCES)[number];
+export type AgentApprovalScopeKind =
+  (typeof AGENT_APPROVAL_SCOPE_KINDS)[number];
 
 interface AgentApprovalSubjectBase {
   readonly title: string;
@@ -25,14 +50,24 @@ export type AgentApprovalSubject =
     }>)
   | (AgentApprovalSubjectBase & Readonly<{
       kind: 'command' | 'file_change' | 'tool' | 'other';
-      artifactId?: never;
+      itemId: AgentItemId;
     }>);
+
+export interface AgentApprovalOption {
+  readonly optionId: AgentApprovalOptionId;
+  readonly label: string;
+  readonly description?: string;
+  readonly decision: 'approved' | 'denied';
+  readonly persistence: AgentApprovalPersistence;
+  readonly scope: Readonly<{ kind: AgentApprovalScopeKind }>;
+}
 
 export interface AgentApprovalRequest {
   readonly requestKind: 'approval';
   readonly requestId: AgentRequestId;
   readonly prompt: string;
   readonly subject: AgentApprovalSubject;
+  readonly options: readonly AgentApprovalOption[];
   readonly expiresAt?: AgentIsoDateTime;
 }
 
@@ -84,11 +119,18 @@ export type AgentRequest = AgentApprovalRequest | AgentElicitationRequest;
 //                Resolution Contracts
 // ------------------------------------------------------------------------------------------------
 
-export interface AgentApprovalResolution {
-  readonly requestKind: 'approval';
-  readonly requestId: AgentRequestId;
-  readonly decision: 'approved' | 'denied' | 'canceled';
-}
+export type AgentApprovalResolution =
+  | Readonly<{
+      requestKind: 'approval';
+      requestId: AgentRequestId;
+      disposition: 'selected';
+      optionId: AgentApprovalOptionId;
+    }>
+  | Readonly<{
+      requestKind: 'approval';
+      requestId: AgentRequestId;
+      disposition: 'canceled';
+    }>;
 
 export interface AgentTextElicitationAnswer {
   readonly fieldId: AgentRequestFieldId;

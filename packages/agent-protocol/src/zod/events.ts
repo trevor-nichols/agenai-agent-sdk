@@ -16,6 +16,11 @@ import {
 import type { AgentEvent } from '../events/types.js';
 import { AgentRequestPortableSchema, AgentRequestSchema } from './requests.js';
 import {
+  AGENT_CONTEXT_COMPACTION_STATES,
+  AGENT_CONTEXT_MEASUREMENT_SCOPES,
+  type AgentContextUsage,
+} from '../turns/types.js';
+import {
   AgentContentStreamKindSchema,
   AgentDiffSummarySchema,
   AgentItemSnapshotSchema,
@@ -102,6 +107,72 @@ const ProgressUpdatedPayloadSchema = z
   .strict()
   .readonly();
 
+const NonNegativeSafeIntegerSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(Number.MAX_SAFE_INTEGER);
+const PositiveSafeIntegerSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(Number.MAX_SAFE_INTEGER);
+
+const AgentContextCumulativeUsageSchema = z
+  .object({
+    inputTokens: NonNegativeSafeIntegerSchema.optional(),
+    outputTokens: NonNegativeSafeIntegerSchema.optional(),
+    cachedReadTokens: NonNegativeSafeIntegerSchema.optional(),
+    cacheCreationTokens: NonNegativeSafeIntegerSchema.optional(),
+    reasoningTokens: NonNegativeSafeIntegerSchema.optional(),
+    modelCalls: NonNegativeSafeIntegerSchema.optional(),
+    turns: NonNegativeSafeIntegerSchema.optional(),
+  })
+  .strict()
+  .refine((usage) => Object.keys(usage).length > 0, {
+    message: 'Cumulative context usage must contain at least one counter.',
+  })
+  .readonly();
+
+export const AgentContextUsagePortableSchema = z
+  .object({
+    measurementScope: z.enum(AGENT_CONTEXT_MEASUREMENT_SCOPES),
+    usedTokens: NonNegativeSafeIntegerSchema,
+    maxTokens: PositiveSafeIntegerSchema,
+    cumulative: AgentContextCumulativeUsageSchema.optional(),
+    compaction: z
+      .object({
+        state: z.enum(AGENT_CONTEXT_COMPACTION_STATES),
+        thresholdTokens: PositiveSafeIntegerSchema.optional(),
+      })
+      .strict()
+      .readonly()
+      .optional(),
+  })
+  .strict()
+  .readonly();
+
+export const AgentContextUsageSchema: z.ZodType<AgentContextUsage> =
+  AgentContextUsagePortableSchema.superRefine((usage, context) => {
+    if (usage.usedTokens > usage.maxTokens) {
+      context.addIssue({
+        code: 'custom',
+        path: ['usedTokens'],
+        message: 'Used context tokens cannot exceed the context maximum.',
+      });
+    }
+    if (
+      usage.compaction?.thresholdTokens !== undefined
+      && usage.compaction.thresholdTokens > usage.maxTokens
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['compaction', 'thresholdTokens'],
+        message: 'Compaction threshold cannot exceed the context maximum.',
+      });
+    }
+  });
+
 // ------------------------------------------------------------------------------------------------
 //                Portable Union and Authoritative Refinements
 // ------------------------------------------------------------------------------------------------
@@ -158,6 +229,7 @@ export const AgentEventPortableSchema = z.discriminatedUnion('type', [
     z.object({ request: AgentRequestPortableSchema }).strict().readonly(),
   ),
   turnEvent('progress.updated', ProgressUpdatedPayloadSchema),
+  turnEvent('context.usage.updated', AgentContextUsagePortableSchema),
   optionallyTurnScopedEvent(
     'artifact.referenced',
     z.object({ artifact: AgentArtifactDescriptorSchema }).strict().readonly(),
@@ -245,6 +317,18 @@ export const AgentEventSchema: z.ZodType<AgentEvent> =
         path: ['payload', 'current'],
         message: 'Progress current cannot exceed total.',
       });
+    }
+
+    if (event.type === 'context.usage.updated') {
+      const usage = AgentContextUsageSchema.safeParse(event.payload);
+      if (!usage.success) {
+        for (const issue of usage.error.issues) {
+          context.addIssue({
+            ...issue,
+            path: ['payload', ...issue.path],
+          });
+        }
+      }
     }
 
     if (agentProtocolSerializedJsonBytes(event) > AGENT_PROTOCOL_EVENT_BYTES_LIMIT) {

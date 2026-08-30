@@ -14,6 +14,9 @@ import {
 import { compareStringsByUnicodeCodePoint } from '../foundation/ordering.js';
 import {
   AGENT_CONTENT_STREAM_KINDS,
+  AGENT_CONTEXT_COMPACTION_DURATION_MAX_MILLISECONDS,
+  AGENT_CONTEXT_COMPACTION_SUMMARY_PREVIEW_MAX_LENGTH,
+  AGENT_CONTEXT_COMPACTION_TRIGGERS,
   AGENT_FILE_CHANGE_KINDS,
   AGENT_IMAGE_INPUT_MEDIA_TYPES,
   AGENT_ITEM_KINDS,
@@ -23,6 +26,7 @@ import {
   type AgentCollaborationToolCallDetails,
   type AgentCommandExecutionDetails,
   type AgentComputerActionDetails,
+  type AgentContextCompactionDetails,
   type AgentDiffSummary,
   type AgentDynamicToolCallDetails,
   type AgentFileChange,
@@ -482,6 +486,50 @@ export const AgentReviewDetailsSchema: z.ZodType<AgentReviewDetails> =
       .readonly(),
   ]);
 
+export const AgentContextCompactionDetailsSchema: z.ZodType<AgentContextCompactionDetails> =
+  z
+    .object({
+      trigger: z.enum(AGENT_CONTEXT_COMPACTION_TRIGGERS),
+      beforeTokens: NonNegativeSafeIntegerSchema.optional(),
+      afterTokens: NonNegativeSafeIntegerSchema.optional(),
+      durationMs: z
+        .number()
+        .int()
+        .nonnegative()
+        .max(Number.MAX_SAFE_INTEGER)
+        .max(AGENT_CONTEXT_COMPACTION_DURATION_MAX_MILLISECONDS)
+        .optional(),
+      summaryPreview: createAgentCanonicalNonBlankStringSchema(
+        AGENT_CONTEXT_COMPACTION_SUMMARY_PREVIEW_MAX_LENGTH,
+      ).optional(),
+    })
+    .strict()
+    .superRefine((details, context) => {
+      if (
+        (details.beforeTokens === undefined)
+        !== (details.afterTokens === undefined)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['beforeTokens'],
+          message: 'Compaction before/after tokens must be present together.',
+        });
+        return;
+      }
+      if (
+        details.beforeTokens !== undefined
+        && details.afterTokens !== undefined
+        && details.afterTokens > details.beforeTokens
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['afterTokens'],
+          message: 'Compaction cannot increase retained context tokens.',
+        });
+      }
+    })
+    .readonly();
+
 const AgentItemSnapshotCommonShape = {
   itemId: AgentItemIdSchema,
   status: z.enum(AGENT_ITEM_STATUSES),
@@ -587,7 +635,14 @@ export const AgentItemSnapshotSchema: z.ZodType<AgentItemSnapshot> =
       })
       .strict()
       .readonly(),
-    itemWithoutDetails('context_compaction'),
+    z
+      .object({
+        ...AgentItemSnapshotCommonShape,
+        itemKind: z.literal('context_compaction'),
+        details: AgentContextCompactionDetailsSchema,
+      })
+      .strict()
+      .readonly(),
     itemWithoutDetails('unknown'),
   ]);
 

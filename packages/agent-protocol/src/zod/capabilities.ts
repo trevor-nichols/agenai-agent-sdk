@@ -15,6 +15,13 @@ import {
   type AgentCapabilities,
 } from '../capabilities/types.js';
 import {
+  AGENT_APPROVAL_PERSISTENCES,
+  AGENT_APPROVAL_SCOPE_KINDS,
+} from '../requests/types.js';
+import {
+  AGENT_CONTEXT_COMPACTION_TRIGGERS,
+  AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS,
+  AGENT_CONTEXT_MEASUREMENT_SCOPES,
   AGENT_IMAGE_INPUT_MEDIA_TYPES,
   AGENT_IMAGE_INPUT_SOURCE_KINDS,
   AGENT_TURN_INTERACTION_MODES,
@@ -69,6 +76,72 @@ const PositiveSafeIntegerSchema = z
   .int()
   .positive()
   .max(Number.MAX_SAFE_INTEGER);
+
+export const AgentApprovalCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      modes: z
+        .array(
+          z
+            .object({
+              persistence: z.enum(AGENT_APPROVAL_PERSISTENCES),
+              scopeKinds: z
+                .array(z.enum(AGENT_APPROVAL_SCOPE_KINDS))
+                .min(1)
+                .max(AGENT_APPROVAL_SCOPE_KINDS.length)
+                .meta({ uniqueItems: true })
+                .readonly(),
+            })
+            .strict()
+            .readonly(),
+        )
+        .min(1)
+        .max(AGENT_APPROVAL_PERSISTENCES.length)
+        .readonly(),
+    })
+    .strict()
+    .readonly(),
+]);
+
+const AgentContextUsageCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      measurementScopes: z
+        .array(z.enum(AGENT_CONTEXT_MEASUREMENT_SCOPES))
+        .min(1)
+        .max(AGENT_CONTEXT_MEASUREMENT_SCOPES.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      cumulativeFields: z
+        .array(z.enum(AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS))
+        .max(AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+    })
+    .strict()
+    .readonly(),
+]);
+
+const AgentContextCompactionCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      triggers: z
+        .array(z.enum(AGENT_CONTEXT_COMPACTION_TRIGGERS))
+        .min(1)
+        .max(AGENT_CONTEXT_COMPACTION_TRIGGERS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      sameSessionContinuation: z.boolean(),
+    })
+    .strict()
+    .readonly(),
+]);
 
 export const AgentImageInputCapabilitySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('unsupported') }).strict().readonly(),
@@ -193,12 +266,19 @@ export const AgentCapabilitiesPortableSchema = z
       .readonly(),
     requests: z
       .object({
-        approval: z.boolean(),
+        approval: AgentApprovalCapabilitySchema,
         elicitation: z.discriminatedUnion('kind', [
           z.object({ kind: z.literal('unsupported') }).strict().readonly(),
           z.object({ kind: z.literal('text') }).strict().readonly(),
           z.object({ kind: z.literal('structured') }).strict().readonly(),
         ]),
+      })
+      .strict()
+      .readonly(),
+    context: z
+      .object({
+        usage: AgentContextUsageCapabilitySchema,
+        compaction: AgentContextCompactionCapabilitySchema,
       })
       .strict()
       .readonly(),
@@ -283,6 +363,64 @@ export const AgentCapabilitiesSchema: z.ZodType<AgentCapabilities> =
       },
       context,
     );
+
+    if (capabilities.requests.approval.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.requests.approval.modes.map(
+            (mode) => mode.persistence,
+          ),
+          canonicalOrder: AGENT_APPROVAL_PERSISTENCES,
+          path: ['requests', 'approval', 'modes'],
+          label: 'Approval persistence modes',
+        },
+        context,
+      );
+      capabilities.requests.approval.modes.forEach((mode, index) => {
+        addCanonicalListIssues(
+          {
+            values: mode.scopeKinds,
+            canonicalOrder: AGENT_APPROVAL_SCOPE_KINDS,
+            path: ['requests', 'approval', 'modes', index, 'scopeKinds'],
+            label: 'Approval scope kinds',
+          },
+          context,
+        );
+      });
+    }
+
+    if (capabilities.context.usage.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.context.usage.measurementScopes,
+          canonicalOrder: AGENT_CONTEXT_MEASUREMENT_SCOPES,
+          path: ['context', 'usage', 'measurementScopes'],
+          label: 'Context measurement scopes',
+        },
+        context,
+      );
+      addCanonicalListIssues(
+        {
+          values: capabilities.context.usage.cumulativeFields,
+          canonicalOrder: AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS,
+          path: ['context', 'usage', 'cumulativeFields'],
+          label: 'Context cumulative usage fields',
+        },
+        context,
+      );
+    }
+
+    if (capabilities.context.compaction.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.context.compaction.triggers,
+          canonicalOrder: AGENT_CONTEXT_COMPACTION_TRIGGERS,
+          path: ['context', 'compaction', 'triggers'],
+          label: 'Context compaction triggers',
+        },
+        context,
+      );
+    }
 
     addCanonicalListIssues(
       {

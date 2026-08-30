@@ -9,6 +9,7 @@ its binding and conversation-local operations.
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 leases, or storage policy. A host must authorize and select an instance before calling this SPI.
+The current coordinated deployment tuple is Agent Protocol V7, private host V15/catalog V9, and Workspaces event V9.
 
 ## Entrypoints
 
@@ -38,6 +39,12 @@ exactly once before returning the matching session. Capability-dependent operati
 `supported`/`unsupported` discriminants, and the runtime rejects handlers that disagree with the
 instance capability declaration.
 
+Approval continuations are refusal-first. Before delegating to the candidate adapter, the
+validated session proves that the request is still pending and unexpired and that a selected
+`optionId` was offered by that exact request. Provider-emitted approval requests must correlate to
+a live item or exact proposed-plan artifact, and every option must fit an advertised
+persistence/scope mode.
+
 The host should serialize mutating operations for a given session. Separate session objects may
 run concurrently, so provider implementations must isolate their conversation-local state.
 `runTurn` and `resolveRequest` both preserve consumer backpressure: the provider does not resume
@@ -52,6 +59,12 @@ to call repeatedly. An accepted interruption of an already-waiting turn does not
 turn terminalized; unless the result also carries a terminal event, the validated session becomes
 unusable and must be closed and rematerialized. A close failure makes the session unusable while
 leaving close itself retryable.
+
+When context usage is advertised, the validated session enforces the declared measurement scopes
+and cumulative fields across turns. Identical consecutive samples and decreasing cumulative
+counters are rejected. Occupancy may decrease only after a completed advertised compaction item;
+the next accepted sample consumes that allowance. Context output remains subject to the same
+per-output backpressure and terminal ordering as every other provider event.
 
 When `capabilities.turns.steer` is true, the session exposes `steering.steerTurn`. Steering accepts
 the existing turn ID plus the same canonical `parts` and optional `summary` used to start a turn.
@@ -123,12 +136,13 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The package is at `0.1.0` while the public SPI is being proven with external adapters. Minor
+The package is at `0.2.0` while the public SPI is being proven with external adapters. Minor
 releases may include breaking changes during this beta period, and those changes will be called out
 in the release notes.
 
-The current version tuple is Agent Protocol V6, private host V14/catalog V8, and Workspaces event V8.
-The runtime package version remains independent of Agent Protocol V6.
+The public runtime implements Agent Protocol V7. Its package version remains independent of private
+host, catalog, persistence, and member-projection versions. Version `0.2.0` directly replaces the
+V6/`0.1.0` API; see the repository `MIGRATING-TO-0.2.md` guide.
 
 Run the clean packed-consumer proof before any release:
 

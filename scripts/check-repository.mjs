@@ -70,11 +70,13 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.1.0");
+assert.equal(rootManifest.version, "0.2.0");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
 assert.equal(rootManifest.engines?.node, ">=22.0.0");
+assert.equal(rootManifest.scripts?.["test:release"], "node --test scripts/release/*.test.mjs");
+assert.match(rootManifest.scripts?.check, /pnpm test:release/u);
 
 const exportManifest = await readJson(".agenai-export.json");
 assert.equal(exportManifest.schemaVersion, 1);
@@ -95,10 +97,31 @@ const workspaceConfig = await readFile(
 assert.match(workspaceConfig, /allowBuilds:\n  esbuild: true/u);
 assert.match(workspaceConfig, /overrides:\n  fast-uri: 3\.1\.0/u);
 
+const releaseWorkflow = await readFile(
+  path.join(REPOSITORY_ROOT, ".github/workflows/release.yml"),
+  "utf8",
+);
+const validationInspection = releaseWorkflow.indexOf("Inspect validation publication");
+const validationPublish = releaseWorkflow.indexOf("Publish validation");
+const protocolInspection = releaseWorkflow.indexOf("Inspect agent protocol publication");
+const protocolPublish = releaseWorkflow.indexOf("Publish agent protocol");
+const runtimeInspection = releaseWorkflow.indexOf("Inspect agent runtime publication");
+const runtimePublish = releaseWorkflow.indexOf("Publish agent runtime");
+assert.ok(validationInspection >= 0 && validationInspection < validationPublish);
+assert.ok(validationPublish < protocolInspection && protocolInspection < protocolPublish);
+assert.ok(protocolPublish < runtimeInspection && runtimeInspection < runtimePublish);
+assert.match(releaseWorkflow, /verify-package-publication\.mjs/u);
+assert.match(releaseWorkflow, /--require-present --attempts 20 --delay-ms 3000/u);
+assert.match(releaseWorkflow, /npm audit signatures/u);
+assert.doesNotMatch(
+  releaseWorkflow,
+  /NODE_AUTH_TOKEN|(?:^|\n)\s*(?:npm|pnpm exec npm)\s+dist-tag\b/u,
+);
+
 for (const policy of PACKAGE_POLICIES) {
   const manifest = await readJson(`${policy.root}/package.json`);
   assert.equal(manifest.name, policy.name);
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.2.0");
   assert.equal(manifest.private, false);
   assert.equal(manifest.license, "MIT");
   assert.equal(manifest.type, "module");
