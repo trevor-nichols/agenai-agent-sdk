@@ -146,7 +146,7 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The package is at `0.2.1` while the public SPI is being proven with external adapters. Minor
+The package is at `0.2.2` while the public SPI is being proven with external adapters. Minor
 releases may include breaking changes during this beta period, and those changes will be called out
 in the release notes.
 

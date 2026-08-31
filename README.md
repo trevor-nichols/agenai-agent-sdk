@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Status: `0.2.1` with Agent Protocol V7. The `latest` and `beta` npm tags both select this release.
+> Status: `0.2.2` with Agent Protocol V7. The `latest` and `beta` npm tags both select this release.
 
 ## Why this exists
 
@@ -40,13 +40,13 @@ The dependency chain is intentionally narrow:
 
 ## Install
 
-Install the coordinated `0.2.1` release directly or through npm's default `latest` channel:
+Install the coordinated `0.2.2` release directly or through npm's default `latest` channel:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.2.1
+pnpm add @agen-ai/agent-runtime@0.2.2
 ```
 
-The `beta` tag also selects `0.2.1` for repositories that adopted the prerelease channel. The
+The `beta` tag also selects `0.2.2` for repositories that adopted the prerelease channel. The
 protocol and validation packages are installed automatically. Install them directly only when you
 need their public APIs without the runtime.
 
@@ -92,12 +92,13 @@ Package-specific API and lifecycle notes live in each package README:
 - [`@agen-ai/agent-protocol`](packages/agent-protocol/README.md)
 - [`@agen-ai/agent-runtime`](packages/agent-runtime/README.md)
 
-## What changed in 0.2.1
+## What changed in 0.2.2
 
-This patch tightens the validated runtime without changing Agent Protocol V7. It preserves
-cumulative context counters across samples that omit individual fields, accepts `unknown` as the
-protocol-safe compaction fallback only when compaction is supported, and permits neutral
-cancellation after an approval expires while continuing to reject expired selections. See
+This patch tightens the validated runtime and deliberate Zod composition surface without changing
+Agent Protocol V7. It preserves live approval correlation through provider status uncertainty,
+rejects terminal or rebound approval subjects, resets materialization-scoped context usage at
+explicit process boundaries, accepts the full protocol-sized approval prompt, and enforces
+canonical approval capability lists in the standalone schema. See
 [MIGRATING-TO-0.2.md](MIGRATING-TO-0.2.md) for the original breaking `0.1.0` migration and
 [CHANGELOG.md](CHANGELOG.md) for complete release notes.
 

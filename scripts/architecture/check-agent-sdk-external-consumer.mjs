@@ -57,13 +57,13 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.2.1", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.2.2", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.2.1" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.2.2" },
   },
 ];
 
@@ -152,7 +152,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.2.1");
+  assert.equal(manifest.version, "0.2.2");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -308,7 +308,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.2.1");
+assert.equal(protocolManifest.version, "0.2.2");
 
 assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");

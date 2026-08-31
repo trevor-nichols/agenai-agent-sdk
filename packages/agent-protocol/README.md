@@ -94,7 +94,7 @@ validated protocol output remains canonical across transports and consumers.
 
 ## Versioning and release
 
-The package is at `0.2.1` while the public API is still being proven with external adapters. Minor
+The package is at `0.2.2` while the public API is still being proven with external adapters. Minor
 releases may include breaking changes during this beta period. Every such change will be called out
 in the release notes. Protocol V7 is independent of any host transport or product persistence
 version. Version `0.2.0` is a direct break from V6/`0.1.0`; there is no compatibility parser. See

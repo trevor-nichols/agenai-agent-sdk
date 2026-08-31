@@ -3,6 +3,24 @@
 All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. The three
 packages always ship together at one version during beta.
 
+## 0.2.2 - 2026-08-31
+
+This coordinated patch release is published under both the `beta` and `latest` npm tags.
+
+### Fixed
+
+- Reject terminal, regressed, or rebound item and plan subjects before an approval can reach a
+  waiting boundary or provider delegation, while preserving prior in-progress evidence across an
+  `unknown` status update.
+- Reset materialization-scoped context usage at an explicit provider process boundary without
+  weakening logical-session monotonicity.
+- Accept approval prompts up to the protocol's 4,000-character limit across generated and runtime
+  validation surfaces.
+- Enforce uniqueness and canonical ordering directly in the exported standalone approval
+  capability schema.
+- Resume partial coordinated releases only when existing packages carry exact provenance from the
+  original immutable release tag or its guarded recovery run.
+
 ## 0.2.1 - 2026-08-30
 
 This coordinated patch release is published under both the `beta` and `latest` npm tags.
