@@ -1469,7 +1469,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
     "image_input_total_bytes_admits_max_image",
     "image_input_total_bytes_bounded_by_count"
   ],
-  "sha256": "8fd14032d8bff073bba01be29fdb81495d114af9922c627918c19a7bb4bf4f4f",
+  "sha256": "a91eeeceacc192eb1698d4bf1b24503325ffcec8f9a6a0b27ca7528a147e782d",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1562,6 +1562,44 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "type": "object"
       },
       "__schema10": {
+        "items": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "maxItems": 3,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "__schema11": {
+        "additionalProperties": false,
+        "properties": {
+          "persistence": {
+            "enum": [
+              "once",
+              "session",
+              "workspace"
+            ],
+            "type": "string"
+          },
+          "scopeKinds": {
+            "items": {
+              "$ref": "#/$defs/__schema12"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "readOnly": true,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "persistence",
+          "scopeKinds"
+        ],
+        "type": "object"
+      },
+      "__schema12": {
         "enum": [
           "exact_action",
           "command_pattern",
@@ -1572,14 +1610,14 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema11": {
+      "__schema13": {
         "enum": [
           "session",
           "materialization"
         ],
         "type": "string"
       },
-      "__schema12": {
+      "__schema14": {
         "enum": [
           "inputTokens",
           "outputTokens",
@@ -1591,7 +1629,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema13": {
+      "__schema15": {
         "enum": [
           "automatic",
           "manual",
@@ -1601,7 +1639,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema14": {
+      "__schema16": {
         "enum": [
           "plan",
           "diff",
@@ -1613,15 +1651,15 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema15": {
+      "__schema17": {
         "additionalProperties": false,
         "properties": {
           "key": {
-            "$ref": "#/$defs/__schema16"
+            "$ref": "#/$defs/__schema18"
           },
           "optionIds": {
             "items": {
-              "$ref": "#/$defs/__schema16"
+              "$ref": "#/$defs/__schema18"
             },
             "maxItems": 100,
             "minItems": 1,
@@ -1637,13 +1675,13 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "object"
       },
-      "__schema16": {
+      "__schema18": {
         "maxLength": 100,
         "minLength": 1,
         "pattern": "^[a-z][a-z0-9._:-]*$",
         "type": "string"
       },
-      "__schema17": {
+      "__schema19": {
         "enum": [
           "device_code",
           "browser",
@@ -1700,33 +1738,8 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "type": "boolean"
       },
       "__schema9": {
-        "additionalProperties": false,
-        "properties": {
-          "persistence": {
-            "enum": [
-              "once",
-              "session",
-              "workspace"
-            ],
-            "type": "string"
-          },
-          "scopeKinds": {
-            "items": {
-              "$ref": "#/$defs/__schema10"
-            },
-            "maxItems": 6,
-            "minItems": 1,
-            "readOnly": true,
-            "type": "array",
-            "uniqueItems": true
-          }
-        },
-        "readOnly": true,
-        "required": [
-          "persistence",
-          "scopeKinds"
-        ],
-        "type": "object"
+        "const": "supported",
+        "type": "string"
       }
     },
     "$id": "urn:agenai.agent-protocol.capabilities:v7:output",
@@ -1754,7 +1767,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "flows": {
                 "items": {
-                  "$ref": "#/$defs/__schema17"
+                  "$ref": "#/$defs/__schema19"
                 },
                 "maxItems": 3,
                 "minItems": 1,
@@ -1797,7 +1810,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "fields": {
                 "items": {
-                  "$ref": "#/$defs/__schema15"
+                  "$ref": "#/$defs/__schema17"
                 },
                 "maxItems": 100,
                 "minItems": 1,
@@ -1849,7 +1862,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                   },
                   "triggers": {
                     "items": {
-                      "$ref": "#/$defs/__schema13"
+                      "$ref": "#/$defs/__schema15"
                     },
                     "maxItems": 5,
                     "minItems": 1,
@@ -1889,7 +1902,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                 "properties": {
                   "cumulativeFields": {
                     "items": {
-                      "$ref": "#/$defs/__schema12"
+                      "$ref": "#/$defs/__schema14"
                     },
                     "maxItems": 7,
                     "readOnly": true,
@@ -1902,7 +1915,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                   },
                   "measurementScopes": {
                     "items": {
-                      "$ref": "#/$defs/__schema11"
+                      "$ref": "#/$defs/__schema13"
                     },
                     "maxItems": 2,
                     "minItems": 1,
@@ -1962,7 +1975,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "properties": {
           "artifactKinds": {
             "items": {
-              "$ref": "#/$defs/__schema14"
+              "$ref": "#/$defs/__schema16"
             },
             "maxItems": 7,
             "readOnly": true,
@@ -2026,17 +2039,10 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                 "additionalProperties": false,
                 "properties": {
                   "kind": {
-                    "const": "supported",
-                    "type": "string"
+                    "$ref": "#/$defs/__schema9"
                   },
                   "modes": {
-                    "items": {
-                      "$ref": "#/$defs/__schema9"
-                    },
-                    "maxItems": 3,
-                    "minItems": 1,
-                    "readOnly": true,
-                    "type": "array"
+                    "$ref": "#/$defs/__schema10"
                   }
                 },
                 "readOnly": true,

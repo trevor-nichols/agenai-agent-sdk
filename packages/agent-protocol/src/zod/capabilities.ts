@@ -102,6 +102,28 @@ export const AgentApprovalCapabilitySchema = z.discriminatedUnion('kind', [
         .readonly(),
     })
     .strict()
+    .superRefine((capability, context) => {
+      addCanonicalListIssues(
+        {
+          values: capability.modes.map((mode) => mode.persistence),
+          canonicalOrder: AGENT_APPROVAL_PERSISTENCES,
+          path: ['modes'],
+          label: 'Approval persistence modes',
+        },
+        context,
+      );
+      capability.modes.forEach((mode, index) => {
+        addCanonicalListIssues(
+          {
+            values: mode.scopeKinds,
+            canonicalOrder: AGENT_APPROVAL_SCOPE_KINDS,
+            path: ['modes', index, 'scopeKinds'],
+            label: 'Approval scope kinds',
+          },
+          context,
+        );
+      });
+    })
     .readonly(),
 ]);
 
@@ -363,31 +385,6 @@ export const AgentCapabilitiesSchema: z.ZodType<AgentCapabilities> =
       },
       context,
     );
-
-    if (capabilities.requests.approval.kind === 'supported') {
-      addCanonicalListIssues(
-        {
-          values: capabilities.requests.approval.modes.map(
-            (mode) => mode.persistence,
-          ),
-          canonicalOrder: AGENT_APPROVAL_PERSISTENCES,
-          path: ['requests', 'approval', 'modes'],
-          label: 'Approval persistence modes',
-        },
-        context,
-      );
-      capabilities.requests.approval.modes.forEach((mode, index) => {
-        addCanonicalListIssues(
-          {
-            values: mode.scopeKinds,
-            canonicalOrder: AGENT_APPROVAL_SCOPE_KINDS,
-            path: ['requests', 'approval', 'modes', index, 'scopeKinds'],
-            label: 'Approval scope kinds',
-          },
-          context,
-        );
-      });
-    }
 
     if (capabilities.context.usage.kind === 'supported') {
       addCanonicalListIssues(

@@ -18,6 +18,10 @@ import {
   safeParseAgentItemSnapshot,
   safeParseAgentRequestResolutionFor,
 } from '../src/index.js';
+import {
+  AgentApprovalCapabilitySchema,
+  AgentCapabilitiesSchema,
+} from '../src/zod/index.js';
 
 // ------------------------------------------------------------------------------------------------
 //                Frozen Positive Examples
@@ -98,6 +102,10 @@ test('V7 approval capability and request freeze exact bounded once semantics', (
       },
     ],
   } as const;
+  assert.deepEqual(
+    AgentApprovalCapabilitySchema.parse(approvalCapability),
+    approvalCapability,
+  );
   assert.deepEqual(
     parseAgentCapabilities(capabilitiesWithApproval(approvalCapability))
       .requests.approval,
@@ -268,11 +276,39 @@ test('V7 capability freeze rejects duplicate and noncanonical modes/scopes', () 
         },
       ],
     },
+    {
+      kind: 'supported',
+      modes: [
+        {
+          persistence: 'once',
+          scopeKinds: ['exact_action', 'exact_action'],
+        },
+      ],
+    },
   ];
   for (const capability of invalidCapabilities) {
+    const standalone = AgentApprovalCapabilitySchema.safeParse(capability);
+    const embedded = AgentCapabilitiesSchema.safeParse(
+      capabilitiesWithApproval(capability),
+    );
+    assert.equal(standalone.success, false);
+    assert.equal(embedded.success, false);
     assert.equal(
       safeParseAgentCapabilities(capabilitiesWithApproval(capability)).success,
       false,
+    );
+    if (standalone.success || embedded.success) continue;
+    assert.deepEqual(
+      embedded.error.issues.map((issue) => ({
+        code: issue.code,
+        path: issue.path.slice(2),
+        message: issue.message,
+      })),
+      standalone.error.issues.map((issue) => ({
+        code: issue.code,
+        path: issue.path,
+        message: issue.message,
+      })),
     );
   }
 });
