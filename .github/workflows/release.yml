@@ -131,7 +131,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 5000
+          --require-present --attempts 30 --delay-ms 10000
 
       - name: Inspect agent protocol publication
         id: agent_protocol
@@ -154,7 +154,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 5000
+          --require-present --attempts 30 --delay-ms 10000
 
       - name: Inspect agent runtime publication
         id: agent_runtime
@@ -177,7 +177,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 5000
+          --require-present --attempts 30 --delay-ms 10000
 
       - name: Verify registry signatures and provenance
         shell: bash

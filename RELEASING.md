@@ -43,7 +43,8 @@ The workflow rejects a branch ref and rejects tags that do not match every packa
 each publish it compares an existing version's normalized manifest, exact tarball bytes, requested
 tag, and npm publish/provenance attestations with the intended artifact and release commit. A partial
 retry skips only an exact match, and the completed workflow verifies registry signatures and
-provenance cryptographically with `npm audit signatures`.
+provenance cryptographically with `npm audit signatures`. Each post-publish verification allows up
+to five minutes for npm's registry and attestation endpoints to converge before stopping safely.
 
 npm never permits the same package name and version to be published twice. If published bytes do
 not match, stop and release a new patch version rather than overwriting or unpublishing casually.
