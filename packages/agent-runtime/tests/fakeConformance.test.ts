@@ -7,7 +7,12 @@ import test from "node:test";
 
 import {
   parseAgentCapabilities,
+  parseAgentCollaborationId,
   parseAgentConfigurationRevisionId,
+  parseAgentGeneratedResourceId,
+  parseAgentIsoDateTime,
+  parseAgentOperationId,
+  parseAgentOperationInvocationId,
   parseAgentProviderKey,
   parseAgentSessionId,
   parseAgentTurnId,
@@ -15,13 +20,22 @@ import {
 } from "@agen-ai/agent-protocol";
 
 import {
+  validateAgentProviderAdapter,
+} from "../src/index.js";
+import {
   AgentProviderConformanceError,
   createFakeAgentProvider,
   runAgentProviderConformance,
 } from "../src/testing/index.js";
 const configuration: AgentSessionConfiguration = {
+  kind: "selected",
   revision: parseAgentConfigurationRevisionId("configuration:1"),
-  values: { model: "fake-model", mode: "agent" },
+  catalogRevision: 1,
+  selections: [{
+    key: "model",
+    fieldRevision: 1,
+    value: { fieldKind: "single_select", optionId: "fake-model" },
+  }],
 };
 
 test("the deterministic fake passes the reusable provider conformance suite", async () => {
@@ -31,10 +45,26 @@ test("the deterministic fake passes the reusable provider conformance suite", as
     definition: fake.definition,
     workingDirectory: "/host/workspaces/external-session",
     configuration,
-    updatedConfiguration: {
-      revision: parseAgentConfigurationRevisionId("configuration:2"),
-      values: { model: "fake-model-2", mode: "agent" },
+    configurationSelection: {
+      key: "model",
+      expectedCatalogRevision: 1,
+      expectedFieldRevision: 1,
+      value: { fieldKind: "single_select", optionId: "fake-model-2" },
     },
+    operationInvocation: {
+      invocationId: parseAgentOperationInvocationId("fake-invocation:1"),
+      operationId: parseAgentOperationId("fake.session.reset"),
+      expectedRevision: 1,
+      values: [],
+    },
+    collaborationSpawn: {
+      collaborationId: parseAgentCollaborationId("fake-collaboration:1"),
+      role: "reviewer",
+      title: "Fake provider review",
+      objective: "Review the fake provider.",
+      createdAt: parseAgentIsoDateTime("2026-01-01T00:00:00.000Z"),
+    },
+    generatedResourceId: parseAgentGeneratedResourceId("fake-resource:1"),
     createSessionId: parseAgentSessionId("external-session:create"),
     resumeSessionId: parseAgentSessionId("external-session:resume"),
     branchSessionId: parseAgentSessionId("external-session:branch"),
@@ -94,6 +124,11 @@ test("the deterministic fake passes the reusable provider conformance suite", as
     "steering",
     "interruption",
     "configuration",
+    "operations",
+    "managed_content",
+    "integrations",
+    "collaboration",
+    "generated_resources",
     "idempotent_session_close",
     "resume_session",
     "branch_session",
@@ -124,7 +159,7 @@ test("the deterministic fake passes the reusable provider conformance suite", as
       summary: "Additional validation",
     },
   ]);
-  assert.deepEqual(snapshot.configurationRevisions, ["configuration:2"]);
+  assert.deepEqual(snapshot.configurationRevisions, ["1:model"]);
   assert.deepEqual(snapshot.closeCounts, {
     "external-session:create": 1,
     "external-session:interruption": 1,
@@ -133,13 +168,53 @@ test("the deterministic fake passes the reusable provider conformance suite", as
   });
 });
 
+test("required-idempotency operation replays return the correlated result without redelegation", async () => {
+  const fake = createFakeAgentProvider();
+  const instance = await fake.driver.materialize(fake.definition);
+  const adapter = validateAgentProviderAdapter(
+    instance.capabilities,
+    instance.adapter,
+  );
+  const session = await adapter.createSession({
+    sessionId: parseAgentSessionId("idempotency-session:1"),
+    workingDirectory: "/host/workspaces/idempotency-session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  assert.equal(session.operations.kind, "supported");
+  if (session.operations.kind !== "supported") return;
+  const invocation = {
+    invocationId: parseAgentOperationInvocationId("idempotency-invocation:1"),
+    operationId: parseAgentOperationId("fake.session.reset"),
+    expectedRevision: 1,
+    values: [],
+  };
+  let executionStartCount = 0;
+  const first = await session.operations.invokeOperation({
+    invocation,
+    onProviderExecutionStarted: () => {
+      executionStartCount += 1;
+    },
+  });
+  const replay = await session.operations.invokeOperation({
+    invocation,
+    onProviderExecutionStarted: () => {
+      executionStartCount += 1;
+    },
+  });
+  assert.deepEqual(replay, first);
+  assert.equal(executionStartCount, 1);
+  await session.close({ reason: "idle" });
+  await instance.dispose();
+});
+
 test("conformance verifies explicit unsupported operation discriminants", async () => {
   const providerKey = parseAgentProviderKey("limited-fake-provider");
   const fake = createFakeAgentProvider({
     providerKey,
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
-      protocolVersion: 7,
+      protocolVersion: 8,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {
@@ -163,12 +238,11 @@ test("conformance verifies explicit unsupported operation discriminants", async 
         artifactKinds: [],
       },
       configuration: { kind: "managed" },
-      interactionExtensions: {
-        slashCommands: false,
-        mcp: false,
-        subagents: false,
-        imageGeneration: false,
-      },
+      operations: { kind: "unsupported" },
+      managedContent: { kind: "unsupported" },
+      integrations: { kind: "unsupported" },
+      collaboration: { kind: "unsupported" },
+      generatedResources: { kind: "unsupported" },
       authentication: { kind: "unsupported" },
       versionReporting: true,
     }),
@@ -178,8 +252,8 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     definition: fake.definition,
     workingDirectory: "/host/workspaces/limited-session",
     configuration: {
+      kind: "managed",
       revision: parseAgentConfigurationRevisionId("limited-configuration:1"),
-      values: {},
     },
     createSessionId: parseAgentSessionId("limited-session:create"),
     resumeSessionId: parseAgentSessionId("limited-session:resume"),
@@ -225,10 +299,6 @@ test("conformance rejects a definitive steering rejection on a live turn", async
       definition: fake.definition,
       workingDirectory: "/host/workspaces/rejected-steering",
       configuration,
-      updatedConfiguration: {
-        revision: parseAgentConfigurationRevisionId("configuration:2"),
-        values: { model: "fake-model-2", mode: "agent" },
-      },
       createSessionId: parseAgentSessionId("rejected-steering:create"),
       resumeSessionId: parseAgentSessionId("rejected-steering:resume"),
       branchSessionId: parseAgentSessionId("rejected-steering:branch"),

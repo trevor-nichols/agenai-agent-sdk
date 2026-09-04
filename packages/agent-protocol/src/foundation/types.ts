@@ -15,7 +15,7 @@ export { AgentProtocolValidationError } from './validation.js';
 //                Protocol Version and Limits
 // ------------------------------------------------------------------------------------------------
 
-export const AGENT_PROTOCOL_VERSION = 7 as const;
+export const AGENT_PROTOCOL_VERSION = 8 as const;
 export const AGENT_PROTOCOL_ID_MAX_LENGTH = 256;
 export const AGENT_PROTOCOL_PROVIDER_REFERENCE_MAX_LENGTH = 512;
 export const AGENT_PROTOCOL_PROVIDER_KEY_MAX_LENGTH = 100;
@@ -47,6 +47,19 @@ export type AgentRequestId = AgentProtocolId<'AgentRequestId'>;
 export type AgentApprovalOptionId = AgentProtocolId<'AgentApprovalOptionId'>;
 export type AgentRequestFieldId = AgentProtocolId<'AgentRequestFieldId'>;
 export type AgentArtifactId = AgentProtocolId<'AgentArtifactId'>;
+export type AgentOperationId = AgentProtocolId<'AgentOperationId'>;
+export type AgentOperationInvocationId =
+  AgentProtocolId<'AgentOperationInvocationId'>;
+export type AgentManagedContentId = AgentProtocolId<'AgentManagedContentId'>;
+export type AgentIntegrationId = AgentProtocolId<'AgentIntegrationId'>;
+export type AgentIntegrationServerId =
+  AgentProtocolId<'AgentIntegrationServerId'>;
+export type AgentIntegrationToolId = AgentProtocolId<'AgentIntegrationToolId'>;
+export type AgentIntegrationResourceId =
+  AgentProtocolId<'AgentIntegrationResourceId'>;
+export type AgentCollaborationId = AgentProtocolId<'AgentCollaborationId'>;
+export type AgentGeneratedResourceId =
+  AgentProtocolId<'AgentGeneratedResourceId'>;
 export type AgentConfigurationRevisionId =
   AgentProtocolId<'AgentConfigurationRevisionId'>;
 export type AgentProviderConversationId =

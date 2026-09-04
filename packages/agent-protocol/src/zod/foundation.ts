@@ -17,12 +17,20 @@ import {
   agentProtocolSerializedJsonBytes,
   type AgentArtifactId,
   type AgentApprovalOptionId,
+  type AgentCollaborationId,
   type AgentConfigurationRevisionId,
   type AgentError,
   type AgentInstanceId,
+  type AgentIntegrationId,
+  type AgentIntegrationResourceId,
+  type AgentIntegrationServerId,
+  type AgentIntegrationToolId,
   type AgentIsoDateTime,
   type AgentItemId,
   type AgentJsonValue,
+  type AgentManagedContentId,
+  type AgentOperationId,
+  type AgentOperationInvocationId,
   type AgentProviderConversationId,
   type AgentProviderHistoryAnchor,
   type AgentProviderItemRef,
@@ -33,6 +41,7 @@ import {
   type AgentRequestFieldId,
   type AgentRequestId,
   type AgentSessionId,
+  type AgentGeneratedResourceId,
   type AgentTurnId,
 } from '../foundation/types.js';
 
@@ -102,6 +111,24 @@ export const AgentRequestFieldIdSchema =
   opaqueStringSchema<AgentRequestFieldId>(AgentCanonicalIdValueSchema);
 export const AgentArtifactIdSchema =
   opaqueStringSchema<AgentArtifactId>(AgentCanonicalIdValueSchema);
+export const AgentOperationIdSchema =
+  opaqueStringSchema<AgentOperationId>(AgentCanonicalIdValueSchema);
+export const AgentOperationInvocationIdSchema =
+  opaqueStringSchema<AgentOperationInvocationId>(AgentCanonicalIdValueSchema);
+export const AgentManagedContentIdSchema =
+  opaqueStringSchema<AgentManagedContentId>(AgentCanonicalIdValueSchema);
+export const AgentIntegrationIdSchema =
+  opaqueStringSchema<AgentIntegrationId>(AgentCanonicalIdValueSchema);
+export const AgentIntegrationServerIdSchema =
+  opaqueStringSchema<AgentIntegrationServerId>(AgentCanonicalIdValueSchema);
+export const AgentIntegrationToolIdSchema =
+  opaqueStringSchema<AgentIntegrationToolId>(AgentCanonicalIdValueSchema);
+export const AgentIntegrationResourceIdSchema =
+  opaqueStringSchema<AgentIntegrationResourceId>(AgentCanonicalIdValueSchema);
+export const AgentCollaborationIdSchema =
+  opaqueStringSchema<AgentCollaborationId>(AgentCanonicalIdValueSchema);
+export const AgentGeneratedResourceIdSchema =
+  opaqueStringSchema<AgentGeneratedResourceId>(AgentCanonicalIdValueSchema);
 export const AgentConfigurationRevisionIdSchema =
   opaqueStringSchema<AgentConfigurationRevisionId>(AgentCanonicalIdValueSchema);
 export const AgentProviderConversationIdSchema =

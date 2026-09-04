@@ -9,12 +9,14 @@ its binding and conversation-local operations.
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-The current coordinated deployment tuple is Agent Protocol V7, private host V15/catalog V9, and Workspaces event V9.
+This source package implements Agent Protocol V8. Agent Protocol V8, private host V16/catalog V10, and Workspaces event V10.
+This is intentionally one coordinated tuple rather than a deployable mixed-version graph.
 
 ## Entrypoints
 
 - `@agen-ai/agent-runtime` exports the public driver, instance, adapter, session, output,
-  readiness, bounded-evidence, artifact-candidate, and registry APIs.
+  readiness, bounded-evidence, artifact-candidate, capability-bound interaction validation,
+  and registry APIs.
 - `@agen-ai/agent-runtime/testing` exports the deterministic fake provider and reusable
   conformance runner.
 
@@ -38,6 +40,13 @@ an authorization credential. Create and branch implementations must invoke `onBi
 exactly once before returning the matching session. Capability-dependent operations use explicit
 `supported`/`unsupported` discriminants, and the runtime rejects handlers that disagree with the
 instance capability declaration.
+
+V8 replaces interaction-extension booleans with cohesive capability-matched session ports:
+configuration inventory and selection, typed operation inventory and invocation, managed-content
+inventory, integration observation, collaboration spawn/control, and generated-resource access.
+An unsupported declaration exposes exactly `{ kind: "unsupported" }`; a supported declaration must
+expose exactly its typed handlers. Catalogs and results are parsed again at the runtime boundary,
+bounded by the declaration, and correlated to the offered revision and caller-owned identity.
 
 Approval continuations are refusal-first. Before delegating to the candidate adapter, the
 validated session proves that the request is still pending and unexpired and that a selected
@@ -86,6 +95,14 @@ result. The validated runtime preserves pre-delegation validation and abort erro
 provider-delegated steering failures throw `AgentProviderDelegatedOperationError` with the original
 cause and explicit started-execution evidence so a host can retire the unusable session. Platform
 scheduling and provider-native queue modes are intentionally outside this SPI.
+
+Configuration selection, operation invocation, and collaboration mutation use the same execution
+receipt rule: stale or malformed input fails before provider delegation, while any failure after
+the candidate reports execution start is wrapped as `AgentProviderDelegatedOperationError` and
+makes the session unusable. The start boundary commits only after the host observer returns
+successfully; an observer failure remains a pre-delegation error and leaves the session reusable.
+Operation, collaboration, and generated-resource observations also
+enforce correlation, immutable identity, declared bounds, and forward-only lifecycle transitions.
 
 ## Minimal driver
 
@@ -146,13 +163,13 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The package is at `0.2.2` while the public SPI is being proven with external adapters. Minor
-releases may include breaking changes during this beta period, and those changes will be called out
-in the release notes.
+The package is at `0.2.3` while the public SPI is being proven with external adapters. Pre-1.0
+releases may include breaking changes during this beta period, and those changes are called out in
+the release notes.
 
-The public runtime implements Agent Protocol V7. Its package version remains independent of private
-host, catalog, persistence, and member-projection versions. Version `0.2.0` directly replaces the
-V6/`0.1.0` API; see the repository `MIGRATING-TO-0.2.md` guide.
+The public runtime implements Agent Protocol V8. Its package version remains independent of private
+host, catalog, persistence, and member-projection versions. V8 directly replaces V7; there is no
+runtime shim or dual-protocol session surface.
 
 Run the clean packed-consumer proof before any release:
 

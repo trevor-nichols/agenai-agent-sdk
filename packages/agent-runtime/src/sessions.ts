@@ -4,7 +4,19 @@
 
 import type {
   AgentAuthenticationFlow,
+  AgentCollaborationControlInput,
+  AgentCollaborationNode,
+  AgentCollaborationSpawnInput,
+  AgentConfigurationCatalog,
+  AgentConfigurationSelectionInput,
   AgentError,
+  AgentGeneratedResourceDescriptor,
+  AgentGeneratedResourceId,
+  AgentIntegrationCatalog,
+  AgentManagedContentCatalog,
+  AgentOperationCatalog,
+  AgentOperationInvocation,
+  AgentOperationResult,
   AgentRequestResolution,
   AgentSessionBinding,
   AgentSessionBranchSource,
@@ -19,6 +31,7 @@ import type {
 
 import type { MaybePromise } from "./foundation.js";
 import type { AgentProviderOutput } from "./outputs.js";
+import type { AgentArtifactCandidate } from "./artifacts.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Session Open Contracts
@@ -79,9 +92,42 @@ export interface AgentProviderInterruptTurnInput {
   readonly signal?: AbortSignal;
 }
 
-export interface AgentProviderApplyConfigurationInput {
-  readonly configuration: AgentSessionConfiguration;
+export interface AgentProviderListInput {
   readonly signal?: AbortSignal;
+}
+
+export interface AgentProviderApplyConfigurationSelectionInput {
+  readonly selection: AgentConfigurationSelectionInput;
+  readonly signal?: AbortSignal;
+  readonly onProviderExecutionStarted?: AgentProviderExecutionStartedObserver;
+}
+
+export interface AgentProviderInvokeOperationInput {
+  readonly invocation: AgentOperationInvocation;
+  readonly signal?: AbortSignal;
+  readonly onProviderExecutionStarted?: AgentProviderExecutionStartedObserver;
+}
+
+export interface AgentProviderSpawnCollaborationInput {
+  readonly spawn: AgentCollaborationSpawnInput;
+  readonly signal?: AbortSignal;
+  readonly onProviderExecutionStarted?: AgentProviderExecutionStartedObserver;
+}
+
+export interface AgentProviderControlCollaborationInput {
+  readonly control: AgentCollaborationControlInput;
+  readonly signal?: AbortSignal;
+  readonly onProviderExecutionStarted?: AgentProviderExecutionStartedObserver;
+}
+
+export interface AgentProviderGetGeneratedResourceInput {
+  readonly resourceId: AgentGeneratedResourceId;
+  readonly signal?: AbortSignal;
+}
+
+export interface AgentGeneratedResourceInspection {
+  readonly descriptor: AgentGeneratedResourceDescriptor;
+  readonly candidate?: AgentArtifactCandidate;
 }
 
 export interface AgentProviderSteerTurnInput extends AgentTurnInputContent {
@@ -146,9 +192,63 @@ export type AgentSessionConfigurationControl =
   | Readonly<{ kind: "managed" }>
   | Readonly<{
       kind: "selectable";
-      applyConfiguration: (
-        input: AgentProviderApplyConfigurationInput,
+      listConfiguration: (
+        input?: AgentProviderListInput,
+      ) => MaybePromise<AgentConfigurationCatalog>;
+      applyConfigurationSelection: (
+        input: AgentProviderApplyConfigurationSelectionInput,
       ) => MaybePromise<AgentProviderOperationResult>;
+    }>;
+
+export type AgentOperationControl =
+  | Readonly<{ kind: "unsupported" }>
+  | Readonly<{
+      kind: "supported";
+      listOperations: (
+        input?: AgentProviderListInput,
+      ) => MaybePromise<AgentOperationCatalog>;
+      invokeOperation: (
+        input: AgentProviderInvokeOperationInput,
+      ) => MaybePromise<AgentOperationResult>;
+    }>;
+
+export type AgentManagedContentInventory =
+  | Readonly<{ kind: "unsupported" }>
+  | Readonly<{
+      kind: "supported";
+      listManagedContent: (
+        input?: AgentProviderListInput,
+      ) => MaybePromise<AgentManagedContentCatalog>;
+    }>;
+
+export type AgentIntegrationObservation =
+  | Readonly<{ kind: "unsupported" }>
+  | Readonly<{
+      kind: "supported";
+      observeIntegrations: (
+        input?: AgentProviderListInput,
+      ) => MaybePromise<AgentIntegrationCatalog>;
+    }>;
+
+export type AgentCollaborationControl =
+  | Readonly<{ kind: "unsupported" }>
+  | Readonly<{
+      kind: "supported";
+      spawnCollaboration: (
+        input: AgentProviderSpawnCollaborationInput,
+      ) => MaybePromise<AgentCollaborationNode>;
+      controlCollaboration: (
+        input: AgentProviderControlCollaborationInput,
+      ) => MaybePromise<AgentCollaborationNode>;
+    }>;
+
+export type AgentGeneratedResourceAccess =
+  | Readonly<{ kind: "unsupported" }>
+  | Readonly<{
+      kind: "supported";
+      getGeneratedResource: (
+        input: AgentProviderGetGeneratedResourceInput,
+      ) => MaybePromise<AgentGeneratedResourceInspection>;
     }>;
 
 export interface AgentProviderSession {
@@ -162,6 +262,11 @@ export interface AgentProviderSession {
   readonly interruption: AgentTurnInterruption;
   readonly steering: AgentTurnSteering;
   readonly configuration: AgentSessionConfigurationControl;
+  readonly operations: AgentOperationControl;
+  readonly managedContent: AgentManagedContentInventory;
+  readonly integrations: AgentIntegrationObservation;
+  readonly collaboration: AgentCollaborationControl;
+  readonly generatedResources: AgentGeneratedResourceAccess;
   readonly close: (input: AgentProviderCloseSessionInput) => MaybePromise<void>;
 }
 

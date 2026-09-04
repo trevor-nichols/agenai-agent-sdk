@@ -5,6 +5,10 @@
 import {
   matchesAgentSessionBinding,
   parseAgentRequestResolutionFor,
+  type AgentCollaborationSpawnInput,
+  type AgentConfigurationSelectionInput,
+  type AgentGeneratedResourceId,
+  type AgentOperationInvocation,
   type AgentRequest,
   type AgentRequestResolution,
   type AgentSessionBinding,
@@ -40,7 +44,10 @@ export interface AgentProviderConformanceScenario {
   readonly definition: AgentProviderInstanceDefinition;
   readonly workingDirectory: string;
   readonly configuration: AgentSessionConfiguration;
-  readonly updatedConfiguration?: AgentSessionConfiguration;
+  readonly configurationSelection?: AgentConfigurationSelectionInput;
+  readonly operationInvocation?: AgentOperationInvocation;
+  readonly collaborationSpawn?: AgentCollaborationSpawnInput;
+  readonly generatedResourceId?: AgentGeneratedResourceId;
   readonly createSessionId: AgentSessionId;
   readonly resumeSessionId: AgentSessionId;
   readonly branchSessionId?: AgentSessionId;
@@ -389,18 +396,35 @@ export async function runAgentProviderConformance(
     if (instance.capabilities.configuration.kind === "selectable") {
       requireCheck(
         created.configuration.kind === "selectable" &&
-          scenario.updatedConfiguration !== undefined,
+          scenario.configurationSelection !== undefined,
         "configuration",
-        "Selectable configuration requires a handler and updated fixture.",
+        "Selectable configuration requires a handler and selection fixture.",
       );
-      const result = await created.configuration.applyConfiguration({
-        configuration: scenario.updatedConfiguration,
+      const catalog = await created.configuration.listConfiguration();
+      requireCheck(
+        catalog.fields.some(
+          (field) => field.key === scenario.configurationSelection?.key,
+        ),
+        "configuration",
+        "Configuration catalog did not offer the selected field.",
+      );
+      let executionStarted = 0;
+      const result = await created.configuration.applyConfigurationSelection({
+        selection: scenario.configurationSelection,
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
       });
       requireOperationStatus(
         result,
         ["completed"],
         "configuration",
         "Selectable configuration did not complete atomically.",
+      );
+      requireCheck(
+        executionStarted === 1,
+        "configuration",
+        "Configuration selection did not report exactly one execution start.",
       );
     } else {
       requireCheck(
@@ -410,6 +434,159 @@ export async function runAgentProviderConformance(
       );
     }
     checks.push("configuration");
+
+    if (instance.capabilities.operations.kind === "supported") {
+      requireCheck(
+        created.operations.kind === "supported"
+          && scenario.operationInvocation !== undefined,
+        "operations",
+        "Supported operations require matching ports and an invocation fixture.",
+      );
+      const catalog = await created.operations.listOperations();
+      requireCheck(
+        catalog.operations.some(
+          (operation) =>
+            operation.operationId === scenario.operationInvocation?.operationId,
+        ),
+        "operations",
+        "Operation catalog did not offer the invocation fixture.",
+      );
+      let executionStarted = 0;
+      const result = await created.operations.invokeOperation({
+        invocation: scenario.operationInvocation,
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
+      });
+      requireCheck(
+        result.status === "completed" && executionStarted === 1,
+        "operations",
+        "Operation invocation did not complete with one execution-start receipt.",
+      );
+    } else {
+      requireCheck(
+        created.operations.kind === "unsupported",
+        "operations",
+        "Unsupported operations exposed callable ports.",
+      );
+    }
+    checks.push("operations");
+
+    if (instance.capabilities.managedContent.kind === "supported") {
+      requireCheck(
+        created.managedContent.kind === "supported",
+        "managed_content",
+        "Supported managed content has no inventory port.",
+      );
+      await created.managedContent.listManagedContent();
+    } else {
+      requireCheck(
+        created.managedContent.kind === "unsupported",
+        "managed_content",
+        "Unsupported managed content exposed an inventory port.",
+      );
+    }
+    checks.push("managed_content");
+
+    if (instance.capabilities.integrations.kind === "supported") {
+      requireCheck(
+        created.integrations.kind === "supported",
+        "integrations",
+        "Supported integrations have no observation port.",
+      );
+      await created.integrations.observeIntegrations();
+    } else {
+      requireCheck(
+        created.integrations.kind === "unsupported",
+        "integrations",
+        "Unsupported integrations exposed an observation port.",
+      );
+    }
+    checks.push("integrations");
+
+    if (instance.capabilities.collaboration.kind === "supported") {
+      requireCheck(
+        created.collaboration.kind === "supported"
+          && scenario.collaborationSpawn !== undefined,
+        "collaboration",
+        "Supported collaboration requires matching ports and a spawn fixture.",
+      );
+      let executionStarted = 0;
+      const spawned = await created.collaboration.spawnCollaboration({
+        spawn: scenario.collaborationSpawn,
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
+      });
+      const stopped = await created.collaboration.controlCollaboration({
+        control: {
+          action: "stop",
+          collaborationId: spawned.collaborationId,
+          reason: "user_requested",
+        },
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
+      });
+      const closed = await created.collaboration.controlCollaboration({
+        control: {
+          action: "close",
+          collaborationId: stopped.collaborationId,
+        },
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
+      });
+      const replayedClose = await created.collaboration.controlCollaboration({
+        control: {
+          action: "close",
+          collaborationId: stopped.collaborationId,
+        },
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
+      });
+      requireCheck(
+        closed.status === "canceled"
+          && closed.outcome?.kind === "canceled"
+          && closed.closedAt !== undefined
+          && replayedClose === closed
+          && executionStarted === 3,
+        "collaboration",
+        "Collaboration lifecycle did not preserve control and execution receipts.",
+      );
+    } else {
+      requireCheck(
+        created.collaboration.kind === "unsupported",
+        "collaboration",
+        "Unsupported collaboration exposed callable ports.",
+      );
+    }
+    checks.push("collaboration");
+
+    if (instance.capabilities.generatedResources.kind === "supported") {
+      requireCheck(
+        created.generatedResources.kind === "supported"
+          && scenario.generatedResourceId !== undefined,
+        "generated_resources",
+        "Supported generated resources require an access port and fixture.",
+      );
+      const resource = await created.generatedResources.getGeneratedResource({
+        resourceId: scenario.generatedResourceId,
+      });
+      requireCheck(
+        resource.descriptor.resourceId === scenario.generatedResourceId,
+        "generated_resources",
+        "Generated resource access returned another resource.",
+      );
+    } else {
+      requireCheck(
+        created.generatedResources.kind === "unsupported",
+        "generated_resources",
+        "Unsupported generated resources exposed an access port.",
+      );
+    }
+    checks.push("generated_resources");
 
     await created.close({ reason: "idle" });
     await created.close({ reason: "idle" });

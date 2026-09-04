@@ -18,13 +18,15 @@ import {
 import type {
   AgentApprovalRequest,
   AgentApprovalResolution,
-  AgentChoiceElicitationAnswer,
-  AgentChoiceElicitationField,
   AgentElicitationAnswer,
   AgentElicitationField,
   AgentElicitationRequest,
+  AgentMultiSelectElicitationAnswer,
+  AgentMultiSelectElicitationField,
   AgentRequest,
   AgentRequestResolution,
+  AgentSingleSelectElicitationAnswer,
+  AgentSingleSelectElicitationField,
 } from './types.js';
 
 export function parseAgentRequest(input: unknown): AgentRequest {
@@ -81,25 +83,17 @@ function fieldMap(
   return new Map(request.fields.map((field) => [field.fieldId, field]));
 }
 
-function choiceAnswerIssues(
-  field: AgentChoiceElicitationField,
-  answer: AgentChoiceElicitationAnswer,
+function singleSelectAnswerIssues(
+  field: AgentSingleSelectElicitationField,
+  answer: AgentSingleSelectElicitationAnswer,
   answerIndex: number,
 ): readonly ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const allowedValues = new Set(field.options.map((option) => option.value));
-  if (answer.values.some((value) => !allowedValues.has(value))) {
+  if (answer.value !== undefined && !allowedValues.has(answer.value)) {
     issues.push(issue(
-      ['answers', answerIndex, 'values'],
-      'Choice answers must reference options declared by the request.',
-    ));
-  }
-  const selectionCount =
-    answer.values.length + (answer.other === undefined ? 0 : 1);
-  if (!field.multiple && selectionCount > 1) {
-    issues.push(issue(
-      ['answers', answerIndex],
-      'This request field accepts only one choice.',
+      ['answers', answerIndex, 'value'],
+      'Single-select answers must reference an option declared by the request.',
     ));
   }
   if (answer.other !== undefined && !field.allowOther) {
@@ -108,10 +102,39 @@ function choiceAnswerIssues(
       'This request field does not accept a custom choice.',
     ));
   }
-  if (answer.values.length === 0 && answer.other === undefined) {
+  return issues;
+}
+
+function multiSelectAnswerIssues(
+  field: AgentMultiSelectElicitationField,
+  answer: AgentMultiSelectElicitationAnswer,
+  answerIndex: number,
+): readonly ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const allowedValues = new Set(field.options.map((option) => option.value));
+  if (answer.values.some((value) => !allowedValues.has(value))) {
+    issues.push(issue(
+      ['answers', answerIndex, 'values'],
+      'Multi-select answers must reference options declared by the request.',
+    ));
+  }
+  if (answer.other !== undefined && !field.allowOther) {
+    issues.push(issue(
+      ['answers', answerIndex, 'other'],
+      'This request field does not accept a custom choice.',
+    ));
+  }
+  const selectionCount = answer.values.length + (answer.other === undefined ? 0 : 1);
+  if (field.required && selectionCount === 0) {
     issues.push(issue(
       ['answers', answerIndex],
-      'A choice answer requires a declared option or a custom choice.',
+      'A required multi-select answer needs a declared option or a custom choice.',
+    ));
+  }
+  if (selectionCount > field.maxSelections) {
+    issues.push(issue(
+      ['answers', answerIndex],
+      'This request field exceeds its maximum selection count.',
     ));
   }
   return issues;
@@ -128,9 +151,21 @@ function answerIssues(
       'Answer kind must match the corresponding request field.',
     )];
   }
-  return field.kind === 'choice' && answer.kind === 'choice'
-    ? choiceAnswerIssues(field, answer, answerIndex)
-    : [];
+  if (field.kind === 'text' && answer.kind === 'text') {
+    return answer.value.length <= field.maxLength
+      ? []
+      : [issue(
+          ['answers', answerIndex, 'value'],
+          'Text answer exceeds the field maximum length.',
+        )];
+  }
+  if (field.kind === 'single_select' && answer.kind === 'single_select') {
+    return singleSelectAnswerIssues(field, answer, answerIndex);
+  }
+  if (field.kind === 'multi_select' && answer.kind === 'multi_select') {
+    return multiSelectAnswerIssues(field, answer, answerIndex);
+  }
+  return [];
 }
 
 function resolutionIssues(

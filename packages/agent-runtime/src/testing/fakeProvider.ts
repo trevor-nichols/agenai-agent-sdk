@@ -7,6 +7,7 @@ import {
   parseAgentInstanceId,
   parseAgentIsoDateTime,
   parseAgentItemId,
+  parseAgentOperationId,
   parseAgentApprovalOptionId,
   parseAgentProviderConversationId,
   parseAgentProviderHistoryAnchor,
@@ -16,6 +17,9 @@ import {
   parseAgentSessionId,
   parseAgentTurnId,
   type AgentCapabilities,
+  type AgentCollaborationId,
+  type AgentCollaborationRole,
+  type AgentCollaborationStatus,
   type AgentInstanceId,
   type AgentIsoDateTime,
   type AgentProviderKey,
@@ -117,7 +121,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
@@ -130,7 +134,18 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
         kind: "supported",
         modes: [{ persistence: "once", scopeKinds: ["exact_action"] }],
       },
-      elicitation: { kind: "structured" },
+      elicitation: {
+        kind: "supported",
+        fieldKinds: [
+          "text",
+          "single_select",
+          "multi_select",
+          "boolean",
+          "confirmation",
+        ],
+        maxFields: 16,
+        sensitiveFields: true,
+      },
     },
     context: {
       usage: { kind: "unsupported" },
@@ -145,19 +160,61 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
     configuration: {
       kind: "selectable",
-      fields: [
-        { key: "mode", optionIds: ["agent"] },
-        {
-          key: "model",
-          optionIds: ["fake-model", "fake-model-2"],
-        },
+      fieldKinds: [
+        "boolean",
+        "single_select",
+        "bounded_integer",
+        "bounded_text",
       ],
+      maxFields: 100,
     },
-    interactionExtensions: {
-      slashCommands: false,
-      mcp: false,
-      subagents: false,
-      imageGeneration: false,
+    operations: {
+      kind: "supported",
+      operationKinds: [
+        "session_control",
+        "managed_content_invoke",
+        "configuration_select",
+        "integration_control",
+        "collaboration_control",
+        "resource_generate",
+      ],
+      fieldKinds: [
+        "text",
+        "boolean",
+        "single_select",
+        "multi_select",
+        "integer",
+      ],
+      executionModes: ["immediate", "request_continuation", "durable_job"],
+      maxOperations: 100,
+      maxFieldsPerOperation: 16,
+    },
+    managedContent: {
+      kind: "supported",
+      contentKinds: ["skill", "rule", "prompt", "agent_definition"],
+      maxEntries: 100,
+    },
+    integrations: {
+      kind: "supported",
+      integrationKinds: ["mcp"],
+      maxIntegrations: 32,
+      maxServersPerIntegration: 32,
+      maxToolsPerServer: 100,
+      maxResourcesPerServer: 100,
+    },
+    collaboration: {
+      kind: "supported",
+      roles: ["delegate", "reviewer", "researcher", "specialist"],
+      controlActions: ["spawn", "steer", "stop", "close", "inspect"],
+      maxDepth: 8,
+      maxChildrenPerNode: 16,
+      maxActiveNodes: 64,
+    },
+    generatedResources: {
+      kind: "supported",
+      resourceKinds: ["image", "document", "archive"],
+      maxResourcesPerTurn: 16,
+      maxBytesPerResource: 25 * 1024 * 1024,
     },
     authentication: { kind: "unsupported" },
     versionReporting: true,
@@ -184,7 +241,7 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 7 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 8 as const, sessionId, turnId, occurredAt };
 }
 
 function requestForTurn(turnId: AgentTurnId): AgentRequest {
@@ -237,6 +294,33 @@ function fakeSession(input: {
     string,
     { request: AgentRequest; turnId: AgentTurnId }
   >();
+  const collaborationNodes = new Map<string, {
+    readonly collaborationId: AgentCollaborationId;
+    readonly rootCollaborationId: AgentCollaborationId;
+    readonly parentCollaborationId?: AgentCollaborationId;
+    readonly role: AgentCollaborationRole;
+    readonly title: string;
+    readonly status: AgentCollaborationStatus;
+    readonly objective: string;
+    readonly usage: Readonly<{ kind: "unavailable" }>;
+    readonly outcome?: Readonly<
+      { kind: "canceled"; reason: "user_requested" | "timeout" | "shutdown" | "superseded" | "other" }
+    >;
+    readonly createdAt: AgentIsoDateTime;
+    readonly updatedAt: AgentIsoDateTime;
+    readonly terminalAt?: AgentIsoDateTime;
+    readonly closedAt?: AgentIsoDateTime;
+  }>();
+  const nextCollaborationObservedAt = (
+    previous: AgentIsoDateTime,
+  ): AgentIsoDateTime => {
+    const observed = input.now();
+    return Date.parse(observed) > Date.parse(previous)
+      ? observed
+      : parseAgentIsoDateTime(
+          new Date(Date.parse(previous) + 1).toISOString(),
+        );
+  };
   let closed = false;
 
   const runTurn = async function* (turnInput: AgentProviderRunTurnInput) {
@@ -376,15 +460,183 @@ function fakeSession(input: {
       input.capabilities.configuration.kind === "selectable"
         ? {
             kind: "selectable",
-            applyConfiguration: async (configurationInput) => {
+            listConfiguration: async (listInput = {}) => {
+              throwIfAgentOperationAborted(listInput.signal);
+              return {
+                revision: 1,
+                fields: [{
+                  key: "model",
+                  revision: 1,
+                  label: "Model",
+                  scope: "session",
+                  applicationTiming: "next_session",
+                  mutable: true,
+                  fieldKind: "single_select",
+                  currentValue: "fake-model",
+                  options: [
+                    { optionId: "fake-model", label: "Fake model" },
+                    { optionId: "fake-model-2", label: "Fake model 2" },
+                  ],
+                }],
+              };
+            },
+            applyConfigurationSelection: async (configurationInput) => {
               throwIfAgentOperationAborted(configurationInput.signal);
+              configurationInput.onProviderExecutionStarted?.();
               input.state.configurationRevisions.push(
-                configurationInput.configuration.revision,
+                `${configurationInput.selection.expectedCatalogRevision}:${configurationInput.selection.key}`,
               );
               return completedResult();
             },
           }
         : { kind: "managed" },
+    operations:
+      input.capabilities.operations.kind === "supported"
+        ? {
+            kind: "supported",
+            listOperations: async (listInput = {}) => {
+              throwIfAgentOperationAborted(listInput.signal);
+              return {
+                revision: 1,
+                operations: [{
+                  operationId: parseAgentOperationId("fake.session.reset"),
+                  revision: 1,
+                  kind: "session_control",
+                  title: "Reset fake session",
+                  context: "session",
+                  timing: "idle_session",
+                  executionMode: "immediate",
+                  fields: [],
+                  confirmation: "required",
+                  idempotency: "required",
+                  resultKind: "none",
+                }],
+              };
+            },
+            invokeOperation: async (operationInput) => {
+              throwIfAgentOperationAborted(operationInput.signal);
+              operationInput.onProviderExecutionStarted?.();
+              return {
+                invocationId: operationInput.invocation.invocationId,
+                status: "completed",
+              };
+            },
+          }
+        : { kind: "unsupported" },
+    managedContent:
+      input.capabilities.managedContent.kind === "supported"
+        ? {
+            kind: "supported",
+            listManagedContent: async (listInput = {}) => {
+              throwIfAgentOperationAborted(listInput.signal);
+              return { revision: 1, entries: [] };
+            },
+          }
+        : { kind: "unsupported" },
+    integrations:
+      input.capabilities.integrations.kind === "supported"
+        ? {
+            kind: "supported",
+            observeIntegrations: async (listInput = {}) => {
+              throwIfAgentOperationAborted(listInput.signal);
+              return {
+                revision: 1,
+                observedAt: input.now(),
+                integrations: [],
+              };
+            },
+          }
+        : { kind: "unsupported" },
+    collaboration:
+      input.capabilities.collaboration.kind === "supported"
+        ? {
+            kind: "supported",
+            spawnCollaboration: async (collaborationInput) => {
+              throwIfAgentOperationAborted(collaborationInput.signal);
+              collaborationInput.onProviderExecutionStarted?.();
+              const parent = collaborationInput.spawn.parentCollaborationId === undefined
+                ? undefined
+                : collaborationNodes.get(
+                    collaborationInput.spawn.parentCollaborationId,
+                  );
+              const now = nextCollaborationObservedAt(
+                collaborationInput.spawn.createdAt,
+              );
+              const node = {
+                collaborationId: collaborationInput.spawn.collaborationId,
+                rootCollaborationId:
+                  parent?.rootCollaborationId
+                  ?? collaborationInput.spawn.collaborationId,
+                ...(collaborationInput.spawn.parentCollaborationId === undefined
+                  ? {}
+                  : {
+                      parentCollaborationId:
+                        collaborationInput.spawn.parentCollaborationId,
+                    }),
+                role: collaborationInput.spawn.role,
+                title: collaborationInput.spawn.title,
+                status: "running" as const,
+                objective: collaborationInput.spawn.objective,
+                usage: { kind: "unavailable" as const },
+                createdAt: collaborationInput.spawn.createdAt,
+                updatedAt: now,
+              };
+              collaborationNodes.set(node.collaborationId, node);
+              return node;
+            },
+            controlCollaboration: async (collaborationInput) => {
+              throwIfAgentOperationAborted(collaborationInput.signal);
+              collaborationInput.onProviderExecutionStarted?.();
+              const previous = collaborationNodes.get(
+                collaborationInput.control.collaborationId,
+              );
+              if (previous === undefined) {
+                throw new TypeError("Fake collaboration does not exist.");
+              }
+              const now = nextCollaborationObservedAt(previous.updatedAt);
+              const node = {
+                ...previous,
+                updatedAt: now,
+                ...(collaborationInput.control.action === "stop"
+                  ? {
+                      status: "canceled" as const,
+                      terminalAt: previous.terminalAt ?? now,
+                      outcome: {
+                        kind: "canceled" as const,
+                        reason: collaborationInput.control.reason,
+                      },
+                    }
+                  : collaborationInput.control.action === "close"
+                    ? { closedAt: previous.closedAt ?? now }
+                    : {}),
+              };
+              collaborationNodes.set(node.collaborationId, node);
+              return node;
+            },
+          }
+        : { kind: "unsupported" },
+    generatedResources:
+      input.capabilities.generatedResources.kind === "supported"
+        ? {
+            kind: "supported",
+            getGeneratedResource: async (resourceInput) => {
+              throwIfAgentOperationAborted(resourceInput.signal);
+              return {
+                descriptor: {
+                  resourceId: resourceInput.resourceId,
+                  kind: "image",
+                  status: "pending",
+                  displayName: "Fake generated resource",
+                  producer: {
+                    kind: "session",
+                    sessionId: input.context.sessionId,
+                  },
+                  createdAt: input.now(),
+                },
+              };
+            },
+          }
+        : { kind: "unsupported" },
     close,
   };
 }

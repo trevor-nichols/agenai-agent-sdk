@@ -22,7 +22,7 @@ import {
 
 const providerKey = parseAgentProviderKey("external-provider");
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 7,
+  protocolVersion: 8,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -49,12 +49,11 @@ const capabilities = parseAgentCapabilities({
     artifactKinds: [],
   },
   configuration: { kind: "managed" },
-  interactionExtensions: {
-    slashCommands: false,
-    mcp: false,
-    subagents: false,
-    imageGeneration: false,
-  },
+  operations: { kind: "unsupported" },
+  managedContent: { kind: "unsupported" },
+  integrations: { kind: "unsupported" },
+  collaboration: { kind: "unsupported" },
+  generatedResources: { kind: "unsupported" },
   authentication: { kind: "unsupported" },
   versionReporting: false,
 });
@@ -87,7 +86,7 @@ function providerSession(
     },
     runTurn: async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 7,
+        protocolVersion: 8,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -95,7 +94,7 @@ function providerSession(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 7,
+        protocolVersion: 8,
         type: "item.completed",
         sessionId,
         turnId: input.turnId,
@@ -103,7 +102,7 @@ function providerSession(
         payload: commandItem,
       });
       yield createAgentEventOutput({
-        protocolVersion: 7,
+        protocolVersion: 8,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -122,6 +121,11 @@ function providerSession(
       },
     },
     configuration: { kind: "managed" },
+    operations: { kind: "unsupported" },
+    managedContent: { kind: "unsupported" },
+    integrations: { kind: "unsupported" },
+    collaboration: { kind: "unsupported" },
+    generatedResources: { kind: "unsupported" },
     close: async () => undefined,
   };
 }
@@ -168,8 +172,8 @@ export const externalProviderDefinition = {
 };
 
 export const externalConfiguration = {
+  kind: "managed" as const,
   revision: parseAgentConfigurationRevisionId("external-configuration"),
-  values: {},
 };
 
 const delivered: AgentTurnSteeringResult = { status: "delivered" };

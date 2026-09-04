@@ -8,16 +8,28 @@ import type { z } from 'zod/v4';
 
 import type { AgentArtifactDescriptor } from '../artifacts/types.js';
 import type { AgentCapabilities } from '../capabilities/types.js';
+import type { AgentCollaborationControlInput, AgentCollaborationNode, AgentCollaborationSpawnInput } from '../collaboration/types.js';
+import type { AgentConfigurationCatalog, AgentConfigurationSelectionInput } from '../configuration/types.js';
 import type { AgentEvent } from '../events/types.js';
 import type { AgentError, AgentJsonValue, AgentProviderRefs } from '../foundation/types.js';
+import type { AgentIntegrationCatalog, AgentIntegrationDescriptor } from '../integrations/types.js';
+import type { AgentManagedContentCatalog, AgentManagedContentDescriptor } from '../managedContent/types.js';
+import type { AgentOperationCatalog, AgentOperationDescriptor, AgentOperationInvocation, AgentOperationResult } from '../operations/types.js';
 import type { AgentRequest, AgentRequestResolution } from '../requests/types.js';
+import type { AgentGeneratedResourceDescriptor } from '../resources/types.js';
 import type { AgentSessionBinding, AgentSessionConfiguration, AgentSessionOpenInput } from '../sessions/types.js';
 import type { AgentItemSnapshot, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
 import { AgentCapabilitiesSchema } from './capabilities.js';
+import { AgentCollaborationControlInputSchema, AgentCollaborationNodeSchema, AgentCollaborationSpawnInputSchema } from './collaboration.js';
+import { AgentConfigurationCatalogSchema, AgentConfigurationSelectionInputSchema } from './configuration.js';
 import { AgentEventSchema } from './events.js';
 import { AgentErrorSchema, AgentJsonValueSchema, AgentProviderRefsSchema } from './foundation.js';
+import { AgentIntegrationCatalogSchema, AgentIntegrationDescriptorSchema } from './integrations.js';
+import { AgentManagedContentCatalogSchema, AgentManagedContentDescriptorSchema } from './managedContent.js';
+import { AgentOperationCatalogSchema, AgentOperationDescriptorSchema, AgentOperationInvocationSchema, AgentOperationResultSchema } from './operations.js';
 import { AgentRequestResolutionSchema, AgentRequestSchema } from './requests.js';
+import { AgentGeneratedResourceDescriptorSchema } from './resources.js';
 import { AgentSessionBindingSchema, AgentSessionConfigurationSchema, AgentSessionOpenInputSchema } from './sessions.js';
 import { AgentItemSnapshotSchema, AgentTurnInputContentSchema, AgentTurnInterruptionInputSchema, AgentTurnRunInputSchema } from './turns.js';
 
@@ -49,6 +61,34 @@ export type AgentProtocolSchemaTypeAssertions = readonly [
   Assert<Extends<AgentRequest, z.output<typeof AgentRequestSchema>>>,
   Assert<Extends<z.output<typeof AgentRequestResolutionSchema>, AgentRequestResolution>>,
   Assert<Extends<AgentRequestResolution, z.output<typeof AgentRequestResolutionSchema>>>,
+  Assert<Extends<z.output<typeof AgentOperationCatalogSchema>, AgentOperationCatalog>>,
+  Assert<Extends<AgentOperationCatalog, z.output<typeof AgentOperationCatalogSchema>>>,
+  Assert<Extends<z.output<typeof AgentOperationDescriptorSchema>, AgentOperationDescriptor>>,
+  Assert<Extends<AgentOperationDescriptor, z.output<typeof AgentOperationDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentOperationInvocationSchema>, AgentOperationInvocation>>,
+  Assert<Extends<AgentOperationInvocation, z.output<typeof AgentOperationInvocationSchema>>>,
+  Assert<Extends<z.output<typeof AgentOperationResultSchema>, AgentOperationResult>>,
+  Assert<Extends<AgentOperationResult, z.output<typeof AgentOperationResultSchema>>>,
+  Assert<Extends<z.output<typeof AgentManagedContentCatalogSchema>, AgentManagedContentCatalog>>,
+  Assert<Extends<AgentManagedContentCatalog, z.output<typeof AgentManagedContentCatalogSchema>>>,
+  Assert<Extends<z.output<typeof AgentManagedContentDescriptorSchema>, AgentManagedContentDescriptor>>,
+  Assert<Extends<AgentManagedContentDescriptor, z.output<typeof AgentManagedContentDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentConfigurationCatalogSchema>, AgentConfigurationCatalog>>,
+  Assert<Extends<AgentConfigurationCatalog, z.output<typeof AgentConfigurationCatalogSchema>>>,
+  Assert<Extends<z.output<typeof AgentConfigurationSelectionInputSchema>, AgentConfigurationSelectionInput>>,
+  Assert<Extends<AgentConfigurationSelectionInput, z.output<typeof AgentConfigurationSelectionInputSchema>>>,
+  Assert<Extends<z.output<typeof AgentIntegrationCatalogSchema>, AgentIntegrationCatalog>>,
+  Assert<Extends<AgentIntegrationCatalog, z.output<typeof AgentIntegrationCatalogSchema>>>,
+  Assert<Extends<z.output<typeof AgentIntegrationDescriptorSchema>, AgentIntegrationDescriptor>>,
+  Assert<Extends<AgentIntegrationDescriptor, z.output<typeof AgentIntegrationDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentCollaborationNodeSchema>, AgentCollaborationNode>>,
+  Assert<Extends<AgentCollaborationNode, z.output<typeof AgentCollaborationNodeSchema>>>,
+  Assert<Extends<z.output<typeof AgentCollaborationSpawnInputSchema>, AgentCollaborationSpawnInput>>,
+  Assert<Extends<AgentCollaborationSpawnInput, z.output<typeof AgentCollaborationSpawnInputSchema>>>,
+  Assert<Extends<z.output<typeof AgentCollaborationControlInputSchema>, AgentCollaborationControlInput>>,
+  Assert<Extends<AgentCollaborationControlInput, z.output<typeof AgentCollaborationControlInputSchema>>>,
+  Assert<Extends<z.output<typeof AgentGeneratedResourceDescriptorSchema>, AgentGeneratedResourceDescriptor>>,
+  Assert<Extends<AgentGeneratedResourceDescriptor, z.output<typeof AgentGeneratedResourceDescriptorSchema>>>,
   Assert<Extends<z.output<typeof AgentCapabilitiesSchema>, AgentCapabilities>>,
   Assert<Extends<AgentCapabilities, z.output<typeof AgentCapabilitiesSchema>>>,
   Assert<Extends<z.output<typeof AgentArtifactDescriptorSchema>, AgentArtifactDescriptor>>,

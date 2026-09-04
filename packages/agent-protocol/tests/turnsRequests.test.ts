@@ -25,10 +25,10 @@ const elicitationRequest = {
   fields: [
     {
       fieldId: 'field:mode',
-      kind: 'choice',
+      kind: 'single_select',
       label: 'Mode',
       required: true,
-      multiple: false,
+      sensitivity: 'ordinary',
       allowOther: false,
       options: [
         { value: 'plan', label: 'Plan' },
@@ -40,7 +40,9 @@ const elicitationRequest = {
       kind: 'text',
       label: 'Notes',
       required: false,
+      sensitivity: 'ordinary',
       multiline: true,
+      maxLength: 4_000,
     },
   ],
 } as const;
@@ -407,7 +409,7 @@ test('request resolutions must match request identity, kind, fields, and choices
     requestId: 'request:settings',
     disposition: 'answered',
     answers: [
-      { fieldId: 'field:mode', kind: 'choice', values: ['build'] },
+      { fieldId: 'field:mode', kind: 'single_select', value: 'build' },
       { fieldId: 'field:notes', kind: 'text', value: '  Keep the diff focused.  ' },
     ],
   } as const;
@@ -431,8 +433,7 @@ test('request resolutions must match request identity, kind, fields, and choices
     disposition: 'answered',
     answers: [{
       fieldId: 'field:mode',
-      kind: 'choice',
-      values: [],
+      kind: 'single_select',
       other: '  custom  ',
     }],
   } as const;
@@ -447,8 +448,8 @@ test('request resolutions must match request identity, kind, fields, and choices
       disposition: 'answered',
       answers: [{
         fieldId: 'field:mode',
-        kind: 'choice',
-        values: ['plan'],
+        kind: 'single_select',
+        value: 'plan',
         other: 'custom',
       }],
     }).success,
@@ -459,16 +460,54 @@ test('request resolutions must match request identity, kind, fields, and choices
     ...elicitationRequest,
     fields: [{
       ...elicitationRequest.fields[0],
-      multiple: true,
+      kind: 'multi_select',
+      maxSelections: 2,
     }],
   } as const;
+  const emptyMultiSelectAnswer = {
+    requestKind: 'elicitation',
+    requestId: 'request:settings',
+    disposition: 'answered',
+    answers: [{
+      fieldId: 'field:mode',
+      kind: 'multi_select',
+      values: [],
+    }],
+  } as const;
+  assert.equal(
+    safeParseAgentRequestResolutionFor(
+      multipleChoiceRequest,
+      emptyMultiSelectAnswer,
+    ).success,
+    false,
+  );
+  const optionalMultipleChoiceRequest = {
+    ...multipleChoiceRequest,
+    fields: [{ ...multipleChoiceRequest.fields[0], required: false }],
+  } as const;
+  assert.equal(
+    safeParseAgentRequestResolutionFor(
+      optionalMultipleChoiceRequest,
+      emptyMultiSelectAnswer,
+    ).success,
+    true,
+  );
+  assert.equal(
+    safeParseAgentRequestResolutionFor(optionalMultipleChoiceRequest, {
+      requestKind: 'elicitation',
+      requestId: 'request:settings',
+      disposition: 'answered',
+      answers: [],
+    }).success,
+    true,
+  );
   const duplicateChoiceResolution = {
     requestKind: 'elicitation',
     requestId: 'request:settings',
     disposition: 'answered',
     answers: [{
       fieldId: 'field:mode',
-      kind: 'choice',
+      kind: 'multi_select',
       values: ['plan', 'plan'],
     }],
   } as const;
@@ -490,7 +529,7 @@ test('request resolutions must match request identity, kind, fields, and choices
       disposition: 'answered',
       answers: [{
         fieldId: 'field:mode',
-        kind: 'choice',
+        kind: 'multi_select',
         values: [' build '],
       }],
     }).success,
@@ -498,7 +537,7 @@ test('request resolutions must match request identity, kind, fields, and choices
   );
   for (const answer of [
     { fieldId: 'field:notes', kind: 'text', value: '   ' },
-    { fieldId: 'field:mode', kind: 'choice', values: [], other: '\t\n' },
+    { fieldId: 'field:mode', kind: 'single_select', other: '\t\n' },
   ]) {
     assert.equal(
       safeParseAgentRequestResolution({
@@ -533,7 +572,7 @@ test('request resolutions must match request identity, kind, fields, and choices
       requestKind: 'elicitation',
       requestId: 'request:settings',
       disposition: 'answered',
-      answers: [{ fieldId: 'field:mode', kind: 'choice', values: ['unknown'] }],
+      answers: [{ fieldId: 'field:mode', kind: 'single_select', value: 'unknown' }],
     },
     {
       requestKind: 'elicitation',

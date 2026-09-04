@@ -5,7 +5,6 @@
 import { z } from 'zod/v4';
 
 import {
-  AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
   AGENT_PROTOCOL_SUMMARY_MAX_LENGTH,
   AGENT_PROTOCOL_TEXT_MAX_LENGTH,
 } from '../foundation/types.js';
@@ -22,6 +21,9 @@ import {
   AGENT_APPROVAL_OPTIONS_MAX_LENGTH,
   AGENT_APPROVAL_PERSISTENCES,
   AGENT_APPROVAL_SCOPE_KINDS,
+  AGENT_ELICITATION_FIELDS_MAX_LENGTH,
+  AGENT_ELICITATION_OPTIONS_MAX_LENGTH,
+  AGENT_ELICITATION_TEXT_VALUE_MAX_LENGTH,
 } from '../requests/types.js';
 import {
   AgentApprovalOptionIdSchema,
@@ -131,42 +133,69 @@ const AgentRequestChoiceSchema = z
   .strict()
   .readonly();
 
+const AgentElicitationFieldBase = {
+  fieldId: AgentRequestFieldIdSchema,
+  label: z.string().min(1).max(200),
+  description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
+  required: z.boolean(),
+  sensitivity: z.enum(['ordinary', 'sensitive']),
+} as const;
+
+const AgentElicitationOptionsSchema = z
+  .array(AgentRequestChoiceSchema)
+  .min(1)
+  .max(AGENT_ELICITATION_OPTIONS_MAX_LENGTH)
+  .readonly();
+
 const AgentElicitationFieldSchema = z.discriminatedUnion('kind', [
   z
     .object({
-      fieldId: AgentRequestFieldIdSchema,
-      label: z.string().min(1).max(200),
-      description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
-      required: z.boolean(),
+      ...AgentElicitationFieldBase,
       kind: z.literal('text'),
-      multiline: z.boolean().optional(),
+      multiline: z.boolean(),
+      maxLength: z
+        .number()
+        .int()
+        .positive()
+        .max(AGENT_ELICITATION_TEXT_VALUE_MAX_LENGTH),
     })
     .strict()
     .readonly(),
   z
     .object({
-      fieldId: AgentRequestFieldIdSchema,
-      label: z.string().min(1).max(200),
-      description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
-      required: z.boolean(),
-      kind: z.literal('choice'),
-      options: z
-        .array(AgentRequestChoiceSchema)
-        .min(1)
-        .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
-        .readonly(),
-      multiple: z.boolean(),
+      ...AgentElicitationFieldBase,
+      kind: z.literal('single_select'),
+      options: AgentElicitationOptionsSchema,
       allowOther: z.boolean(),
     })
     .strict()
     .readonly(),
   z
     .object({
-      fieldId: AgentRequestFieldIdSchema,
-      label: z.string().min(1).max(200),
-      description: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
-      required: z.boolean(),
+      ...AgentElicitationFieldBase,
+      kind: z.literal('multi_select'),
+      options: AgentElicitationOptionsSchema,
+      allowOther: z.boolean(),
+      maxSelections: z
+        .number()
+        .int()
+        .positive()
+        .max(AGENT_ELICITATION_OPTIONS_MAX_LENGTH),
+    })
+    .strict()
+    .readonly(),
+  z
+    .object({
+      ...AgentElicitationFieldBase,
       kind: z.literal('boolean'),
+    })
+    .strict()
+    .readonly(),
+  z
+    .object({
+      ...AgentElicitationFieldBase,
+      kind: z.literal('confirmation'),
+      confirmLabel: z.string().min(1).max(200),
     })
     .strict()
     .readonly(),
@@ -180,7 +209,7 @@ export const AgentElicitationRequestPortableSchema = z
     fields: z
       .array(AgentElicitationFieldSchema)
       .min(1)
-      .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
+      .max(AGENT_ELICITATION_FIELDS_MAX_LENGTH)
       .readonly(),
     expiresAt: AgentIsoDateTimeSchema.optional(),
   })
@@ -199,7 +228,9 @@ export const AgentElicitationRequestSchema: z.ZodType<AgentElicitationRequest> =
         });
       }
       fieldIds.add(field.fieldId);
-      if (field.kind !== 'choice') return;
+      if (field.kind !== 'single_select' && field.kind !== 'multi_select') {
+        return;
+      }
       const optionValues = new Set<string>();
       field.options.forEach((option, optionIndex) => {
         if (optionValues.has(option.value)) {
@@ -211,6 +242,16 @@ export const AgentElicitationRequestSchema: z.ZodType<AgentElicitationRequest> =
         }
         optionValues.add(option.value);
       });
+      if (
+        field.kind === 'multi_select'
+        && field.maxSelections > field.options.length + (field.allowOther ? 1 : 0)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['fields', fieldIndex, 'maxSelections'],
+          message: 'Maximum selections cannot exceed the available choices.',
+        });
+      }
     });
   });
 
@@ -240,7 +281,7 @@ export const AgentRequestSchema: z.ZodType<AgentRequest> =
 
 const AgentElicitationFreeformAnswerSchema = z
   .string()
-  .max(AGENT_PROTOCOL_TEXT_MAX_LENGTH)
+  .max(AGENT_ELICITATION_TEXT_VALUE_MAX_LENGTH)
   .regex(/\S/u, 'Free-form answers must contain non-whitespace content.');
 
 const AgentElicitationAnswerSchema = z.discriminatedUnion('kind', [
@@ -255,10 +296,19 @@ const AgentElicitationAnswerSchema = z.discriminatedUnion('kind', [
   z
     .object({
       fieldId: AgentRequestFieldIdSchema,
-      kind: z.literal('choice'),
+      kind: z.literal('single_select'),
+      value: AgentRequestChoiceValueSchema.optional(),
+      other: AgentElicitationFreeformAnswerSchema.optional(),
+    })
+    .strict()
+    .readonly(),
+  z
+    .object({
+      fieldId: AgentRequestFieldIdSchema,
+      kind: z.literal('multi_select'),
       values: z
         .array(AgentRequestChoiceValueSchema)
-        .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
+        .max(AGENT_ELICITATION_OPTIONS_MAX_LENGTH)
         .readonly(),
       other: AgentElicitationFreeformAnswerSchema.optional(),
     })
@@ -269,6 +319,14 @@ const AgentElicitationAnswerSchema = z.discriminatedUnion('kind', [
       fieldId: AgentRequestFieldIdSchema,
       kind: z.literal('boolean'),
       value: z.boolean(),
+    })
+    .strict()
+    .readonly(),
+  z
+    .object({
+      fieldId: AgentRequestFieldIdSchema,
+      kind: z.literal('confirmation'),
+      confirmed: z.boolean(),
     })
     .strict()
     .readonly(),
@@ -304,7 +362,7 @@ export const AgentRequestResolutionPortableSchema = z.union([
       disposition: z.literal('answered'),
       answers: z
         .array(AgentElicitationAnswerSchema)
-        .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
+        .max(AGENT_ELICITATION_FIELDS_MAX_LENGTH)
         .readonly(),
     })
     .strict()
@@ -329,13 +387,23 @@ export const AgentRequestResolutionSchema: z.ZodType<AgentRequestResolution> =
     }
     resolution.answers.forEach((answer, answerIndex) => {
       if (
-        answer.kind === 'choice'
+        answer.kind === 'multi_select'
         && new Set(answer.values).size !== answer.values.length
       ) {
         context.addIssue({
           code: 'custom',
           path: ['answers', answerIndex, 'values'],
-          message: 'Choice answers cannot select the same option more than once.',
+          message: 'Multi-select answers cannot select the same option more than once.',
+        });
+      }
+      if (
+        answer.kind === 'single_select'
+        && (answer.value === undefined) === (answer.other === undefined)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['answers', answerIndex],
+          message: 'Single-select answers require exactly one declared or custom choice.',
         });
       }
     });

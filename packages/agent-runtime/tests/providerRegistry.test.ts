@@ -120,7 +120,7 @@ test("registry validates materialized instance identity and capability ownership
     createInstance: () => ({
       instanceId: parseAgentInstanceId("another-instance"),
       capabilities: parseAgentCapabilities({
-        protocolVersion: 7,
+        protocolVersion: 8,
         providerKey,
         sessions: {
           create: true,
@@ -148,12 +148,11 @@ test("registry validates materialized instance identity and capability ownership
           artifactKinds: [],
         },
         configuration: { kind: "managed" },
-        interactionExtensions: {
-          slashCommands: false,
-          mcp: false,
-          subagents: false,
-          imageGeneration: false,
-        },
+        operations: { kind: "unsupported" },
+        managedContent: { kind: "unsupported" },
+        integrations: { kind: "unsupported" },
+        collaboration: { kind: "unsupported" },
+        generatedResources: { kind: "unsupported" },
         authentication: { kind: "unsupported" },
         versionReporting: false,
       }),
@@ -222,7 +221,7 @@ test("registry cleans earlier instances when a rejected instance also fails clea
     createInstance: () => ({
       instanceId: parseAgentInstanceId("wrong-instance"),
       capabilities: parseAgentCapabilities({
-        protocolVersion: 7,
+        protocolVersion: 8,
         providerKey,
         sessions: {
           create: true,
@@ -250,12 +249,11 @@ test("registry cleans earlier instances when a rejected instance also fails clea
           artifactKinds: [],
         },
         configuration: { kind: "managed" },
-        interactionExtensions: {
-          slashCommands: false,
-          mcp: false,
-          subagents: false,
-          imageGeneration: false,
-        },
+        operations: { kind: "unsupported" },
+        managedContent: { kind: "unsupported" },
+        integrations: { kind: "unsupported" },
+        collaboration: { kind: "unsupported" },
+        generatedResources: { kind: "unsupported" },
         authentication: { kind: "unsupported" },
         versionReporting: false,
       }),

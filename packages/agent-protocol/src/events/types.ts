@@ -3,6 +3,7 @@
 // ------------------------------------------------------------------------------------------------
 
 import type { AgentArtifactDescriptor } from '../artifacts/index.js';
+import type { AgentCollaborationNode } from '../collaboration/index.js';
 import type {
   AgentArtifactId,
   AgentError,
@@ -15,6 +16,8 @@ import type {
   AgentTurnId,
 } from '../foundation/index.js';
 import type { AgentRequest } from '../requests/index.js';
+import type { AgentOperationResult } from '../operations/index.js';
+import type { AgentGeneratedResourceDescriptor } from '../resources/index.js';
 import type {
   AgentContentStreamKind,
   AgentContextUsage,
@@ -40,6 +43,9 @@ export const AGENT_EVENT_TYPES = [
   'progress.updated',
   'context.usage.updated',
   'artifact.referenced',
+  'operation.updated',
+  'collaboration.updated',
+  'resource.updated',
   'runtime.warning',
   'runtime.error',
   'provider.diagnostic',
@@ -48,7 +54,7 @@ export const AGENT_EVENT_TYPES = [
 export type AgentEventType = (typeof AGENT_EVENT_TYPES)[number];
 
 interface AgentEventBase<Type extends AgentEventType, Payload> {
-  readonly protocolVersion: 7;
+  readonly protocolVersion: 8;
   readonly type: Type;
   readonly sessionId: AgentSessionId;
   readonly providerRefs?: AgentProviderRefs;
@@ -160,6 +166,21 @@ export type AgentArtifactReferencedEvent = AgentOptionallyTurnScopedEventBase<
   Readonly<{ artifact: AgentArtifactDescriptor }>
 >;
 
+export type AgentOperationUpdatedEvent = AgentOptionallyTurnScopedEventBase<
+  'operation.updated',
+  Readonly<{ result: AgentOperationResult }>
+>;
+
+export type AgentCollaborationUpdatedEvent = AgentOptionallyTurnScopedEventBase<
+  'collaboration.updated',
+  Readonly<{ node: AgentCollaborationNode }>
+>;
+
+export type AgentResourceUpdatedEvent = AgentOptionallyTurnScopedEventBase<
+  'resource.updated',
+  Readonly<{ resource: AgentGeneratedResourceDescriptor }>
+>;
+
 export type AgentRuntimeWarningEvent = AgentOptionallyTurnScopedEventBase<
   'runtime.warning',
   Readonly<{
@@ -199,6 +220,9 @@ export type AgentEvent =
   | AgentProgressUpdatedEvent
   | AgentContextUsageUpdatedEvent
   | AgentArtifactReferencedEvent
+  | AgentOperationUpdatedEvent
+  | AgentCollaborationUpdatedEvent
+  | AgentResourceUpdatedEvent
   | AgentRuntimeWarningEvent
   | AgentRuntimeErrorEvent
   | AgentProviderDiagnosticEvent;

@@ -3,14 +3,18 @@
 // ------------------------------------------------------------------------------------------------
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import {
+  AGENT_COLLABORATION_GRAPH_LIMITS,
   AGENT_PROTOCOL_TURN_INPUT_CONTENT_BYTES_LIMIT,
   parseAgentArtifactId,
   parseAgentApprovalOptionId,
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
+  parseAgentGeneratedResourceDescriptor,
+  parseAgentGeneratedResourceId,
   parseAgentIsoDateTime,
   parseAgentItemId,
   parseAgentProviderConversationId,
@@ -41,11 +45,12 @@ import {
   type AgentProviderSteerTurnInput,
   type AgentTurnSteeringResult,
 } from "../src/index.js";
+import { validateAgentGeneratedResourceForCapabilities } from "../src/interactionValidation.js";
 import { createFakeAgentProvider } from "../src/testing/index.js";
 
 const providerKey = parseAgentProviderKey("contract-fixture");
 const capabilities: AgentCapabilities = parseAgentCapabilities({
-  protocolVersion: 7,
+  protocolVersion: 8,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -69,12 +74,11 @@ const capabilities: AgentCapabilities = parseAgentCapabilities({
     artifactKinds: [],
   },
   configuration: { kind: "managed" },
-  interactionExtensions: {
-    slashCommands: false,
-    mcp: false,
-    subagents: false,
-    imageGeneration: false,
-  },
+  operations: { kind: "unsupported" },
+  managedContent: { kind: "unsupported" },
+  integrations: { kind: "unsupported" },
+  collaboration: { kind: "unsupported" },
+  generatedResources: { kind: "unsupported" },
   authentication: { kind: "unsupported" },
   versionReporting: false,
 });
@@ -117,8 +121,8 @@ const authenticationCapabilities: AgentCapabilities = parseAgentCapabilities({
 });
 const sessionId = parseAgentSessionId("contract-session");
 const configuration = {
+  kind: "managed" as const,
   revision: parseAgentConfigurationRevisionId("contract-configuration"),
-  values: {},
 };
 
 const allowOnceOptionId = parseAgentApprovalOptionId("approval:allow-once");
@@ -167,7 +171,7 @@ function allowOnceResolution(requestId: ReturnType<typeof parseAgentRequestId>) 
 }
 
 function eventBase(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
-  return { protocolVersion: 7 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 8 as const, sessionId, turnId, occurredAt };
 }
 
 function waitingForRequestOutputs(input: {
@@ -250,7 +254,7 @@ function session(
     binding: { conversationId: "contract-conversation" as never },
     runTurn: async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 7,
+        protocolVersion: 8,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -258,7 +262,7 @@ function session(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 7,
+        protocolVersion: 8,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -270,6 +274,11 @@ function session(
     interruption: { kind: "unsupported" },
     steering: { kind: "unsupported" },
     configuration: { kind: "managed" },
+    operations: { kind: "unsupported" },
+    managedContent: { kind: "unsupported" },
+    integrations: { kind: "unsupported" },
+    collaboration: { kind: "unsupported" },
+    generatedResources: { kind: "unsupported" },
     close: async () => undefined,
     ...overrides,
   };
@@ -314,7 +323,7 @@ test("adapter validation rejects C1 controls in working directories", async () =
   assert.equal(delegated, false);
 });
 
-test("managed configuration rejects session values before provider delegation", async () => {
+test("managed configuration rejects selected state before provider delegation", async () => {
   let delegated = false;
   const validated = validateAgentProviderAdapter(
     capabilities,
@@ -332,8 +341,17 @@ test("managed configuration rejects session values before provider delegation", 
         sessionId,
         workingDirectory: "/host/session",
         configuration: {
+          kind: "selected",
           revision: parseAgentConfigurationRevisionId("managed-values"),
-          values: { model: "provider-model" },
+          catalogRevision: 1,
+          selections: [{
+            key: "model",
+            fieldRevision: 1,
+            value: {
+              fieldKind: "single_select",
+              optionId: "provider-model",
+            },
+          }],
         },
         onBindingCreated: () => undefined,
       }),
@@ -344,11 +362,19 @@ test("managed configuration rejects session values before provider delegation", 
   assert.equal(delegated, false);
 });
 
-test("selectable configuration keys and option IDs are enforced before provider delegation", async () => {
+test("selectable configuration kinds and catalog selections are enforced before delegation", async () => {
   const fake = createFakeAgentProvider();
   const instance = await fake.driver.materialize(fake.definition);
+  const selectableCapabilities = parseAgentCapabilities({
+    ...instance.capabilities,
+    configuration: {
+      kind: "selectable",
+      fieldKinds: ["single_select"],
+      maxFields: 2,
+    },
+  });
   const validated = validateAgentProviderAdapter(
-    instance.capabilities,
+    selectableCapabilities,
     instance.adapter,
   );
   const unsupportedConfigurations: readonly {
@@ -360,22 +386,21 @@ test("selectable configuration keys and option IDs are enforced before provider 
     {
       code: "configuration_key_unsupported" as const,
       configuration: {
+        kind: "managed",
         revision: parseAgentConfigurationRevisionId("unknown-key"),
-        values: { permission_mode: "workspace-write" },
       },
     },
     {
       code: "configuration_value_unsupported" as const,
       configuration: {
+        kind: "selected",
         revision: parseAgentConfigurationRevisionId("non-string-option"),
-        values: { model: 42 },
-      },
-    },
-    {
-      code: "configuration_value_unsupported" as const,
-      configuration: {
-        revision: parseAgentConfigurationRevisionId("unknown-option"),
-        values: { model: "provider-model" },
+        catalogRevision: 1,
+        selections: [{
+          key: "temperature",
+          fieldRevision: 1,
+          value: { fieldKind: "bounded_integer", value: 42 },
+        }],
       },
     },
   ];
@@ -466,8 +491,14 @@ test("selectable configuration keys and option IDs are enforced before provider 
     sessionId,
     workingDirectory: "/host/session",
     configuration: {
+      kind: "selected",
       revision: parseAgentConfigurationRevisionId("supported-configuration"),
-      values: { model: "fake-model" },
+      catalogRevision: 1,
+      selections: [{
+        key: "model",
+        fieldRevision: 1,
+        value: { fieldKind: "single_select", optionId: "fake-model" },
+      }],
     },
     onBindingCreated: () => undefined,
   });
@@ -476,13 +507,74 @@ test("selectable configuration keys and option IDs are enforced before provider 
   if (configurationControl.kind !== "selectable") return;
   await assertUnsupported(
     () =>
-      configurationControl.applyConfiguration({
-        configuration: unsupportedConfigurations[0]!.configuration,
+      configurationControl.applyConfigurationSelection({
+        selection: {
+          key: "permission_mode",
+          expectedCatalogRevision: 1,
+          expectedFieldRevision: 1,
+          value: {
+            fieldKind: "single_select",
+            optionId: "workspace-write",
+          },
+        },
       }),
-    "configuration_key_unsupported",
+    "configuration_value_unsupported",
   );
   assert.deepEqual(fake.snapshot().createdSessionIds, [sessionId]);
   assert.deepEqual(fake.snapshot().configurationRevisions, []);
+  await opened.close({ reason: "idle" });
+  await instance.dispose();
+});
+
+test("a failed execution-start observer preserves the pre-delegation error and session", async () => {
+  const fake = createFakeAgentProvider();
+  const instance = await fake.driver.materialize(fake.definition);
+  const validated = validateAgentProviderAdapter(
+    instance.capabilities,
+    instance.adapter,
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration: {
+      kind: "selected",
+      revision: parseAgentConfigurationRevisionId("observer-failure"),
+      catalogRevision: 1,
+      selections: [{
+        key: "model",
+        fieldRevision: 1,
+        value: { fieldKind: "single_select", optionId: "fake-model" },
+      }],
+    },
+    onBindingCreated: () => undefined,
+  });
+  const configurationControl = opened.configuration;
+  assert.equal(configurationControl.kind, "selectable");
+  if (configurationControl.kind !== "selectable") return;
+  const selection = {
+    key: "model",
+    expectedCatalogRevision: 1,
+    expectedFieldRevision: 1,
+    value: { fieldKind: "single_select" as const, optionId: "fake-model-2" },
+  };
+  const observerFailure = new Error("durable execution-start receipt failed");
+
+  await assert.rejects(
+    async () => configurationControl.applyConfigurationSelection({
+      selection,
+      onProviderExecutionStarted: () => {
+        throw observerFailure;
+      },
+    }),
+    (error: unknown) => error === observerFailure,
+  );
+  assert.deepEqual(fake.snapshot().configurationRevisions, []);
+
+  assert.deepEqual(
+    await configurationControl.applyConfigurationSelection({ selection }),
+    { status: "completed", outputs: [] },
+  );
+  assert.deepEqual(fake.snapshot().configurationRevisions, ["1:model"]);
   await opened.close({ reason: "idle" });
   await instance.dispose();
 });
@@ -666,10 +758,102 @@ test("capability declarations must match callable adapter and session ports", as
           onBindingCreated: () => undefined,
         }),
       (error: unknown) =>
-        error instanceof AgentProviderContractError &&
+      error instanceof AgentProviderContractError &&
         error.code === "capability_port_mismatch",
     );
   }
+
+  const hiddenUnsupportedPort = validateAgentProviderAdapter(
+    capabilities,
+    adapter((input) => {
+      const opened = session({
+        operations: {
+          kind: "unsupported",
+          invokeOperation: async () => ({
+            invocationId: "invocation:hidden",
+            status: "completed",
+          }),
+        } as never,
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  await assert.rejects(
+    async () => hiddenUnsupportedPort.createSession({
+        sessionId,
+        workingDirectory: "/host/session",
+        configuration,
+        onBindingCreated: () => undefined,
+      }),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "capability_port_mismatch",
+  );
+
+  const extraSessionSurface = validateAgentProviderAdapter(
+    capabilities,
+    adapter((input) => {
+      const opened = {
+        ...session(),
+        nativeCommands: async () => [],
+      } as unknown as AgentProviderSession;
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  await assert.rejects(
+    async () => extraSessionSurface.createSession({
+        sessionId,
+        workingDirectory: "/host/session",
+        configuration,
+        onBindingCreated: () => undefined,
+      }),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "invalid_session",
+  );
+
+  const fake = createFakeAgentProvider();
+  const instance = await fake.driver.materialize(fake.definition);
+  const supportedPortDowngrades: readonly Partial<AgentProviderSession>[] = [
+    { configuration: { kind: "managed" } },
+    { operations: { kind: "unsupported" } },
+    { managedContent: { kind: "unsupported" } },
+    { integrations: { kind: "unsupported" } },
+    { collaboration: { kind: "unsupported" } },
+    { generatedResources: { kind: "unsupported" } },
+  ];
+  for (const downgrade of supportedPortDowngrades) {
+    const candidate = validateAgentProviderAdapter(instance.capabilities, {
+      ...instance.adapter,
+      createSession: async (input) => ({
+        ...await instance.adapter.createSession(input),
+        ...downgrade,
+      }),
+    });
+    await assert.rejects(
+      async () => candidate.createSession({
+          sessionId,
+          workingDirectory: "/host/session",
+          configuration: {
+            kind: "selected",
+            revision: parseAgentConfigurationRevisionId("supported-ports"),
+            catalogRevision: 1,
+            selections: [{
+              key: "model",
+              fieldRevision: 1,
+              value: { fieldKind: "single_select", optionId: "fake-model" },
+            }],
+          },
+          onBindingCreated: () => undefined,
+        }),
+      (error: unknown) =>
+        error instanceof AgentProviderContractError
+        && error.code === "capability_port_mismatch",
+    );
+  }
+  await instance.dispose();
 });
 
 test("provider output cannot exceed declared event, item, artifact, or request capabilities", async () => {
@@ -964,6 +1148,932 @@ test("provider output cannot exceed declared event, item, artifact, or request c
   }
 });
 
+test("generated-resource inspection returns only exact owned artifact candidates", async () => {
+  const resourceCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    generatedResources: {
+      kind: "supported",
+      resourceKinds: ["image"],
+      maxResourcesPerTurn: 1,
+      maxBytesPerResource: 1_024,
+    },
+  });
+  const resourceId = parseAgentGeneratedResourceId("resource:owned-preview");
+  const artifactId = parseAgentArtifactId("artifact:owned-preview");
+  const bytes = new Uint8Array([1, 2, 3]);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  let inspectionCount = 0;
+  const validated = validateAgentProviderAdapter(
+    resourceCapabilities,
+    adapter((input) => {
+      const opened = session({
+        generatedResources: {
+          kind: "supported",
+          getGeneratedResource: async () => {
+            inspectionCount += 1;
+            const displayName = inspectionCount === 1
+              ? "Generated preview"
+              : "Mutated terminal preview";
+            return {
+              descriptor: {
+                resourceId,
+                kind: "image",
+                status: "available",
+                displayName,
+                producer: { kind: "session", sessionId },
+                artifactId,
+                mediaType: "image/png",
+                byteSize: bytes.byteLength,
+                sha256,
+                widthPixels: 1,
+                heightPixels: 1,
+                createdAt: "2026-08-04T00:00:00.000Z" as never,
+              },
+              candidate: {
+                descriptor: {
+                  artifactId,
+                  kind: "image",
+                  displayName,
+                  mediaType: "image/png",
+                  byteSize: bytes.byteLength,
+                  digest: { algorithm: "sha256", value: sha256 },
+                },
+                source: { kind: "bytes", bytes },
+                delivery: "required_before_reference",
+              },
+            };
+          },
+        },
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  assert.equal(opened.generatedResources.kind, "supported");
+  if (opened.generatedResources.kind !== "supported") return;
+  const generatedResources = opened.generatedResources;
+
+  const inspection = await generatedResources.getGeneratedResource({ resourceId });
+  assert.equal(inspection.descriptor.resourceId, resourceId);
+  assert.equal(inspection.candidate?.delivery, "required_before_reference");
+  assert.deepEqual(
+    inspection.candidate?.source.kind === "bytes"
+      ? [...inspection.candidate.source.bytes]
+      : null,
+    [...bytes],
+  );
+  await assert.rejects(
+    async () => generatedResources.getGeneratedResource({ resourceId }),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "output_resource_mismatch",
+  );
+  await opened.close({ reason: "contract_rejected" });
+});
+
+test("generated-resource lifecycle admits stable expiration from settled states", () => {
+  const resourceCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    generatedResources: {
+      kind: "supported",
+      resourceKinds: ["image"],
+      maxResourcesPerTurn: 1,
+      maxBytesPerResource: 1_024,
+    },
+  });
+  const createdAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
+  const expiresAt = parseAgentIsoDateTime("2026-08-04T00:05:00.000Z");
+
+  for (const previousStatus of ["available", "unavailable"] as const) {
+    const resourceId = parseAgentGeneratedResourceId(
+      `resource:expires-from-${previousStatus}`,
+    );
+    const identity = {
+      resourceId,
+      kind: "image" as const,
+      displayName: "Generated preview",
+      producer: { kind: "session" as const, sessionId },
+      createdAt,
+    };
+    const previous = parseAgentGeneratedResourceDescriptor(
+      previousStatus === "available"
+        ? {
+            ...identity,
+            status: previousStatus,
+            artifactId: parseAgentArtifactId(`artifact:${previousStatus}`),
+            mediaType: "image/png",
+            byteSize: 3,
+            sha256: "0".repeat(64),
+            widthPixels: 1,
+            heightPixels: 1,
+          }
+        : {
+            ...identity,
+            status: previousStatus,
+            error: {
+              code: "generation_failed",
+              message: "The preview could not be generated.",
+              retryable: false,
+            },
+          },
+    );
+    const expired = parseAgentGeneratedResourceDescriptor({
+      ...identity,
+      status: "expired",
+      expiresAt,
+    });
+
+    assert.deepEqual(
+      validateAgentGeneratedResourceForCapabilities({
+        capabilities: resourceCapabilities,
+        candidate: expired,
+        expectedResourceId: resourceId,
+        previous,
+      }),
+      expired,
+    );
+    assert.throws(
+      () => validateAgentGeneratedResourceForCapabilities({
+        capabilities: resourceCapabilities,
+        candidate: { ...expired, summary: "Changed after expiry." },
+        expectedResourceId: resourceId,
+        previous: expired,
+      }),
+      (error: unknown) =>
+        error instanceof AgentProviderContractError
+        && error.code === "output_resource_mismatch",
+    );
+  }
+});
+
+test("generated-resource inspection rejects missing and mismatched candidates", async () => {
+  const resourceCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    generatedResources: {
+      kind: "supported",
+      resourceKinds: ["image"],
+      maxResourcesPerTurn: 2,
+      maxBytesPerResource: 1_024,
+    },
+  });
+  const bytes = new Uint8Array([1, 2, 3]);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const scenarios = [
+    {
+      name: "available without candidate",
+      resourceId: parseAgentGeneratedResourceId("resource:missing-candidate"),
+      inspection: {
+        descriptor: {
+          resourceId: parseAgentGeneratedResourceId("resource:missing-candidate"),
+          kind: "image" as const,
+          status: "available" as const,
+          displayName: "Generated preview",
+          producer: { kind: "session" as const, sessionId },
+          artifactId: parseAgentArtifactId("artifact:missing-candidate"),
+          mediaType: "image/png",
+          byteSize: bytes.byteLength,
+          sha256,
+          widthPixels: 1,
+          heightPixels: 1,
+          createdAt: "2026-08-04T00:00:00.000Z" as never,
+        },
+      },
+    },
+    {
+      name: "candidate metadata mismatch",
+      resourceId: parseAgentGeneratedResourceId("resource:mismatched-candidate"),
+      inspection: {
+        descriptor: {
+          resourceId: parseAgentGeneratedResourceId("resource:mismatched-candidate"),
+          kind: "image" as const,
+          status: "available" as const,
+          displayName: "Generated preview",
+          producer: { kind: "session" as const, sessionId },
+          artifactId: parseAgentArtifactId("artifact:mismatched-candidate"),
+          mediaType: "image/png",
+          byteSize: bytes.byteLength,
+          sha256,
+          widthPixels: 1,
+          heightPixels: 1,
+          createdAt: "2026-08-04T00:00:00.000Z" as never,
+        },
+        candidate: {
+          descriptor: {
+            artifactId: parseAgentArtifactId("artifact:mismatched-candidate"),
+            kind: "image" as const,
+            displayName: "Different preview",
+            mediaType: "image/png",
+            byteSize: bytes.byteLength,
+            digest: { algorithm: "sha256" as const, value: sha256 },
+          },
+          source: { kind: "bytes" as const, bytes },
+          delivery: "required_before_reference" as const,
+        },
+      },
+    },
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const validated = validateAgentProviderAdapter(
+      resourceCapabilities,
+      adapter((input) => {
+        const opened = session({
+          generatedResources: {
+            kind: "supported",
+            getGeneratedResource: async () => scenario.inspection,
+          },
+        });
+        input.onBindingCreated(opened.binding);
+        return opened;
+      }),
+    );
+    const opened = await validated.createSession({
+      sessionId,
+      workingDirectory: "/host/session",
+      configuration,
+      onBindingCreated: () => undefined,
+    });
+    assert.equal(opened.generatedResources.kind, "supported");
+    if (opened.generatedResources.kind !== "supported") continue;
+    const generatedResources = opened.generatedResources;
+    await assert.rejects(
+      async () => generatedResources.getGeneratedResource({
+        resourceId: scenario.resourceId,
+      }),
+      (error: unknown) =>
+        error instanceof AgentProviderContractError
+        && error.code === "output_resource_mismatch",
+      scenario.name,
+    );
+    await opened.close({ reason: "contract_rejected" });
+  }
+});
+
+test("interaction observations enforce per-turn bounds and forward-only lifecycles", async () => {
+  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
+  const operationCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    operations: {
+      kind: "supported",
+      operationKinds: ["session_control"],
+      fieldKinds: ["boolean"],
+      executionModes: ["immediate"],
+      maxOperations: 1,
+      maxFieldsPerOperation: 1,
+    },
+  });
+  const collaborationCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    collaboration: {
+      kind: "supported",
+      roles: ["reviewer"],
+      controlActions: ["spawn", "inspect"],
+      maxDepth: 2,
+      maxChildrenPerNode: 1,
+      maxActiveNodes: 2,
+    },
+  });
+  const resourceCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    generatedResources: {
+      kind: "supported",
+      resourceKinds: ["image"],
+      maxResourcesPerTurn: 1,
+      maxBytesPerResource: 1_024,
+    },
+  });
+  const completedOperation = {
+    invocationId: "invocation:observed" as never,
+    status: "completed" as const,
+  };
+  const completedCollaboration = {
+    collaborationId: "collaboration:observed" as never,
+    rootCollaborationId: "collaboration:observed" as never,
+    role: "reviewer" as const,
+    title: "Interaction lifecycle review",
+    status: "completed" as const,
+    objective: "Review the interaction lifecycle.",
+    usage: { kind: "unavailable" as const },
+    outcome: { kind: "completed" as const },
+    createdAt: occurredAt,
+    updatedAt: occurredAt,
+    terminalAt: occurredAt,
+  };
+  const scenarios: readonly {
+    readonly name: string;
+    readonly capabilities: AgentCapabilities;
+    readonly expectedCode:
+      | "invalid_operation_result"
+      | "invalid_collaboration_transition"
+      | "output_capability_mismatch"
+      | "output_collaboration_mismatch";
+    readonly ports: Partial<AgentProviderSession>;
+    readonly outputs: readonly AgentProviderOutput[];
+  }[] = [
+    {
+      name: "terminal operation revival",
+      capabilities: operationCapabilities,
+      expectedCode: "invalid_operation_result",
+      ports: {
+        operations: {
+          kind: "supported",
+          listOperations: async () => ({ revision: 1, operations: [] }),
+          invokeOperation: async ({ invocation }) => ({
+            invocationId: invocation.invocationId,
+            status: "completed",
+          }),
+        },
+      },
+      outputs: [
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:operation-lifecycle"), occurredAt),
+          type: "operation.updated",
+          payload: { result: completedOperation },
+        }),
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:operation-lifecycle"), occurredAt),
+          type: "operation.updated",
+          payload: { result: { ...completedOperation, status: "accepted" } },
+        }),
+      ],
+    },
+    {
+      name: "terminal collaboration revival",
+      capabilities: collaborationCapabilities,
+      expectedCode: "invalid_collaboration_transition",
+      ports: {
+        collaboration: {
+          kind: "supported",
+          spawnCollaboration: async ({ spawn }) => ({
+            collaborationId: spawn.collaborationId,
+            rootCollaborationId: spawn.collaborationId,
+            role: spawn.role,
+            title: spawn.title,
+            status: "queued",
+            objective: spawn.objective,
+            usage: { kind: "unavailable" },
+            createdAt: occurredAt,
+            updatedAt: occurredAt,
+          }),
+          controlCollaboration: async () => completedCollaboration,
+        },
+      },
+      outputs: [
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:collaboration-lifecycle"), occurredAt),
+          type: "collaboration.updated",
+          payload: { node: completedCollaboration },
+        }),
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:collaboration-lifecycle"), occurredAt),
+          type: "collaboration.updated",
+          payload: {
+            node: {
+              collaborationId: completedCollaboration.collaborationId,
+              rootCollaborationId: completedCollaboration.rootCollaborationId,
+              role: completedCollaboration.role,
+              title: completedCollaboration.title,
+              status: "running",
+              objective: completedCollaboration.objective,
+              usage: completedCollaboration.usage,
+              createdAt: completedCollaboration.createdAt,
+              updatedAt: completedCollaboration.updatedAt,
+            },
+          },
+        }),
+      ],
+    },
+    {
+      name: "terminal collaboration parent extension",
+      capabilities: collaborationCapabilities,
+      expectedCode: "output_collaboration_mismatch",
+      ports: {
+        collaboration: {
+          kind: "supported",
+          spawnCollaboration: async ({ spawn }) => ({
+            collaborationId: spawn.collaborationId,
+            rootCollaborationId: spawn.collaborationId,
+            role: spawn.role,
+            title: spawn.title,
+            status: "queued",
+            objective: spawn.objective,
+            usage: { kind: "unavailable" },
+            createdAt: occurredAt,
+            updatedAt: occurredAt,
+          }),
+          controlCollaboration: async () => completedCollaboration,
+        },
+      },
+      outputs: [
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:collaboration-terminal-parent"), occurredAt),
+          type: "collaboration.updated",
+          payload: { node: completedCollaboration },
+        }),
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:collaboration-terminal-parent"), occurredAt),
+          type: "collaboration.updated",
+          payload: {
+            node: {
+              collaborationId: "collaboration:observed-child" as never,
+              rootCollaborationId: completedCollaboration.collaborationId,
+              parentCollaborationId: completedCollaboration.collaborationId,
+              role: "reviewer",
+              title: "Late child",
+              status: "running",
+              objective: "Attempt to extend a completed collaboration.",
+              usage: { kind: "unavailable" },
+              createdAt: occurredAt,
+              updatedAt: occurredAt,
+            },
+          },
+        }),
+      ],
+    },
+    {
+      name: "collaboration node count",
+      capabilities: collaborationCapabilities,
+      expectedCode: "output_capability_mismatch",
+      ports: {
+        collaboration: {
+          kind: "supported",
+          spawnCollaboration: async ({ spawn }) => ({
+            collaborationId: spawn.collaborationId,
+            rootCollaborationId: spawn.collaborationId,
+            role: spawn.role,
+            title: spawn.title,
+            status: "queued",
+            objective: spawn.objective,
+            usage: { kind: "unavailable" },
+            createdAt: occurredAt,
+            updatedAt: occurredAt,
+          }),
+          controlCollaboration: async () => completedCollaboration,
+        },
+      },
+      outputs: Array.from(
+        { length: AGENT_COLLABORATION_GRAPH_LIMITS.maxNodes + 1 },
+        (_, index) => {
+          const collaborationId = `collaboration:observed:${index}` as never;
+          return createAgentEventOutput({
+            ...eventBase(parseAgentTurnId("turn:collaboration-node-limit"), occurredAt),
+            type: "collaboration.updated",
+            payload: {
+              node: {
+                ...completedCollaboration,
+                collaborationId,
+                rootCollaborationId: collaborationId,
+                title: `Observed collaboration ${index}`,
+              },
+            },
+          });
+        },
+      ),
+    },
+    {
+      name: "same timestamp collaboration mutation",
+      capabilities: collaborationCapabilities,
+      expectedCode: "invalid_collaboration_transition",
+      ports: {
+        collaboration: {
+          kind: "supported",
+          spawnCollaboration: async ({ spawn }) => ({
+            collaborationId: spawn.collaborationId,
+            rootCollaborationId: spawn.collaborationId,
+            role: spawn.role,
+            title: spawn.title,
+            status: "queued",
+            objective: spawn.objective,
+            usage: { kind: "unavailable" },
+            createdAt: occurredAt,
+            updatedAt: occurredAt,
+          }),
+          controlCollaboration: async () => completedCollaboration,
+        },
+      },
+      outputs: [
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:collaboration-same-time"), occurredAt),
+          type: "collaboration.updated",
+          payload: {
+            node: {
+              ...completedCollaboration,
+              status: "running",
+              outcome: undefined,
+              terminalAt: undefined,
+            },
+          },
+        }),
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:collaboration-same-time"), occurredAt),
+          type: "collaboration.updated",
+          payload: {
+            node: {
+              ...completedCollaboration,
+              status: "waiting",
+              progress: "Waiting without advancing the observation clock.",
+              outcome: undefined,
+              terminalAt: undefined,
+            },
+          },
+        }),
+      ],
+    },
+    {
+      name: "generated resource count",
+      capabilities: resourceCapabilities,
+      expectedCode: "output_capability_mismatch",
+      ports: {
+        generatedResources: {
+          kind: "supported",
+          getGeneratedResource: async ({ resourceId }) => ({
+            descriptor: {
+              resourceId,
+              kind: "image",
+              status: "pending",
+              displayName: "Preview",
+              producer: { kind: "session", sessionId },
+              createdAt: occurredAt,
+            },
+          }),
+        },
+      },
+      outputs: [
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:resource-limit"), occurredAt),
+          type: "resource.updated",
+          payload: {
+            resource: {
+              resourceId: "resource:first" as never,
+              kind: "image",
+              status: "pending",
+              displayName: "First preview",
+              producer: { kind: "turn", turnId: parseAgentTurnId("turn:resource-limit") },
+              createdAt: occurredAt,
+            },
+          },
+        }),
+        createAgentEventOutput({
+          ...eventBase(parseAgentTurnId("turn:resource-limit"), occurredAt),
+          type: "resource.updated",
+          payload: {
+            resource: {
+              resourceId: "resource:second" as never,
+              kind: "image",
+              status: "pending",
+              displayName: "Second preview",
+              producer: { kind: "turn", turnId: parseAgentTurnId("turn:resource-limit") },
+              createdAt: occurredAt,
+            },
+          },
+        }),
+      ],
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const turnId = scenario.outputs[0]!.kind === "event"
+      ? scenario.outputs[0].event.turnId!
+      : parseAgentTurnId(`turn:${scenario.name}`);
+    const validated = validateAgentProviderAdapter(
+      scenario.capabilities,
+      adapter((input) => {
+        const opened = session({
+          ...scenario.ports,
+          runTurn: async function* () {
+            yield createAgentEventOutput({
+              ...eventBase(turnId, occurredAt),
+              type: "turn.started",
+              payload: {},
+            });
+            yield* scenario.outputs;
+          },
+        });
+        input.onBindingCreated(opened.binding);
+        return opened;
+      }),
+    );
+    const opened = await validated.createSession({
+      sessionId,
+      workingDirectory: "/host/session",
+      configuration,
+      onBindingCreated: () => undefined,
+    });
+    await assert.rejects(
+      collectOutputs(opened.runTurn({
+        turnId,
+        interactionMode: "default",
+        parts: [{ type: "text", text: "Observe interactions." }],
+      })),
+      (error: unknown) =>
+        error instanceof AgentProviderContractError
+        && error.code === scenario.expectedCode,
+      scenario.name,
+    );
+    await opened.close({ reason: "contract_rejected" });
+  }
+});
+
+test("collaboration spawn validates every immutable identity field after delegation", async () => {
+  const collaborationCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    collaboration: {
+      kind: "supported",
+      roles: ["reviewer"],
+      controlActions: ["spawn", "inspect"],
+      maxDepth: 2,
+      maxChildrenPerNode: 1,
+      maxActiveNodes: 2,
+    },
+  });
+  const createdAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
+
+  for (const mismatch of ["title", "createdAt"] as const) {
+    const validated = validateAgentProviderAdapter(
+      collaborationCapabilities,
+      adapter((input) => {
+        const opened = session({
+          collaboration: {
+            kind: "supported",
+            spawnCollaboration: async ({ spawn, onProviderExecutionStarted }) => {
+              onProviderExecutionStarted?.();
+              const nodeCreatedAt = mismatch === "createdAt"
+                ? parseAgentIsoDateTime("2026-08-04T00:00:01.000Z")
+                : spawn.createdAt;
+              return {
+                collaborationId: spawn.collaborationId,
+                rootCollaborationId: spawn.collaborationId,
+                role: spawn.role,
+                title: mismatch === "title" ? "Provider-rewritten title" : spawn.title,
+                status: "queued",
+                objective: spawn.objective,
+                usage: { kind: "unavailable" },
+                createdAt: nodeCreatedAt,
+                updatedAt: nodeCreatedAt,
+              };
+            },
+            controlCollaboration: async () => {
+              throw new Error("control must not run");
+            },
+          },
+        });
+        input.onBindingCreated(opened.binding);
+        return opened;
+      }),
+    );
+    const opened = await validated.createSession({
+      sessionId,
+      workingDirectory: "/host/session",
+      configuration,
+      onBindingCreated: () => undefined,
+    });
+    const collaboration = opened.collaboration;
+    assert.equal(collaboration.kind, "supported");
+    if (collaboration.kind !== "supported") continue;
+
+    await assert.rejects(
+      async () => collaboration.spawnCollaboration({
+        spawn: {
+          collaborationId: `collaboration:${mismatch}` as never,
+          role: "reviewer",
+          title: "Review the implementation",
+          objective: "Find correctness defects.",
+          createdAt,
+        },
+      }),
+      (error: unknown) =>
+        error instanceof AgentProviderDelegatedOperationError
+        && error.operation === "spawn_collaboration"
+        && error.providerExecution === "started"
+        && error.cause instanceof AgentProviderContractError
+        && error.cause.code === "output_collaboration_mismatch",
+      mismatch,
+    );
+    await opened.close({ reason: "contract_rejected" });
+  }
+});
+
+test("collaboration spawn reserves active capacity before provider delegation", async () => {
+  const collaborationCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    collaboration: {
+      kind: "supported",
+      roles: ["reviewer"],
+      controlActions: ["spawn", "inspect"],
+      maxDepth: 2,
+      maxChildrenPerNode: 1,
+      maxActiveNodes: 1,
+    },
+  });
+  const createdAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
+  let providerInvocations = 0;
+  let releaseProvider!: () => void;
+  const providerGate = new Promise<void>((resolve) => {
+    releaseProvider = resolve;
+  });
+  const validated = validateAgentProviderAdapter(
+    collaborationCapabilities,
+    adapter((input) => {
+      const opened = session({
+        collaboration: {
+          kind: "supported",
+          spawnCollaboration: async ({ spawn, onProviderExecutionStarted }) => {
+            providerInvocations += 1;
+            onProviderExecutionStarted?.();
+            await providerGate;
+            return {
+              collaborationId: spawn.collaborationId,
+              rootCollaborationId: spawn.collaborationId,
+              role: spawn.role,
+              title: spawn.title,
+              status: "running",
+              objective: spawn.objective,
+              usage: { kind: "unavailable" },
+              createdAt: spawn.createdAt,
+              updatedAt: spawn.createdAt,
+            };
+          },
+          controlCollaboration: async () => {
+            throw new Error("control must not run");
+          },
+        },
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  const collaboration = opened.collaboration;
+  assert.equal(collaboration.kind, "supported");
+  if (collaboration.kind !== "supported") return;
+
+  const firstSpawn = collaboration.spawnCollaboration({
+    spawn: {
+      collaborationId: "collaboration:reserved" as never,
+      role: "reviewer",
+      title: "Reserved review",
+      objective: "Hold the only active collaboration slot.",
+      createdAt,
+    },
+  });
+  assert.equal(providerInvocations, 1);
+  await assert.rejects(
+    async () => collaboration.spawnCollaboration({
+      spawn: {
+        collaborationId: "collaboration:over-capacity" as never,
+        role: "reviewer",
+        title: "Concurrent review",
+        objective: "Attempt to exceed the active collaboration limit.",
+        createdAt,
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "input_capability_mismatch",
+  );
+  assert.equal(providerInvocations, 1);
+
+  releaseProvider();
+  assert.equal((await firstSpawn).collaborationId, "collaboration:reserved");
+  await opened.close({ reason: "idle" });
+});
+
+test("collaboration spawn rejects terminal parents and exhausted node capacity before delegation", async () => {
+  const collaborationCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    collaboration: {
+      kind: "supported",
+      roles: ["reviewer"],
+      controlActions: ["spawn", "inspect"],
+      maxDepth: AGENT_COLLABORATION_GRAPH_LIMITS.maxDepth,
+      maxChildrenPerNode:
+        AGENT_COLLABORATION_GRAPH_LIMITS.maxChildrenPerNode,
+      maxActiveNodes: AGENT_COLLABORATION_GRAPH_LIMITS.maxActiveNodes,
+    },
+  });
+  const createdAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
+  let providerInvocations = 0;
+  const validated = validateAgentProviderAdapter(
+    collaborationCapabilities,
+    adapter((input) => {
+      const opened = session({
+        collaboration: {
+          kind: "supported",
+          spawnCollaboration: async ({ spawn, onProviderExecutionStarted }) => {
+            providerInvocations += 1;
+            onProviderExecutionStarted?.();
+            return {
+              collaborationId: spawn.collaborationId,
+              rootCollaborationId: spawn.collaborationId,
+              role: spawn.role,
+              title: spawn.title,
+              status: "completed",
+              objective: spawn.objective,
+              usage: { kind: "unavailable" },
+              outcome: { kind: "completed" },
+              createdAt: spawn.createdAt,
+              updatedAt: spawn.createdAt,
+              terminalAt: spawn.createdAt,
+            };
+          },
+          controlCollaboration: async () => {
+            throw new Error("control must not run");
+          },
+        },
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  const collaboration = opened.collaboration;
+  assert.equal(collaboration.kind, "supported");
+  if (collaboration.kind !== "supported") return;
+
+  const rootId = "collaboration:terminal-parent" as never;
+  await collaboration.spawnCollaboration({
+    spawn: {
+      collaborationId: rootId,
+      role: "reviewer",
+      title: "Completed root",
+      objective: "Provide a terminal parent fixture.",
+      createdAt,
+    },
+  });
+  await assert.rejects(
+    async () => collaboration.spawnCollaboration({
+      spawn: {
+        collaborationId: "collaboration:late-child" as never,
+        parentCollaborationId: rootId,
+        role: "reviewer",
+        title: "Late child",
+        objective: "Attempt to extend a completed collaboration.",
+        createdAt,
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "input_operation_mismatch",
+  );
+  assert.equal(providerInvocations, 1);
+
+  for (
+    let index = 1;
+    index < AGENT_COLLABORATION_GRAPH_LIMITS.maxNodes;
+    index += 1
+  ) {
+    await collaboration.spawnCollaboration({
+      spawn: {
+        collaborationId: `collaboration:terminal:${index}` as never,
+        role: "reviewer",
+        title: `Completed collaboration ${index}`,
+        objective: "Fill the bounded collaboration graph.",
+        createdAt,
+      },
+    });
+  }
+  assert.equal(
+    providerInvocations,
+    AGENT_COLLABORATION_GRAPH_LIMITS.maxNodes,
+  );
+  await assert.rejects(
+    async () => collaboration.spawnCollaboration({
+      spawn: {
+        collaborationId: "collaboration:over-node-limit" as never,
+        role: "reviewer",
+        title: "Excess collaboration",
+        objective: "Attempt to exceed the session graph node limit.",
+        createdAt,
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AgentProviderContractError
+      && error.code === "input_capability_mismatch",
+  );
+  assert.equal(
+    providerInvocations,
+    AGENT_COLLABORATION_GRAPH_LIMITS.maxNodes,
+  );
+
+  await opened.close({ reason: "idle" });
+});
+
 test("final_diff enforces one terminal materialization while structured diffs remain incremental", async (context) => {
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
   const finalDiffCapabilities = parseAgentCapabilities({
@@ -1159,20 +2269,36 @@ test("final_diff enforces one terminal materialization while structured diffs re
   }
 });
 
-test("text elicitation accepts only text fields while structured elicitation accepts every field shape", async () => {
+test("elicitation capability admits only declared bounded field kinds", async () => {
   const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
   const textCapabilities = parseAgentCapabilities({
     ...capabilities,
     requests: {
       approval: { kind: "unsupported" },
-      elicitation: { kind: "text" },
+      elicitation: {
+        kind: "supported",
+        fieldKinds: ["text"],
+        maxFields: 1,
+        sensitiveFields: false,
+      },
     },
   });
   const structuredCapabilities = parseAgentCapabilities({
     ...capabilities,
     requests: {
       approval: { kind: "unsupported" },
-      elicitation: { kind: "structured" },
+      elicitation: {
+        kind: "supported",
+        fieldKinds: [
+          "text",
+          "single_select",
+          "multi_select",
+          "boolean",
+          "confirmation",
+        ],
+        maxFields: 16,
+        sensitiveFields: true,
+      },
     },
   });
   const textRequest: AgentRequest = {
@@ -1185,6 +2311,9 @@ test("text elicitation accepts only text fields while structured elicitation acc
         kind: "text",
         label: "Value",
         required: true,
+        sensitivity: "ordinary",
+        multiline: false,
+        maxLength: 100,
       },
     ],
   };
@@ -1195,11 +2324,11 @@ test("text elicitation accepts only text fields while structured elicitation acc
     fields: [
       {
         fieldId: parseAgentRequestFieldId("contract-choice-field"),
-        kind: "choice",
+        kind: "single_select",
         label: "Choice",
         required: true,
+        sensitivity: "ordinary",
         options: [{ value: "one", label: "One" }],
-        multiple: false,
         allowOther: false,
       },
     ],
@@ -1311,7 +2440,7 @@ test("validated sessions reject cross-session output and malformed turn ordering
       const opened = session({
         runTurn: async function* (turnInput) {
           yield createAgentEventOutput({
-            protocolVersion: 7,
+            protocolVersion: 8,
             type: "turn.started",
             sessionId: "another-session",
             turnId: turnInput.turnId,

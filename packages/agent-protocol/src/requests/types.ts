@@ -32,11 +32,23 @@ export const AGENT_APPROVAL_SCOPE_KINDS = [
 export const AGENT_APPROVAL_OPTIONS_MAX_LENGTH = 16;
 export const AGENT_APPROVAL_LABEL_MAX_LENGTH = 120;
 export const AGENT_APPROVAL_DESCRIPTION_MAX_LENGTH = 1_000;
+export const AGENT_ELICITATION_FIELD_KINDS = [
+  'text',
+  'single_select',
+  'multi_select',
+  'boolean',
+  'confirmation',
+] as const;
+export const AGENT_ELICITATION_FIELDS_MAX_LENGTH = 16;
+export const AGENT_ELICITATION_OPTIONS_MAX_LENGTH = 100;
+export const AGENT_ELICITATION_TEXT_VALUE_MAX_LENGTH = 4_000;
 
 export type AgentApprovalPersistence =
   (typeof AGENT_APPROVAL_PERSISTENCES)[number];
 export type AgentApprovalScopeKind =
   (typeof AGENT_APPROVAL_SCOPE_KINDS)[number];
+export type AgentElicitationFieldKind =
+  (typeof AGENT_ELICITATION_FIELD_KINDS)[number];
 
 interface AgentApprovalSubjectBase {
   readonly title: string;
@@ -82,28 +94,46 @@ interface AgentElicitationFieldBase {
   readonly label: string;
   readonly description?: string;
   readonly required: boolean;
+  readonly sensitivity: 'ordinary' | 'sensitive';
 }
 
 export interface AgentTextElicitationField extends AgentElicitationFieldBase {
   readonly kind: 'text';
-  readonly multiline?: boolean;
+  readonly multiline: boolean;
+  readonly maxLength: number;
 }
 
-export interface AgentChoiceElicitationField extends AgentElicitationFieldBase {
-  readonly kind: 'choice';
+export interface AgentSingleSelectElicitationField
+  extends AgentElicitationFieldBase {
+  readonly kind: 'single_select';
   readonly options: readonly AgentRequestChoice[];
-  readonly multiple: boolean;
   readonly allowOther: boolean;
+}
+
+export interface AgentMultiSelectElicitationField
+  extends AgentElicitationFieldBase {
+  readonly kind: 'multi_select';
+  readonly options: readonly AgentRequestChoice[];
+  readonly allowOther: boolean;
+  readonly maxSelections: number;
 }
 
 export interface AgentBooleanElicitationField extends AgentElicitationFieldBase {
   readonly kind: 'boolean';
 }
 
+export interface AgentConfirmationElicitationField
+  extends AgentElicitationFieldBase {
+  readonly kind: 'confirmation';
+  readonly confirmLabel: string;
+}
+
 export type AgentElicitationField =
   | AgentTextElicitationField
-  | AgentChoiceElicitationField
-  | AgentBooleanElicitationField;
+  | AgentSingleSelectElicitationField
+  | AgentMultiSelectElicitationField
+  | AgentBooleanElicitationField
+  | AgentConfirmationElicitationField;
 
 export interface AgentElicitationRequest {
   readonly requestKind: 'elicitation';
@@ -138,9 +168,16 @@ export interface AgentTextElicitationAnswer {
   readonly value: string;
 }
 
-export interface AgentChoiceElicitationAnswer {
+export interface AgentSingleSelectElicitationAnswer {
   readonly fieldId: AgentRequestFieldId;
-  readonly kind: 'choice';
+  readonly kind: 'single_select';
+  readonly value?: string;
+  readonly other?: string;
+}
+
+export interface AgentMultiSelectElicitationAnswer {
+  readonly fieldId: AgentRequestFieldId;
+  readonly kind: 'multi_select';
   readonly values: readonly string[];
   readonly other?: string;
 }
@@ -151,10 +188,18 @@ export interface AgentBooleanElicitationAnswer {
   readonly value: boolean;
 }
 
+export interface AgentConfirmationElicitationAnswer {
+  readonly fieldId: AgentRequestFieldId;
+  readonly kind: 'confirmation';
+  readonly confirmed: boolean;
+}
+
 export type AgentElicitationAnswer =
   | AgentTextElicitationAnswer
-  | AgentChoiceElicitationAnswer
-  | AgentBooleanElicitationAnswer;
+  | AgentSingleSelectElicitationAnswer
+  | AgentMultiSelectElicitationAnswer
+  | AgentBooleanElicitationAnswer
+  | AgentConfirmationElicitationAnswer;
 
 export interface AgentAnsweredElicitationResolution {
   readonly requestKind: 'elicitation';

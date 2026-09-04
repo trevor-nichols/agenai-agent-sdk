@@ -11,7 +11,7 @@ export type AgentProtocolJsonSchemaDirection = 'input' | 'output';
 
 export interface AgentProtocolJsonSchemaArtifact {
   readonly contractId: string;
-  readonly protocolVersion: 7;
+  readonly protocolVersion: 8;
   readonly direction: AgentProtocolJsonSchemaDirection;
   readonly dialect: typeof AGENT_PROTOCOL_JSON_SCHEMA_DIALECT;
   readonly parserInvariants: readonly string[];
@@ -21,11 +21,11 @@ export interface AgentProtocolJsonSchemaArtifact {
 
 export const AGENT_SESSION_BINDING_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-binding",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [],
-  "sha256": "640723b204a4b0d6417c92bf9fb08367969cc68193da5ba028fa6348aad24ff6",
+  "sha256": "066245cff4499dfd199eab873ac8f4b9d1b963e2e9dc07a4b083c7620badfc33",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -35,7 +35,7 @@ export const AGENT_SESSION_BINDING_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-binding:v7:output",
+    "$id": "urn:agenai.agent-protocol.session-binding:v8:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -56,91 +56,185 @@ export const AGENT_SESSION_BINDING_JSON_SCHEMA = {
 
 export const AGENT_SESSION_CONFIGURATION_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-configuration",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "configuration_entry_count",
     "serialized_bytes"
   ],
-  "sha256": "f5979adaa59830e2e95c0755697ecdad8bcea0ac9cbbccd8adc82039ba536664",
+  "sha256": "1ab7ecdaeb944f74636f701d446e0ccc9d0911cc44a4bbbc42c11d51de9d639d",
   "schema": {
     "$defs": {
       "__schema0": {
-        "maxLength": 128,
-        "minLength": 1,
-        "pattern": "^(?!(?:__proto__|constructor|prototype)$)",
-        "type": "string"
-      },
-      "__schema1": {
-        "anyOf": [
-          {
-            "maxLength": 32768,
-            "type": "string"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
-          },
-          {
-            "type": "null"
-          },
-          {
-            "items": {
-              "$ref": "#/$defs/__schema1"
-            },
-            "maxItems": 100,
-            "readOnly": true,
-            "type": "array"
-          },
-          {
-            "additionalProperties": {
-              "$ref": "#/$defs/__schema1"
-            },
-            "propertyNames": {
-              "$ref": "#/$defs/__schema0"
-            },
-            "readOnly": true,
-            "type": "object"
-          }
-        ]
-      }
-    },
-    "$id": "urn:agenai.agent-protocol.session-configuration:v7:input",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": false,
-    "properties": {
-      "revision": {
         "maxLength": 256,
         "minLength": 1,
         "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
         "type": "string"
       },
-      "values": {
-        "additionalProperties": {
-          "$ref": "#/$defs/__schema1"
-        },
-        "propertyNames": {
-          "$ref": "#/$defs/__schema0"
+      "__schema1": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema2": {
+        "additionalProperties": false,
+        "properties": {
+          "fieldRevision": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "key": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "boolean",
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "boolean"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "single_select",
+                    "type": "string"
+                  },
+                  "optionId": {
+                    "$ref": "#/$defs/__schema0"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "optionId"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "bounded_integer",
+                    "type": "string"
+                  },
+                  "value": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "bounded_text",
+                    "type": "string"
+                  },
+                  "value": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:$|\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "value"
+                ],
+                "type": "object"
+              }
+            ]
+          }
         },
         "readOnly": true,
+        "required": [
+          "key",
+          "fieldRevision",
+          "value"
+        ],
         "type": "object"
       }
     },
-    "readOnly": true,
-    "required": [
-      "revision",
-      "values"
-    ],
-    "type": "object"
+    "$id": "urn:agenai.agent-protocol.session-configuration:v8:input",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "oneOf": [
+      {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "managed",
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "kind",
+          "revision"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "catalogRevision": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "kind": {
+            "const": "selected",
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "selections": {
+            "items": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "maxItems": 100,
+            "readOnly": true,
+            "type": "array"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "kind",
+          "revision",
+          "catalogRevision",
+          "selections"
+        ],
+        "type": "object"
+      }
+    ]
   }
 } as const satisfies AgentProtocolJsonSchemaArtifact;
 
 export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-open-input",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -148,7 +242,7 @@ export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
     "distinct_branch_session_ids",
     "serialized_bytes"
   ],
-  "sha256": "d21be9ed78d06ba421f349b45e48d4aff338c45047335d369102757f860f01ad",
+  "sha256": "1bbb74a15011021b3f6f303d2399c8f2139b68f8d205bec31dfade3cbb9d9d7f",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -158,69 +252,160 @@ export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
         "type": "string"
       },
       "__schema1": {
-        "additionalProperties": false,
-        "properties": {
-          "revision": {
-            "$ref": "#/$defs/__schema0"
-          },
-          "values": {
-            "additionalProperties": {
-              "$ref": "#/$defs/__schema3"
-            },
-            "propertyNames": {
-              "$ref": "#/$defs/__schema2"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "managed",
+                "type": "string"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema0"
+              }
             },
             "readOnly": true,
+            "required": [
+              "kind",
+              "revision"
+            ],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "catalogRevision": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "kind": {
+                "const": "selected",
+                "type": "string"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "selections": {
+                "items": {
+                  "$ref": "#/$defs/__schema3"
+                },
+                "maxItems": 100,
+                "readOnly": true,
+                "type": "array"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "revision",
+              "catalogRevision",
+              "selections"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema2": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema3": {
+        "additionalProperties": false,
+        "properties": {
+          "fieldRevision": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "key": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "boolean",
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "boolean"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "single_select",
+                    "type": "string"
+                  },
+                  "optionId": {
+                    "$ref": "#/$defs/__schema0"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "optionId"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "bounded_integer",
+                    "type": "string"
+                  },
+                  "value": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fieldKind": {
+                    "const": "bounded_text",
+                    "type": "string"
+                  },
+                  "value": {
+                    "maxLength": 4000,
+                    "pattern": "^(?:$|\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "fieldKind",
+                  "value"
+                ],
+                "type": "object"
+              }
+            ]
           }
         },
         "readOnly": true,
         "required": [
-          "revision",
-          "values"
+          "key",
+          "fieldRevision",
+          "value"
         ],
         "type": "object"
-      },
-      "__schema2": {
-        "maxLength": 128,
-        "minLength": 1,
-        "pattern": "^(?!(?:__proto__|constructor|prototype)$)",
-        "type": "string"
-      },
-      "__schema3": {
-        "anyOf": [
-          {
-            "maxLength": 32768,
-            "type": "string"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
-          },
-          {
-            "type": "null"
-          },
-          {
-            "items": {
-              "$ref": "#/$defs/__schema3"
-            },
-            "maxItems": 100,
-            "readOnly": true,
-            "type": "array"
-          },
-          {
-            "additionalProperties": {
-              "$ref": "#/$defs/__schema3"
-            },
-            "propertyNames": {
-              "$ref": "#/$defs/__schema2"
-            },
-            "readOnly": true,
-            "type": "object"
-          }
-        ]
       },
       "__schema4": {
         "additionalProperties": false,
@@ -245,7 +430,7 @@ export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-open-input:v7:input",
+    "$id": "urn:agenai.agent-protocol.session-open-input:v8:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -360,14 +545,14 @@ export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
 
 export const AGENT_TURN_INPUT_CONTENT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.turn-input-content",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "inline_image_decoded_byte_size",
     "serialized_bytes"
   ],
-  "sha256": "bf447b3f55eee50d25028fb0531029476779d421048ae2bda0cade39ccc831e8",
+  "sha256": "cc292a266caffaa18061316e38d0de451bfc36288c547cb310b62e7c117b7e72",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -568,7 +753,7 @@ export const AGENT_TURN_INPUT_CONTENT_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.turn-input-content:v7:input",
+    "$id": "urn:agenai.agent-protocol.turn-input-content:v8:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -588,14 +773,14 @@ export const AGENT_TURN_INPUT_CONTENT_JSON_SCHEMA = {
 
 export const AGENT_TURN_RUN_INPUT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.turn-run-input",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "inline_image_decoded_byte_size",
     "serialized_bytes"
   ],
-  "sha256": "863a8b3c0c58ed3276c79d93a05f9a8c7d8b909a79e4c58370ab3a723afbd98a",
+  "sha256": "4786fe908d25e26593d79ae4ea60e108dc47301b6f348f44598677178520d63e",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -783,7 +968,7 @@ export const AGENT_TURN_RUN_INPUT_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.turn-run-input:v7:input",
+    "$id": "urn:agenai.agent-protocol.turn-run-input:v8:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -831,7 +1016,7 @@ export const AGENT_TURN_RUN_INPUT_JSON_SCHEMA = {
 
 export const AGENT_REQUEST_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.request",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -839,7 +1024,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
     "unique_field_ids",
     "unique_choice_values"
   ],
-  "sha256": "a839f3191f467d7c8013d222c03c8101db67a3316d6bdb5495cefd23804afe70",
+  "sha256": "eef828e384c7160f2d3d925c3d154e3090ee3e7532708ede00e5224c2db99c2b",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -853,6 +1038,46 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
         "minLength": 1,
         "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
         "type": "string"
+      },
+      "__schema10": {
+        "items": {
+          "$ref": "#/$defs/__schema11"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "__schema11": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "value": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/__schema0"
+              },
+              {
+                "maxLength": 160,
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "value",
+          "label"
+        ],
+        "type": "object"
       },
       "__schema2": {
         "maxLength": 1000,
@@ -930,8 +1155,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
             "additionalProperties": false,
             "properties": {
               "description": {
-                "maxLength": 2000,
-                "type": "string"
+                "$ref": "#/$defs/__schema7"
               },
               "fieldId": {
                 "$ref": "#/$defs/__schema0"
@@ -941,15 +1165,21 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
                 "type": "string"
               },
               "label": {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/$defs/__schema6"
+              },
+              "maxLength": {
+                "exclusiveMinimum": 0,
+                "maximum": 4000,
+                "type": "integer"
               },
               "multiline": {
                 "type": "boolean"
               },
               "required": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema8"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema9"
               }
             },
             "readOnly": true,
@@ -957,7 +1187,10 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
               "fieldId",
               "label",
               "required",
-              "kind"
+              "sensitivity",
+              "kind",
+              "multiline",
+              "maxLength"
             ],
             "type": "object"
           },
@@ -968,35 +1201,26 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
                 "type": "boolean"
               },
               "description": {
-                "maxLength": 2000,
-                "type": "string"
+                "$ref": "#/$defs/__schema7"
               },
               "fieldId": {
                 "$ref": "#/$defs/__schema0"
               },
               "kind": {
-                "const": "choice",
+                "const": "single_select",
                 "type": "string"
               },
               "label": {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              "multiple": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema6"
               },
               "options": {
-                "items": {
-                  "$ref": "#/$defs/__schema6"
-                },
-                "maxItems": 100,
-                "minItems": 1,
-                "readOnly": true,
-                "type": "array"
+                "$ref": "#/$defs/__schema10"
               },
               "required": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema8"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema9"
               }
             },
             "readOnly": true,
@@ -1004,9 +1228,9 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
               "fieldId",
               "label",
               "required",
+              "sensitivity",
               "kind",
               "options",
-              "multiple",
               "allowOther"
             ],
             "type": "object"
@@ -1014,9 +1238,55 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
           {
             "additionalProperties": false,
             "properties": {
+              "allowOther": {
+                "type": "boolean"
+              },
               "description": {
-                "maxLength": 2000,
+                "$ref": "#/$defs/__schema7"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "multi_select",
                 "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "maxSelections": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "options": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema9"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "kind",
+              "options",
+              "allowOther",
+              "maxSelections"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/$defs/__schema7"
               },
               "fieldId": {
                 "$ref": "#/$defs/__schema0"
@@ -1026,12 +1296,13 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
                 "type": "string"
               },
               "label": {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/$defs/__schema6"
               },
               "required": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema8"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema9"
               }
             },
             "readOnly": true,
@@ -1039,45 +1310,73 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
               "fieldId",
               "label",
               "required",
+              "sensitivity",
               "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "confirmLabel": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "description": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "confirmation",
+                "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema9"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "kind",
+              "confirmLabel"
             ],
             "type": "object"
           }
         ]
       },
       "__schema6": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "maxLength": 2000,
-            "type": "string"
-          },
-          "label": {
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          },
-          "value": {
-            "allOf": [
-              {
-                "$ref": "#/$defs/__schema0"
-              },
-              {
-                "maxLength": 160,
-                "type": "string"
-              }
-            ]
-          }
-        },
-        "readOnly": true,
-        "required": [
-          "value",
-          "label"
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+      },
+      "__schema7": {
+        "maxLength": 2000,
+        "type": "string"
+      },
+      "__schema8": {
+        "type": "boolean"
+      },
+      "__schema9": {
+        "enum": [
+          "ordinary",
+          "sensitive"
         ],
-        "type": "object"
+        "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.request:v7:output",
+    "$id": "urn:agenai.agent-protocol.request:v8:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -1188,7 +1487,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
             "items": {
               "$ref": "#/$defs/__schema5"
             },
-            "maxItems": 100,
+            "maxItems": 16,
             "minItems": 1,
             "readOnly": true,
             "type": "array"
@@ -1221,14 +1520,14 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
 
 export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.request-resolution",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "request_resolution_correlation",
     "unique_choice_selections"
   ],
-  "sha256": "fc6981d292f1fa573090221a2297552865e2c0deb2075bb503730009d0b1f93d",
+  "sha256": "3afab86f4f59220d2bc904f4c1e70d339102b666defd7e5731e5996df5c05daa",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1268,7 +1567,31 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
                 "$ref": "#/$defs/__schema0"
               },
               "kind": {
-                "const": "choice",
+                "const": "single_select",
+                "type": "string"
+              },
+              "other": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "value": {
+                "$ref": "#/$defs/__schema3"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "multi_select",
                 "type": "string"
               },
               "other": {
@@ -1312,6 +1635,28 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
               "value"
             ],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "confirmed": {
+                "type": "boolean"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "confirmation",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "kind",
+              "confirmed"
+            ],
+            "type": "object"
           }
         ]
       },
@@ -1332,7 +1677,7 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.request-resolution:v7:input",
+    "$id": "urn:agenai.agent-protocol.request-resolution:v8:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "anyOf": [
       {
@@ -1396,7 +1741,7 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
             "items": {
               "$ref": "#/$defs/__schema1"
             },
-            "maxItems": 100,
+            "maxItems": 16,
             "readOnly": true,
             "type": "array"
           },
@@ -1448,9 +1793,2537 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
   }
 } as const satisfies AgentProtocolJsonSchemaArtifact;
 
+export const AGENT_OPERATION_CATALOG_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.operation-catalog",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "canonical_operation_order",
+    "unique_operation_field_ids",
+    "unique_operation_ids",
+    "unique_operation_option_ids"
+  ],
+  "sha256": "258677cf5b6062d3d48d3fe4c3425c5f8b7bc1a12eb2a23e019c6171a940eecf",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema1": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation": {
+            "enum": [
+              "none",
+              "required"
+            ],
+            "type": "string"
+          },
+          "context": {
+            "enum": [
+              "workspace",
+              "session",
+              "turn",
+              "collaboration",
+              "resource"
+            ],
+            "type": "string"
+          },
+          "description": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "executionMode": {
+            "enum": [
+              "immediate",
+              "request_continuation",
+              "durable_job"
+            ],
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "maxItems": 16,
+            "readOnly": true,
+            "type": "array"
+          },
+          "idempotency": {
+            "enum": [
+              "required",
+              "not_required"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "session_control",
+              "managed_content_invoke",
+              "configuration_select",
+              "integration_control",
+              "collaboration_control",
+              "resource_generate"
+            ],
+            "type": "string"
+          },
+          "operationId": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "resultKind": {
+            "enum": [
+              "none",
+              "canonical_output",
+              "artifact",
+              "resource"
+            ],
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "timing": {
+            "enum": [
+              "before_session",
+              "idle_session",
+              "active_turn"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "$ref": "#/$defs/__schema3"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "operationId",
+          "revision",
+          "kind",
+          "title",
+          "context",
+          "timing",
+          "executionMode",
+          "fields",
+          "confirmation",
+          "idempotency",
+          "resultKind"
+        ],
+        "type": "object"
+      },
+      "__schema10": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "label": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "optionId": {
+            "$ref": "#/$defs/__schema2"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "optionId",
+          "label"
+        ],
+        "type": "object"
+      },
+      "__schema2": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema3": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema4": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema5": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "fieldKind": {
+                "const": "text",
+                "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "maxLength": {
+                "exclusiveMinimum": 0,
+                "maximum": 4000,
+                "type": "integer"
+              },
+              "multiline": {
+                "type": "boolean"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema8"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "fieldKind",
+              "multiline",
+              "maxLength"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "fieldKind": {
+                "const": "boolean",
+                "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema8"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "fieldKind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "fieldKind": {
+                "const": "single_select",
+                "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "options": {
+                "$ref": "#/$defs/__schema9"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema8"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "fieldKind",
+              "options"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "fieldKind": {
+                "const": "multi_select",
+                "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "maxSelections": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "options": {
+                "$ref": "#/$defs/__schema9"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema8"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "fieldKind",
+              "options",
+              "maxSelections"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/$defs/__schema6"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "fieldKind": {
+                "const": "integer",
+                "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "maximum": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "minimum": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema8"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "fieldKind",
+              "minimum",
+              "maximum"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema6": {
+        "$ref": "#/$defs/__schema4"
+      },
+      "__schema7": {
+        "type": "boolean"
+      },
+      "__schema8": {
+        "enum": [
+          "ordinary",
+          "sensitive"
+        ],
+        "type": "string"
+      },
+      "__schema9": {
+        "items": {
+          "$ref": "#/$defs/__schema10"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.operation-catalog:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "operations": {
+        "items": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "maxItems": 100,
+        "readOnly": true,
+        "type": "array"
+      },
+      "revision": {
+        "$ref": "#/$defs/__schema0"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "revision",
+      "operations"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_OPERATION_INVOCATION_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.operation-invocation",
+  "protocolVersion": 8,
+  "direction": "input",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "operation_descriptor_correlation",
+    "operation_revision_correlation",
+    "unique_operation_values"
+  ],
+  "sha256": "d8fd31e5bfb898b0772ed6c818eceb12756c168cb358085bce94a64f34f95e48",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema1": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "fieldKind": {
+                "const": "text",
+                "type": "string"
+              },
+              "value": {
+                "maxLength": 4000,
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "fieldKind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "fieldKind": {
+                "const": "boolean",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "fieldKind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "fieldKind": {
+                "const": "single_select",
+                "type": "string"
+              },
+              "optionId": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "fieldKind",
+              "optionId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "fieldKind": {
+                "const": "multi_select",
+                "type": "string"
+              },
+              "optionIds": {
+                "items": {
+                  "$ref": "#/$defs/__schema0"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "fieldKind",
+              "optionIds"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "fieldKind": {
+                "const": "integer",
+                "type": "string"
+              },
+              "value": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "fieldKind",
+              "value"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.operation-invocation:v8:input",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "expectedRevision": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "invocationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "operationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "values": {
+        "items": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "maxItems": 16,
+        "readOnly": true,
+        "type": "array"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "invocationId",
+      "operationId",
+      "expectedRevision",
+      "values"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_OPERATION_RESULT_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.operation-result",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "operation_invocation_correlation",
+    "operation_result_error_consistency",
+    "operation_result_kind_consistency",
+    "unique_operation_result_references"
+  ],
+  "sha256": "cc1b527db2f130f93dc7ba2d3c02ff1e96f7998a8e944b359aab9e90dfe4583f",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.operation-result:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "artifactIds": {
+        "items": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "error": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": false,
+            "properties": {
+              "component": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              },
+              "operation": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              },
+              "status": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "type": "object"
+      },
+      "invocationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "outputText": {
+        "maxLength": 4000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "resourceIds": {
+        "items": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "status": {
+        "enum": [
+          "accepted",
+          "completed",
+          "failed",
+          "canceled",
+          "waiting_for_request"
+        ],
+        "type": "string"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "invocationId",
+      "status"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_MANAGED_CONTENT_CATALOG_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.managed-content-catalog",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "canonical_managed_content_order",
+    "unique_managed_content_ids"
+  ],
+  "sha256": "10bcee7c31f46ae4a855a1851fc034366d508ea5e38c6876b28d1354ae60a01b",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema1": {
+        "additionalProperties": false,
+        "properties": {
+          "byteSize": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "contentId": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "digest": {
+            "$ref": "#/$defs/__schema9"
+          },
+          "invocation": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "kind": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "name": {
+            "$ref": "#/$defs/__schema6"
+          },
+          "revision": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "source": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "status": {
+            "$ref": "#/$defs/__schema5"
+          },
+          "summary": {
+            "$ref": "#/$defs/__schema7"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "contentId",
+          "revision",
+          "kind",
+          "source",
+          "status",
+          "name",
+          "byteSize",
+          "digest",
+          "invocation"
+        ],
+        "type": "object"
+      },
+      "__schema10": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "provider_materialization",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "confirmation": {
+                "enum": [
+                  "none",
+                  "required"
+                ],
+                "type": "string"
+              },
+              "kind": {
+                "const": "prompt_recipe",
+                "type": "string"
+              },
+              "prompt": {
+                "maxLength": 16384,
+                "minLength": 1,
+                "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "prompt",
+              "confirmation"
+            ],
+            "type": "object"
+          }
+        ],
+        "readOnly": true
+      },
+      "__schema2": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema3": {
+        "enum": [
+          "skill",
+          "rule",
+          "prompt",
+          "agent_definition"
+        ],
+        "type": "string"
+      },
+      "__schema4": {
+        "enum": [
+          "platform",
+          "team"
+        ],
+        "type": "string"
+      },
+      "__schema5": {
+        "enum": [
+          "available",
+          "disabled"
+        ],
+        "type": "string"
+      },
+      "__schema6": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema7": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema8": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema9": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "const": "sha256",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "algorithm",
+          "value"
+        ],
+        "type": "object"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.managed-content-catalog:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "entries": {
+        "items": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "maxItems": 100,
+        "readOnly": true,
+        "type": "array"
+      },
+      "revision": {
+        "$ref": "#/$defs/__schema0"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "revision",
+      "entries"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_CONFIGURATION_CATALOG_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.configuration-catalog",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "canonical_configuration_field_order",
+    "configuration_current_value_bounds",
+    "unique_configuration_field_keys",
+    "unique_configuration_option_ids"
+  ],
+  "sha256": "c02a19cfc7c4e67cff8c8414ba21690e0190a6a2eb67f63aafcc5a0f7d9983bc",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema1": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "applicationTiming": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "currentValue": {
+                "type": "boolean"
+              },
+              "description": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "fieldKind": {
+                "const": "boolean",
+                "type": "string"
+              },
+              "key": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "mutable": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "scope": {
+                "$ref": "#/$defs/__schema6"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "key",
+              "revision",
+              "label",
+              "scope",
+              "applicationTiming",
+              "mutable",
+              "fieldKind",
+              "currentValue"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "applicationTiming": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "currentValue": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "description": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "fieldKind": {
+                "const": "single_select",
+                "type": "string"
+              },
+              "key": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "mutable": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "options": {
+                "items": {
+                  "$ref": "#/$defs/__schema9"
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "scope": {
+                "$ref": "#/$defs/__schema6"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "key",
+              "revision",
+              "label",
+              "scope",
+              "applicationTiming",
+              "mutable",
+              "fieldKind",
+              "currentValue",
+              "options"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "applicationTiming": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "currentValue": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "description": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "fieldKind": {
+                "const": "bounded_integer",
+                "type": "string"
+              },
+              "key": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "maximum": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "minimum": {
+                "$ref": "#/$defs/__schema10"
+              },
+              "mutable": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "scope": {
+                "$ref": "#/$defs/__schema6"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "key",
+              "revision",
+              "label",
+              "scope",
+              "applicationTiming",
+              "mutable",
+              "fieldKind",
+              "currentValue",
+              "minimum",
+              "maximum"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "applicationTiming": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "currentValue": {
+                "maxLength": 4000,
+                "pattern": "^(?:$|\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              },
+              "description": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "fieldKind": {
+                "const": "bounded_text",
+                "type": "string"
+              },
+              "key": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema3"
+              },
+              "maxLength": {
+                "exclusiveMinimum": 0,
+                "maximum": 4000,
+                "type": "integer"
+              },
+              "multiline": {
+                "type": "boolean"
+              },
+              "mutable": {
+                "$ref": "#/$defs/__schema8"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "scope": {
+                "$ref": "#/$defs/__schema6"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "key",
+              "revision",
+              "label",
+              "scope",
+              "applicationTiming",
+              "mutable",
+              "fieldKind",
+              "currentValue",
+              "maxLength",
+              "multiline"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema10": {
+        "maximum": 9007199254740991,
+        "minimum": -9007199254740991,
+        "type": "integer"
+      },
+      "__schema2": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema3": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema4": {
+        "$ref": "#/$defs/__schema5"
+      },
+      "__schema5": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema6": {
+        "enum": [
+          "session",
+          "provider_instance"
+        ],
+        "type": "string"
+      },
+      "__schema7": {
+        "enum": [
+          "immediate",
+          "next_session",
+          "provider_restart"
+        ],
+        "type": "string"
+      },
+      "__schema8": {
+        "type": "boolean"
+      },
+      "__schema9": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "$ref": "#/$defs/__schema5"
+          },
+          "label": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "optionId": {
+            "$ref": "#/$defs/__schema2"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "optionId",
+          "label"
+        ],
+        "type": "object"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.configuration-catalog:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "fields": {
+        "items": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "maxItems": 100,
+        "readOnly": true,
+        "type": "array"
+      },
+      "revision": {
+        "$ref": "#/$defs/__schema0"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "revision",
+      "fields"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_CONFIGURATION_SELECTION_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.configuration-selection",
+  "protocolVersion": 8,
+  "direction": "input",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "configuration_catalog_correlation",
+    "configuration_field_correlation",
+    "configuration_selection_bounds"
+  ],
+  "sha256": "2baea6dc7a2a036d2117b594ab40b21d24c8a9ad89680b0d14b49568188191e7",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema1": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.configuration-selection:v8:input",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "expectedCatalogRevision": {
+        "$ref": "#/$defs/__schema1"
+      },
+      "expectedFieldRevision": {
+        "$ref": "#/$defs/__schema1"
+      },
+      "key": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "value": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldKind": {
+                "const": "boolean",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldKind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldKind": {
+                "const": "single_select",
+                "type": "string"
+              },
+              "optionId": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldKind",
+              "optionId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldKind": {
+                "const": "bounded_integer",
+                "type": "string"
+              },
+              "value": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldKind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "fieldKind": {
+                "const": "bounded_text",
+                "type": "string"
+              },
+              "value": {
+                "maxLength": 4000,
+                "pattern": "^(?:$|\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldKind",
+              "value"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "key",
+      "expectedCatalogRevision",
+      "expectedFieldRevision",
+      "value"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_INTEGRATION_CATALOG_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.integration-catalog",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "canonical_integration_order",
+    "unique_integration_ids",
+    "unique_integration_server_ids",
+    "unique_integration_tool_ids",
+    "unique_integration_resource_ids"
+  ],
+  "sha256": "9374172c2d35cea4bc4230052be8343d80fc95bb2e65537af7dfe3df6c2eb61d",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema1": {
+        "additionalProperties": false,
+        "properties": {
+          "integrationId": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "kind": {
+            "const": "mcp",
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "revision": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "maxItems": 32,
+            "readOnly": true,
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "starting",
+              "ready",
+              "degraded",
+              "unavailable"
+            ],
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "integrationId",
+          "revision",
+          "kind",
+          "name",
+          "status",
+          "servers"
+        ],
+        "type": "object"
+      },
+      "__schema2": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema3": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema4": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/$defs/__schema7"
+            },
+            "maxItems": 100,
+            "readOnly": true,
+            "type": "array"
+          },
+          "serverId": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "status": {
+            "enum": [
+              "starting",
+              "ready",
+              "degraded",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/$defs/__schema5"
+            },
+            "maxItems": 100,
+            "readOnly": true,
+            "type": "array"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "serverId",
+          "name",
+          "status",
+          "tools",
+          "resources"
+        ],
+        "type": "object"
+      },
+      "__schema5": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "$ref": "#/$defs/__schema6"
+          },
+          "name": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "toolId": {
+            "$ref": "#/$defs/__schema2"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "toolId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "__schema6": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema7": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "$ref": "#/$defs/__schema6"
+          },
+          "mediaType": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[a-z0-9!#$&^_.+-]+\\/[a-z0-9!#$&^_.+-]+$",
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "resourceId": {
+            "$ref": "#/$defs/__schema2"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "resourceId",
+          "name"
+        ],
+        "type": "object"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.integration-catalog:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "integrations": {
+        "items": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "maxItems": 32,
+        "readOnly": true,
+        "type": "array"
+      },
+      "observedAt": {
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+        "type": "string"
+      },
+      "revision": {
+        "$ref": "#/$defs/__schema0"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "revision",
+      "observedAt",
+      "integrations"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.collaboration-node",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "collaboration_parent_consistency",
+    "collaboration_result_consistency",
+    "collaboration_terminal_error_consistency",
+    "collaboration_terminal_timestamp_consistency"
+  ],
+  "sha256": "6219513b58100b590f051c640c2e69a9c4b3ecb0aff21e248eb93faf21845857",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema1": {
+        "const": "reported",
+        "type": "string"
+      },
+      "__schema2": {
+        "$ref": "#/$defs/__schema3"
+      },
+      "__schema3": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "__schema4": {
+        "$ref": "#/$defs/__schema3"
+      },
+      "__schema5": {
+        "$ref": "#/$defs/__schema3"
+      },
+      "__schema6": {
+        "$ref": "#/$defs/__schema3"
+      },
+      "__schema7": {
+        "$ref": "#/$defs/__schema3"
+      },
+      "__schema8": {
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+        "type": "string"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.collaboration-node:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "artifactIds": {
+        "items": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "closedAt": {
+        "$ref": "#/$defs/__schema8"
+      },
+      "collaborationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "createdAt": {
+        "$ref": "#/$defs/__schema8"
+      },
+      "objective": {
+        "maxLength": 4000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "outcome": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "completed",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "error": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "maxLength": 120,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "context": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "component": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                        "type": "string"
+                      },
+                      "status": {
+                        "maxLength": 160,
+                        "minLength": 1,
+                        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                        "type": "string"
+                      }
+                    },
+                    "readOnly": true,
+                    "type": "object"
+                  },
+                  "message": {
+                    "maxLength": 4000,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "retryable": {
+                    "type": "boolean"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "code",
+                  "message",
+                  "retryable"
+                ],
+                "type": "object"
+              },
+              "kind": {
+                "const": "failed",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "error"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "canceled",
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "user_requested",
+                  "timeout",
+                  "shutdown",
+                  "superseded",
+                  "other"
+                ],
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "reason"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "parentCollaborationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "progress": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "resourceIds": {
+        "items": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "role": {
+        "enum": [
+          "delegate",
+          "reviewer",
+          "researcher",
+          "specialist"
+        ],
+        "type": "string"
+      },
+      "rootCollaborationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "status": {
+        "enum": [
+          "queued",
+          "starting",
+          "running",
+          "waiting",
+          "completed",
+          "failed",
+          "canceled"
+        ],
+        "type": "string"
+      },
+      "terminalAt": {
+        "$ref": "#/$defs/__schema8"
+      },
+      "title": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "updatedAt": {
+        "$ref": "#/$defs/__schema8"
+      },
+      "usage": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unavailable",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "inputTokens": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "kind": {
+                "$ref": "#/$defs/__schema1"
+              },
+              "modelCalls": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "outputTokens": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "reasoningTokens": {
+                "$ref": "#/$defs/__schema5"
+              },
+              "totalTokens": {
+                "$ref": "#/$defs/__schema6"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "collaborationId",
+      "rootCollaborationId",
+      "role",
+      "title",
+      "status",
+      "objective",
+      "usage",
+      "createdAt",
+      "updatedAt"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_COLLABORATION_SPAWN_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.collaboration-spawn",
+  "protocolVersion": 8,
+  "direction": "input",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "collaboration_parent_consistency"
+  ],
+  "sha256": "3f41048142a2b5c67ae1b60e206ecdac697cfcd11e3301b99101f9babec37a90",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema1": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "__schema2": {
+        "enum": [
+          "delegate",
+          "reviewer",
+          "researcher",
+          "specialist"
+        ],
+        "type": "string"
+      },
+      "__schema3": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema4": {
+        "maxLength": 4000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "__schema5": {
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+        "type": "string"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.collaboration-spawn:v8:input",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "collaborationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "createdAt": {
+        "$ref": "#/$defs/__schema5"
+      },
+      "objective": {
+        "$ref": "#/$defs/__schema4"
+      },
+      "parentCollaborationId": {
+        "$ref": "#/$defs/__schema1"
+      },
+      "role": {
+        "$ref": "#/$defs/__schema2"
+      },
+      "title": {
+        "$ref": "#/$defs/__schema3"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "collaborationId",
+      "role",
+      "title",
+      "objective",
+      "createdAt"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_COLLABORATION_CONTROL_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.collaboration-control",
+  "protocolVersion": 8,
+  "direction": "input",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "serialized_turn_input_bytes"
+  ],
+  "sha256": "06b17f1f907092e3dd0320e9557efa0dae48d03828257abd5c46fa0cf5aff96c",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "items": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "__schema1": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "maxLength": 64000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "const": "text",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "type",
+              "text"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "source": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "byteSize": {
+                        "$ref": "#/$defs/__schema3"
+                      },
+                      "heightPixels": {
+                        "$ref": "#/$defs/__schema4"
+                      },
+                      "mediaType": {
+                        "$ref": "#/$defs/__schema2"
+                      },
+                      "type": {
+                        "const": "url",
+                        "type": "string"
+                      },
+                      "url": {
+                        "format": "uri",
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "widthPixels": {
+                        "$ref": "#/$defs/__schema4"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "type",
+                      "url",
+                      "mediaType",
+                      "byteSize",
+                      "widthPixels",
+                      "heightPixels"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "byteSize": {
+                        "$ref": "#/$defs/__schema3"
+                      },
+                      "data": {
+                        "$ref": "#/$defs/__schema6"
+                      },
+                      "heightPixels": {
+                        "$ref": "#/$defs/__schema4"
+                      },
+                      "mediaType": {
+                        "$ref": "#/$defs/__schema2"
+                      },
+                      "type": {
+                        "$ref": "#/$defs/__schema5"
+                      },
+                      "widthPixels": {
+                        "$ref": "#/$defs/__schema4"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "type",
+                      "mediaType",
+                      "byteSize",
+                      "widthPixels",
+                      "heightPixels",
+                      "data"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "byteSize": {
+                        "$ref": "#/$defs/__schema3"
+                      },
+                      "heightPixels": {
+                        "$ref": "#/$defs/__schema4"
+                      },
+                      "mediaType": {
+                        "$ref": "#/$defs/__schema2"
+                      },
+                      "path": {
+                        "maxLength": 4096,
+                        "minLength": 2,
+                        "pattern": "^(?!.*\\/\\.\\.(?:\\/|$))\\/(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+                        "type": "string"
+                      },
+                      "sha256": {
+                        "pattern": "^[a-f0-9]{64}$",
+                        "type": "string"
+                      },
+                      "type": {
+                        "const": "local_file",
+                        "type": "string"
+                      },
+                      "widthPixels": {
+                        "$ref": "#/$defs/__schema4"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "type",
+                      "path",
+                      "sha256",
+                      "mediaType",
+                      "byteSize",
+                      "widthPixels",
+                      "heightPixels"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": {
+                "const": "image",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "type",
+              "source"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema2": {
+        "enum": [
+          "image/png",
+          "image/jpeg",
+          "image/webp"
+        ],
+        "type": "string"
+      },
+      "__schema3": {
+        "exclusiveMinimum": 0,
+        "maximum": 104857600,
+        "type": "integer"
+      },
+      "__schema4": {
+        "exclusiveMinimum": 0,
+        "maximum": 100000,
+        "type": "integer"
+      },
+      "__schema5": {
+        "const": "base64",
+        "type": "string"
+      },
+      "__schema6": {
+        "contentEncoding": "base64",
+        "format": "base64",
+        "maxLength": 500000,
+        "minLength": 1,
+        "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$",
+        "type": "string"
+      },
+      "__schema7": {
+        "maxLength": 2000,
+        "type": "string"
+      },
+      "__schema8": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.collaboration-control:v8:input",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "anyOf": [
+      {
+        "allOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "parts": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "summary": {
+                "$ref": "#/$defs/__schema7"
+              }
+            },
+            "required": [
+              "parts"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "const": "steer",
+                "type": "string"
+              },
+              "collaborationId": {
+                "$ref": "#/$defs/__schema8"
+              }
+            },
+            "required": [
+              "action",
+              "collaborationId"
+            ],
+            "type": "object"
+          }
+        ],
+        "readOnly": true
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "stop",
+            "type": "string"
+          },
+          "collaborationId": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "reason": {
+            "enum": [
+              "user_requested",
+              "timeout",
+              "shutdown",
+              "superseded",
+              "other"
+            ],
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "action",
+          "collaborationId",
+          "reason"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "close",
+            "type": "string"
+          },
+          "collaborationId": {
+            "$ref": "#/$defs/__schema8"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "action",
+          "collaborationId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "inspect",
+            "type": "string"
+          },
+          "collaborationId": {
+            "$ref": "#/$defs/__schema8"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "action",
+          "collaborationId"
+        ],
+        "type": "object"
+      }
+    ]
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_GENERATED_RESOURCE_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.generated-resource",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "generated_resource_artifact_consistency",
+    "generated_resource_digest_consistency",
+    "generated_resource_error_consistency",
+    "generated_resource_media_consistency"
+  ],
+  "sha256": "2fe091f5d4172aaa3416462f8bfcb5c618e9031984052907e6a437330bd2ec3d",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema1": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema2": {
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+        "type": "string"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.generated-resource:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "artifactId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "byteSize": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "createdAt": {
+        "$ref": "#/$defs/__schema2"
+      },
+      "displayName": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "error": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": false,
+            "properties": {
+              "component": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              },
+              "operation": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              },
+              "status": {
+                "maxLength": 160,
+                "minLength": 1,
+                "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "type": "object"
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "type": "object"
+      },
+      "expiresAt": {
+        "$ref": "#/$defs/__schema2"
+      },
+      "heightPixels": {
+        "$ref": "#/$defs/__schema1"
+      },
+      "kind": {
+        "enum": [
+          "image",
+          "document",
+          "archive"
+        ],
+        "type": "string"
+      },
+      "mediaType": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^[a-z0-9!#$&^_.+-]+\\/[a-z0-9!#$&^_.+-]+$",
+        "type": "string"
+      },
+      "pageCount": {
+        "$ref": "#/$defs/__schema1"
+      },
+      "producer": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "session",
+                "type": "string"
+              },
+              "sessionId": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "sessionId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "turn",
+                "type": "string"
+              },
+              "turnId": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "turnId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "invocationId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "operation",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "invocationId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "collaborationId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "collaboration",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "collaborationId"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "resourceId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "sha256": {
+        "pattern": "^[a-f0-9]{64}$",
+        "type": "string"
+      },
+      "status": {
+        "enum": [
+          "pending",
+          "available",
+          "unavailable",
+          "expired"
+        ],
+        "type": "string"
+      },
+      "summary": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+        "type": "string"
+      },
+      "widthPixels": {
+        "$ref": "#/$defs/__schema1"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "resourceId",
+      "kind",
+      "status",
+      "displayName",
+      "producer",
+      "createdAt"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
 export const AGENT_CAPABILITIES_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.capabilities",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -1458,10 +4331,18 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
     "canonical_approval_modes",
     "canonical_approval_scope_kinds",
     "canonical_authentication_flows",
-    "canonical_configuration_field_keys",
-    "canonical_configuration_option_ids",
+    "canonical_collaboration_control_actions",
+    "canonical_collaboration_roles",
+    "canonical_configuration_field_kinds",
+    "canonical_elicitation_field_kinds",
+    "canonical_generated_resource_kinds",
     "canonical_image_input_media_types",
     "canonical_image_input_source_kinds",
+    "canonical_integration_kinds",
+    "canonical_managed_content_kinds",
+    "canonical_operation_execution_modes",
+    "canonical_operation_field_kinds",
+    "canonical_operation_kinds",
     "canonical_context_compaction_triggers",
     "canonical_context_cumulative_usage_fields",
     "canonical_context_measurement_scopes",
@@ -1469,7 +4350,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
     "image_input_total_bytes_admits_max_image",
     "image_input_total_bytes_bounded_by_count"
   ],
-  "sha256": "a91eeeceacc192eb1698d4bf1b24503325ffcec8f9a6a0b27ca7528a147e782d",
+  "sha256": "36665c4edb430f2389284c419302d7c3ff013b5bfaa8c23a70ddfa00e1ef7981",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1612,12 +4493,22 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
       },
       "__schema13": {
         "enum": [
+          "text",
+          "single_select",
+          "multi_select",
+          "boolean",
+          "confirmation"
+        ],
+        "type": "string"
+      },
+      "__schema14": {
+        "enum": [
           "session",
           "materialization"
         ],
         "type": "string"
       },
-      "__schema14": {
+      "__schema15": {
         "enum": [
           "inputTokens",
           "outputTokens",
@@ -1629,7 +4520,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema15": {
+      "__schema16": {
         "enum": [
           "automatic",
           "manual",
@@ -1639,7 +4530,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema16": {
+      "__schema17": {
         "enum": [
           "plan",
           "diff",
@@ -1651,46 +4542,96 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema17": {
-        "additionalProperties": false,
-        "properties": {
-          "key": {
-            "$ref": "#/$defs/__schema18"
-          },
-          "optionIds": {
-            "items": {
-              "$ref": "#/$defs/__schema18"
-            },
-            "maxItems": 100,
-            "minItems": 1,
-            "readOnly": true,
-            "type": "array",
-            "uniqueItems": true
-          }
-        },
-        "readOnly": true,
-        "required": [
-          "key",
-          "optionIds"
-        ],
-        "type": "object"
-      },
       "__schema18": {
-        "maxLength": 100,
-        "minLength": 1,
-        "pattern": "^[a-z][a-z0-9._:-]*$",
+        "enum": [
+          "boolean",
+          "single_select",
+          "bounded_integer",
+          "bounded_text"
+        ],
         "type": "string"
       },
       "__schema19": {
         "enum": [
-          "device_code",
-          "browser",
-          "terminal"
+          "session_control",
+          "managed_content_invoke",
+          "configuration_select",
+          "integration_control",
+          "collaboration_control",
+          "resource_generate"
         ],
         "type": "string"
       },
       "__schema2": {
         "const": "supported",
+        "type": "string"
+      },
+      "__schema20": {
+        "enum": [
+          "text",
+          "boolean",
+          "single_select",
+          "multi_select",
+          "integer"
+        ],
+        "type": "string"
+      },
+      "__schema21": {
+        "enum": [
+          "immediate",
+          "request_continuation",
+          "durable_job"
+        ],
+        "type": "string"
+      },
+      "__schema22": {
+        "enum": [
+          "skill",
+          "rule",
+          "prompt",
+          "agent_definition"
+        ],
+        "type": "string"
+      },
+      "__schema23": {
+        "enum": [
+          "mcp"
+        ],
+        "type": "string"
+      },
+      "__schema24": {
+        "enum": [
+          "delegate",
+          "reviewer",
+          "researcher",
+          "specialist"
+        ],
+        "type": "string"
+      },
+      "__schema25": {
+        "enum": [
+          "spawn",
+          "steer",
+          "stop",
+          "close",
+          "inspect"
+        ],
+        "type": "string"
+      },
+      "__schema26": {
+        "enum": [
+          "image",
+          "document",
+          "archive"
+        ],
+        "type": "string"
+      },
+      "__schema27": {
+        "enum": [
+          "device_code",
+          "browser",
+          "terminal"
+        ],
         "type": "string"
       },
       "__schema3": {
@@ -1742,7 +4683,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.capabilities:v7:output",
+    "$id": "urn:agenai.agent-protocol.capabilities:v8:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -1767,7 +4708,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "flows": {
                 "items": {
-                  "$ref": "#/$defs/__schema19"
+                  "$ref": "#/$defs/__schema27"
                 },
                 "maxItems": 3,
                 "minItems": 1,
@@ -1784,6 +4725,78 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "required": [
               "kind",
               "flows"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "collaboration": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unsupported",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "controlActions": {
+                "items": {
+                  "$ref": "#/$defs/__schema25"
+                },
+                "maxItems": 5,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "kind": {
+                "const": "supported",
+                "type": "string"
+              },
+              "maxActiveNodes": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "maxChildrenPerNode": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "maxDepth": {
+                "exclusiveMinimum": 0,
+                "maximum": 16,
+                "type": "integer"
+              },
+              "roles": {
+                "items": {
+                  "$ref": "#/$defs/__schema24"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "roles",
+              "controlActions",
+              "maxDepth",
+              "maxChildrenPerNode",
+              "maxActiveNodes"
             ],
             "type": "object"
           }
@@ -1808,24 +4821,31 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
           {
             "additionalProperties": false,
             "properties": {
-              "fields": {
+              "fieldKinds": {
                 "items": {
-                  "$ref": "#/$defs/__schema17"
+                  "$ref": "#/$defs/__schema18"
                 },
-                "maxItems": 100,
+                "maxItems": 4,
                 "minItems": 1,
                 "readOnly": true,
-                "type": "array"
+                "type": "array",
+                "uniqueItems": true
               },
               "kind": {
                 "const": "selectable",
                 "type": "string"
+              },
+              "maxFields": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
               }
             },
             "readOnly": true,
             "required": [
               "kind",
-              "fields"
+              "fieldKinds",
+              "maxFields"
             ],
             "type": "object"
           }
@@ -1862,7 +4882,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                   },
                   "triggers": {
                     "items": {
-                      "$ref": "#/$defs/__schema15"
+                      "$ref": "#/$defs/__schema16"
                     },
                     "maxItems": 5,
                     "minItems": 1,
@@ -1902,7 +4922,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                 "properties": {
                   "cumulativeFields": {
                     "items": {
-                      "$ref": "#/$defs/__schema14"
+                      "$ref": "#/$defs/__schema15"
                     },
                     "maxItems": 7,
                     "readOnly": true,
@@ -1915,7 +4935,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                   },
                   "measurementScopes": {
                     "items": {
-                      "$ref": "#/$defs/__schema13"
+                      "$ref": "#/$defs/__schema14"
                     },
                     "maxItems": 2,
                     "minItems": 1,
@@ -1942,40 +4962,263 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "object"
       },
+      "generatedResources": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unsupported",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "supported",
+                "type": "string"
+              },
+              "maxBytesPerResource": {
+                "exclusiveMinimum": 0,
+                "maximum": 1073741824,
+                "type": "integer"
+              },
+              "maxResourcesPerTurn": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "resourceKinds": {
+                "items": {
+                  "$ref": "#/$defs/__schema26"
+                },
+                "maxItems": 3,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "resourceKinds",
+              "maxResourcesPerTurn",
+              "maxBytesPerResource"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "input": {
         "$ref": "#/$defs/__schema1"
       },
-      "interactionExtensions": {
-        "additionalProperties": false,
-        "properties": {
-          "imageGeneration": {
-            "type": "boolean"
+      "integrations": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unsupported",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
           },
-          "mcp": {
-            "type": "boolean"
-          },
-          "slashCommands": {
-            "type": "boolean"
-          },
-          "subagents": {
-            "type": "boolean"
+          {
+            "additionalProperties": false,
+            "properties": {
+              "integrationKinds": {
+                "items": {
+                  "$ref": "#/$defs/__schema23"
+                },
+                "maxItems": 1,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "kind": {
+                "const": "supported",
+                "type": "string"
+              },
+              "maxIntegrations": {
+                "exclusiveMinimum": 0,
+                "maximum": 32,
+                "type": "integer"
+              },
+              "maxResourcesPerServer": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "maxServersPerIntegration": {
+                "exclusiveMinimum": 0,
+                "maximum": 32,
+                "type": "integer"
+              },
+              "maxToolsPerServer": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "integrationKinds",
+              "maxIntegrations",
+              "maxServersPerIntegration",
+              "maxToolsPerServer",
+              "maxResourcesPerServer"
+            ],
+            "type": "object"
           }
-        },
-        "readOnly": true,
-        "required": [
-          "slashCommands",
-          "mcp",
-          "subagents",
-          "imageGeneration"
-        ],
-        "type": "object"
+        ]
+      },
+      "managedContent": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unsupported",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "contentKinds": {
+                "items": {
+                  "$ref": "#/$defs/__schema22"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "kind": {
+                "const": "supported",
+                "type": "string"
+              },
+              "maxEntries": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "contentKinds",
+              "maxEntries"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "operations": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unsupported",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "executionModes": {
+                "items": {
+                  "$ref": "#/$defs/__schema21"
+                },
+                "maxItems": 3,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "fieldKinds": {
+                "items": {
+                  "$ref": "#/$defs/__schema20"
+                },
+                "maxItems": 5,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "kind": {
+                "const": "supported",
+                "type": "string"
+              },
+              "maxFieldsPerOperation": {
+                "exclusiveMinimum": 0,
+                "maximum": 16,
+                "type": "integer"
+              },
+              "maxOperations": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "operationKinds": {
+                "items": {
+                  "$ref": "#/$defs/__schema19"
+                },
+                "maxItems": 6,
+                "minItems": 1,
+                "readOnly": true,
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "operationKinds",
+              "fieldKinds",
+              "executionModes",
+              "maxOperations",
+              "maxFieldsPerOperation"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "output": {
         "additionalProperties": false,
         "properties": {
           "artifactKinds": {
             "items": {
-              "$ref": "#/$defs/__schema16"
+              "$ref": "#/$defs/__schema17"
             },
             "maxItems": 7,
             "readOnly": true,
@@ -2007,7 +5250,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "type": "object"
       },
       "protocolVersion": {
-        "const": 7,
+        "const": 8,
         "type": "number"
       },
       "providerKey": {
@@ -2073,28 +5316,35 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
               {
                 "additionalProperties": false,
                 "properties": {
+                  "fieldKinds": {
+                    "items": {
+                      "$ref": "#/$defs/__schema13"
+                    },
+                    "maxItems": 5,
+                    "minItems": 1,
+                    "readOnly": true,
+                    "type": "array",
+                    "uniqueItems": true
+                  },
                   "kind": {
-                    "const": "text",
+                    "const": "supported",
                     "type": "string"
+                  },
+                  "maxFields": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 16,
+                    "type": "integer"
+                  },
+                  "sensitiveFields": {
+                    "type": "boolean"
                   }
                 },
                 "readOnly": true,
                 "required": [
-                  "kind"
-                ],
-                "type": "object"
-              },
-              {
-                "additionalProperties": false,
-                "properties": {
-                  "kind": {
-                    "const": "structured",
-                    "type": "string"
-                  }
-                },
-                "readOnly": true,
-                "required": [
-                  "kind"
+                  "kind",
+                  "fieldKinds",
+                  "maxFields",
+                  "sensitiveFields"
                 ],
                 "type": "object"
               }
@@ -2235,7 +5485,11 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
       "input",
       "output",
       "configuration",
-      "interactionExtensions",
+      "operations",
+      "managedContent",
+      "integrations",
+      "collaboration",
+      "generatedResources",
       "authentication",
       "versionReporting"
     ],
@@ -2245,13 +5499,13 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
 
 export const AGENT_ARTIFACT_DESCRIPTOR_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.artifact-descriptor",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [],
-  "sha256": "1851ea52b6f69482ffa571773cf3211ca9bd9a9a5dbeee2ad7293dd4dfa89c0b",
+  "sha256": "a007d3749da3d647f3062ce8c1b102ef2adfa6bb09a57e510d771b03ca2526fb",
   "schema": {
-    "$id": "urn:agenai.agent-protocol.artifact-descriptor:v7:output",
+    "$id": "urn:agenai.agent-protocol.artifact-descriptor:v8:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -2326,7 +5580,7 @@ export const AGENT_ARTIFACT_DESCRIPTOR_JSON_SCHEMA = {
 
 export const AGENT_EVENT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.event",
-  "protocolVersion": 7,
+  "protocolVersion": 8,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -2339,11 +5593,11 @@ export const AGENT_EVENT_JSON_SCHEMA = {
     "serialized_bytes",
     "terminal_error_consistency"
   ],
-  "sha256": "baa35aad07a0211df72ef43b6c972da7df1b37cebf6544161673b64f69adadd5",
+  "sha256": "26feae7d72f6f282b3d865caeeccd4161c9052eba33feade21191768e0b7cb17",
   "schema": {
     "$defs": {
       "__schema0": {
-        "const": 7,
+        "const": 8,
         "type": "number"
       },
       "__schema1": {
@@ -2666,8 +5920,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
             "additionalProperties": false,
             "properties": {
               "description": {
-                "maxLength": 2000,
-                "type": "string"
+                "$ref": "#/$defs/__schema50"
               },
               "fieldId": {
                 "$ref": "#/$defs/__schema1"
@@ -2677,15 +5930,21 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                 "type": "string"
               },
               "label": {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/$defs/__schema49"
+              },
+              "maxLength": {
+                "exclusiveMinimum": 0,
+                "maximum": 4000,
+                "type": "integer"
               },
               "multiline": {
                 "type": "boolean"
               },
               "required": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema51"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema52"
               }
             },
             "readOnly": true,
@@ -2693,7 +5952,10 @@ export const AGENT_EVENT_JSON_SCHEMA = {
               "fieldId",
               "label",
               "required",
-              "kind"
+              "sensitivity",
+              "kind",
+              "multiline",
+              "maxLength"
             ],
             "type": "object"
           },
@@ -2704,35 +5966,26 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                 "type": "boolean"
               },
               "description": {
-                "maxLength": 2000,
-                "type": "string"
+                "$ref": "#/$defs/__schema50"
               },
               "fieldId": {
                 "$ref": "#/$defs/__schema1"
               },
               "kind": {
-                "const": "choice",
+                "const": "single_select",
                 "type": "string"
               },
               "label": {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              "multiple": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema49"
               },
               "options": {
-                "items": {
-                  "$ref": "#/$defs/__schema49"
-                },
-                "maxItems": 100,
-                "minItems": 1,
-                "readOnly": true,
-                "type": "array"
+                "$ref": "#/$defs/__schema53"
               },
               "required": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema51"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema52"
               }
             },
             "readOnly": true,
@@ -2740,9 +5993,9 @@ export const AGENT_EVENT_JSON_SCHEMA = {
               "fieldId",
               "label",
               "required",
+              "sensitivity",
               "kind",
               "options",
-              "multiple",
               "allowOther"
             ],
             "type": "object"
@@ -2750,9 +6003,55 @@ export const AGENT_EVENT_JSON_SCHEMA = {
           {
             "additionalProperties": false,
             "properties": {
+              "allowOther": {
+                "type": "boolean"
+              },
               "description": {
-                "maxLength": 2000,
+                "$ref": "#/$defs/__schema50"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema1"
+              },
+              "kind": {
+                "const": "multi_select",
                 "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema49"
+              },
+              "maxSelections": {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "integer"
+              },
+              "options": {
+                "$ref": "#/$defs/__schema53"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema51"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema52"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "kind",
+              "options",
+              "allowOther",
+              "maxSelections"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "$ref": "#/$defs/__schema50"
               },
               "fieldId": {
                 "$ref": "#/$defs/__schema1"
@@ -2762,12 +6061,13 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                 "type": "string"
               },
               "label": {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/$defs/__schema49"
               },
               "required": {
-                "type": "boolean"
+                "$ref": "#/$defs/__schema51"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema52"
               }
             },
             "readOnly": true,
@@ -2775,13 +6075,105 @@ export const AGENT_EVENT_JSON_SCHEMA = {
               "fieldId",
               "label",
               "required",
+              "sensitivity",
               "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "confirmLabel": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "description": {
+                "$ref": "#/$defs/__schema50"
+              },
+              "fieldId": {
+                "$ref": "#/$defs/__schema1"
+              },
+              "kind": {
+                "const": "confirmation",
+                "type": "string"
+              },
+              "label": {
+                "$ref": "#/$defs/__schema49"
+              },
+              "required": {
+                "$ref": "#/$defs/__schema51"
+              },
+              "sensitivity": {
+                "$ref": "#/$defs/__schema52"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "fieldId",
+              "label",
+              "required",
+              "sensitivity",
+              "kind",
+              "confirmLabel"
             ],
             "type": "object"
           }
         ]
       },
       "__schema49": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+      },
+      "__schema5": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/$defs/__schema6"
+          },
+          "context": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "message": {
+            "$ref": "#/$defs/__schema7"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "type": "object"
+      },
+      "__schema50": {
+        "maxLength": 2000,
+        "type": "string"
+      },
+      "__schema51": {
+        "type": "boolean"
+      },
+      "__schema52": {
+        "enum": [
+          "ordinary",
+          "sensitive"
+        ],
+        "type": "string"
+      },
+      "__schema53": {
+        "items": {
+          "$ref": "#/$defs/__schema54"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array"
+      },
+      "__schema54": {
         "additionalProperties": false,
         "properties": {
           "description": {
@@ -2812,60 +6204,24 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         ],
         "type": "object"
       },
-      "__schema5": {
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "$ref": "#/$defs/__schema6"
-          },
-          "context": {
-            "$ref": "#/$defs/__schema8"
-          },
-          "message": {
-            "$ref": "#/$defs/__schema7"
-          },
-          "retryable": {
-            "type": "boolean"
-          }
-        },
-        "readOnly": true,
-        "required": [
-          "code",
-          "message",
-          "retryable"
-        ],
-        "type": "object"
-      },
-      "__schema50": {
+      "__schema55": {
         "maximum": 9007199254740991,
         "minimum": 0,
         "type": "integer"
       },
-      "__schema51": {
+      "__schema56": {
         "exclusiveMinimum": 0,
         "maximum": 9007199254740991,
         "type": "integer"
       },
-      "__schema52": {
-        "$ref": "#/$defs/__schema50"
-      },
-      "__schema53": {
-        "$ref": "#/$defs/__schema50"
-      },
-      "__schema54": {
-        "$ref": "#/$defs/__schema50"
-      },
-      "__schema55": {
-        "$ref": "#/$defs/__schema50"
-      },
-      "__schema56": {
-        "$ref": "#/$defs/__schema50"
-      },
       "__schema57": {
-        "$ref": "#/$defs/__schema50"
+        "$ref": "#/$defs/__schema55"
       },
       "__schema58": {
-        "$ref": "#/$defs/__schema50"
+        "$ref": "#/$defs/__schema55"
+      },
+      "__schema59": {
+        "$ref": "#/$defs/__schema55"
       },
       "__schema6": {
         "maxLength": 120,
@@ -2873,11 +6229,52 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
         "type": "string"
       },
+      "__schema60": {
+        "$ref": "#/$defs/__schema55"
+      },
+      "__schema61": {
+        "$ref": "#/$defs/__schema55"
+      },
+      "__schema62": {
+        "$ref": "#/$defs/__schema55"
+      },
+      "__schema63": {
+        "$ref": "#/$defs/__schema55"
+      },
+      "__schema64": {
+        "const": "reported",
+        "type": "string"
+      },
+      "__schema65": {
+        "$ref": "#/$defs/__schema66"
+      },
+      "__schema66": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "__schema67": {
+        "$ref": "#/$defs/__schema66"
+      },
+      "__schema68": {
+        "$ref": "#/$defs/__schema66"
+      },
+      "__schema69": {
+        "$ref": "#/$defs/__schema66"
+      },
       "__schema7": {
         "maxLength": 4000,
         "minLength": 1,
         "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
         "type": "string"
+      },
+      "__schema70": {
+        "$ref": "#/$defs/__schema66"
+      },
+      "__schema71": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
       },
       "__schema8": {
         "additionalProperties": false,
@@ -3592,7 +6989,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.event:v7:output",
+    "$id": "urn:agenai.agent-protocol.event:v8:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -4239,7 +7636,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                         "items": {
                           "$ref": "#/$defs/__schema48"
                         },
-                        "maxItems": 100,
+                        "maxItems": 16,
                         "minItems": 1,
                         "readOnly": true,
                         "type": "array"
@@ -4408,7 +7805,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                     "type": "string"
                   },
                   "thresholdTokens": {
-                    "$ref": "#/$defs/__schema51"
+                    "$ref": "#/$defs/__schema56"
                   }
                 },
                 "readOnly": true,
@@ -4421,32 +7818,32 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                 "additionalProperties": false,
                 "properties": {
                   "cacheCreationTokens": {
-                    "$ref": "#/$defs/__schema55"
+                    "$ref": "#/$defs/__schema60"
                   },
                   "cachedReadTokens": {
-                    "$ref": "#/$defs/__schema54"
+                    "$ref": "#/$defs/__schema59"
                   },
                   "inputTokens": {
-                    "$ref": "#/$defs/__schema52"
-                  },
-                  "modelCalls": {
                     "$ref": "#/$defs/__schema57"
                   },
+                  "modelCalls": {
+                    "$ref": "#/$defs/__schema62"
+                  },
                   "outputTokens": {
-                    "$ref": "#/$defs/__schema53"
+                    "$ref": "#/$defs/__schema58"
                   },
                   "reasoningTokens": {
-                    "$ref": "#/$defs/__schema56"
+                    "$ref": "#/$defs/__schema61"
                   },
                   "turns": {
-                    "$ref": "#/$defs/__schema58"
+                    "$ref": "#/$defs/__schema63"
                   }
                 },
                 "readOnly": true,
                 "type": "object"
               },
               "maxTokens": {
-                "$ref": "#/$defs/__schema51"
+                "$ref": "#/$defs/__schema56"
               },
               "measurementScope": {
                 "enum": [
@@ -4456,7 +7853,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                 "type": "string"
               },
               "usedTokens": {
-                "$ref": "#/$defs/__schema50"
+                "$ref": "#/$defs/__schema55"
               }
             },
             "readOnly": true,
@@ -4592,6 +7989,548 @@ export const AGENT_EVENT_JSON_SCHEMA = {
           },
           "type": {
             "const": "artifact.referenced",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "occurredAt",
+          "type",
+          "payload"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "occurredAt": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "result": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifactIds": {
+                    "items": {
+                      "$ref": "#/$defs/__schema1"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "readOnly": true,
+                    "type": "array"
+                  },
+                  "error": {
+                    "$ref": "#/$defs/__schema5"
+                  },
+                  "invocationId": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "outputText": {
+                    "maxLength": 4000,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "resourceIds": {
+                    "items": {
+                      "$ref": "#/$defs/__schema1"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "readOnly": true,
+                    "type": "array"
+                  },
+                  "status": {
+                    "enum": [
+                      "accepted",
+                      "completed",
+                      "failed",
+                      "canceled",
+                      "waiting_for_request"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "invocationId",
+                  "status"
+                ],
+                "type": "object"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "result"
+            ],
+            "type": "object"
+          },
+          "protocolVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "providerRefs": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "sessionId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "turnId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "type": {
+            "const": "operation.updated",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "occurredAt",
+          "type",
+          "payload"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "occurredAt": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "node": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifactIds": {
+                    "items": {
+                      "$ref": "#/$defs/__schema1"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "readOnly": true,
+                    "type": "array"
+                  },
+                  "closedAt": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "collaborationId": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "createdAt": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "objective": {
+                    "maxLength": 4000,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "completed",
+                            "type": "string"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "error": {
+                            "$ref": "#/$defs/__schema5"
+                          },
+                          "kind": {
+                            "const": "failed",
+                            "type": "string"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind",
+                          "error"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "canceled",
+                            "type": "string"
+                          },
+                          "reason": {
+                            "enum": [
+                              "user_requested",
+                              "timeout",
+                              "shutdown",
+                              "superseded",
+                              "other"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind",
+                          "reason"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "parentCollaborationId": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "progress": {
+                    "maxLength": 2000,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "resourceIds": {
+                    "items": {
+                      "$ref": "#/$defs/__schema1"
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "readOnly": true,
+                    "type": "array"
+                  },
+                  "role": {
+                    "enum": [
+                      "delegate",
+                      "reviewer",
+                      "researcher",
+                      "specialist"
+                    ],
+                    "type": "string"
+                  },
+                  "rootCollaborationId": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "status": {
+                    "enum": [
+                      "queued",
+                      "starting",
+                      "running",
+                      "waiting",
+                      "completed",
+                      "failed",
+                      "canceled"
+                    ],
+                    "type": "string"
+                  },
+                  "terminalAt": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "title": {
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "usage": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "unavailable",
+                            "type": "string"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "inputTokens": {
+                            "$ref": "#/$defs/__schema65"
+                          },
+                          "kind": {
+                            "$ref": "#/$defs/__schema64"
+                          },
+                          "modelCalls": {
+                            "$ref": "#/$defs/__schema70"
+                          },
+                          "outputTokens": {
+                            "$ref": "#/$defs/__schema67"
+                          },
+                          "reasoningTokens": {
+                            "$ref": "#/$defs/__schema68"
+                          },
+                          "totalTokens": {
+                            "$ref": "#/$defs/__schema69"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "collaborationId",
+                  "rootCollaborationId",
+                  "role",
+                  "title",
+                  "status",
+                  "objective",
+                  "usage",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "type": "object"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "node"
+            ],
+            "type": "object"
+          },
+          "protocolVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "providerRefs": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "sessionId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "turnId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "type": {
+            "const": "collaboration.updated",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "occurredAt",
+          "type",
+          "payload"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "occurredAt": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "resource": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifactId": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "byteSize": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "createdAt": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "displayName": {
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "error": {
+                    "$ref": "#/$defs/__schema5"
+                  },
+                  "expiresAt": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "heightPixels": {
+                    "$ref": "#/$defs/__schema71"
+                  },
+                  "kind": {
+                    "enum": [
+                      "image",
+                      "document",
+                      "archive"
+                    ],
+                    "type": "string"
+                  },
+                  "mediaType": {
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "pattern": "^[a-z0-9!#$&^_.+-]+\\/[a-z0-9!#$&^_.+-]+$",
+                    "type": "string"
+                  },
+                  "pageCount": {
+                    "$ref": "#/$defs/__schema71"
+                  },
+                  "producer": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "session",
+                            "type": "string"
+                          },
+                          "sessionId": {
+                            "$ref": "#/$defs/__schema1"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind",
+                          "sessionId"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "const": "turn",
+                            "type": "string"
+                          },
+                          "turnId": {
+                            "$ref": "#/$defs/__schema1"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind",
+                          "turnId"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "invocationId": {
+                            "$ref": "#/$defs/__schema1"
+                          },
+                          "kind": {
+                            "const": "operation",
+                            "type": "string"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind",
+                          "invocationId"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "collaborationId": {
+                            "$ref": "#/$defs/__schema1"
+                          },
+                          "kind": {
+                            "const": "collaboration",
+                            "type": "string"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind",
+                          "collaborationId"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "resourceId": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "sha256": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "pending",
+                      "available",
+                      "unavailable",
+                      "expired"
+                    ],
+                    "type": "string"
+                  },
+                  "summary": {
+                    "maxLength": 2000,
+                    "minLength": 1,
+                    "pattern": "^(?:\\S|\\S[\\s\\S]*\\S)$",
+                    "type": "string"
+                  },
+                  "widthPixels": {
+                    "$ref": "#/$defs/__schema71"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "resourceId",
+                  "kind",
+                  "status",
+                  "displayName",
+                  "producer",
+                  "createdAt"
+                ],
+                "type": "object"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "resource"
+            ],
+            "type": "object"
+          },
+          "protocolVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "providerRefs": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "sessionId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "turnId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "type": {
+            "const": "resource.updated",
             "type": "string"
           }
         },
@@ -4772,6 +8711,17 @@ export const AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY = [
   AGENT_TURN_RUN_INPUT_JSON_SCHEMA,
   AGENT_REQUEST_JSON_SCHEMA,
   AGENT_REQUEST_RESOLUTION_JSON_SCHEMA,
+  AGENT_OPERATION_CATALOG_JSON_SCHEMA,
+  AGENT_OPERATION_INVOCATION_JSON_SCHEMA,
+  AGENT_OPERATION_RESULT_JSON_SCHEMA,
+  AGENT_MANAGED_CONTENT_CATALOG_JSON_SCHEMA,
+  AGENT_CONFIGURATION_CATALOG_JSON_SCHEMA,
+  AGENT_CONFIGURATION_SELECTION_JSON_SCHEMA,
+  AGENT_INTEGRATION_CATALOG_JSON_SCHEMA,
+  AGENT_COLLABORATION_NODE_JSON_SCHEMA,
+  AGENT_COLLABORATION_SPAWN_JSON_SCHEMA,
+  AGENT_COLLABORATION_CONTROL_JSON_SCHEMA,
+  AGENT_GENERATED_RESOURCE_JSON_SCHEMA,
   AGENT_CAPABILITIES_JSON_SCHEMA,
   AGENT_ARTIFACT_DESCRIPTOR_JSON_SCHEMA,
   AGENT_EVENT_JSON_SCHEMA,

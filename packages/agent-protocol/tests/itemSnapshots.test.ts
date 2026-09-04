@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                itemSnapshots.test.ts - V7 item-union strictness and bounds coverage
+//                itemSnapshots.test.ts - V8 item-union strictness and bounds coverage
 // ------------------------------------------------------------------------------------------------
 
 import assert from 'node:assert/strict';
@@ -113,7 +113,7 @@ const validItemSnapshots = [
   { itemId: 'item:unknown', itemKind: 'unknown', status: 'unknown' },
 ] as const;
 
-test('V7 item fixtures cover and round-trip every item discriminant', () => {
+test('V8 item fixtures cover and round-trip every item discriminant', () => {
   assert.deepEqual(
     validItemSnapshots.map((item) => item.itemKind).sort(),
     [...AGENT_ITEM_KINDS].sort(),

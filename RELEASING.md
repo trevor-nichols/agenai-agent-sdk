@@ -63,9 +63,10 @@ writes. Promotion therefore uses a maintainer-authenticated npm session only aft
 version and provenance have passed readback:
 
 ```sh
-npm dist-tag add @agen-ai/validation@0.2.2 latest
-npm dist-tag add @agen-ai/agent-protocol@0.2.2 latest
-npm dist-tag add @agen-ai/agent-runtime@0.2.2 latest
+VERSION=0.2.3
+npm dist-tag add "@agen-ai/validation@$VERSION" latest
+npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
+npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest
 ```
 
 Read every tag back after the three commands. A promotion changes package resolution, not tarball

@@ -4,12 +4,12 @@
 
 import type {
   AgentConfigurationRevisionId,
-  AgentJsonValue,
   AgentProviderConversationId,
   AgentProviderHistoryAnchor,
   AgentSessionId,
   AgentTurnId,
 } from '../foundation/index.js';
+import type { AgentConfigurationValue } from '../configuration/index.js';
 
 // ------------------------------------------------------------------------------------------------
 //                Binding and Effective Configuration
@@ -20,10 +20,23 @@ export interface AgentSessionBinding {
   readonly historyAnchor?: AgentProviderHistoryAnchor;
 }
 
-export interface AgentSessionConfiguration {
-  readonly revision: AgentConfigurationRevisionId;
-  readonly values: Readonly<Record<string, AgentJsonValue>>;
+export interface AgentSessionConfigurationSelection {
+  readonly key: string;
+  readonly fieldRevision: number;
+  readonly value: AgentConfigurationValue;
 }
+
+export type AgentSessionConfiguration =
+  | Readonly<{
+      kind: 'managed';
+      revision: AgentConfigurationRevisionId;
+    }>
+  | Readonly<{
+      kind: 'selected';
+      revision: AgentConfigurationRevisionId;
+      catalogRevision: number;
+      selections: readonly AgentSessionConfigurationSelection[];
+    }>;
 
 // ------------------------------------------------------------------------------------------------
 //                Session Open Semantics

@@ -3,23 +3,33 @@
 // ------------------------------------------------------------------------------------------------
 
 import {
+  AGENT_COLLABORATION_GRAPH_LIMITS,
   matchesAgentSessionBinding,
+  parseAgentCollaborationControlInput,
+  parseAgentCollaborationSpawnInput,
+  parseAgentConfigurationSelectionFor,
+  parseAgentGeneratedResourceId,
+  parseAgentOperationInvocation,
+  parseAgentOperationInvocationFor,
   parseAgentRequestResolution,
   parseAgentRequestResolutionFor,
   parseAgentSessionBinding,
-  parseAgentSessionConfiguration,
   parseAgentTurnId,
   parseAgentTurnInputContent,
   parseAgentTurnInterruptionInput,
   parseAgentTurnRunInput,
   type AgentCapabilities,
+  type AgentCollaborationNode,
   type AgentContextCumulativeUsage,
   type AgentContextMeasurementScope,
   type AgentContextUsage,
   type AgentEvent,
+  type AgentGeneratedResourceDescriptor,
   type AgentItemKind,
   type AgentItemStatus,
   type AgentOperationInputCapability,
+  type AgentOperationInvocation,
+  type AgentOperationResult,
   type AgentProviderKey,
   type AgentRequest,
   type AgentSessionBinding,
@@ -28,11 +38,23 @@ import {
 } from "@agen-ai/agent-protocol";
 
 import {
-  assertAgentSessionConfigurationSupported,
-} from "./configurationValidation.js";
+  createAgentArtifactCandidate,
+  type AgentArtifactCandidate,
+} from "./artifacts.js";
+import {
+  validateAgentCollaborationNodeForCapabilities,
+  validateAgentConfigurationCatalogForCapabilities,
+  validateAgentGeneratedResourceForCapabilities,
+  validateAgentIntegrationCatalogForCapabilities,
+  validateAgentManagedContentCatalogForCapabilities,
+  validateAgentOperationCatalogForCapabilities,
+  validateAgentOperationResultForInvocation,
+  validateAgentOperationResultTransition,
+} from "./interactionValidation.js";
 import {
   AgentProviderDelegatedOperationError,
   throwAgentProviderContractError,
+  type AgentProviderDelegatedOperation,
 } from "./contractErrors.js";
 import {
   throwIfAgentOperationAborted,
@@ -45,13 +67,18 @@ import {
 } from "./outputValidation.js";
 import type { AgentProviderOutput } from "./outputs.js";
 import type {
-  AgentProviderApplyConfigurationInput,
+  AgentProviderApplyConfigurationSelectionInput,
   AgentProviderCloseSessionInput,
+  AgentProviderControlCollaborationInput,
+  AgentProviderGetGeneratedResourceInput,
   AgentProviderInterruptTurnInput,
+  AgentProviderInvokeOperationInput,
   AgentProviderOperationResult,
   AgentProviderResolveRequestInput,
   AgentProviderRunTurnInput,
   AgentProviderSession,
+  AgentProviderSpawnCollaborationInput,
+  AgentGeneratedResourceInspection,
   AgentSessionBindingCreatedObserver,
   AgentTurnSteeringResult,
 } from "./sessions.js";
@@ -60,11 +87,37 @@ import { validateAgentTurnSteeringResult } from "./steeringValidation.js";
 //                Session Validation
 // ------------------------------------------------------------------------------------------------
 
+function hasExactOwnKeys(
+  candidate: object,
+  expectedKeys: readonly string[],
+): boolean {
+  const ownKeys = Reflect.ownKeys(candidate);
+  if (ownKeys.some((key) => typeof key !== "string")) return false;
+  const actualKeys = (ownKeys as string[]).sort();
+  const canonicalExpectedKeys = [...expectedKeys].sort();
+  return actualKeys.length === canonicalExpectedKeys.length
+    && actualKeys.every((key, index) => key === canonicalExpectedKeys[index]);
+}
+
 function validateSessionPorts(
   capabilities: AgentCapabilities,
   session: AgentProviderSession,
 ): void {
   if (
+    !hasExactOwnKeys(session, [
+      "binding",
+      "runTurn",
+      "resolveRequest",
+      "interruption",
+      "steering",
+      "configuration",
+      "operations",
+      "managedContent",
+      "integrations",
+      "collaboration",
+      "generatedResources",
+      "close",
+    ]) ||
     typeof session.runTurn !== "function" ||
     typeof session.resolveRequest !== "function" ||
     typeof session.close !== "function" ||
@@ -76,7 +129,22 @@ function validateSessionPorts(
     !["supported", "unsupported"].includes(session.steering.kind) ||
     session.configuration === null ||
     typeof session.configuration !== "object" ||
-    !["managed", "selectable"].includes(session.configuration.kind)
+    !["managed", "selectable"].includes(session.configuration.kind) ||
+    session.operations === null ||
+    typeof session.operations !== "object" ||
+    !["supported", "unsupported"].includes(session.operations.kind) ||
+    session.managedContent === null ||
+    typeof session.managedContent !== "object" ||
+    !["supported", "unsupported"].includes(session.managedContent.kind) ||
+    session.integrations === null ||
+    typeof session.integrations !== "object" ||
+    !["supported", "unsupported"].includes(session.integrations.kind) ||
+    session.collaboration === null ||
+    typeof session.collaboration !== "object" ||
+    !["supported", "unsupported"].includes(session.collaboration.kind) ||
+    session.generatedResources === null ||
+    typeof session.generatedResources !== "object" ||
+    !["supported", "unsupported"].includes(session.generatedResources.kind)
   ) {
     throwAgentProviderContractError(
       capabilities.providerKey,
@@ -85,6 +153,54 @@ function validateSessionPorts(
     );
   }
   if (
+    !hasExactOwnKeys(
+      session.interruption,
+      session.interruption.kind === "supported"
+        ? ["kind", "interruptTurn"]
+        : ["kind"],
+    ) ||
+    !hasExactOwnKeys(
+      session.steering,
+      session.steering.kind === "supported"
+        ? ["kind", "steerTurn"]
+        : ["kind"],
+    ) ||
+    !hasExactOwnKeys(
+      session.configuration,
+      session.configuration.kind === "selectable"
+        ? ["kind", "listConfiguration", "applyConfigurationSelection"]
+        : ["kind"],
+    ) ||
+    !hasExactOwnKeys(
+      session.operations,
+      session.operations.kind === "supported"
+        ? ["kind", "listOperations", "invokeOperation"]
+        : ["kind"],
+    ) ||
+    !hasExactOwnKeys(
+      session.managedContent,
+      session.managedContent.kind === "supported"
+        ? ["kind", "listManagedContent"]
+        : ["kind"],
+    ) ||
+    !hasExactOwnKeys(
+      session.integrations,
+      session.integrations.kind === "supported"
+        ? ["kind", "observeIntegrations"]
+        : ["kind"],
+    ) ||
+    !hasExactOwnKeys(
+      session.collaboration,
+      session.collaboration.kind === "supported"
+        ? ["kind", "spawnCollaboration", "controlCollaboration"]
+        : ["kind"],
+    ) ||
+    !hasExactOwnKeys(
+      session.generatedResources,
+      session.generatedResources.kind === "supported"
+        ? ["kind", "getGeneratedResource"]
+        : ["kind"],
+    ) ||
     (session.interruption.kind === "supported") !==
       capabilities.turns.interrupt ||
     (session.steering.kind === "supported") !==
@@ -95,7 +211,30 @@ function validateSessionPorts(
     (session.steering.kind === "supported" &&
       typeof session.steering.steerTurn !== "function") ||
     (session.configuration.kind === "selectable" &&
-      typeof session.configuration.applyConfiguration !== "function")
+      (typeof session.configuration.listConfiguration !== "function" ||
+        typeof session.configuration.applyConfigurationSelection !== "function")) ||
+    (session.operations.kind === "supported") !==
+      (capabilities.operations.kind === "supported") ||
+    (session.operations.kind === "supported" &&
+      (typeof session.operations.listOperations !== "function" ||
+        typeof session.operations.invokeOperation !== "function")) ||
+    (session.managedContent.kind === "supported") !==
+      (capabilities.managedContent.kind === "supported") ||
+    (session.managedContent.kind === "supported" &&
+      typeof session.managedContent.listManagedContent !== "function") ||
+    (session.integrations.kind === "supported") !==
+      (capabilities.integrations.kind === "supported") ||
+    (session.integrations.kind === "supported" &&
+      typeof session.integrations.observeIntegrations !== "function") ||
+    (session.collaboration.kind === "supported") !==
+      (capabilities.collaboration.kind === "supported") ||
+    (session.collaboration.kind === "supported" &&
+      (typeof session.collaboration.spawnCollaboration !== "function" ||
+        typeof session.collaboration.controlCollaboration !== "function")) ||
+    (session.generatedResources.kind === "supported") !==
+      (capabilities.generatedResources.kind === "supported") ||
+    (session.generatedResources.kind === "supported" &&
+      typeof session.generatedResources.getGeneratedResource !== "function")
   ) {
     throwAgentProviderContractError(
       capabilities.providerKey,
@@ -121,6 +260,7 @@ interface AgentTurnSequenceState {
   readonly fileChangeMode: AgentCapabilities["output"]["fileChanges"];
   readonly observedItems: Map<string, ObservedAgentItem>;
   readonly proposedPlans: Map<string, string>;
+  readonly generatedResourceIds: Set<string>;
   started: boolean;
   terminal: boolean;
   waiting: boolean;
@@ -134,6 +274,150 @@ interface AgentContextUsageSequenceState {
     AgentContextCumulativeUsage
   >;
   readonly compactionReadyScopes: Set<AgentContextMeasurementScope>;
+}
+
+interface TrackedAgentOperationInvocation {
+  readonly invocation: AgentOperationInvocation;
+  result?: AgentOperationResult;
+}
+
+interface AgentInteractionSequenceState {
+  readonly operationResults: Map<string, AgentOperationResult>;
+  readonly operationInvocations: Map<string, TrackedAgentOperationInvocation>;
+  readonly collaborationNodes: Map<string, AgentCollaborationNode>;
+  readonly collaborationSpawnReservations: Map<
+    string,
+    AgentCollaborationSpawnReservation
+  >;
+  readonly generatedResources: Map<string, AgentGeneratedResourceDescriptor>;
+}
+
+const TERMINAL_COLLABORATION_STATUSES = new Set([
+  "completed",
+  "failed",
+  "canceled",
+]);
+
+interface AgentCollaborationSpawnReservation {
+  readonly parentCollaborationId?: string;
+}
+
+interface AgentCollaborationGraphCandidate {
+  readonly collaborationId: string;
+  readonly rootCollaborationId: string;
+  readonly parentCollaborationId?: string;
+  readonly active: boolean;
+}
+
+type AgentCollaborationGraphAdmission =
+  | Readonly<{
+      kind: "admitted";
+      parent?: AgentCollaborationNode;
+    }>
+  | Readonly<{ kind: "conflict" }>
+  | Readonly<{ kind: "capacity_exceeded" }>;
+
+function evaluateCollaborationGraphAdmission(input: {
+  readonly capability: Extract<
+    AgentCapabilities["collaboration"],
+    Readonly<{ kind: "supported" }>
+  >;
+  readonly candidate: AgentCollaborationGraphCandidate;
+  readonly nodes: ReadonlyMap<string, AgentCollaborationNode>;
+  readonly reservations: ReadonlyMap<
+    string,
+    AgentCollaborationSpawnReservation
+  >;
+}): AgentCollaborationGraphAdmission {
+  const existing = input.nodes.get(input.candidate.collaborationId);
+  if (existing !== undefined) {
+    const parent = existing.parentCollaborationId === undefined
+      ? undefined
+      : input.nodes.get(existing.parentCollaborationId);
+    return parent === undefined
+      ? Object.freeze({ kind: "admitted" })
+      : Object.freeze({ kind: "admitted", parent });
+  }
+
+  const reservation = input.reservations.get(input.candidate.collaborationId);
+  if (
+    reservation !== undefined
+    && reservation.parentCollaborationId
+      !== input.candidate.parentCollaborationId
+  ) {
+    return Object.freeze({ kind: "conflict" });
+  }
+
+  const parent = input.candidate.parentCollaborationId === undefined
+    ? undefined
+    : input.nodes.get(input.candidate.parentCollaborationId);
+  if (
+    (input.candidate.parentCollaborationId === undefined
+      && input.candidate.rootCollaborationId
+        !== input.candidate.collaborationId)
+    || (input.candidate.parentCollaborationId !== undefined
+      && (
+        parent === undefined
+        || input.candidate.rootCollaborationId !== parent.rootCollaborationId
+        || TERMINAL_COLLABORATION_STATUSES.has(parent.status)
+        || parent.closedAt !== undefined
+      ))
+  ) {
+    return Object.freeze({ kind: "conflict" });
+  }
+
+  let depth = 1;
+  const visitedIds = new Set([input.candidate.collaborationId]);
+  for (let ancestor = parent; ancestor !== undefined;) {
+    if (visitedIds.has(ancestor.collaborationId)) {
+      return Object.freeze({ kind: "conflict" });
+    }
+    visitedIds.add(ancestor.collaborationId);
+    depth += 1;
+    if (ancestor.parentCollaborationId === undefined) break;
+    ancestor = input.nodes.get(ancestor.parentCollaborationId);
+    if (ancestor === undefined) {
+      return Object.freeze({ kind: "conflict" });
+    }
+  }
+
+  if (reservation !== undefined) {
+    return parent === undefined
+      ? Object.freeze({ kind: "admitted" })
+      : Object.freeze({ kind: "admitted", parent });
+  }
+
+  const unmaterializedReservations = [...input.reservations].filter(
+    ([collaborationId]) => !input.nodes.has(collaborationId),
+  );
+  const childCount = parent === undefined
+    ? 0
+    : [...input.nodes.values()].filter(
+        (node) => node.parentCollaborationId === parent.collaborationId,
+      ).length
+      + unmaterializedReservations.filter(
+        ([, retainedReservation]) =>
+          retainedReservation.parentCollaborationId === parent.collaborationId,
+      ).length;
+  const activeCount = [...input.nodes.values()].filter(
+    (node) => !TERMINAL_COLLABORATION_STATUSES.has(node.status),
+  ).length + unmaterializedReservations.length;
+  if (
+    input.nodes.size + unmaterializedReservations.length
+      >= AGENT_COLLABORATION_GRAPH_LIMITS.maxNodes
+    || childCount >= input.capability.maxChildrenPerNode
+    || depth > input.capability.maxDepth
+    || (
+      input.candidate.active
+      && activeCount >= input.capability.maxActiveNodes
+    )
+  ) {
+    return Object.freeze({ kind: "capacity_exceeded" });
+  }
+
+  return parent === undefined
+    ? Object.freeze({ kind: "admitted" })
+    : Object.freeze({ kind: "admitted", parent });
 }
 
 interface ActiveAgentTurn {
@@ -171,7 +455,10 @@ function completeTurnSequence(input: {
 
 const FINAL_DIFF_TRAILING_EVENT_TYPES: readonly AgentEvent["type"][] = [
   "artifact.referenced",
+  "collaboration.updated",
+  "operation.updated",
   "provider.diagnostic",
+  "resource.updated",
   "runtime.error",
   "runtime.warning",
   "turn.completed",
@@ -494,12 +781,14 @@ function observeTurnEvent(input: {
 }
 
 function observeTurnOutput(input: {
+  readonly capabilities: AgentCapabilities;
   readonly providerKey: AgentProviderKey;
   readonly output: AgentProviderOutput;
   readonly state: AgentTurnSequenceState;
   readonly pendingRequests: Map<string, PendingAgentRequest>;
   readonly openedRequestIds: Set<string>;
   readonly contextUsageState: AgentContextUsageSequenceState;
+  readonly interactionState: AgentInteractionSequenceState;
 }): void {
   if (
     input.output.kind === "lifecycle"
@@ -508,6 +797,92 @@ function observeTurnOutput(input: {
     observeContextMaterializationBoundary(input.contextUsageState);
   }
   if (input.output.kind !== "event") return;
+  if (input.output.event.type === "operation.updated") {
+    const result = validateAgentOperationResultTransition({
+      providerKey: input.providerKey,
+      candidate: input.output.event.payload.result,
+      previous: input.interactionState.operationResults.get(
+        input.output.event.payload.result.invocationId,
+      ),
+    });
+    input.interactionState.operationResults.set(result.invocationId, result);
+    const invocation = input.interactionState.operationInvocations.get(
+      result.invocationId,
+    );
+    if (invocation !== undefined) invocation.result = result;
+  }
+  if (input.output.event.type === "collaboration.updated") {
+    const node = validateAgentCollaborationNodeForCapabilities({
+      capabilities: input.capabilities,
+      candidate: input.output.event.payload.node,
+      previous: input.interactionState.collaborationNodes.get(
+        input.output.event.payload.node.collaborationId,
+      ),
+    });
+    const capability = input.capabilities.collaboration;
+    if (capability.kind !== "supported") {
+      throwAgentProviderContractError(
+        input.providerKey,
+        "output_capability_mismatch",
+        "Provider emitted collaboration state without declaring support.",
+      );
+    }
+    const admission = evaluateCollaborationGraphAdmission({
+      capability,
+      candidate: {
+        collaborationId: node.collaborationId,
+        rootCollaborationId: node.rootCollaborationId,
+        ...(node.parentCollaborationId === undefined
+          ? {}
+          : { parentCollaborationId: node.parentCollaborationId }),
+        active: !TERMINAL_COLLABORATION_STATUSES.has(node.status),
+      },
+      nodes: input.interactionState.collaborationNodes,
+      reservations: input.interactionState.collaborationSpawnReservations,
+    });
+    if (admission.kind === "conflict") {
+      throwAgentProviderContractError(
+        input.providerKey,
+        "output_collaboration_mismatch",
+        "Provider emitted a collaboration node outside the canonical graph.",
+      );
+    }
+    if (admission.kind === "capacity_exceeded") {
+      throwAgentProviderContractError(
+        input.providerKey,
+        "output_capability_mismatch",
+        "Provider emitted a collaboration graph outside its declared limits.",
+      );
+    }
+    input.interactionState.collaborationNodes.set(node.collaborationId, node);
+  }
+  if (input.output.event.type === "resource.updated") {
+    const capability = input.capabilities.generatedResources;
+    const resourceId = input.output.event.payload.resource.resourceId;
+    if (
+      capability.kind !== "supported"
+      || (
+        !input.state.generatedResourceIds.has(resourceId)
+        && input.state.generatedResourceIds.size >= capability.maxResourcesPerTurn
+      )
+    ) {
+      throwAgentProviderContractError(
+        input.providerKey,
+        "output_capability_mismatch",
+        "Provider exceeded its declared generated-resource count for the turn.",
+      );
+    }
+    const resource = validateAgentGeneratedResourceForCapabilities({
+      capabilities: input.capabilities,
+      candidate: input.output.event.payload.resource,
+      expectedResourceId: input.output.event.payload.resource.resourceId,
+      previous: input.interactionState.generatedResources.get(
+        input.output.event.payload.resource.resourceId,
+      ),
+    });
+    input.state.generatedResourceIds.add(resource.resourceId);
+    input.interactionState.generatedResources.set(resource.resourceId, resource);
+  }
   observeTurnEvent({
     providerKey: input.providerKey,
     event: input.output.event,
@@ -574,12 +949,14 @@ function interruptionTerminalizesTurn(input: {
 }
 
 function observeTurnOperationOutputs(input: {
+  readonly capabilities: AgentCapabilities;
   readonly providerKey: AgentProviderKey;
   readonly outputs: readonly AgentProviderOutput[] | undefined;
   readonly state: AgentTurnSequenceState;
   readonly pendingRequests: Map<string, PendingAgentRequest>;
   readonly openedRequestIds: Set<string>;
   readonly contextUsageState: AgentContextUsageSequenceState;
+  readonly interactionState: AgentInteractionSequenceState;
 }): void {
   for (const output of input.outputs ?? []) {
     observeTurnOutput({
@@ -589,6 +966,8 @@ function observeTurnOperationOutputs(input: {
       pendingRequests: input.pendingRequests,
       openedRequestIds: input.openedRequestIds,
       contextUsageState: input.contextUsageState,
+      capabilities: input.capabilities,
+      interactionState: input.interactionState,
     });
   }
 }
@@ -745,6 +1124,16 @@ export function validateAgentProviderSession(input: {
     >(),
     compactionReadyScopes: new Set<AgentContextMeasurementScope>(),
   };
+  const interactionState: AgentInteractionSequenceState = {
+    operationResults: new Map<string, AgentOperationResult>(),
+    operationInvocations: new Map(),
+    collaborationNodes: new Map<string, AgentCollaborationNode>(),
+    collaborationSpawnReservations: new Map(),
+    generatedResources: new Map<string, AgentGeneratedResourceDescriptor>(),
+  };
+  const collaborationNodes = interactionState.collaborationNodes;
+  const collaborationSpawnReservations =
+    interactionState.collaborationSpawnReservations;
   let activeTurn: ActiveAgentTurn | null = null;
   let closePromise: Promise<void> | null = null;
   let closed = false;
@@ -788,6 +1177,44 @@ export function validateAgentProviderSession(input: {
     } catch (error) {
       unusable = true;
       throw error;
+    }
+  };
+  const delegateProviderMutation = async <Result>(input: {
+    readonly operation: AgentProviderDelegatedOperation;
+    readonly observer?: () => void;
+    readonly invoke: (onProviderExecutionStarted: () => void) => MaybePromise<unknown>;
+    readonly validate: (candidate: unknown) => Result;
+  }): Promise<Result> => {
+    let executionStarted = false;
+    const onProviderExecutionStarted = (): void => {
+      if (executionStarted) {
+        throwAgentProviderContractError(
+          providerKey,
+          "invalid_operation_result",
+          "Provider reported operation execution more than once.",
+        );
+      }
+      input.observer?.();
+      executionStarted = true;
+    };
+    try {
+      const candidate = await input.invoke(onProviderExecutionStarted);
+      if (!executionStarted) {
+        throwAgentProviderContractError(
+          providerKey,
+          "invalid_operation_result",
+          "Provider completed an operation without reporting execution start.",
+        );
+      }
+      return input.validate(candidate);
+    } catch (error) {
+      if (!executionStarted) throw error;
+      unusable = true;
+      throw new AgentProviderDelegatedOperationError(
+        providerKey,
+        input.operation,
+        error,
+      );
     }
   };
 
@@ -841,6 +1268,7 @@ export function validateAgentProviderSession(input: {
         fileChangeMode: capabilities.output.fileChanges,
         observedItems: new Map<string, ObservedAgentItem>(),
         proposedPlans: new Map<string, string>(),
+        generatedResourceIds: new Set<string>(),
         started: false,
         terminal: false,
         waiting: false,
@@ -860,12 +1288,14 @@ export function validateAgentProviderSession(input: {
           outputContext(parsedInput.turnId),
         );
         observeTurnOutput({
+          capabilities,
           providerKey,
           output,
           state: currentTurn.state,
           pendingRequests: currentTurn.pendingRequests,
           openedRequestIds,
           contextUsageState,
+          interactionState,
         });
         yield output;
       }
@@ -972,12 +1402,14 @@ export function validateAgentProviderSession(input: {
           outputContext(pending.turnId),
         );
         observeTurnOutput({
+          capabilities,
           providerKey,
           output,
           state: currentTurn.state,
           pendingRequests: currentTurn.pendingRequests,
           openedRequestIds,
           contextUsageState,
+          interactionState,
         });
         yield output;
       }
@@ -1066,12 +1498,14 @@ export function validateAgentProviderSession(input: {
               }
               try {
                 observeTurnOperationOutputs({
+                  capabilities,
                   providerKey,
                   outputs: result.outputs,
                   state: targetedTurn.state,
                   pendingRequests: targetedTurn.pendingRequests,
                   openedRequestIds,
                   contextUsageState,
+                  interactionState,
                 });
                 if (terminalized && !targetedTurn.state.terminal) {
                   completeTurnSequence({
@@ -1169,27 +1603,555 @@ export function validateAgentProviderSession(input: {
       ? Object.freeze({ kind: "managed" as const })
       : Object.freeze({
           kind: "selectable" as const,
-          applyConfiguration: async (
-            configurationInput: AgentProviderApplyConfigurationInput,
+          listConfiguration: async (
+            listInput: Parameters<typeof declaredConfiguration.listConfiguration>[0] = {},
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(listInput.signal);
+            return validateAgentConfigurationCatalogForCapabilities(
+              capabilities,
+              await declaredConfiguration.listConfiguration(
+                listInput.signal === undefined ? {} : { signal: listInput.signal },
+              ),
+            );
+          },
+          applyConfigurationSelection: async (
+            configurationInput: AgentProviderApplyConfigurationSelectionInput,
           ): Promise<AgentProviderOperationResult> => {
             requireUsable();
             throwIfAgentOperationAborted(configurationInput.signal);
-            const configuration = parseAgentSessionConfiguration(
-              configurationInput.configuration,
-            );
-            assertAgentSessionConfigurationSupported(
+            const catalog = validateAgentConfigurationCatalogForCapabilities(
               capabilities,
-              configuration,
+              await declaredConfiguration.listConfiguration(
+                configurationInput.signal === undefined
+                  ? {}
+                  : { signal: configurationInput.signal },
+              ),
             );
-            return delegateOperation(
-              () =>
-                declaredConfiguration.applyConfiguration({
-                  configuration,
+            let selection;
+            try {
+              selection = parseAgentConfigurationSelectionFor(
+                catalog,
+                configurationInput.selection,
+              );
+            } catch {
+              return throwAgentProviderContractError(
+                providerKey,
+                "configuration_value_unsupported",
+                "Configuration selection is stale or outside the offered catalog.",
+              );
+            }
+            return delegateProviderMutation({
+              operation: "apply_configuration",
+              observer: configurationInput.onProviderExecutionStarted,
+              invoke: (onProviderExecutionStarted) =>
+                declaredConfiguration.applyConfigurationSelection({
+                  selection,
+                  onProviderExecutionStarted,
                   ...(configurationInput.signal === undefined
                     ? {}
                     : { signal: configurationInput.signal }),
                 }),
+              validate: (candidate) =>
+                validateAgentProviderOperationResult(
+                  candidate as AgentProviderOperationResult,
+                  outputContext(),
+                ),
+            });
+          },
+        });
+
+  const declaredOperations = input.candidate.operations;
+  const operations =
+    declaredOperations.kind === "unsupported"
+      ? Object.freeze({ kind: "unsupported" as const })
+      : Object.freeze({
+          kind: "supported" as const,
+          listOperations: async (
+            listInput: Parameters<typeof declaredOperations.listOperations>[0] = {},
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(listInput.signal);
+            return validateAgentOperationCatalogForCapabilities(
+              capabilities,
+              await declaredOperations.listOperations(
+                listInput.signal === undefined ? {} : { signal: listInput.signal },
+              ),
             );
+          },
+          invokeOperation: async (
+            operationInput: AgentProviderInvokeOperationInput,
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(operationInput.signal);
+            let invocation: AgentOperationInvocation;
+            try {
+              invocation = parseAgentOperationInvocation(operationInput.invocation);
+            } catch {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_operation_mismatch",
+                "Operation invocation is invalid.",
+              );
+            }
+            const catalog = validateAgentOperationCatalogForCapabilities(
+              capabilities,
+              await declaredOperations.listOperations(
+                operationInput.signal === undefined
+                  ? {}
+                  : { signal: operationInput.signal },
+              ),
+            );
+            const descriptor = catalog.operations.find(
+              (operation) => operation.operationId === invocation.operationId,
+            );
+            if (descriptor === undefined) {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_operation_mismatch",
+                "Operation invocation does not identify an offered operation.",
+              );
+            }
+            try {
+              invocation = parseAgentOperationInvocationFor(
+                descriptor,
+                invocation,
+              );
+            } catch {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_operation_mismatch",
+                "Operation invocation is stale or outside the offered descriptor.",
+              );
+            }
+            const existing = interactionState.operationInvocations.get(
+              invocation.invocationId,
+            );
+            if (existing !== undefined) {
+              if (JSON.stringify(existing.invocation) !== JSON.stringify(invocation)) {
+                return throwAgentProviderContractError(
+                  providerKey,
+                  "input_operation_mismatch",
+                  "Operation invocation ID was reused with conflicting input.",
+                );
+              }
+              if (
+                descriptor.idempotency === "required"
+                && existing.result !== undefined
+              ) {
+                return existing.result;
+              }
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_operation_mismatch",
+                "Operation invocation ID is already active or is not replayable.",
+              );
+            }
+            const trackedInvocation: TrackedAgentOperationInvocation = {
+              invocation,
+            };
+            interactionState.operationInvocations.set(
+              invocation.invocationId,
+              trackedInvocation,
+            );
+            try {
+              const result = await delegateProviderMutation({
+                operation: "invoke_operation",
+                observer: operationInput.onProviderExecutionStarted,
+                invoke: (onProviderExecutionStarted) =>
+                  declaredOperations.invokeOperation({
+                    invocation,
+                    onProviderExecutionStarted,
+                    ...(operationInput.signal === undefined
+                      ? {}
+                      : { signal: operationInput.signal }),
+                  }),
+                validate: (candidate) => {
+                  const result = validateAgentOperationResultTransition({
+                    providerKey,
+                    candidate: validateAgentOperationResultForInvocation(
+                      providerKey,
+                      descriptor,
+                      invocation,
+                      candidate,
+                    ),
+                    previous: interactionState.operationResults.get(
+                      invocation.invocationId,
+                    ),
+                  });
+                  interactionState.operationResults.set(
+                    result.invocationId,
+                    result,
+                  );
+                  return result;
+                },
+              });
+              trackedInvocation.result = result;
+              return result;
+            } catch (error) {
+              if (!(error instanceof AgentProviderDelegatedOperationError)) {
+                interactionState.operationInvocations.delete(
+                  invocation.invocationId,
+                );
+              }
+              throw error;
+            }
+          },
+        });
+
+  const declaredManagedContent = input.candidate.managedContent;
+  const managedContent =
+    declaredManagedContent.kind === "unsupported"
+      ? Object.freeze({ kind: "unsupported" as const })
+      : Object.freeze({
+          kind: "supported" as const,
+          listManagedContent: async (
+            listInput: Parameters<typeof declaredManagedContent.listManagedContent>[0] = {},
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(listInput.signal);
+            return validateAgentManagedContentCatalogForCapabilities(
+              capabilities,
+              await declaredManagedContent.listManagedContent(
+                listInput.signal === undefined ? {} : { signal: listInput.signal },
+              ),
+            );
+          },
+        });
+
+  const declaredIntegrations = input.candidate.integrations;
+  const integrations =
+    declaredIntegrations.kind === "unsupported"
+      ? Object.freeze({ kind: "unsupported" as const })
+      : Object.freeze({
+          kind: "supported" as const,
+          observeIntegrations: async (
+            listInput: Parameters<typeof declaredIntegrations.observeIntegrations>[0] = {},
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(listInput.signal);
+            return validateAgentIntegrationCatalogForCapabilities(
+              capabilities,
+              await declaredIntegrations.observeIntegrations(
+                listInput.signal === undefined ? {} : { signal: listInput.signal },
+              ),
+            );
+          },
+        });
+
+  const declaredCollaboration = input.candidate.collaboration;
+  const collaboration =
+    declaredCollaboration.kind === "unsupported"
+      ? Object.freeze({ kind: "unsupported" as const })
+      : Object.freeze({
+          kind: "supported" as const,
+          spawnCollaboration: async (
+            collaborationInput: AgentProviderSpawnCollaborationInput,
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(collaborationInput.signal);
+            let spawn;
+            try {
+              spawn = parseAgentCollaborationSpawnInput(collaborationInput.spawn);
+            } catch {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_operation_mismatch",
+                "Collaboration spawn input is invalid.",
+              );
+            }
+            const capability = capabilities.collaboration;
+            if (
+              capability.kind !== "supported"
+              || !capability.controlActions.includes("spawn")
+              || !capability.roles.includes(spawn.role)
+              || collaborationNodes.has(spawn.collaborationId)
+              || collaborationSpawnReservations.has(spawn.collaborationId)
+            ) {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_capability_mismatch",
+                "Collaboration spawn is outside the provider's declared capability.",
+              );
+            }
+            const observedParent = spawn.parentCollaborationId === undefined
+              ? undefined
+              : collaborationNodes.get(spawn.parentCollaborationId);
+            const admission = evaluateCollaborationGraphAdmission({
+              capability,
+              candidate: {
+                collaborationId: spawn.collaborationId,
+                rootCollaborationId:
+                  observedParent?.rootCollaborationId ?? spawn.collaborationId,
+                ...(spawn.parentCollaborationId === undefined
+                  ? {}
+                  : { parentCollaborationId: spawn.parentCollaborationId }),
+                active: true,
+              },
+              nodes: collaborationNodes,
+              reservations: collaborationSpawnReservations,
+            });
+            if (admission.kind === "conflict") {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_operation_mismatch",
+                "Collaboration parent is unavailable in the canonical graph.",
+              );
+            }
+            if (admission.kind === "capacity_exceeded") {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_capability_mismatch",
+                "Collaboration graph limit would be exceeded.",
+              );
+            }
+            const parent = admission.parent;
+            collaborationSpawnReservations.set(
+              spawn.collaborationId,
+              Object.freeze({
+                ...(spawn.parentCollaborationId === undefined
+                  ? {}
+                  : { parentCollaborationId: spawn.parentCollaborationId }),
+              }),
+            );
+            try {
+              const node = await delegateProviderMutation({
+                operation: "spawn_collaboration",
+                observer: collaborationInput.onProviderExecutionStarted,
+                invoke: (onProviderExecutionStarted) =>
+                  declaredCollaboration.spawnCollaboration({
+                    spawn,
+                    onProviderExecutionStarted,
+                    ...(collaborationInput.signal === undefined
+                      ? {}
+                      : { signal: collaborationInput.signal }),
+                  }),
+                validate: (candidate) => {
+                  const node = validateAgentCollaborationNodeForCapabilities({
+                    capabilities,
+                    candidate,
+                  });
+                  if (
+                    node.collaborationId !== spawn.collaborationId
+                    || node.parentCollaborationId !== spawn.parentCollaborationId
+                    || node.role !== spawn.role
+                    || node.title !== spawn.title
+                    || node.objective !== spawn.objective
+                    || node.createdAt !== spawn.createdAt
+                    || node.rootCollaborationId
+                      !== (parent?.rootCollaborationId ?? spawn.collaborationId)
+                  ) {
+                    return throwAgentProviderContractError(
+                      providerKey,
+                      "output_collaboration_mismatch",
+                      "Provider collaboration node does not match the spawn input.",
+                    );
+                  }
+                  return node;
+                },
+              });
+              collaborationNodes.set(node.collaborationId, node);
+              collaborationSpawnReservations.delete(spawn.collaborationId);
+              return node;
+            } catch (error) {
+              if (!(error instanceof AgentProviderDelegatedOperationError)) {
+                collaborationSpawnReservations.delete(spawn.collaborationId);
+              }
+              throw error;
+            }
+          },
+          controlCollaboration: async (
+            collaborationInput: AgentProviderControlCollaborationInput,
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(collaborationInput.signal);
+            let control;
+            try {
+              control = parseAgentCollaborationControlInput(
+                collaborationInput.control,
+              );
+            } catch {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_operation_mismatch",
+                "Collaboration control input is invalid.",
+              );
+            }
+            const capability = capabilities.collaboration;
+            const previous = collaborationNodes.get(control.collaborationId);
+            if (
+              capability.kind !== "supported"
+              || !capability.controlActions.includes(control.action)
+              || previous === undefined
+            ) {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_capability_mismatch",
+                "Collaboration control is outside the observed graph or declared capability.",
+              );
+            }
+            const terminal = ["completed", "failed", "canceled"].includes(
+              previous.status,
+            );
+            if (control.action === "close" && previous.closedAt !== undefined) {
+              return previous;
+            }
+            if (
+              (control.action === "close" && !terminal)
+              || (control.action === "stop" && terminal)
+              || (control.action === "steer" && terminal)
+              || (control.action !== "inspect" && previous.closedAt !== undefined)
+            ) {
+              return throwAgentProviderContractError(
+                providerKey,
+                "input_capability_mismatch",
+                "Collaboration control is unavailable in the current lifecycle state.",
+              );
+            }
+            const node = await delegateProviderMutation({
+              operation: "control_collaboration",
+              observer: collaborationInput.onProviderExecutionStarted,
+              invoke: (onProviderExecutionStarted) =>
+                declaredCollaboration.controlCollaboration({
+                  control,
+                  onProviderExecutionStarted,
+                  ...(collaborationInput.signal === undefined
+                    ? {}
+                    : { signal: collaborationInput.signal }),
+                }),
+              validate: (candidate) => {
+                const validated = validateAgentCollaborationNodeForCapabilities({
+                  capabilities,
+                  candidate,
+                  previous,
+                });
+                if (
+                  (control.action === "stop" && validated.status !== "canceled")
+                  || (
+                    control.action === "close"
+                    && (
+                      validated.status !== previous.status
+                      || validated.closedAt === undefined
+                    )
+                  )
+                ) {
+                  return throwAgentProviderContractError(
+                    providerKey,
+                    "output_collaboration_mismatch",
+                    "Provider collaboration result does not settle the requested control action.",
+                  );
+                }
+                return validated;
+              },
+            });
+            collaborationNodes.set(node.collaborationId, node);
+            return node;
+          },
+        });
+
+  function validateGeneratedResourceInspection(
+    candidate: unknown,
+    resourceId: string,
+  ): AgentGeneratedResourceInspection {
+    if (
+      candidate === null
+      || typeof candidate !== "object"
+      || !hasExactOwnKeys(candidate, [
+        "descriptor",
+        ...("candidate" in candidate ? ["candidate"] : []),
+      ])
+    ) {
+      return throwAgentProviderContractError(
+        providerKey,
+        "output_resource_mismatch",
+        "Provider returned an invalid generated-resource inspection.",
+      );
+    }
+    const rawInspection = candidate as Readonly<{
+      descriptor?: unknown;
+      candidate?: unknown;
+    }>;
+    const descriptor = validateAgentGeneratedResourceForCapabilities({
+      capabilities,
+      candidate: rawInspection.descriptor,
+      expectedResourceId: resourceId,
+      previous: interactionState.generatedResources.get(resourceId),
+    });
+    const hasCandidate = Object.prototype.hasOwnProperty.call(
+      rawInspection,
+      "candidate",
+    );
+    if ((descriptor.status === "available") !== hasCandidate) {
+      return throwAgentProviderContractError(
+        providerKey,
+        "output_resource_mismatch",
+        "Exactly available generated resources must include owned artifact bytes.",
+      );
+    }
+    if (!hasCandidate) return Object.freeze({ descriptor });
+
+    let artifactCandidate: AgentArtifactCandidate;
+    try {
+      artifactCandidate = createAgentArtifactCandidate(
+        rawInspection.candidate as AgentArtifactCandidate,
+      );
+    } catch {
+      return throwAgentProviderContractError(
+        providerKey,
+        "output_resource_mismatch",
+        "Provider returned invalid generated-resource artifact bytes.",
+      );
+    }
+    const artifact = artifactCandidate.descriptor;
+    const expectedArtifactKind = descriptor.kind === "image" ? "image" : "file";
+    if (
+      artifactCandidate.delivery !== "required_before_reference"
+      || artifact.artifactId !== descriptor.artifactId
+      || artifact.kind !== expectedArtifactKind
+      || artifact.displayName !== descriptor.displayName
+      || artifact.mediaType !== descriptor.mediaType
+      || artifact.byteSize !== descriptor.byteSize
+      || artifact.digest?.algorithm !== "sha256"
+      || artifact.digest?.value !== descriptor.sha256
+      || artifact.summary !== descriptor.summary
+    ) {
+      return throwAgentProviderContractError(
+        providerKey,
+        "output_resource_mismatch",
+        "Generated-resource metadata does not match its immutable artifact candidate.",
+      );
+    }
+    return Object.freeze({ descriptor, candidate: artifactCandidate });
+  }
+
+  const declaredGeneratedResources = input.candidate.generatedResources;
+  const generatedResources =
+    declaredGeneratedResources.kind === "unsupported"
+      ? Object.freeze({ kind: "unsupported" as const })
+      : Object.freeze({
+          kind: "supported" as const,
+          getGeneratedResource: async (
+            resourceInput: AgentProviderGetGeneratedResourceInput,
+          ) => {
+            requireUsable();
+            throwIfAgentOperationAborted(resourceInput.signal);
+            const resourceId = parseAgentGeneratedResourceId(
+              resourceInput.resourceId,
+            );
+            const inspection = validateGeneratedResourceInspection(
+              await declaredGeneratedResources.getGeneratedResource({
+                resourceId,
+                ...(resourceInput.signal === undefined
+                  ? {}
+                  : { signal: resourceInput.signal }),
+              }),
+              resourceId,
+            );
+            interactionState.generatedResources.set(
+              inspection.descriptor.resourceId,
+              inspection.descriptor,
+            );
+            return inspection;
           },
         });
 
@@ -1229,6 +2191,11 @@ export function validateAgentProviderSession(input: {
     interruption,
     steering,
     configuration,
+    operations,
+    managedContent,
+    integrations,
+    collaboration,
+    generatedResources,
     close,
   });
 }

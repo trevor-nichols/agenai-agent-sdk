@@ -5,9 +5,12 @@
 import {
   parseAgentError,
   type AgentCapabilities,
+  type AgentCollaborationId,
   type AgentContentStreamKind,
   type AgentEvent,
+  type AgentGeneratedResourceId,
   type AgentItemKind,
+  type AgentOperationInvocationId,
   type AgentProviderKey,
   type AgentSessionId,
   type AgentTurnId,
@@ -30,6 +33,9 @@ export interface AgentProviderOutputValidationContext {
   readonly sessionId?: AgentSessionId;
   readonly turnId?: AgentTurnId;
   readonly authenticationAttemptId?: string;
+  readonly operationInvocationId?: AgentOperationInvocationId;
+  readonly collaborationId?: AgentCollaborationId;
+  readonly generatedResourceId?: AgentGeneratedResourceId;
 }
 
 function unsupportedCapabilitySemantic(value: never): never {
@@ -48,9 +54,9 @@ function isItemKindCapabilitySupported(
     case "file_change":
       return capabilities.output.fileChanges === "structured";
     case "mcp_tool_call":
-      return capabilities.interactionExtensions.mcp;
+      return capabilities.integrations.kind === "supported";
     case "collaboration_tool_call":
-      return capabilities.interactionExtensions.subagents;
+      return capabilities.collaboration.kind === "supported";
     case "user_message":
     case "assistant_message":
     case "reasoning":
@@ -164,14 +170,37 @@ function isEventCapabilitySupported(
       return capabilities.output.artifactKinds.includes(
         event.payload.artifact.kind,
       );
+    case "operation.updated":
+      return capabilities.operations.kind === "supported";
+    case "collaboration.updated":
+      return capabilities.collaboration.kind === "supported"
+        && capabilities.collaboration.roles.includes(event.payload.node.role);
+    case "resource.updated":
+      return capabilities.generatedResources.kind === "supported"
+        && capabilities.generatedResources.resourceKinds.includes(
+          event.payload.resource.kind,
+        )
+        && (
+          event.payload.resource.byteSize === undefined
+          || event.payload.resource.byteSize
+            <= capabilities.generatedResources.maxBytesPerResource
+        );
     case "request.opened":
-      return event.payload.request.requestKind === "approval"
-        ? isApprovalRequestCapabilitySupported(capabilities, event)
-        : capabilities.requests.elicitation.kind === "structured"
-          || (capabilities.requests.elicitation.kind === "text"
-            && event.payload.request.fields.every(
-              (field) => field.kind === "text",
-            ));
+      if (event.payload.request.requestKind === "approval") {
+        return isApprovalRequestCapabilitySupported(capabilities, event);
+      }
+      return capabilities.requests.elicitation.kind === "supported"
+        && event.payload.request.fields.length
+          <= capabilities.requests.elicitation.maxFields
+        && event.payload.request.fields.every(
+          (field) =>
+            capabilities.requests.elicitation.kind === "supported"
+            && capabilities.requests.elicitation.fieldKinds.includes(field.kind)
+            && (
+              field.sensitivity === "ordinary"
+              || capabilities.requests.elicitation.sensitiveFields
+            ),
+        );
     case "context.usage.updated":
       return isContextUsageCapabilitySupported(capabilities, event);
     case "turn.started":
@@ -213,6 +242,44 @@ function assertOutputCapability(
       "output_capability_mismatch",
       `Provider ${context.providerKey} emitted ${output.event.type} without advertising support.`,
     );
+  }
+  if (output.kind === "event" && output.event.type === "operation.updated") {
+    if (
+      context.operationInvocationId !== undefined
+      && output.event.payload.result.invocationId
+        !== context.operationInvocationId
+    ) {
+      throwAgentProviderContractError(
+        context.providerKey,
+        "output_operation_mismatch",
+        `Provider ${context.providerKey} emitted an update for another operation invocation.`,
+      );
+    }
+  }
+  if (output.kind === "event" && output.event.type === "collaboration.updated") {
+    if (
+      context.collaborationId !== undefined
+      && output.event.payload.node.collaborationId !== context.collaborationId
+    ) {
+      throwAgentProviderContractError(
+        context.providerKey,
+        "output_collaboration_mismatch",
+        `Provider ${context.providerKey} emitted an update for another collaboration.`,
+      );
+    }
+  }
+  if (output.kind === "event" && output.event.type === "resource.updated") {
+    if (
+      context.generatedResourceId !== undefined
+      && output.event.payload.resource.resourceId
+        !== context.generatedResourceId
+    ) {
+      throwAgentProviderContractError(
+        context.providerKey,
+        "output_resource_mismatch",
+        `Provider ${context.providerKey} emitted an update for another generated resource.`,
+      );
+    }
   }
 }
 

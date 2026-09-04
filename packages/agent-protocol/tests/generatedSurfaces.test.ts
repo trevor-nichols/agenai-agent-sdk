@@ -16,7 +16,18 @@ import {
 import {
   safeParseAgentArtifactDescriptor,
   safeParseAgentCapabilities,
+  safeParseAgentCollaborationControlInput,
+  safeParseAgentCollaborationNode,
+  safeParseAgentCollaborationSpawnInput,
+  safeParseAgentConfigurationCatalog,
+  safeParseAgentConfigurationSelectionInput,
   safeParseAgentEvent,
+  safeParseAgentGeneratedResourceDescriptor,
+  safeParseAgentIntegrationCatalog,
+  safeParseAgentManagedContentCatalog,
+  safeParseAgentOperationCatalog,
+  safeParseAgentOperationInvocation,
+  safeParseAgentOperationResult,
   safeParseAgentRequest,
   safeParseAgentRequestResolution,
   safeParseAgentSessionBinding,
@@ -53,10 +64,16 @@ test('package exports are explicit and complete', () => {
     '.',
     './artifacts',
     './capabilities',
+    './collaboration',
+    './configuration',
     './events',
+    './integrations',
     './json-schema',
+    './managed-content',
+    './operations',
     './package.json',
     './requests',
+    './resources',
     './sessions',
     './turns',
     './zod',
@@ -68,12 +85,12 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 10);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 21);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 7);
+    assert.equal(artifact.protocolVersion, 8);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -116,8 +133,17 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
     {
       contractId: 'agenai.agent-protocol.session-configuration',
       parser: safeParseAgentSessionConfiguration,
-      accepted: { revision: 'config:1', values: { model: 'native-model' } },
-      rejected: { revision: '', values: {} },
+      accepted: {
+        kind: 'selected',
+        revision: 'config:1',
+        catalogRevision: 1,
+        selections: [{
+          key: 'model',
+          fieldRevision: 1,
+          value: { fieldKind: 'single_select', optionId: 'native-model' },
+        }],
+      },
+      rejected: { kind: 'managed', revision: '' },
     },
     {
       contractId: 'agenai.agent-protocol.session-open-input',
@@ -125,7 +151,7 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
       accepted: {
         operation: 'create',
         sessionId: 'session:1',
-        configuration: { revision: 'config:1', values: {} },
+        configuration: { kind: 'managed', revision: 'config:1' },
       },
       rejected: { operation: 'create', sessionId: '' },
     },
@@ -175,6 +201,179 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
         optionId: 'approval:allow-once',
       },
       rejected: { requestKind: 'approval', requestId: 'request:1' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.operation-catalog',
+      parser: safeParseAgentOperationCatalog,
+      accepted: {
+        revision: 1,
+        operations: [{
+          operationId: 'operation:session-reset',
+          revision: 1,
+          kind: 'session_control',
+          title: 'Reset session',
+          context: 'session',
+          timing: 'idle_session',
+          executionMode: 'immediate',
+          fields: [],
+          confirmation: 'required',
+          idempotency: 'required',
+          resultKind: 'none',
+        }],
+      },
+      rejected: { revision: 0, operations: [] },
+    },
+    {
+      contractId: 'agenai.agent-protocol.operation-invocation',
+      parser: safeParseAgentOperationInvocation,
+      accepted: {
+        invocationId: 'operation-invocation:1',
+        operationId: 'operation:session-reset',
+        expectedRevision: 1,
+        values: [],
+      },
+      rejected: {
+        invocationId: 'operation-invocation:1',
+        operationId: 'operation:session-reset',
+        expectedRevision: 0,
+        values: [],
+      },
+    },
+    {
+      contractId: 'agenai.agent-protocol.operation-result',
+      parser: safeParseAgentOperationResult,
+      accepted: {
+        invocationId: 'operation-invocation:1',
+        status: 'completed',
+      },
+      rejected: {
+        invocationId: 'operation-invocation:1',
+        status: 'unknown',
+      },
+    },
+    {
+      contractId: 'agenai.agent-protocol.managed-content-catalog',
+      parser: safeParseAgentManagedContentCatalog,
+      accepted: { revision: 1, entries: [] },
+      rejected: { revision: 0, entries: [] },
+    },
+    {
+      contractId: 'agenai.agent-protocol.configuration-catalog',
+      parser: safeParseAgentConfigurationCatalog,
+      accepted: {
+        revision: 1,
+        fields: [{
+          key: 'auto_compact',
+          revision: 1,
+          label: 'Automatic compaction',
+          scope: 'session',
+          applicationTiming: 'immediate',
+          mutable: true,
+          fieldKind: 'boolean',
+          currentValue: true,
+        }],
+      },
+      rejected: { revision: 0, fields: [] },
+    },
+    {
+      contractId: 'agenai.agent-protocol.configuration-selection',
+      parser: safeParseAgentConfigurationSelectionInput,
+      accepted: {
+        key: 'auto_compact',
+        expectedCatalogRevision: 1,
+        expectedFieldRevision: 1,
+        value: { fieldKind: 'boolean', value: false },
+      },
+      rejected: {
+        key: 'auto_compact',
+        expectedCatalogRevision: 0,
+        expectedFieldRevision: 1,
+        value: { fieldKind: 'boolean', value: false },
+      },
+    },
+    {
+      contractId: 'agenai.agent-protocol.integration-catalog',
+      parser: safeParseAgentIntegrationCatalog,
+      accepted: {
+        revision: 1,
+        observedAt: protocolTimestamp,
+        integrations: [],
+      },
+      rejected: {
+        revision: 0,
+        observedAt: protocolTimestamp,
+        integrations: [],
+      },
+    },
+    {
+      contractId: 'agenai.agent-protocol.collaboration-node',
+      parser: safeParseAgentCollaborationNode,
+      accepted: {
+        collaborationId: 'collaboration:1',
+        rootCollaborationId: 'collaboration:1',
+        role: 'delegate',
+        title: 'Implementation inspection',
+        status: 'queued',
+        objective: 'Inspect the implementation.',
+        usage: { kind: 'unavailable' },
+        createdAt: protocolTimestamp,
+        updatedAt: protocolTimestamp,
+      },
+      rejected: {
+        collaborationId: 'collaboration:1',
+        rootCollaborationId: 'collaboration:1',
+        role: 'unknown',
+        title: 'Implementation inspection',
+        status: 'queued',
+        objective: 'Inspect the implementation.',
+        usage: { kind: 'unavailable' },
+        createdAt: protocolTimestamp,
+        updatedAt: protocolTimestamp,
+      },
+    },
+    {
+      contractId: 'agenai.agent-protocol.collaboration-spawn',
+      parser: safeParseAgentCollaborationSpawnInput,
+      accepted: {
+        collaborationId: 'collaboration:2',
+        role: 'reviewer',
+        title: 'Implementation review',
+        objective: 'Review the implementation.',
+        createdAt: protocolTimestamp,
+      },
+      rejected: {
+        collaborationId: 'collaboration:2',
+        role: 'reviewer',
+        title: 'Implementation review',
+        objective: '',
+        createdAt: protocolTimestamp,
+      },
+    },
+    {
+      contractId: 'agenai.agent-protocol.collaboration-control',
+      parser: safeParseAgentCollaborationControlInput,
+      accepted: { action: 'close', collaborationId: 'collaboration:2' },
+      rejected: { action: 'delete', collaborationId: 'collaboration:2' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.generated-resource',
+      parser: safeParseAgentGeneratedResourceDescriptor,
+      accepted: {
+        resourceId: 'resource:1',
+        kind: 'image',
+        status: 'pending',
+        displayName: 'Generated preview',
+        producer: { kind: 'session', sessionId: 'session:1' },
+        createdAt: protocolTimestamp,
+      },
+      rejected: {
+        resourceId: 'resource:1',
+        kind: 'image',
+        status: 'pending',
+        displayName: '',
+        producer: { kind: 'session', sessionId: 'session:1' },
+        createdAt: protocolTimestamp,
+      },
     },
     {
       contractId: 'agenai.agent-protocol.capabilities',
@@ -296,10 +495,18 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
     'canonical_approval_modes',
     'canonical_approval_scope_kinds',
     'canonical_authentication_flows',
-    'canonical_configuration_field_keys',
-    'canonical_configuration_option_ids',
+    'canonical_collaboration_control_actions',
+    'canonical_collaboration_roles',
+    'canonical_configuration_field_kinds',
+    'canonical_elicitation_field_kinds',
+    'canonical_generated_resource_kinds',
     'canonical_image_input_media_types',
     'canonical_image_input_source_kinds',
+    'canonical_integration_kinds',
+    'canonical_managed_content_kinds',
+    'canonical_operation_execution_modes',
+    'canonical_operation_field_kinds',
+    'canonical_operation_kinds',
     'canonical_context_compaction_triggers',
     'canonical_context_cumulative_usage_fields',
     'canonical_context_measurement_scopes',
@@ -325,16 +532,13 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
       },
     },
     {
-      name: 'configuration option IDs',
+      name: 'configuration field kinds',
       value: {
         ...fixture,
         configuration: {
           kind: 'selectable',
-          fields: fixture.configuration.fields.map((field) =>
-            field.key === 'model'
-              ? { ...field, optionIds: ['fixture-model', 'fixture-model'] }
-              : field,
-          ),
+          fieldKinds: ['boolean', 'boolean'],
+          maxFields: fixture.configuration.maxFields,
         },
       },
     },
@@ -364,10 +568,8 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
       ...fixture,
       configuration: {
         kind: 'selectable',
-        fields: [
-          { key: 'model', optionIds: ['fixture-model'] },
-          { key: 'model', optionIds: ['other-model'] },
-        ],
+        fieldKinds: ['single_select', 'boolean'],
+        maxFields: fixture.configuration.maxFields,
       },
     },
     {
@@ -432,7 +634,7 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
   }
 });
 
-test('event JSON Schema declares residual V7 semantic parser invariants', () => {
+test('event JSON Schema declares residual V8 semantic parser invariants', () => {
   const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find(
     (candidate) => candidate.contractId === 'agenai.agent-protocol.event',
   );
@@ -454,7 +656,7 @@ test('event JSON Schema declares residual V7 semantic parser invariants', () => 
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 7,
+    protocolVersion: 8,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -514,31 +716,5 @@ test('event JSON Schema declares residual V7 semantic parser invariants', () => 
   ]) {
     assert.equal(validate(parserOnlyInvalid), true);
     assert.equal(safeParseAgentEvent(parserOnlyInvalid).success, false);
-  }
-});
-
-test('session configuration parsers and JSON Schema reject prototype-sensitive keys', () => {
-  const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find(
-    (candidate) =>
-      candidate.contractId === 'agenai.agent-protocol.session-configuration',
-  );
-  assert.ok(artifact);
-  const validate = new Ajv2020({
-    allErrors: true,
-    strict: true,
-    validateFormats: false,
-  }).compile(artifact.schema);
-
-  for (const prohibitedKey of ['__proto__', 'constructor', 'prototype']) {
-    const configuration = {
-      revision: 'config:prototype-safe',
-      values: JSON.parse(`{"${prohibitedKey}":"unsafe"}`) as unknown,
-    };
-    assert.equal(validate(configuration), false, prohibitedKey);
-    assert.equal(
-      safeParseAgentSessionConfiguration(configuration).success,
-      false,
-      prohibitedKey,
-    );
   }
 });

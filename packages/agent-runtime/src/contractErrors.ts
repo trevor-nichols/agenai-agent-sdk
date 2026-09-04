@@ -23,9 +23,15 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "concurrent_turn",
   "active_turn_mismatch",
   "invalid_operation_result",
+  "invalid_inventory",
+  "invalid_collaboration_transition",
+  "input_operation_mismatch",
   "output_session_mismatch",
   "output_turn_mismatch",
   "output_authentication_attempt_mismatch",
+  "output_operation_mismatch",
+  "output_collaboration_mismatch",
+  "output_resource_mismatch",
   "output_capability_mismatch",
   "input_capability_mismatch",
   "invalid_turn_sequence",
@@ -38,7 +44,12 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
 export type AgentProviderContractErrorCode =
   (typeof AGENT_PROVIDER_CONTRACT_ERROR_CODES)[number];
 
-export type AgentProviderDelegatedOperation = "steer_turn";
+export type AgentProviderDelegatedOperation =
+  | "steer_turn"
+  | "invoke_operation"
+  | "apply_configuration"
+  | "spawn_collaboration"
+  | "control_collaboration";
 
 export class AgentProviderContractError extends Error {
   constructor(

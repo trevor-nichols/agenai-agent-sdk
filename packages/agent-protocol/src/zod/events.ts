@@ -5,6 +5,7 @@
 import { z } from 'zod/v4';
 
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
+import { AgentCollaborationNodePortableSchema } from './collaboration.js';
 import {
   AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
   AGENT_PROTOCOL_EVENT_BYTES_LIMIT,
@@ -15,6 +16,8 @@ import {
 } from '../foundation/types.js';
 import type { AgentEvent } from '../events/types.js';
 import { AgentRequestPortableSchema, AgentRequestSchema } from './requests.js';
+import { AgentOperationResultPortableSchema } from './operations.js';
+import { AgentGeneratedResourceDescriptorPortableSchema } from './resources.js';
 import {
   AGENT_CONTEXT_COMPACTION_STATES,
   AGENT_CONTEXT_MEASUREMENT_SCOPES,
@@ -233,6 +236,21 @@ export const AgentEventPortableSchema = z.discriminatedUnion('type', [
   optionallyTurnScopedEvent(
     'artifact.referenced',
     z.object({ artifact: AgentArtifactDescriptorSchema }).strict().readonly(),
+  ),
+  optionallyTurnScopedEvent(
+    'operation.updated',
+    z.object({ result: AgentOperationResultPortableSchema }).strict().readonly(),
+  ),
+  optionallyTurnScopedEvent(
+    'collaboration.updated',
+    z.object({ node: AgentCollaborationNodePortableSchema }).strict().readonly(),
+  ),
+  optionallyTurnScopedEvent(
+    'resource.updated',
+    z
+      .object({ resource: AgentGeneratedResourceDescriptorPortableSchema })
+      .strict()
+      .readonly(),
   ),
   optionallyTurnScopedEvent(
     'runtime.warning',

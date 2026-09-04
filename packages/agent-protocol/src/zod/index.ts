@@ -5,13 +5,21 @@
 export {
   AgentApprovalOptionIdSchema,
   AgentArtifactIdSchema,
+  AgentCollaborationIdSchema,
   AgentConfigurationRevisionIdSchema,
   AgentErrorContextSchema,
   AgentErrorSchema,
   AgentInstanceIdSchema,
+  AgentIntegrationIdSchema,
+  AgentIntegrationResourceIdSchema,
+  AgentIntegrationServerIdSchema,
+  AgentIntegrationToolIdSchema,
   AgentIsoDateTimeSchema,
   AgentItemIdSchema,
   AgentJsonValueSchema,
+  AgentManagedContentIdSchema,
+  AgentOperationIdSchema,
+  AgentOperationInvocationIdSchema,
   AgentProviderConversationIdSchema,
   AgentProviderHistoryAnchorSchema,
   AgentProviderItemRefSchema,
@@ -22,6 +30,7 @@ export {
   AgentRequestFieldIdSchema,
   AgentRequestIdSchema,
   AgentSessionIdSchema,
+  AgentGeneratedResourceIdSchema,
   AgentTurnIdSchema,
 } from './foundation.js';
 export {
@@ -65,6 +74,33 @@ export {
   AgentRequestResolutionSchema,
   AgentRequestSchema,
 } from './requests.js';
+export {
+  AgentOperationCatalogSchema,
+  AgentOperationDescriptorSchema,
+  AgentOperationFieldSchema,
+  AgentOperationInvocationSchema,
+  AgentOperationResultSchema,
+} from './operations.js';
+export {
+  AgentManagedContentCatalogSchema,
+  AgentManagedContentDescriptorSchema,
+} from './managedContent.js';
+export {
+  AgentConfigurationCatalogSchema,
+  AgentConfigurationFieldPortableSchema,
+  AgentConfigurationSelectionInputSchema,
+  AgentConfigurationValueSchema,
+} from './configuration.js';
+export {
+  AgentIntegrationCatalogSchema,
+  AgentIntegrationDescriptorSchema,
+} from './integrations.js';
+export {
+  AgentCollaborationControlInputSchema,
+  AgentCollaborationNodeSchema,
+  AgentCollaborationSpawnInputSchema,
+} from './collaboration.js';
+export { AgentGeneratedResourceDescriptorSchema } from './resources.js';
 export {
   AgentApprovalCapabilitySchema,
   AgentCapabilitiesSchema,

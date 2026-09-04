@@ -5,7 +5,6 @@
 import { z } from 'zod/v4';
 
 import {
-  AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
   AGENT_PROTOCOL_VERSION,
 } from '../foundation/types.js';
 import { AGENT_ARTIFACT_KINDS } from '../artifacts/types.js';
@@ -15,9 +14,39 @@ import {
   type AgentCapabilities,
 } from '../capabilities/types.js';
 import {
+  AGENT_COLLABORATION_CONTROL_ACTIONS,
+  AGENT_COLLABORATION_GRAPH_LIMITS,
+  AGENT_COLLABORATION_ROLES,
+} from '../collaboration/types.js';
+import {
+  AGENT_CONFIGURATION_FIELD_KINDS,
+  AGENT_CONFIGURATION_FIELDS_MAX_LENGTH,
+} from '../configuration/types.js';
+import {
+  AGENT_INTEGRATION_KINDS,
+  AGENT_INTEGRATION_RESOURCES_MAX_LENGTH,
+  AGENT_INTEGRATION_CATALOG_MAX_LENGTH,
+  AGENT_INTEGRATION_SERVERS_MAX_LENGTH,
+  AGENT_INTEGRATION_TOOLS_MAX_LENGTH,
+} from '../integrations/types.js';
+import {
+  AGENT_MANAGED_CONTENT_CATALOG_MAX_LENGTH,
+  AGENT_MANAGED_CONTENT_KINDS,
+} from '../managedContent/types.js';
+import {
+  AGENT_OPERATION_CATALOG_MAX_LENGTH,
+  AGENT_OPERATION_EXECUTION_MODES,
+  AGENT_OPERATION_FIELDS_MAX_LENGTH,
+  AGENT_OPERATION_FIELD_KINDS,
+  AGENT_OPERATION_KINDS,
+} from '../operations/types.js';
+import {
   AGENT_APPROVAL_PERSISTENCES,
   AGENT_APPROVAL_SCOPE_KINDS,
+  AGENT_ELICITATION_FIELD_KINDS,
+  AGENT_ELICITATION_FIELDS_MAX_LENGTH,
 } from '../requests/types.js';
+import { AGENT_GENERATED_RESOURCE_KINDS } from '../resources/types.js';
 import {
   AGENT_CONTEXT_COMPACTION_TRIGGERS,
   AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS,
@@ -27,12 +56,6 @@ import {
   AGENT_TURN_INTERACTION_MODES,
 } from '../turns/types.js';
 import { AgentProviderKeySchema } from './foundation.js';
-
-const AgentCapabilityIdentifierSchema = z
-  .string()
-  .min(1)
-  .max(100)
-  .regex(/^[a-z][a-z0-9._:-]*$/u);
 
 function addCanonicalListIssues(
   input: {
@@ -76,6 +99,10 @@ const PositiveSafeIntegerSchema = z
   .int()
   .positive()
   .max(Number.MAX_SAFE_INTEGER);
+
+function boundedPositiveSafeInteger(maximum: number): z.ZodNumber {
+  return z.number().int().positive().max(maximum);
+}
 
 export const AgentApprovalCapabilitySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('unsupported') }).strict().readonly(),
@@ -249,6 +276,134 @@ export const AgentOperationInputCapabilitySchema = z
   .strict()
   .readonly();
 
+const AgentOperationsCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      operationKinds: z
+        .array(z.enum(AGENT_OPERATION_KINDS))
+        .min(1)
+        .max(AGENT_OPERATION_KINDS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      fieldKinds: z
+        .array(z.enum(AGENT_OPERATION_FIELD_KINDS))
+        .min(1)
+        .max(AGENT_OPERATION_FIELD_KINDS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      executionModes: z
+        .array(z.enum(AGENT_OPERATION_EXECUTION_MODES))
+        .min(1)
+        .max(AGENT_OPERATION_EXECUTION_MODES.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      maxOperations: boundedPositiveSafeInteger(
+        AGENT_OPERATION_CATALOG_MAX_LENGTH,
+      ),
+      maxFieldsPerOperation: boundedPositiveSafeInteger(
+        AGENT_OPERATION_FIELDS_MAX_LENGTH,
+      ),
+    })
+    .strict()
+    .readonly(),
+]);
+
+const AgentManagedContentCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      contentKinds: z
+        .array(z.enum(AGENT_MANAGED_CONTENT_KINDS))
+        .min(1)
+        .max(AGENT_MANAGED_CONTENT_KINDS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      maxEntries: boundedPositiveSafeInteger(
+        AGENT_MANAGED_CONTENT_CATALOG_MAX_LENGTH,
+      ),
+    })
+    .strict()
+    .readonly(),
+]);
+
+const AgentIntegrationsCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      integrationKinds: z
+        .array(z.enum(AGENT_INTEGRATION_KINDS))
+        .min(1)
+        .max(AGENT_INTEGRATION_KINDS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      maxIntegrations: boundedPositiveSafeInteger(
+        AGENT_INTEGRATION_CATALOG_MAX_LENGTH,
+      ),
+      maxServersPerIntegration: boundedPositiveSafeInteger(
+        AGENT_INTEGRATION_SERVERS_MAX_LENGTH,
+      ),
+      maxToolsPerServer: boundedPositiveSafeInteger(
+        AGENT_INTEGRATION_TOOLS_MAX_LENGTH,
+      ),
+      maxResourcesPerServer: boundedPositiveSafeInteger(
+        AGENT_INTEGRATION_RESOURCES_MAX_LENGTH,
+      ),
+    })
+    .strict()
+    .readonly(),
+]);
+
+const AgentCollaborationCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      roles: z
+        .array(z.enum(AGENT_COLLABORATION_ROLES))
+        .min(1)
+        .max(AGENT_COLLABORATION_ROLES.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      controlActions: z
+        .array(z.enum(AGENT_COLLABORATION_CONTROL_ACTIONS))
+        .min(1)
+        .max(AGENT_COLLABORATION_CONTROL_ACTIONS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      maxDepth: boundedPositiveSafeInteger(AGENT_COLLABORATION_GRAPH_LIMITS.maxDepth),
+      maxChildrenPerNode: boundedPositiveSafeInteger(
+        AGENT_COLLABORATION_GRAPH_LIMITS.maxChildrenPerNode,
+      ),
+      maxActiveNodes: boundedPositiveSafeInteger(
+        AGENT_COLLABORATION_GRAPH_LIMITS.maxActiveNodes,
+      ),
+    })
+    .strict()
+    .readonly(),
+]);
+
+const AgentGeneratedResourcesCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z
+    .object({
+      kind: z.literal('supported'),
+      resourceKinds: z
+        .array(z.enum(AGENT_GENERATED_RESOURCE_KINDS))
+        .min(1)
+        .max(AGENT_GENERATED_RESOURCE_KINDS.length)
+        .meta({ uniqueItems: true })
+        .readonly(),
+      maxResourcesPerTurn: boundedPositiveSafeInteger(100),
+      maxBytesPerResource: boundedPositiveSafeInteger(1_073_741_824),
+    })
+    .strict()
+    .readonly(),
+]);
+
 export const AgentCapabilitiesPortableSchema = z
   .object({
     protocolVersion: z.literal(AGENT_PROTOCOL_VERSION),
@@ -291,8 +446,22 @@ export const AgentCapabilitiesPortableSchema = z
         approval: AgentApprovalCapabilitySchema,
         elicitation: z.discriminatedUnion('kind', [
           z.object({ kind: z.literal('unsupported') }).strict().readonly(),
-          z.object({ kind: z.literal('text') }).strict().readonly(),
-          z.object({ kind: z.literal('structured') }).strict().readonly(),
+          z
+            .object({
+              kind: z.literal('supported'),
+              fieldKinds: z
+                .array(z.enum(AGENT_ELICITATION_FIELD_KINDS))
+                .min(1)
+                .max(AGENT_ELICITATION_FIELD_KINDS.length)
+                .meta({ uniqueItems: true })
+                .readonly(),
+              maxFields: boundedPositiveSafeInteger(
+                AGENT_ELICITATION_FIELDS_MAX_LENGTH,
+              ),
+              sensitiveFields: z.boolean(),
+            })
+            .strict()
+            .readonly(),
         ]),
       })
       .strict()
@@ -323,37 +492,24 @@ export const AgentCapabilitiesPortableSchema = z
       z
         .object({
           kind: z.literal('selectable'),
-          fields: z
-            .array(
-              z
-                .object({
-                  key: AgentCapabilityIdentifierSchema,
-                  optionIds: z
-                    .array(AgentCapabilityIdentifierSchema)
-                    .min(1)
-                    .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
-                    .meta({ uniqueItems: true })
-                    .readonly(),
-                })
-                .strict()
-                .readonly(),
-            )
+          fieldKinds: z
+            .array(z.enum(AGENT_CONFIGURATION_FIELD_KINDS))
             .min(1)
-            .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
+            .max(AGENT_CONFIGURATION_FIELD_KINDS.length)
+            .meta({ uniqueItems: true })
             .readonly(),
+          maxFields: boundedPositiveSafeInteger(
+            AGENT_CONFIGURATION_FIELDS_MAX_LENGTH,
+          ),
         })
         .strict()
         .readonly(),
     ]),
-    interactionExtensions: z
-      .object({
-        slashCommands: z.boolean(),
-        mcp: z.boolean(),
-        subagents: z.boolean(),
-        imageGeneration: z.boolean(),
-      })
-      .strict()
-      .readonly(),
+    operations: AgentOperationsCapabilitySchema,
+    managedContent: AgentManagedContentCapabilitySchema,
+    integrations: AgentIntegrationsCapabilitySchema,
+    collaboration: AgentCollaborationCapabilitySchema,
+    generatedResources: AgentGeneratedResourcesCapabilitySchema,
     authentication: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('unsupported') }).strict().readonly(),
       z
@@ -430,25 +586,94 @@ export const AgentCapabilitiesSchema: z.ZodType<AgentCapabilities> =
     );
 
     if (capabilities.configuration.kind === 'selectable') {
-      const keys = capabilities.configuration.fields.map((field) => field.key);
       addCanonicalListIssues(
         {
-          values: keys,
-          path: ['configuration', 'fields'],
-          label: 'Selectable configuration fields',
+          values: capabilities.configuration.fieldKinds,
+          canonicalOrder: AGENT_CONFIGURATION_FIELD_KINDS,
+          path: ['configuration', 'fieldKinds'],
+          label: 'Selectable configuration field kinds',
         },
         context,
       );
-      capabilities.configuration.fields.forEach((field, index) => {
-        addCanonicalListIssues(
-          {
-            values: field.optionIds,
-            path: ['configuration', 'fields', index, 'optionIds'],
-            label: 'Selectable configuration option IDs',
-          },
-          context,
-        );
-      });
+    }
+
+    if (capabilities.requests.elicitation.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.requests.elicitation.fieldKinds,
+          canonicalOrder: AGENT_ELICITATION_FIELD_KINDS,
+          path: ['requests', 'elicitation', 'fieldKinds'],
+          label: 'Elicitation field kinds',
+        },
+        context,
+      );
+    }
+
+    if (capabilities.operations.kind === 'supported') {
+      for (const [values, canonicalOrder, path, label] of [
+        [capabilities.operations.operationKinds, AGENT_OPERATION_KINDS, ['operations', 'operationKinds'], 'Operation kinds'],
+        [capabilities.operations.fieldKinds, AGENT_OPERATION_FIELD_KINDS, ['operations', 'fieldKinds'], 'Operation field kinds'],
+        [capabilities.operations.executionModes, AGENT_OPERATION_EXECUTION_MODES, ['operations', 'executionModes'], 'Operation execution modes'],
+      ] as const) {
+        addCanonicalListIssues({ values, canonicalOrder, path, label }, context);
+      }
+    }
+
+    if (capabilities.managedContent.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.managedContent.contentKinds,
+          canonicalOrder: AGENT_MANAGED_CONTENT_KINDS,
+          path: ['managedContent', 'contentKinds'],
+          label: 'Managed content kinds',
+        },
+        context,
+      );
+    }
+
+    if (capabilities.integrations.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.integrations.integrationKinds,
+          canonicalOrder: AGENT_INTEGRATION_KINDS,
+          path: ['integrations', 'integrationKinds'],
+          label: 'Integration kinds',
+        },
+        context,
+      );
+    }
+
+    if (capabilities.collaboration.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.collaboration.roles,
+          canonicalOrder: AGENT_COLLABORATION_ROLES,
+          path: ['collaboration', 'roles'],
+          label: 'Collaboration roles',
+        },
+        context,
+      );
+      addCanonicalListIssues(
+        {
+          values: capabilities.collaboration.controlActions,
+          canonicalOrder: AGENT_COLLABORATION_CONTROL_ACTIONS,
+          path: ['collaboration', 'controlActions'],
+          label: 'Collaboration control actions',
+        },
+        context,
+      );
+    }
+
+    if (capabilities.generatedResources.kind === 'supported') {
+      addCanonicalListIssues(
+        {
+          values: capabilities.generatedResources.resourceKinds,
+          canonicalOrder: AGENT_GENERATED_RESOURCE_KINDS,
+          path: ['generatedResources', 'resourceKinds'],
+          label: 'Generated resource kinds',
+        },
+        context,
+      );
     }
 
     if (capabilities.authentication.kind === 'supported') {

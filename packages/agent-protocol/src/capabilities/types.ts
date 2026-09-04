@@ -3,7 +3,20 @@
 // ------------------------------------------------------------------------------------------------
 
 import type { AgentArtifactKind } from '../artifacts/index.js';
+import type {
+  AgentCollaborationControlAction,
+  AgentCollaborationRole,
+} from '../collaboration/index.js';
+import type { AgentConfigurationFieldKind } from '../configuration/index.js';
 import type { AgentProviderKey } from '../foundation/index.js';
+import type { AgentIntegrationKind } from '../integrations/index.js';
+import type { AgentManagedContentKind } from '../managedContent/index.js';
+import type {
+  AgentOperationExecutionMode,
+  AgentOperationFieldKind,
+  AgentOperationKind,
+} from '../operations/index.js';
+import type { AgentGeneratedResourceKind } from '../resources/index.js';
 import type {
   AgentContextCompactionTrigger,
   AgentContextCumulativeUsageField,
@@ -15,13 +28,9 @@ import type {
 import type {
   AgentApprovalPersistence,
   AgentApprovalScopeKind,
+  AgentElicitationFieldKind,
 } from '../requests/types.js';
 
-export const AGENT_ELICITATION_MODES = [
-  'unsupported',
-  'text',
-  'structured',
-] as const;
 export const AGENT_FILE_CHANGE_MODES = [
   'none',
   'final_diff',
@@ -33,7 +42,6 @@ export const AGENT_AUTHENTICATION_FLOWS = [
   'terminal',
 ] as const;
 
-export type AgentElicitationMode = (typeof AGENT_ELICITATION_MODES)[number];
 export type AgentFileChangeMode = (typeof AGENT_FILE_CHANGE_MODES)[number];
 export type AgentAuthenticationFlow =
   (typeof AGENT_AUTHENTICATION_FLOWS)[number];
@@ -44,19 +52,69 @@ export type AgentBranchCapability =
 
 export type AgentElicitationCapability =
   | Readonly<{ kind: 'unsupported' }>
-  | Readonly<{ kind: 'text' }>
-  | Readonly<{ kind: 'structured' }>;
-
-export interface AgentConfigurationFieldCapability {
-  readonly key: string;
-  readonly optionIds: readonly string[];
-}
+  | Readonly<{
+      kind: 'supported';
+      fieldKinds: readonly AgentElicitationFieldKind[];
+      maxFields: number;
+      sensitiveFields: boolean;
+    }>;
 
 export type AgentConfigurationCapability =
   | Readonly<{ kind: 'managed' }>
   | Readonly<{
       kind: 'selectable';
-      fields: readonly AgentConfigurationFieldCapability[];
+      fieldKinds: readonly AgentConfigurationFieldKind[];
+      maxFields: number;
+    }>;
+
+export type AgentOperationsCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      operationKinds: readonly AgentOperationKind[];
+      fieldKinds: readonly AgentOperationFieldKind[];
+      executionModes: readonly AgentOperationExecutionMode[];
+      maxOperations: number;
+      maxFieldsPerOperation: number;
+    }>;
+
+export type AgentManagedContentCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      contentKinds: readonly AgentManagedContentKind[];
+      maxEntries: number;
+    }>;
+
+export type AgentIntegrationsCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      integrationKinds: readonly AgentIntegrationKind[];
+      maxIntegrations: number;
+      maxServersPerIntegration: number;
+      maxToolsPerServer: number;
+      maxResourcesPerServer: number;
+    }>;
+
+export type AgentCollaborationCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      roles: readonly AgentCollaborationRole[];
+      controlActions: readonly AgentCollaborationControlAction[];
+      maxDepth: number;
+      maxChildrenPerNode: number;
+      maxActiveNodes: number;
+    }>;
+
+export type AgentGeneratedResourcesCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      resourceKinds: readonly AgentGeneratedResourceKind[];
+      maxResourcesPerTurn: number;
+      maxBytesPerResource: number;
     }>;
 
 export type AgentAuthenticationCapability =
@@ -122,7 +180,7 @@ export type AgentTurnSteeringCapability =
     }>;
 
 export interface AgentCapabilities {
-  readonly protocolVersion: 7;
+  readonly protocolVersion: 8;
   readonly providerKey: AgentProviderKey;
   readonly sessions: Readonly<{
     create: true;
@@ -150,12 +208,11 @@ export interface AgentCapabilities {
     artifactKinds: readonly AgentArtifactKind[];
   }>;
   readonly configuration: AgentConfigurationCapability;
-  readonly interactionExtensions: Readonly<{
-    slashCommands: boolean;
-    mcp: boolean;
-    subagents: boolean;
-    imageGeneration: boolean;
-  }>;
+  readonly operations: AgentOperationsCapability;
+  readonly managedContent: AgentManagedContentCapability;
+  readonly integrations: AgentIntegrationsCapability;
+  readonly collaboration: AgentCollaborationCapability;
+  readonly generatedResources: AgentGeneratedResourcesCapability;
   readonly authentication: AgentAuthenticationCapability;
   readonly versionReporting: boolean;
 }

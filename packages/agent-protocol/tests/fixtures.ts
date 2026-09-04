@@ -55,9 +55,81 @@ const supportedContext = {
   },
 } as const;
 
+const supportedElicitation = {
+  kind: 'supported',
+  fieldKinds: [
+    'text',
+    'single_select',
+    'multi_select',
+    'boolean',
+    'confirmation',
+  ],
+  maxFields: 16,
+  sensitiveFields: true,
+} as const;
+
+const unsupportedNativeDomains = {
+  operations: { kind: 'unsupported' },
+  managedContent: { kind: 'unsupported' },
+  integrations: { kind: 'unsupported' },
+  collaboration: { kind: 'unsupported' },
+  generatedResources: { kind: 'unsupported' },
+} as const;
+
+const supportedNativeDomains = {
+  operations: {
+    kind: 'supported',
+    operationKinds: [
+      'session_control',
+      'managed_content_invoke',
+      'configuration_select',
+      'integration_control',
+      'collaboration_control',
+      'resource_generate',
+    ],
+    fieldKinds: [
+      'text',
+      'boolean',
+      'single_select',
+      'multi_select',
+      'integer',
+    ],
+    executionModes: ['immediate', 'request_continuation', 'durable_job'],
+    maxOperations: 100,
+    maxFieldsPerOperation: 16,
+  },
+  managedContent: {
+    kind: 'supported',
+    contentKinds: ['skill', 'rule', 'prompt', 'agent_definition'],
+    maxEntries: 100,
+  },
+  integrations: {
+    kind: 'supported',
+    integrationKinds: ['mcp'],
+    maxIntegrations: 32,
+    maxServersPerIntegration: 32,
+    maxToolsPerServer: 100,
+    maxResourcesPerServer: 100,
+  },
+  collaboration: {
+    kind: 'supported',
+    roles: ['delegate', 'reviewer', 'researcher', 'specialist'],
+    controlActions: ['spawn', 'steer', 'stop', 'close', 'inspect'],
+    maxDepth: 8,
+    maxChildrenPerNode: 16,
+    maxActiveNodes: 64,
+  },
+  generatedResources: {
+    kind: 'supported',
+    resourceKinds: ['image', 'document', 'archive'],
+    maxResourcesPerTurn: 16,
+    maxBytesPerResource: 25 * 1024 * 1024,
+  },
+} as const;
+
 export const providerCapabilityFixtures = {
   fixture: {
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey: 'fixture',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -65,7 +137,7 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'supported', input: supportedInput },
     },
-    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: supportedContext,
     input: supportedInput,
     output: {
@@ -76,24 +148,20 @@ export const providerCapabilityFixtures = {
     },
     configuration: {
       kind: 'selectable',
-      fields: [
-        { key: 'mode', optionIds: ['agent'] },
-        { key: 'model', optionIds: ['fixture-model'] },
-        { key: 'permission_mode', optionIds: ['workspace-write'] },
-        { key: 'reasoning_effort', optionIds: ['standard'] },
+      fieldKinds: [
+        'boolean',
+        'single_select',
+        'bounded_integer',
+        'bounded_text',
       ],
+      maxFields: 100,
     },
-    interactionExtensions: {
-      slashCommands: true,
-      mcp: true,
-      subagents: true,
-      imageGeneration: true,
-    },
+    ...supportedNativeDomains,
     authentication: { kind: 'supported', flows: ['device_code'] },
     versionReporting: true,
   },
   codex: {
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey: 'codex',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -101,7 +169,7 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'supported', input: unsupportedInput },
     },
-    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
     input: unsupportedInput,
     output: {
@@ -111,17 +179,12 @@ export const providerCapabilityFixtures = {
       artifactKinds: ['diff'],
     },
     configuration: { kind: 'managed' },
-    interactionExtensions: {
-      slashCommands: false,
-      mcp: false,
-      subagents: false,
-      imageGeneration: false,
-    },
+    ...unsupportedNativeDomains,
     authentication: { kind: 'supported', flows: ['device_code'] },
     versionReporting: true,
   },
   claudeCode: {
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey: 'claude_code',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -129,7 +192,7 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
     input: unsupportedInput,
     output: {
@@ -139,17 +202,12 @@ export const providerCapabilityFixtures = {
       artifactKinds: ['diff'],
     },
     configuration: { kind: 'managed' },
-    interactionExtensions: {
-      slashCommands: false,
-      mcp: true,
-      subagents: false,
-      imageGeneration: false,
-    },
+    ...unsupportedNativeDomains,
     authentication: { kind: 'supported', flows: ['browser'] },
     versionReporting: true,
   },
   opencode: {
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey: 'opencode',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -157,7 +215,7 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
     input: unsupportedInput,
     output: {
@@ -167,17 +225,12 @@ export const providerCapabilityFixtures = {
       artifactKinds: ['diff'],
     },
     configuration: { kind: 'managed' },
-    interactionExtensions: {
-      slashCommands: false,
-      mcp: false,
-      subagents: false,
-      imageGeneration: false,
-    },
+    ...unsupportedNativeDomains,
     authentication: { kind: 'unsupported' },
     versionReporting: true,
   },
   cursor: {
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey: 'cursor_acp',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -185,7 +238,7 @@ export const providerCapabilityFixtures = {
       interrupt: true,
       steer: { kind: 'unsupported' },
     },
-    requests: { approval: onceApproval, elicitation: { kind: 'structured' } },
+    requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
     input: unsupportedInput,
     output: {
@@ -195,17 +248,12 @@ export const providerCapabilityFixtures = {
       artifactKinds: ['plan', 'diff'],
     },
     configuration: { kind: 'managed' },
-    interactionExtensions: {
-      slashCommands: false,
-      mcp: false,
-      subagents: false,
-      imageGeneration: false,
-    },
+    ...unsupportedNativeDomains,
     authentication: { kind: 'unsupported' },
     versionReporting: true,
   },
   grokBuild: {
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey: 'grok_build',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -223,19 +271,14 @@ export const providerCapabilityFixtures = {
       artifactKinds: ['diff'],
     },
     configuration: { kind: 'managed' },
-    interactionExtensions: {
-      slashCommands: false,
-      mcp: false,
-      subagents: false,
-      imageGeneration: false,
-    },
+    ...unsupportedNativeDomains,
     authentication: { kind: 'unsupported' },
     versionReporting: true,
   },
 } as const;
 
 const eventBase = {
-  protocolVersion: 7,
+  protocolVersion: 8,
   sessionId: 'session:external-42',
   turnId: 'turn:external-9',
   occurredAt: protocolTimestamp,
@@ -383,6 +426,62 @@ export const eventFixtureCorpus = [
         displayName: 'working-tree.diff',
         mediaType: 'text/x-diff',
         byteSize: 120,
+      },
+    },
+  },
+  {
+    ...eventBase,
+    type: 'operation.updated',
+    payload: {
+      result: {
+        invocationId: 'operation-invocation:1',
+        status: 'completed',
+      },
+    },
+  },
+  {
+    ...eventBase,
+    type: 'collaboration.updated',
+    payload: {
+      node: {
+        collaborationId: 'collaboration:1',
+        rootCollaborationId: 'collaboration:1',
+        role: 'delegate',
+        title: 'Implementation inspection',
+        status: 'completed',
+        objective: 'Inspect the implementation.',
+        progress: 'Inspection complete.',
+        usage: {
+          kind: 'reported',
+          inputTokens: 120,
+          outputTokens: 40,
+          totalTokens: 160,
+          modelCalls: 1,
+        },
+        outcome: { kind: 'completed' },
+        createdAt: protocolTimestamp,
+        updatedAt: protocolTimestamp,
+        terminalAt: protocolTimestamp,
+      },
+    },
+  },
+  {
+    ...eventBase,
+    type: 'resource.updated',
+    payload: {
+      resource: {
+        resourceId: 'resource:1',
+        kind: 'image',
+        status: 'available',
+        displayName: 'Generated preview',
+        producer: { kind: 'turn', turnId: 'turn:1' },
+        mediaType: 'image/png',
+        byteSize: 120,
+        sha256: 'd'.repeat(64),
+        widthPixels: 16,
+        heightPixels: 16,
+        artifactId: 'artifact:generated-1',
+        createdAt: protocolTimestamp,
       },
     },
   },

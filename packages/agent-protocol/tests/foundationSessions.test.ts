@@ -21,10 +21,7 @@ import {
   safeParseAgentSessionId,
   safeParseAgentSessionOpenInput,
 } from '../src/public/index.js';
-import {
-  AgentJsonValueSchema,
-  AgentSessionConfigurationSchema,
-} from '../src/zod/index.js';
+import { AgentJsonValueSchema } from '../src/zod/index.js';
 
 test('canonical string ordering compares Unicode code points instead of UTF-16 units', () => {
   const privateUseCharacter = '\uE000';
@@ -110,26 +107,11 @@ test('JSON values are finite, portable, depth bounded, and byte bounded', () => 
   });
   assert.equal(safeParseAgentJsonValue(accessorBackedValue).success, false);
 
-  assert.equal(
-    AgentSessionConfigurationSchema.safeParse({
-      revision: 'config:cyclic',
-      values: { cyclicValue },
-    }).success,
-    false,
-  );
-
   let tooDeep: unknown = 'leaf';
   for (let depth = 0; depth <= AGENT_PROTOCOL_JSON_DEPTH_LIMIT; depth += 1) {
     tooDeep = { child: tooDeep };
   }
   assert.equal(safeParseAgentJsonValue(tooDeep).success, false);
-  assert.equal(
-    safeParseAgentSessionConfiguration({
-      revision: 'config:too-deep',
-      values: { nested: tooDeep },
-    }).success,
-    false,
-  );
   assert.equal(safeParseAgentJsonValue('x'.repeat(40_000)).success, false);
 
   let stackOverflowDepth: unknown = null;
@@ -137,29 +119,9 @@ test('JSON values are finite, portable, depth bounded, and byte bounded', () => 
     stackOverflowDepth = [stackOverflowDepth];
   }
   assert.equal(safeParseAgentJsonValue(stackOverflowDepth).success, false);
-  assert.equal(
-    safeParseAgentSessionOpenInput({
-      operation: 'create',
-      sessionId: 'session:deep-input',
-      configuration: {
-        revision: 'config:deep-input',
-        values: { nested: stackOverflowDepth },
-      },
-    }).success,
-    false,
-  );
-
   for (const prohibitedKey of ['__proto__', 'constructor', 'prototype']) {
     const jsonValue = JSON.parse(`{"${prohibitedKey}":"unsafe"}`) as unknown;
     assert.equal(safeParseAgentJsonValue(jsonValue).success, false, prohibitedKey);
-    assert.equal(
-      safeParseAgentSessionConfiguration({
-        revision: 'config:prototype-safe',
-        values: jsonValue,
-      }).success,
-      false,
-      prohibitedKey,
-    );
   }
 });
 
@@ -191,9 +153,17 @@ test('provider references are explicit, strict, and non-empty', () => {
 
 test('session open operations preserve opaque binding and exact branch boundary', () => {
   const configuration = {
+    kind: 'selected',
     revision: 'config:7',
-    values: { model: 'provider-model', mode: 'agent' },
-  };
+    catalogRevision: 4,
+    selections: [
+      {
+        key: 'model',
+        fieldRevision: 2,
+        value: { fieldKind: 'single_select', optionId: 'provider-model' },
+      },
+    ],
+  } as const;
   const binding = {
     conversationId: 'provider-conversation:9',
     historyAnchor: 'provider-message:22',
@@ -255,20 +225,52 @@ test('session open operations preserve opaque binding and exact branch boundary'
   );
 });
 
-test('session configuration rejects unknown fields and oversized values', () => {
+test('session configuration is closed, bounded, unique, and canonically ordered', () => {
   const unknown = safeParseAgentSessionConfiguration({
+    kind: 'managed',
     revision: 'config:1',
-    values: {},
     extra: true,
   });
   assert.equal(unknown.success, false);
 
   const oversized = safeParseAgentSessionConfiguration({
+    kind: 'selected',
     revision: 'config:1',
-    values: { prompt: 'x'.repeat(40_000) },
+    catalogRevision: 1,
+    selections: [{
+      key: 'prompt',
+      fieldRevision: 1,
+      value: { fieldKind: 'bounded_text', value: 'x'.repeat(4_001) },
+    }],
   });
   assert.equal(oversized.success, false);
-  if (!oversized.success) assert.deepEqual(oversized.issues[0]?.path, ['values', 'prompt']);
+  if (!oversized.success) {
+    assert.deepEqual(oversized.issues[0]?.path, [
+      'selections',
+      0,
+      'value',
+      'value',
+    ]);
+  }
+
+  const noncanonical = {
+    kind: 'selected',
+    revision: 'config:1',
+    catalogRevision: 1,
+    selections: [
+      {
+        key: 'zeta',
+        fieldRevision: 1,
+        value: { fieldKind: 'boolean', value: true },
+      },
+      {
+        key: 'alpha',
+        fieldRevision: 1,
+        value: { fieldKind: 'boolean', value: false },
+      },
+    ],
+  };
+  assert.equal(safeParseAgentSessionConfiguration(noncanonical).success, false);
 
   assert.throws(
     () => parseAgentSessionId(''),

@@ -78,8 +78,8 @@ const context: AgentProviderSessionContext = {
   sessionId,
   workingDirectory: "/host/session",
   configuration: {
+    kind: "managed",
     revision: parseAgentConfigurationRevisionId("configuration:1"),
-    values: {},
   },
   // @ts-expect-error Product identity is not part of the provider session context.
   teamId: 42,

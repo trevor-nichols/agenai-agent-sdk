@@ -11,12 +11,29 @@ import { z } from 'zod/v4';
 
 import { AgentArtifactDescriptorSchema } from '../src/zod/artifacts.ts';
 import { AgentCapabilitiesPortableSchema } from '../src/zod/capabilities.ts';
+import {
+  AgentCollaborationControlInputSchema,
+  AgentCollaborationNodePortableSchema,
+  AgentCollaborationSpawnInputSchema,
+} from '../src/zod/collaboration.ts';
+import {
+  AgentConfigurationCatalogPortableSchema,
+  AgentConfigurationSelectionInputSchema,
+} from '../src/zod/configuration.ts';
 import { AgentEventPortableSchema } from '../src/zod/events.ts';
+import { AgentIntegrationCatalogPortableSchema } from '../src/zod/integrations.ts';
+import { AgentManagedContentCatalogPortableSchema } from '../src/zod/managedContent.ts';
+import {
+  AgentOperationCatalogPortableSchema,
+  AgentOperationInvocationPortableSchema,
+  AgentOperationResultPortableSchema,
+} from '../src/zod/operations.ts';
 import { AGENT_PROTOCOL_VERSION } from '../src/foundation/types.ts';
 import {
   AgentRequestPortableSchema,
   AgentRequestResolutionPortableSchema,
 } from '../src/zod/requests.ts';
+import { AgentGeneratedResourceDescriptorPortableSchema } from '../src/zod/resources.ts';
 import {
   AgentSessionBindingSchema,
   AgentSessionConfigurationPortableSchema,
@@ -97,6 +114,125 @@ const definitions = [
     ],
   },
   {
+    exportName: 'AGENT_OPERATION_CATALOG_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.operation-catalog',
+    direction: 'output',
+    schema: AgentOperationCatalogPortableSchema,
+    parserInvariants: [
+      'canonical_operation_order',
+      'unique_operation_field_ids',
+      'unique_operation_ids',
+      'unique_operation_option_ids',
+    ],
+  },
+  {
+    exportName: 'AGENT_OPERATION_INVOCATION_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.operation-invocation',
+    direction: 'input',
+    schema: AgentOperationInvocationPortableSchema,
+    parserInvariants: [
+      'operation_descriptor_correlation',
+      'operation_revision_correlation',
+      'unique_operation_values',
+    ],
+  },
+  {
+    exportName: 'AGENT_OPERATION_RESULT_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.operation-result',
+    direction: 'output',
+    schema: AgentOperationResultPortableSchema,
+    parserInvariants: [
+      'operation_invocation_correlation',
+      'operation_result_error_consistency',
+      'operation_result_kind_consistency',
+      'unique_operation_result_references',
+    ],
+  },
+  {
+    exportName: 'AGENT_MANAGED_CONTENT_CATALOG_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.managed-content-catalog',
+    direction: 'output',
+    schema: AgentManagedContentCatalogPortableSchema,
+    parserInvariants: [
+      'canonical_managed_content_order',
+      'unique_managed_content_ids',
+    ],
+  },
+  {
+    exportName: 'AGENT_CONFIGURATION_CATALOG_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.configuration-catalog',
+    direction: 'output',
+    schema: AgentConfigurationCatalogPortableSchema,
+    parserInvariants: [
+      'canonical_configuration_field_order',
+      'configuration_current_value_bounds',
+      'unique_configuration_field_keys',
+      'unique_configuration_option_ids',
+    ],
+  },
+  {
+    exportName: 'AGENT_CONFIGURATION_SELECTION_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.configuration-selection',
+    direction: 'input',
+    schema: AgentConfigurationSelectionInputSchema,
+    parserInvariants: [
+      'configuration_catalog_correlation',
+      'configuration_field_correlation',
+      'configuration_selection_bounds',
+    ],
+  },
+  {
+    exportName: 'AGENT_INTEGRATION_CATALOG_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.integration-catalog',
+    direction: 'output',
+    schema: AgentIntegrationCatalogPortableSchema,
+    parserInvariants: [
+      'canonical_integration_order',
+      'unique_integration_ids',
+      'unique_integration_server_ids',
+      'unique_integration_tool_ids',
+      'unique_integration_resource_ids',
+    ],
+  },
+  {
+    exportName: 'AGENT_COLLABORATION_NODE_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.collaboration-node',
+    direction: 'output',
+    schema: AgentCollaborationNodePortableSchema,
+    parserInvariants: [
+      'collaboration_parent_consistency',
+      'collaboration_result_consistency',
+      'collaboration_terminal_error_consistency',
+      'collaboration_terminal_timestamp_consistency',
+    ],
+  },
+  {
+    exportName: 'AGENT_COLLABORATION_SPAWN_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.collaboration-spawn',
+    direction: 'input',
+    schema: AgentCollaborationSpawnInputSchema,
+    parserInvariants: ['collaboration_parent_consistency'],
+  },
+  {
+    exportName: 'AGENT_COLLABORATION_CONTROL_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.collaboration-control',
+    direction: 'input',
+    schema: AgentCollaborationControlInputSchema,
+    parserInvariants: ['serialized_turn_input_bytes'],
+  },
+  {
+    exportName: 'AGENT_GENERATED_RESOURCE_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.generated-resource',
+    direction: 'output',
+    schema: AgentGeneratedResourceDescriptorPortableSchema,
+    parserInvariants: [
+      'generated_resource_artifact_consistency',
+      'generated_resource_digest_consistency',
+      'generated_resource_error_consistency',
+      'generated_resource_media_consistency',
+    ],
+  },
+  {
     exportName: 'AGENT_CAPABILITIES_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.capabilities',
     direction: 'output',
@@ -106,10 +242,18 @@ const definitions = [
       'canonical_approval_modes',
       'canonical_approval_scope_kinds',
       'canonical_authentication_flows',
-      'canonical_configuration_field_keys',
-      'canonical_configuration_option_ids',
+      'canonical_collaboration_control_actions',
+      'canonical_collaboration_roles',
+      'canonical_configuration_field_kinds',
+      'canonical_elicitation_field_kinds',
+      'canonical_generated_resource_kinds',
       'canonical_image_input_media_types',
       'canonical_image_input_source_kinds',
+      'canonical_integration_kinds',
+      'canonical_managed_content_kinds',
+      'canonical_operation_execution_modes',
+      'canonical_operation_field_kinds',
+      'canonical_operation_kinds',
       'canonical_context_compaction_triggers',
       'canonical_context_cumulative_usage_fields',
       'canonical_context_measurement_scopes',

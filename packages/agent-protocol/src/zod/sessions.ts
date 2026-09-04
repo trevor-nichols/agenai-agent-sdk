@@ -4,12 +4,12 @@
 
 import { z } from 'zod/v4';
 
+import { compareStringsByUnicodeCodePoint } from '../foundation/ordering.js';
 import {
-  AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
   AGENT_PROTOCOL_JSON_BYTES_LIMIT,
-  AGENT_PROTOCOL_JSON_DEPTH_LIMIT,
   agentProtocolSerializedJsonBytes,
 } from '../foundation/types.js';
+import { AGENT_CONFIGURATION_FIELDS_MAX_LENGTH } from '../configuration/types.js';
 import type {
   AgentSessionBinding,
   AgentSessionBranchSource,
@@ -21,21 +21,23 @@ import type {
 } from '../sessions/types.js';
 import {
   AgentConfigurationRevisionIdSchema,
-  AgentJsonObjectKeySchema,
-  AgentJsonValuePortableSchema,
+  AgentCanonicalIdValueSchema,
   AgentProviderConversationIdSchema,
   AgentProviderHistoryAnchorSchema,
   AgentSessionIdSchema,
   AgentTurnIdSchema,
-  withAcyclicProtocolInput,
 } from './foundation.js';
+import { AgentConfigurationValueSchema } from './configuration.js';
 
 // ------------------------------------------------------------------------------------------------
 //                Binding and Configuration
 // ------------------------------------------------------------------------------------------------
 
-const SESSION_CONFIGURATION_JSON_DEPTH_OFFSET = 2;
-const SESSION_OPEN_JSON_DEPTH_OFFSET = 3;
+const PositiveSafeIntegerSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(Number.MAX_SAFE_INTEGER);
 
 export const AgentSessionBindingSchema: z.ZodType<AgentSessionBinding> = z
   .object({
@@ -45,37 +47,74 @@ export const AgentSessionBindingSchema: z.ZodType<AgentSessionBinding> = z
   .strict()
   .readonly();
 
-export const AgentSessionConfigurationPortableSchema = z
-  .object({
-    revision: AgentConfigurationRevisionIdSchema,
-    values: z.record(
-      AgentJsonObjectKeySchema,
-      AgentJsonValuePortableSchema,
-    ).readonly(),
-  })
-  .strict()
-  .readonly();
+export const AgentSessionConfigurationPortableSchema = z.discriminatedUnion(
+  'kind',
+  [
+    z
+      .object({
+        kind: z.literal('managed'),
+        revision: AgentConfigurationRevisionIdSchema,
+      })
+      .strict()
+      .readonly(),
+    z
+      .object({
+        kind: z.literal('selected'),
+        revision: AgentConfigurationRevisionIdSchema,
+        catalogRevision: PositiveSafeIntegerSchema,
+        selections: z
+          .array(
+            z
+              .object({
+                key: AgentCanonicalIdValueSchema,
+                fieldRevision: PositiveSafeIntegerSchema,
+                value: AgentConfigurationValueSchema,
+              })
+              .strict()
+              .readonly(),
+          )
+          .max(AGENT_CONFIGURATION_FIELDS_MAX_LENGTH)
+          .readonly(),
+      })
+      .strict()
+      .readonly(),
+  ],
+);
 
 export const AgentSessionConfigurationSchema: z.ZodType<AgentSessionConfiguration> =
-  withAcyclicProtocolInput(AgentSessionConfigurationPortableSchema, {
-    maxDepth:
-      AGENT_PROTOCOL_JSON_DEPTH_LIMIT + SESSION_CONFIGURATION_JSON_DEPTH_OFFSET,
-    maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
-  }).superRefine((configuration, context) => {
-    if (Object.keys(configuration.values).length > AGENT_PROTOCOL_COLLECTION_MAX_LENGTH) {
-      context.addIssue({
-        code: 'custom',
-        path: ['values'],
-        message: `Session configuration cannot exceed ${AGENT_PROTOCOL_COLLECTION_MAX_LENGTH} entries.`,
+  AgentSessionConfigurationPortableSchema.superRefine((configuration, context) => {
+    if (configuration.kind === 'selected') {
+      const keys = new Set<string>();
+      let previousKey = '';
+      configuration.selections.forEach((selection, selectionIndex) => {
+        if (keys.has(selection.key)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['selections', selectionIndex, 'key'],
+            message: 'Session configuration keys must be unique.',
+          });
+        }
+        if (
+          selectionIndex > 0
+          && compareStringsByUnicodeCodePoint(previousKey, selection.key) >= 0
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['selections', selectionIndex, 'key'],
+            message: 'Session configuration selections must be ordered by key.',
+          });
+        }
+        keys.add(selection.key);
+        previousKey = selection.key;
       });
     }
     if (
-      agentProtocolSerializedJsonBytes(configuration.values)
+      agentProtocolSerializedJsonBytes(configuration)
       > AGENT_PROTOCOL_JSON_BYTES_LIMIT
     ) {
       context.addIssue({
         code: 'custom',
-        path: ['values'],
+        path: [],
         message: `Session configuration cannot exceed ${AGENT_PROTOCOL_JSON_BYTES_LIMIT} serialized bytes.`,
       });
     }
@@ -158,24 +197,12 @@ function validateSessionOpenInput(
 }
 
 export const AgentSessionCreateInputSchema: z.ZodType<AgentSessionCreateInput> =
-  withAcyclicProtocolInput(AgentSessionCreateInputPortableSchema, {
-    maxDepth: AGENT_PROTOCOL_JSON_DEPTH_LIMIT + SESSION_OPEN_JSON_DEPTH_OFFSET,
-    maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
-  }).superRefine(validateSessionOpenInput);
+  AgentSessionCreateInputPortableSchema.superRefine(validateSessionOpenInput);
 export const AgentSessionResumeInputSchema: z.ZodType<AgentSessionResumeInput> =
-  withAcyclicProtocolInput(AgentSessionResumeInputPortableSchema, {
-    maxDepth: AGENT_PROTOCOL_JSON_DEPTH_LIMIT + SESSION_OPEN_JSON_DEPTH_OFFSET,
-    maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
-  }).superRefine(validateSessionOpenInput);
+  AgentSessionResumeInputPortableSchema.superRefine(validateSessionOpenInput);
 export const AgentSessionBranchInputSchema: z.ZodType<AgentSessionBranchInput> =
-  withAcyclicProtocolInput(AgentSessionBranchInputPortableSchema, {
-    maxDepth: AGENT_PROTOCOL_JSON_DEPTH_LIMIT + SESSION_OPEN_JSON_DEPTH_OFFSET,
-    maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
-  }).superRefine(validateSessionOpenInput);
+  AgentSessionBranchInputPortableSchema.superRefine(validateSessionOpenInput);
 export const AgentSessionOpenInputSchema: z.ZodType<AgentSessionOpenInput> =
-  withAcyclicProtocolInput(AgentSessionOpenInputPortableSchema, {
-    maxDepth: AGENT_PROTOCOL_JSON_DEPTH_LIMIT + SESSION_OPEN_JSON_DEPTH_OFFSET,
-    maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
-  }).superRefine(validateSessionOpenInput);
+  AgentSessionOpenInputPortableSchema.superRefine(validateSessionOpenInput);
 
 export { AgentSessionOpenInputPortableSchema };

@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                v7SessionValidation.test.ts - Stateful V7 refusal and context proofs
+//                v8SessionValidation.test.ts - Stateful V8 refusal and context proofs
 // ------------------------------------------------------------------------------------------------
 
 import assert from "node:assert/strict";
@@ -36,18 +36,18 @@ import {
 //                Fixtures
 // ------------------------------------------------------------------------------------------------
 
-const providerKey = parseAgentProviderKey("v7-session-validation");
-const sessionId = parseAgentSessionId("v7-session-validation");
+const providerKey = parseAgentProviderKey("v8-session-validation");
+const sessionId = parseAgentSessionId("v8-session-validation");
 const occurredAt = parseAgentIsoDateTime("2026-08-29T15:00:00.000Z");
 const allowOnceOptionId = parseAgentApprovalOptionId("approval:allow-once");
 const denyOnceOptionId = parseAgentApprovalOptionId("approval:deny-once");
 const configuration = {
-  revision: parseAgentConfigurationRevisionId("v7-session-validation"),
-  values: {},
+  kind: "managed" as const,
+  revision: parseAgentConfigurationRevisionId("v8-session-validation"),
 };
 
 const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
-  protocolVersion: 7,
+  protocolVersion: 8,
   providerKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -71,12 +71,11 @@ const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
     artifactKinds: [],
   },
   configuration: { kind: "managed" },
-  interactionExtensions: {
-    slashCommands: false,
-    mcp: false,
-    subagents: false,
-    imageGeneration: false,
-  },
+  operations: { kind: "unsupported" },
+  managedContent: { kind: "unsupported" },
+  integrations: { kind: "unsupported" },
+  collaboration: { kind: "unsupported" },
+  generatedResources: { kind: "unsupported" },
   authentication: { kind: "unsupported" },
   versionReporting: false,
 });
@@ -161,7 +160,7 @@ function event<TType extends AgentEvent["type"]>(
   payload: Extract<AgentEvent, { readonly type: TType }>["payload"],
 ) {
   return createAgentEventOutput({
-    protocolVersion: 7,
+    protocolVersion: 8,
     sessionId,
     turnId,
     occurredAt,
@@ -174,7 +173,7 @@ function candidateSession(
   overrides: Partial<AgentProviderSession>,
 ): AgentProviderSession {
   return {
-    binding: { conversationId: "v7-session-validation" as never },
+    binding: { conversationId: "v8-session-validation" as never },
     runTurn: async function* ({ turnId }) {
       yield event(turnId, "turn.started", {});
       yield event(turnId, "turn.completed", { outcome: "completed" });
@@ -183,6 +182,11 @@ function candidateSession(
     interruption: { kind: "unsupported" },
     steering: { kind: "unsupported" },
     configuration: { kind: "managed" },
+    operations: { kind: "unsupported" },
+    managedContent: { kind: "unsupported" },
+    integrations: { kind: "unsupported" },
+    collaboration: { kind: "unsupported" },
+    generatedResources: { kind: "unsupported" },
     close: async () => undefined,
     ...overrides,
   };
@@ -240,19 +244,19 @@ function waitingApprovalOutputs(turnId: AgentTurnId, request: AgentRequest) {
 //                Approval Refusal Boundaries
 // ------------------------------------------------------------------------------------------------
 
-test("V7 refuses unoffered and expired approval choices before provider delegation", async () => {
+test("V8 refuses unoffered and expired approval choices before provider delegation", async () => {
   const scenarios = [
     {
       name: "unoffered option",
       request: approvalRequest({
-        requestId: parseAgentRequestId("request:v7-unoffered"),
+        requestId: parseAgentRequestId("request:v8-unoffered"),
       }),
       resolutionOptionId: parseAgentApprovalOptionId("approval:not-offered"),
     },
     {
       name: "expired request",
       request: approvalRequest({
-        requestId: parseAgentRequestId("request:v7-expired"),
+        requestId: parseAgentRequestId("request:v8-expired"),
         expiresAt: parseAgentIsoDateTime("2000-01-01T00:00:00.000Z"),
       }),
       resolutionOptionId: allowOnceOptionId,
@@ -297,10 +301,10 @@ test("V7 refuses unoffered and expired approval choices before provider delegati
   }
 });
 
-test("V7 admits only neutral cancellation after approval expiry", async () => {
-  const turnId = parseAgentTurnId("turn:v7-expired-cancellation");
+test("V8 admits only neutral cancellation after approval expiry", async () => {
+  const turnId = parseAgentTurnId("turn:v8-expired-cancellation");
   const request = approvalRequest({
-    requestId: parseAgentRequestId("request:v7-expired-cancellation"),
+    requestId: parseAgentRequestId("request:v8-expired-cancellation"),
     expiresAt: parseAgentIsoDateTime("2000-01-01T00:00:00.000Z"),
   });
   let delegatedResolutions = 0;
@@ -337,10 +341,10 @@ test("V7 admits only neutral cancellation after approval expiry", async () => {
   assert.equal(delegatedResolutions, 1);
 });
 
-test("V7 refuses uncorrelated approvals and unadvertised approval modes", async () => {
-  const uncorrelatedTurnId = parseAgentTurnId("turn:v7-uncorrelated");
+test("V8 refuses uncorrelated approvals and unadvertised approval modes", async () => {
+  const uncorrelatedTurnId = parseAgentTurnId("turn:v8-uncorrelated");
   const uncorrelatedRequest = approvalRequest({
-    requestId: parseAgentRequestId("request:v7-uncorrelated"),
+    requestId: parseAgentRequestId("request:v8-uncorrelated"),
   });
   const uncorrelated = await openSession(
     approvalCapabilities,
@@ -366,11 +370,11 @@ test("V7 refuses uncorrelated approvals and unadvertised approval modes", async 
 
   for (const request of [
     approvalRequest({
-      requestId: parseAgentRequestId("request:v7-session-persistence"),
+      requestId: parseAgentRequestId("request:v8-session-persistence"),
       persistence: "session",
     }),
     approvalRequest({
-      requestId: parseAgentRequestId("request:v7-tool-scope"),
+      requestId: parseAgentRequestId("request:v8-tool-scope"),
       scopeKind: "tool",
     }),
   ]) {
@@ -396,11 +400,11 @@ test("V7 refuses uncorrelated approvals and unadvertised approval modes", async 
   }
 });
 
-test("V7 rejects a pending plan approval when its correlation is replaced", async () => {
-  const turnId = parseAgentTurnId("turn:v7-replaced-plan-correlation");
-  const artifactId = parseAgentArtifactId("artifact:v7-replaced-plan-correlation");
+test("V8 rejects a pending plan approval when its correlation is replaced", async () => {
+  const turnId = parseAgentTurnId("turn:v8-replaced-plan-correlation");
+  const artifactId = parseAgentArtifactId("artifact:v8-replaced-plan-correlation");
   const request = approvalRequest({
-    requestId: parseAgentRequestId("request:v7-original-plan-approval"),
+    requestId: parseAgentRequestId("request:v8-original-plan-approval"),
     subject: {
       kind: "plan",
       title: "Approve the proposed plan",
@@ -408,7 +412,7 @@ test("V7 rejects a pending plan approval when its correlation is replaced", asyn
     },
   });
   const replacementRequestId = parseAgentRequestId(
-    "request:v7-replacement-plan-approval",
+    "request:v8-replacement-plan-approval",
   );
   let delegatedResolutions = 0;
   const opened = await openSession(
@@ -452,7 +456,7 @@ test("V7 rejects a pending plan approval when its correlation is replaced", asyn
   assert.equal(delegatedResolutions, 0);
 });
 
-test("V7 rejects terminal item revival before approval visibility", async () => {
+test("V8 rejects terminal item revival before approval visibility", async () => {
   const scenarios = [
     {
       name: "completed-event",
@@ -467,9 +471,9 @@ test("V7 rejects terminal item revival before approval visibility", async () => 
   ] as const;
 
   for (const scenario of scenarios) {
-    const turnId = parseAgentTurnId(`turn:v7-${scenario.name}-revival`);
+    const turnId = parseAgentTurnId(`turn:v8-${scenario.name}-revival`);
     const request = approvalRequest({
-      requestId: parseAgentRequestId(`request:v7-${scenario.name}-revival`),
+      requestId: parseAgentRequestId(`request:v8-${scenario.name}-revival`),
     });
     assert.notEqual(request.subject.kind, "plan");
     if (request.subject.kind === "plan") {
@@ -518,10 +522,10 @@ test("V7 rejects terminal item revival before approval visibility", async () => 
   }
 });
 
-test("V7 rejects approvals opened after completion with a live status", async () => {
-  const turnId = parseAgentTurnId("turn:v7-completed-live-approval");
+test("V8 rejects approvals opened after completion with a live status", async () => {
+  const turnId = parseAgentTurnId("turn:v8-completed-live-approval");
   const request = approvalRequest({
-    requestId: parseAgentRequestId("request:v7-completed-live-approval"),
+    requestId: parseAgentRequestId("request:v8-completed-live-approval"),
   });
   assert.notEqual(request.subject.kind, "plan");
   if (request.subject.kind === "plan") {
@@ -559,7 +563,7 @@ test("V7 rejects approvals opened after completion with a live status", async ()
   );
 });
 
-test("V7 rejects a pending approval when its subject becomes terminal", async () => {
+test("V8 rejects a pending approval when its subject becomes terminal", async () => {
   const scenarios = [
     {
       name: "completed-event",
@@ -579,10 +583,10 @@ test("V7 rejects a pending approval when its subject becomes terminal", async ()
   ] as const;
 
   for (const scenario of scenarios) {
-    const turnId = parseAgentTurnId(`turn:v7-${scenario.name}-pending-approval`);
+    const turnId = parseAgentTurnId(`turn:v8-${scenario.name}-pending-approval`);
     const request = approvalRequest({
       requestId: parseAgentRequestId(
-        `request:v7-${scenario.name}-pending-approval`,
+        `request:v8-${scenario.name}-pending-approval`,
       ),
     });
     assert.notEqual(request.subject.kind, "plan");
@@ -632,11 +636,11 @@ test("V7 rejects a pending approval when its subject becomes terminal", async ()
   }
 });
 
-test("V7 preserves a pending approval across an unknown item update", async () => {
-  const turnId = parseAgentTurnId("turn:v7-pending-approval-unknown-update");
+test("V8 preserves a pending approval across an unknown item update", async () => {
+  const turnId = parseAgentTurnId("turn:v8-pending-approval-unknown-update");
   const request = approvalRequest({
     requestId: parseAgentRequestId(
-      "request:v7-pending-approval-unknown-update",
+      "request:v8-pending-approval-unknown-update",
     ),
   });
   assert.notEqual(request.subject.kind, "plan");
@@ -675,13 +679,13 @@ test("V7 preserves a pending approval across an unknown item update", async () =
   }));
 });
 
-test("V7 preserves terminal item authority across request continuations", async () => {
-  const turnId = parseAgentTurnId("turn:v7-continuation-item-revival");
+test("V8 preserves terminal item authority across request continuations", async () => {
+  const turnId = parseAgentTurnId("turn:v8-continuation-item-revival");
   const firstRequest = approvalRequest({
-    requestId: parseAgentRequestId("request:v7-continuation-first"),
+    requestId: parseAgentRequestId("request:v8-continuation-first"),
   });
   const revivedRequest = approvalRequest({
-    requestId: parseAgentRequestId("request:v7-continuation-revived"),
+    requestId: parseAgentRequestId("request:v8-continuation-revived"),
   });
   assert.notEqual(firstRequest.subject.kind, "plan");
   assert.notEqual(revivedRequest.subject.kind, "plan");
@@ -752,9 +756,9 @@ test("V7 preserves terminal item authority across request continuations", async 
   assert.equal(delegatedResolutions, 1);
 });
 
-test("V7 preserves the in-progress watermark through unknown item updates", async () => {
-  const turnId = parseAgentTurnId("turn:v7-indirect-item-regression");
-  const itemId = parseAgentItemId("item:v7-indirect-item-regression");
+test("V8 preserves the in-progress watermark through unknown item updates", async () => {
+  const turnId = parseAgentTurnId("turn:v8-indirect-item-regression");
+  const itemId = parseAgentItemId("item:v8-indirect-item-regression");
   const opened = await openSession(
     baseCapabilities,
     candidateSession({
@@ -818,9 +822,9 @@ function processStarted() {
   });
 }
 
-test("V7 accepts monotonic usage and one post-compaction occupancy decrease", async () => {
-  const turnId = parseAgentTurnId("turn:v7-valid-compaction");
-  const nextTurnId = parseAgentTurnId("turn:v7-valid-next");
+test("V8 accepts monotonic usage and one post-compaction occupancy decrease", async () => {
+  const turnId = parseAgentTurnId("turn:v8-valid-compaction");
+  const nextTurnId = parseAgentTurnId("turn:v8-valid-next");
   let runs = 0;
   const opened = await openSession(
     contextCapabilities,
@@ -831,7 +835,7 @@ test("V7 accepts monotonic usage and one post-compaction occupancy decrease", as
         if (activeTurnId === turnId) {
           yield contextUsage(activeTurnId, 90, 100, 1);
           yield event(activeTurnId, "item.completed", {
-            itemId: parseAgentItemId("item:v7-compaction"),
+            itemId: parseAgentItemId("item:v8-compaction"),
             itemKind: "context_compaction",
             status: "completed",
             details: {
@@ -864,12 +868,12 @@ test("V7 accepts monotonic usage and one post-compaction occupancy decrease", as
   assert.equal(runs, 2);
 });
 
-test("V7 resets only materialization usage at an observed process boundary", async () => {
+test("V8 resets only materialization usage at an observed process boundary", async () => {
   const runScenario = async (
     measurementScope: "session" | "materialization",
   ): Promise<void> => {
-    const firstTurnId = parseAgentTurnId(`turn:v7-${measurementScope}-first`);
-    const secondTurnId = parseAgentTurnId(`turn:v7-${measurementScope}-second`);
+    const firstTurnId = parseAgentTurnId(`turn:v8-${measurementScope}-first`);
+    const secondTurnId = parseAgentTurnId(`turn:v8-${measurementScope}-second`);
     const opened = await openSession(
       contextCapabilities,
       candidateSession({
@@ -917,7 +921,7 @@ test("V7 resets only materialization usage at an observed process boundary", asy
   await runScenario("session");
 });
 
-test("V7 accepts unknown compaction only as a supported-provider fallback", async () => {
+test("V8 accepts unknown compaction only as a supported-provider fallback", async () => {
   const manualOnlyCapabilities = parseAgentCapabilities({
     ...baseCapabilities,
     context: {
@@ -933,14 +937,14 @@ test("V7 accepts unknown compaction only as a supported-provider fallback", asyn
     capabilities: AgentCapabilities,
     trigger: "automatic" | "unknown",
   ): Promise<void> => {
-    const turnId = parseAgentTurnId(`turn:v7-${trigger}-compaction`);
+    const turnId = parseAgentTurnId(`turn:v8-${trigger}-compaction`);
     const opened = await openSession(
       capabilities,
       candidateSession({
         runTurn: async function* () {
           yield event(turnId, "turn.started", {});
           yield event(turnId, "item.completed", {
-            itemId: parseAgentItemId(`item:v7-${trigger}-compaction`),
+            itemId: parseAgentItemId(`item:v8-${trigger}-compaction`),
             itemKind: "context_compaction",
             status: "completed",
             details: { trigger },
@@ -971,7 +975,7 @@ test("V7 accepts unknown compaction only as a supported-provider fallback", asyn
   );
 });
 
-test("V7 rejects duplicate, regressing, and post-terminal context samples", async () => {
+test("V8 rejects duplicate, regressing, and post-terminal context samples", async () => {
   const scenarios: readonly {
     readonly name: string;
     readonly outputs: (turnId: AgentTurnId) => readonly AgentProviderOutput[];
@@ -1054,7 +1058,7 @@ test("V7 rejects duplicate, regressing, and post-terminal context samples", asyn
   }
 });
 
-test("V7 refuses context facts outside the advertised capability", async () => {
+test("V8 refuses context facts outside the advertised capability", async () => {
   const limitedCapabilities = parseAgentCapabilities({
     ...baseCapabilities,
     context: {
@@ -1067,19 +1071,19 @@ test("V7 refuses context facts outside the advertised capability", async () => {
     },
   });
   const scenarios = [
-    event(parseAgentTurnId("turn:v7-wrong-scope"), "context.usage.updated", {
+    event(parseAgentTurnId("turn:v8-wrong-scope"), "context.usage.updated", {
       measurementScope: "materialization",
       usedTokens: 10,
       maxTokens: 100,
       cumulative: { turns: 1 },
     }),
-    event(parseAgentTurnId("turn:v7-wrong-counter"), "context.usage.updated", {
+    event(parseAgentTurnId("turn:v8-wrong-counter"), "context.usage.updated", {
       measurementScope: "session",
       usedTokens: 10,
       maxTokens: 100,
       cumulative: { inputTokens: 10 },
     }),
-    event(parseAgentTurnId("turn:v7-unadvertised-compaction"), "context.usage.updated", {
+    event(parseAgentTurnId("turn:v8-unadvertised-compaction"), "context.usage.updated", {
       measurementScope: "session",
       usedTokens: 90,
       maxTokens: 100,

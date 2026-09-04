@@ -57,13 +57,13 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.2.2", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.2.3", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.2.2" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.2.3" },
   },
 ];
 
@@ -152,7 +152,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.2.2");
+  assert.equal(manifest.version, "0.2.3");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -276,9 +276,14 @@ import { createRequire } from "node:module";
 import { normalizeValidationIssues } from "@agen-ai/validation";
 import { normalizeZodValidationError } from "@agen-ai/validation/zod";
 import {
+  parseAgentCollaborationId,
   parseAgentConfigurationRevisionId,
+  parseAgentGeneratedResourceId,
   parseAgentInstanceId,
+  parseAgentIsoDateTime,
   parseAgentItemId,
+  parseAgentOperationId,
+  parseAgentOperationInvocationId,
   parseAgentProviderConversationId,
   parseAgentProviderKey,
   parseAgentSessionId,
@@ -308,13 +313,13 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.2.2");
+assert.equal(protocolManifest.version, "0.2.3");
 
 assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 7);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 8);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -330,8 +335,14 @@ if (!invalid.success) {
 }
 
 const configuration = {
+  kind: "selected" as const,
   revision: parseAgentConfigurationRevisionId("configuration:1"),
-  values: { model: "fake-model", mode: "agent" },
+  catalogRevision: 1,
+  selections: [{
+    key: "model",
+    fieldRevision: 1,
+    value: { fieldKind: "single_select" as const, optionId: "fake-model" },
+  }],
 };
 
 const localFileInput = parseAgentTurnRunInput({
@@ -354,7 +365,7 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 7,
+  protocolVersion: 8,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -381,12 +392,11 @@ const steeringCapabilities = parseAgentCapabilities({
     artifactKinds: [],
   },
   configuration: { kind: "managed" },
-  interactionExtensions: {
-    slashCommands: false,
-    mcp: false,
-    subagents: false,
-    imageGeneration: false,
-  },
+  operations: { kind: "unsupported" },
+  managedContent: { kind: "unsupported" },
+  integrations: { kind: "unsupported" },
+  collaboration: { kind: "unsupported" },
+  generatedResources: { kind: "unsupported" },
   authentication: { kind: "unsupported" },
   versionReporting: true,
 });
@@ -396,7 +406,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
   },
   runTurn: async function* (input) {
     yield createAgentEventOutput({
-      protocolVersion: 7,
+      protocolVersion: 8,
       type: "turn.started",
       sessionId,
       turnId: input.turnId,
@@ -404,7 +414,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
       payload: {},
     });
     yield createAgentEventOutput({
-      protocolVersion: 7,
+      protocolVersion: 8,
       type: "turn.completed",
       sessionId,
       turnId: input.turnId,
@@ -422,6 +432,11 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
     },
   },
   configuration: { kind: "managed" },
+  operations: { kind: "unsupported" },
+  managedContent: { kind: "unsupported" },
+  integrations: { kind: "unsupported" },
+  collaboration: { kind: "unsupported" },
+  generatedResources: { kind: "unsupported" },
   close: async () => undefined,
 });
 const steeringDriver = defineAgentProviderDriver({
@@ -458,8 +473,8 @@ const steeringSession = await steeringInstance.adapter.createSession({
   sessionId: parseAgentSessionId("packed-steering-session"),
   workingDirectory: "/tmp/external-agent-sdk-steering-provider",
   configuration: {
+    kind: "managed",
     revision: parseAgentConfigurationRevisionId("packed-steering-configuration"),
-    values: {},
   },
   onBindingCreated: () => undefined,
 });
@@ -489,10 +504,26 @@ const report = await runAgentProviderConformance({
   definition: fake.definition,
   workingDirectory: "/tmp/external-agent-sdk-consumer",
   configuration,
-  updatedConfiguration: {
-    revision: parseAgentConfigurationRevisionId("configuration:2"),
-    values: { model: "fake-model-2", mode: "agent" },
+  configurationSelection: {
+    key: "model",
+    expectedCatalogRevision: 1,
+    expectedFieldRevision: 1,
+    value: { fieldKind: "single_select", optionId: "fake-model-2" },
   },
+  operationInvocation: {
+    invocationId: parseAgentOperationInvocationId("external-invocation:1"),
+    operationId: parseAgentOperationId("fake.session.reset"),
+    expectedRevision: 1,
+    values: [],
+  },
+  collaborationSpawn: {
+    collaborationId: parseAgentCollaborationId("external-collaboration:1"),
+    role: "reviewer",
+    title: "External consumer review",
+    objective: "Review the packed external consumer.",
+    createdAt: parseAgentIsoDateTime("2026-01-01T00:00:00.000Z"),
+  },
+  generatedResourceId: parseAgentGeneratedResourceId("fake-resource:1"),
   createSessionId: parseAgentSessionId("external-session:create"),
   resumeSessionId: parseAgentSessionId("external-session:resume"),
   branchSessionId: parseAgentSessionId("external-session:branch"),
@@ -540,7 +571,7 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 7,
+    protocolVersion: 8,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
@@ -564,12 +595,11 @@ const limited = createFakeAgentProvider({
       artifactKinds: [],
     },
     configuration: { kind: "managed" },
-    interactionExtensions: {
-      slashCommands: false,
-      mcp: false,
-      subagents: false,
-      imageGeneration: false,
-    },
+    operations: { kind: "unsupported" },
+    managedContent: { kind: "unsupported" },
+    integrations: { kind: "unsupported" },
+    collaboration: { kind: "unsupported" },
+    generatedResources: { kind: "unsupported" },
     authentication: { kind: "unsupported" },
     versionReporting: true,
   }),
@@ -579,8 +609,8 @@ const limitedReport = await runAgentProviderConformance({
   definition: limited.definition,
   workingDirectory: "/tmp/external-agent-sdk-consumer-limited",
   configuration: {
+    kind: "managed",
     revision: parseAgentConfigurationRevisionId("limited-configuration:1"),
-    values: {},
   },
   createSessionId: parseAgentSessionId("limited-session:create"),
   resumeSessionId: parseAgentSessionId("limited-session:resume"),
@@ -604,7 +634,7 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 7,
+  protocolVersion: 8,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -626,7 +656,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 7,
+  protocolVersion: 8,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),

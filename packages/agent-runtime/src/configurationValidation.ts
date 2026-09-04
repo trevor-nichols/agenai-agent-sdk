@@ -17,33 +17,30 @@ export function assertAgentSessionConfigurationSupported(
   capabilities: AgentCapabilities,
   configuration: AgentSessionConfiguration,
 ): void {
-  const entries = Object.entries(configuration.values);
   if (capabilities.configuration.kind === "managed") {
-    if (entries.length === 0) return;
+    if (configuration.kind === "managed") return;
     throwAgentProviderContractError(
       capabilities.providerKey,
       "configuration_key_unsupported",
-      "Managed provider configuration values must be empty.",
+      "Managed providers require a managed session configuration.",
     );
   }
-
-  const fields = new Map(
-    capabilities.configuration.fields.map((field) => [field.key, field]),
-  );
-  for (const [key, value] of entries) {
-    const field = fields.get(key);
-    if (!field) {
-      throwAgentProviderContractError(
-        capabilities.providerKey,
-        "configuration_key_unsupported",
-        "Provider configuration contains a key not declared by its capabilities.",
-      );
-    }
-    if (typeof value !== "string" || !field.optionIds.includes(value)) {
+  if (
+    configuration.kind !== "selected"
+    || configuration.selections.length > capabilities.configuration.maxFields
+  ) {
+    throwAgentProviderContractError(
+      capabilities.providerKey,
+      "configuration_key_unsupported",
+      "Selectable providers require a bounded selected session configuration.",
+    );
+  }
+  for (const selection of configuration.selections) {
+    if (!capabilities.configuration.fieldKinds.includes(selection.value.fieldKind)) {
       throwAgentProviderContractError(
         capabilities.providerKey,
         "configuration_value_unsupported",
-        "Provider configuration contains an option not declared by its capabilities.",
+        "Provider configuration contains a field kind outside its declared capability.",
       );
     }
   }

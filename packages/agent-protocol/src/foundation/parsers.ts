@@ -6,12 +6,21 @@ import { parseWithSchema, safeParseWithSchema } from '../internal/parsers.js';
 import {
   AgentArtifactIdSchema,
   AgentApprovalOptionIdSchema,
+  AgentCollaborationIdSchema,
   AgentConfigurationRevisionIdSchema,
+  AgentGeneratedResourceIdSchema,
   AgentErrorSchema,
   AgentInstanceIdSchema,
+  AgentIntegrationIdSchema,
+  AgentIntegrationResourceIdSchema,
+  AgentIntegrationServerIdSchema,
+  AgentIntegrationToolIdSchema,
   AgentIsoDateTimeSchema,
   AgentItemIdSchema,
   AgentJsonValueSchema,
+  AgentManagedContentIdSchema,
+  AgentOperationIdSchema,
+  AgentOperationInvocationIdSchema,
   AgentProviderConversationIdSchema,
   AgentProviderHistoryAnchorSchema,
   AgentProviderItemRefSchema,
@@ -27,12 +36,21 @@ import {
 import type {
   AgentArtifactId,
   AgentApprovalOptionId,
+  AgentCollaborationId,
   AgentConfigurationRevisionId,
   AgentError,
+  AgentGeneratedResourceId,
   AgentInstanceId,
+  AgentIntegrationId,
+  AgentIntegrationResourceId,
+  AgentIntegrationServerId,
+  AgentIntegrationToolId,
   AgentIsoDateTime,
   AgentItemId,
   AgentJsonValue,
+  AgentManagedContentId,
+  AgentOperationId,
+  AgentOperationInvocationId,
   AgentProviderConversationId,
   AgentProviderHistoryAnchor,
   AgentProviderItemRef,
@@ -71,6 +89,31 @@ const requestFieldIdParser = idParser<AgentRequestFieldId>(
   AgentRequestFieldIdSchema,
 );
 const artifactIdParser = idParser<AgentArtifactId>(AgentArtifactIdSchema);
+const operationIdParser = idParser<AgentOperationId>(AgentOperationIdSchema);
+const operationInvocationIdParser = idParser<AgentOperationInvocationId>(
+  AgentOperationInvocationIdSchema,
+);
+const managedContentIdParser = idParser<AgentManagedContentId>(
+  AgentManagedContentIdSchema,
+);
+const integrationIdParser = idParser<AgentIntegrationId>(
+  AgentIntegrationIdSchema,
+);
+const integrationServerIdParser = idParser<AgentIntegrationServerId>(
+  AgentIntegrationServerIdSchema,
+);
+const integrationToolIdParser = idParser<AgentIntegrationToolId>(
+  AgentIntegrationToolIdSchema,
+);
+const integrationResourceIdParser = idParser<AgentIntegrationResourceId>(
+  AgentIntegrationResourceIdSchema,
+);
+const collaborationIdParser = idParser<AgentCollaborationId>(
+  AgentCollaborationIdSchema,
+);
+const generatedResourceIdParser = idParser<AgentGeneratedResourceId>(
+  AgentGeneratedResourceIdSchema,
+);
 const revisionIdParser = idParser<AgentConfigurationRevisionId>(
   AgentConfigurationRevisionIdSchema,
 );
@@ -106,6 +149,28 @@ export const parseAgentRequestFieldId = requestFieldIdParser.parse;
 export const safeParseAgentRequestFieldId = requestFieldIdParser.safeParse;
 export const parseAgentArtifactId = artifactIdParser.parse;
 export const safeParseAgentArtifactId = artifactIdParser.safeParse;
+export const parseAgentOperationId = operationIdParser.parse;
+export const safeParseAgentOperationId = operationIdParser.safeParse;
+export const parseAgentOperationInvocationId = operationInvocationIdParser.parse;
+export const safeParseAgentOperationInvocationId =
+  operationInvocationIdParser.safeParse;
+export const parseAgentManagedContentId = managedContentIdParser.parse;
+export const safeParseAgentManagedContentId = managedContentIdParser.safeParse;
+export const parseAgentIntegrationId = integrationIdParser.parse;
+export const safeParseAgentIntegrationId = integrationIdParser.safeParse;
+export const parseAgentIntegrationServerId = integrationServerIdParser.parse;
+export const safeParseAgentIntegrationServerId =
+  integrationServerIdParser.safeParse;
+export const parseAgentIntegrationToolId = integrationToolIdParser.parse;
+export const safeParseAgentIntegrationToolId = integrationToolIdParser.safeParse;
+export const parseAgentIntegrationResourceId = integrationResourceIdParser.parse;
+export const safeParseAgentIntegrationResourceId =
+  integrationResourceIdParser.safeParse;
+export const parseAgentCollaborationId = collaborationIdParser.parse;
+export const safeParseAgentCollaborationId = collaborationIdParser.safeParse;
+export const parseAgentGeneratedResourceId = generatedResourceIdParser.parse;
+export const safeParseAgentGeneratedResourceId =
+  generatedResourceIdParser.safeParse;
 export const parseAgentConfigurationRevisionId = revisionIdParser.parse;
 export const safeParseAgentConfigurationRevisionId = revisionIdParser.safeParse;
 export const parseAgentProviderConversationId = conversationIdParser.parse;

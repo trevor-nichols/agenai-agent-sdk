@@ -2,8 +2,9 @@
 
 `@agen-ai/agent-protocol` is the provider-neutral data contract for coding-agent runtimes. It
 defines opaque identifiers, sessions, turns, approval and elicitation requests, technical
-capabilities, portable artifact descriptors, and provider-observed events. The package does not
-define a transport or execution runtime.
+capabilities, typed operations, safe configuration and managed-content inventories, integration
+observations, collaboration lifecycles, generated resources, portable artifact descriptors, and
+provider-observed events. The package does not define a transport or execution runtime.
 
 ## Ownership boundary
 
@@ -22,8 +23,9 @@ that product concern belongs to the caller's control plane.
 ## Entrypoints
 
 - `@agen-ai/agent-protocol` exports the complete plain API.
-- `/sessions`, `/turns`, `/requests`, `/events`, `/capabilities`, and `/artifacts` are focused plain
-  entrypoints.
+- `/sessions`, `/turns`, `/requests`, `/events`, `/capabilities`, `/artifacts`, `/operations`,
+  `/configuration`, `/managed-content`, `/integrations`, `/collaboration`, and `/resources` are
+  focused plain entrypoints.
 - `/zod` is the only entrypoint that exposes Zod schemas.
 - `/json-schema` exposes deterministic draft 2020-12 schema artifacts.
 
@@ -41,7 +43,7 @@ import {
 } from '@agen-ai/agent-protocol';
 
 const event: AgentEvent = parseAgentEvent({
-  protocolVersion: 7,
+  protocolVersion: 8,
   type: 'content.delta',
   sessionId: parseAgentSessionId('external-session:42'),
   turnId: parseAgentTurnId('external-turn:9'),
@@ -56,7 +58,7 @@ const event: AgentEvent = parseAgentEvent({
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 ```
 
-Serialized values carry `protocolVersion: 7`; TypeScript API names remain unsuffixed. Unknown
+Serialized values carry `protocolVersion: 8`; TypeScript API names remain unsuffixed. Unknown
 fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
@@ -69,12 +71,20 @@ attribute bag; source evidence belongs outside the portable event. File-change p
 `compareStringsByUnicodeCodePoint` to emit the canonical path ordering required by the protocol
 across both BMP and supplementary Unicode characters.
 
-V7 approval requests correlate to one live item or exact proposed-plan artifact and provide a
+V8 approval requests correlate to one live item or exact proposed-plan artifact and provide a
 bounded list of typed options. Every option declares its decision, persistence, and neutral scope;
 resolutions select one offered `optionId` or explicitly cancel. Approval capabilities advertise
 the exact persistence/scope combinations an adapter can emit. `context.usage.updated` reports
 bounded occupancy and optional monotonic cumulative counters for an advertised session or
 materialization measurement scope.
+
+Capabilities state technical possibility only. Dynamic operations, configuration fields, managed
+content, and integrations are separate bounded, revisioned catalogs; capability declarations do
+not carry inventory or authority. Operation and configuration input is correlated to the exact
+offered revision and typed field definition. Collaboration exposes canonical graph identity and
+lifecycle state without provider handles. Generated resources expose portable publication state
+and an artifact reference only when the resource is available. None of these domains has a generic
+extension or metadata bag.
 
 ## Errors and trust
 
@@ -94,11 +104,11 @@ validated protocol output remains canonical across transports and consumers.
 
 ## Versioning and release
 
-The package is at `0.2.2` while the public API is still being proven with external adapters. Minor
-releases may include breaking changes during this beta period. Every such change will be called out
-in the release notes. Protocol V7 is independent of any host transport or product persistence
-version. Version `0.2.0` is a direct break from V6/`0.1.0`; there is no compatibility parser. See
-the repository `MIGRATING-TO-0.2.md` guide for the complete API change matrix.
+The package is at `0.2.3` while the public API is still being proven with external adapters.
+Pre-1.0 releases may include breaking changes during this beta period, and every such change is
+called out in the release notes. Protocol V8 is independent of any host transport or product
+persistence version. It directly replaces V7 in source; there is no compatibility parser, alias,
+or extension reader.
 
 The repository release proof builds and packs `@agen-ai/validation`, this package, and
 `@agen-ai/agent-runtime`; rejects workspace-only or private references; then typechecks and runs a
