@@ -3,6 +3,28 @@
 All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. The three
 packages always ship together at one version during beta.
 
+## 0.2.4 - 2026-09-05
+
+This coordinated patch release preserves Agent Protocol V8 and advances all three packages
+together.
+
+### Changed
+
+- Require every runtime operation invocation to provide a caller-owned `observationTurnId` for
+  exact session and turn correlation.
+- Require providers to await the optional operation `onOutput` observer for each emitted output,
+  preserving host admission backpressure before the operation result settles.
+
+### Fixed
+
+- Validate operation-scoped progress, context, compaction, operation, resource, warning, error,
+  and diagnostic observations through the same stateful session authority used by turn output.
+- Reject mismatched observation identity, undeclared output, invalid lifecycle transitions, and
+  output emitted after operation settlement before it can cross the public runtime boundary.
+
+See [MIGRATING-TO-0.2.4.md](MIGRATING-TO-0.2.4.md) for the required operation-call and adapter
+changes.
+
 ## 0.2.3 - 2026-09-04
 
 This coordinated beta release is published under both the `beta` and `latest` npm tags.

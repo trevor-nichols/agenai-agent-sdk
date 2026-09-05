@@ -192,12 +192,14 @@ test("required-idempotency operation replays return the correlated result withou
   let executionStartCount = 0;
   const first = await session.operations.invokeOperation({
     invocation,
+    observationTurnId: parseAgentTurnId(invocation.invocationId),
     onProviderExecutionStarted: () => {
       executionStartCount += 1;
     },
   });
   const replay = await session.operations.invokeOperation({
     invocation,
+    observationTurnId: parseAgentTurnId(invocation.invocationId),
     onProviderExecutionStarted: () => {
       executionStartCount += 1;
     },

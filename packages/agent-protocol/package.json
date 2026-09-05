@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-protocol",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": false,
   "description": "Provider-neutral sessions, turns, requests, capabilities, artifacts, and events for coding-agent runtimes.",
   "type": "module",

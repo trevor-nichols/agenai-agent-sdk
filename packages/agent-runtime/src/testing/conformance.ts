@@ -5,6 +5,7 @@
 import {
   matchesAgentSessionBinding,
   parseAgentRequestResolutionFor,
+  parseAgentTurnId,
   type AgentCollaborationSpawnInput,
   type AgentConfigurationSelectionInput,
   type AgentGeneratedResourceId,
@@ -454,6 +455,9 @@ export async function runAgentProviderConformance(
       let executionStarted = 0;
       const result = await created.operations.invokeOperation({
         invocation: scenario.operationInvocation,
+        observationTurnId: parseAgentTurnId(
+          scenario.operationInvocation.invocationId,
+        ),
         onProviderExecutionStarted: () => {
           executionStarted += 1;
         },

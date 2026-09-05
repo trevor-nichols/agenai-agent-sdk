@@ -17,6 +17,8 @@ import {
   parseAgentGeneratedResourceId,
   parseAgentIsoDateTime,
   parseAgentItemId,
+  parseAgentOperationId,
+  parseAgentOperationInvocationId,
   parseAgentProviderConversationId,
   parseAgentProviderHistoryAnchor,
   parseAgentProviderKey,
@@ -1778,6 +1780,128 @@ test("interaction observations enforce per-turn bounds and forward-only lifecycl
     );
     await opened.close({ reason: "contract_rejected" });
   }
+});
+
+test("session operation observations are validated and preserve output backpressure", async () => {
+  const operationId = parseAgentOperationId("compact-context");
+  const invocationId = parseAgentOperationInvocationId(
+    "invocation:compact-context",
+  );
+  const observationTurnId = parseAgentTurnId(
+    "operation-observation:compact-context",
+  );
+  const operationCapabilities = parseAgentCapabilities({
+    ...capabilities,
+    context: {
+      usage: { kind: "unsupported" },
+      compaction: {
+        kind: "supported",
+        triggers: ["manual"],
+        sameSessionContinuation: true,
+      },
+    },
+    operations: {
+      kind: "supported",
+      operationKinds: ["session_control"],
+      fieldKinds: ["text"],
+      executionModes: ["immediate"],
+      maxOperations: 1,
+      maxFieldsPerOperation: 1,
+    },
+  });
+  const outputEntered = Promise.withResolvers<void>();
+  const releaseOutput = Promise.withResolvers<void>();
+  const validated = validateAgentProviderAdapter(
+    operationCapabilities,
+    adapter((input) => {
+      const opened = session({
+        operations: {
+          kind: "supported",
+          listOperations: async () => ({
+            revision: 1,
+            operations: [{
+              operationId,
+              revision: 1,
+              kind: "session_control",
+              title: "Compact context",
+              context: "session",
+              timing: "idle_session",
+              executionMode: "immediate",
+              fields: [],
+              confirmation: "required",
+              idempotency: "required",
+              resultKind: "none",
+            }],
+          }),
+          invokeOperation: async (operationInput) => {
+            operationInput.onProviderExecutionStarted?.();
+            await operationInput.onOutput?.(createAgentEventOutput({
+              protocolVersion: 8,
+              type: "item.completed",
+              sessionId,
+              turnId: operationInput.observationTurnId,
+              occurredAt: "2026-08-04T00:00:00.000Z",
+              payload: {
+                itemId: parseAgentItemId("operation-compaction:item"),
+                itemKind: "context_compaction",
+                status: "completed",
+                details: { trigger: "manual" },
+              },
+            }));
+            return {
+              invocationId: operationInput.invocation.invocationId,
+              status: "completed",
+            };
+          },
+        },
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  assert.equal(opened.operations.kind, "supported");
+  if (opened.operations.kind !== "supported") return;
+
+  const operation = Promise.resolve(opened.operations.invokeOperation({
+    invocation: {
+      invocationId,
+      operationId,
+      expectedRevision: 1,
+      values: [],
+    },
+    observationTurnId,
+    onOutput: async (output) => {
+      assert.equal(output.kind, "event");
+      if (output.kind === "event") {
+        assert.equal(output.event.turnId, observationTurnId);
+        assert.equal(output.event.type, "item.completed");
+      }
+      outputEntered.resolve();
+      await releaseOutput.promise;
+    },
+  }));
+  await outputEntered.promise;
+  assert.equal(
+    await Promise.race([
+      operation.then(() => "settled"),
+      new Promise<"backpressured">((resolve) =>
+        setImmediate(() => resolve("backpressured"))
+      ),
+    ]),
+    "backpressured",
+  );
+  releaseOutput.resolve();
+  assert.deepEqual(await operation, {
+    invocationId,
+    status: "completed",
+  });
+  await opened.close({ reason: "idle" });
 });
 
 test("collaboration spawn validates every immutable identity field after delegation", async () => {

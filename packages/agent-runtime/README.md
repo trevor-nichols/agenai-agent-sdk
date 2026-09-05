@@ -101,8 +101,13 @@ receipt rule: stale or malformed input fails before provider delegation, while a
 the candidate reports execution start is wrapped as `AgentProviderDelegatedOperationError` and
 makes the session unusable. The start boundary commits only after the host observer returns
 successfully; an observer failure remains a pre-delegation error and leaves the session reusable.
-Operation, collaboration, and generated-resource observations also
-enforce correlation, immutable identity, declared bounds, and forward-only lifecycle transitions.
+Operation invocation also carries a caller-owned `observationTurnId` and an optional `onOutput`
+sink. An adapter must await that sink for every operation observation. The validated runtime
+admits only operation-scoped progress, context, compaction, operation, resource, warning, error,
+and diagnostic events; it enforces the exact session/observation-turn correlation, immutable
+identity, declared bounds, forward-only lifecycle transitions, and per-output backpressure before
+the operation result may settle. Collaboration and generated-resource observations retain the
+same correlation and lifecycle validation at their respective ports.
 
 ## Minimal driver
 
@@ -163,7 +168,7 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The package is at `0.2.3` while the public SPI is being proven with external adapters. Pre-1.0
+The package is at `0.2.4` while the public SPI is being proven with external adapters. Pre-1.0
 releases may include breaking changes during this beta period, and those changes are called out in
 the release notes.
 

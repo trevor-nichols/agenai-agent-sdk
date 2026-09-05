@@ -64,7 +64,7 @@ writes. Promotion therefore uses a maintainer-authenticated npm session only aft
 version and provenance have passed readback:
 
 ```sh
-VERSION=0.2.3
+VERSION=0.2.4
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest

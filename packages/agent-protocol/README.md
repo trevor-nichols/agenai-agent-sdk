@@ -104,7 +104,7 @@ validated protocol output remains canonical across transports and consumers.
 
 ## Versioning and release
 
-The package is at `0.2.3` while the public API is still being proven with external adapters.
+The package is at `0.2.4` while the public API is still being proven with external adapters.
 Pre-1.0 releases may include breaking changes during this beta period, and every such change is
 called out in the release notes. Protocol V8 is independent of any host transport or product
 persistence version. It directly replaces V7 in source; there is no compatibility parser, alias,

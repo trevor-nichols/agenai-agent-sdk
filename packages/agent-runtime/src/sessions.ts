@@ -70,6 +70,10 @@ export interface AgentProviderBranchSessionInput
 
 export type AgentProviderExecutionStartedObserver = () => void;
 
+export type AgentProviderOutputObserver = (
+  output: AgentProviderOutput,
+) => MaybePromise<void>;
+
 export interface AgentProviderRunTurnInput {
   readonly turnId: AgentTurnId;
   readonly interactionMode: AgentTurnInteractionMode;
@@ -104,8 +108,10 @@ export interface AgentProviderApplyConfigurationSelectionInput {
 
 export interface AgentProviderInvokeOperationInput {
   readonly invocation: AgentOperationInvocation;
+  readonly observationTurnId: AgentTurnId;
   readonly signal?: AbortSignal;
   readonly onProviderExecutionStarted?: AgentProviderExecutionStartedObserver;
+  readonly onOutput?: AgentProviderOutputObserver;
 }
 
 export interface AgentProviderSpawnCollaborationInput {

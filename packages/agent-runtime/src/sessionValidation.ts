@@ -893,6 +893,61 @@ function observeTurnOutput(input: {
   });
 }
 
+const SESSION_OPERATION_OBSERVATION_EVENT_TYPES = new Set<AgentEvent["type"]>([
+  "item.started",
+  "item.updated",
+  "item.completed",
+  "progress.updated",
+  "context.usage.updated",
+  "operation.updated",
+  "resource.updated",
+  "runtime.warning",
+  "runtime.error",
+  "provider.diagnostic",
+]);
+
+function observeSessionOperationOutput(input: {
+  readonly capabilities: AgentCapabilities;
+  readonly providerKey: AgentProviderKey;
+  readonly output: AgentProviderOutput;
+  readonly state: AgentTurnSequenceState;
+  readonly contextUsageState: AgentContextUsageSequenceState;
+  readonly interactionState: AgentInteractionSequenceState;
+}): void {
+  if (input.output.kind === "event") {
+    const event = input.output.event;
+    if (!SESSION_OPERATION_OBSERVATION_EVENT_TYPES.has(event.type)) {
+      invalidTurnSequence(
+        input.providerKey,
+        "Provider emitted turn-owned output from a session operation.",
+      );
+    }
+    if (
+      (
+        event.type === "item.started"
+        || event.type === "item.updated"
+        || event.type === "item.completed"
+      )
+      && event.payload.itemKind !== "context_compaction"
+    ) {
+      invalidTurnSequence(
+        input.providerKey,
+        "Provider emitted a non-compaction item from a session operation.",
+      );
+    }
+  }
+  observeTurnOutput({
+    capabilities: input.capabilities,
+    providerKey: input.providerKey,
+    output: input.output,
+    state: input.state,
+    pendingRequests: new Map(),
+    openedRequestIds: new Set(),
+    contextUsageState: input.contextUsageState,
+    interactionState: input.interactionState,
+  });
+}
+
 function assertStableTurnBoundary(input: {
   readonly providerKey: AgentProviderKey;
   readonly state: AgentTurnSequenceState;
@@ -1182,7 +1237,11 @@ export function validateAgentProviderSession(input: {
   const delegateProviderMutation = async <Result>(input: {
     readonly operation: AgentProviderDelegatedOperation;
     readonly observer?: () => void;
-    readonly invoke: (onProviderExecutionStarted: () => void) => MaybePromise<unknown>;
+    readonly invoke: (
+      onProviderExecutionStarted: () => void,
+      onOutput: (candidate: unknown) => Promise<void>,
+    ) => MaybePromise<unknown>;
+    readonly observeOutput?: (candidate: unknown) => MaybePromise<void>;
     readonly validate: (candidate: unknown) => Result;
   }): Promise<Result> => {
     let executionStarted = false;
@@ -1197,8 +1256,18 @@ export function validateAgentProviderSession(input: {
       input.observer?.();
       executionStarted = true;
     };
+    const onOutput = async (candidate: unknown): Promise<void> => {
+      if (!executionStarted) {
+        throwAgentProviderContractError(
+          providerKey,
+          "invalid_operation_result",
+          "Provider emitted operation output before reporting execution start.",
+        );
+      }
+      await input.observeOutput?.(candidate);
+    };
     try {
-      const candidate = await input.invoke(onProviderExecutionStarted);
+      const candidate = await input.invoke(onProviderExecutionStarted, onOutput);
       if (!executionStarted) {
         throwAgentProviderContractError(
           providerKey,
@@ -1685,8 +1754,12 @@ export function validateAgentProviderSession(input: {
             requireUsable();
             throwIfAgentOperationAborted(operationInput.signal);
             let invocation: AgentOperationInvocation;
+            let observationTurnId: AgentTurnId;
             try {
               invocation = parseAgentOperationInvocation(operationInput.invocation);
+              observationTurnId = parseAgentTurnId(
+                operationInput.observationTurnId,
+              );
             } catch {
               return throwAgentProviderContractError(
                 providerKey,
@@ -1750,6 +1823,16 @@ export function validateAgentProviderSession(input: {
             const trackedInvocation: TrackedAgentOperationInvocation = {
               invocation,
             };
+            const observationState: AgentTurnSequenceState = {
+              fileChangeMode: capabilities.output.fileChanges,
+              observedItems: new Map(),
+              proposedPlans: new Map(),
+              generatedResourceIds: new Set(),
+              started: true,
+              terminal: false,
+              waiting: false,
+              finalDiffObserved: false,
+            };
             interactionState.operationInvocations.set(
               invocation.invocationId,
               trackedInvocation,
@@ -1758,14 +1841,34 @@ export function validateAgentProviderSession(input: {
               const result = await delegateProviderMutation({
                 operation: "invoke_operation",
                 observer: operationInput.onProviderExecutionStarted,
-                invoke: (onProviderExecutionStarted) =>
+                invoke: (onProviderExecutionStarted, onOutput) =>
                   declaredOperations.invokeOperation({
                     invocation,
+                    observationTurnId,
                     onProviderExecutionStarted,
+                    onOutput,
                     ...(operationInput.signal === undefined
                       ? {}
                       : { signal: operationInput.signal }),
                   }),
+                observeOutput: async (candidate) => {
+                  const output = validateAgentProviderOutputForContext(
+                    candidate as AgentProviderOutput,
+                    {
+                      ...outputContext(observationTurnId),
+                      operationInvocationId: invocation.invocationId,
+                    },
+                  );
+                  observeSessionOperationOutput({
+                    capabilities,
+                    providerKey,
+                    output,
+                    state: observationState,
+                    contextUsageState,
+                    interactionState,
+                  });
+                  await operationInput.onOutput?.(output);
+                },
                 validate: (candidate) => {
                   const result = validateAgentOperationResultTransition({
                     providerKey,
