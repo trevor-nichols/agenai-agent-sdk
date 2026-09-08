@@ -6,6 +6,7 @@
 
 import type { z } from 'zod/v4';
 
+import type { AgentAccountQuotaSnapshot, AgentAccountQuotaWindow } from '../accountQuota/types.js';
 import type { AgentArtifactDescriptor } from '../artifacts/types.js';
 import type { AgentCapabilities } from '../capabilities/types.js';
 import type { AgentCollaborationControlInput, AgentCollaborationNode, AgentCollaborationSpawnInput } from '../collaboration/types.js';
@@ -19,6 +20,7 @@ import type { AgentRequest, AgentRequestResolution } from '../requests/types.js'
 import type { AgentGeneratedResourceDescriptor } from '../resources/types.js';
 import type { AgentSessionBinding, AgentSessionConfiguration, AgentSessionOpenInput } from '../sessions/types.js';
 import type { AgentItemSnapshot, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
+import { AgentAccountQuotaSnapshotSchema, AgentAccountQuotaWindowSchema } from './accountQuota.js';
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
 import { AgentCapabilitiesSchema } from './capabilities.js';
 import { AgentCollaborationControlInputSchema, AgentCollaborationNodeSchema, AgentCollaborationSpawnInputSchema } from './collaboration.js';
@@ -37,6 +39,10 @@ type Extends<Left, Right> = [Left] extends [Right] ? true : false;
 type Assert<Value extends true> = Value;
 
 export type AgentProtocolSchemaTypeAssertions = readonly [
+  Assert<Extends<z.output<typeof AgentAccountQuotaSnapshotSchema>, AgentAccountQuotaSnapshot>>,
+  Assert<Extends<AgentAccountQuotaSnapshot, z.output<typeof AgentAccountQuotaSnapshotSchema>>>,
+  Assert<Extends<z.output<typeof AgentAccountQuotaWindowSchema>, AgentAccountQuotaWindow>>,
+  Assert<Extends<AgentAccountQuotaWindow, z.output<typeof AgentAccountQuotaWindowSchema>>>,
   Assert<Extends<z.output<typeof AgentJsonValueSchema>, AgentJsonValue>>,
   Assert<Extends<AgentJsonValue, z.output<typeof AgentJsonValueSchema>>>,
   Assert<Extends<z.output<typeof AgentProviderRefsSchema>, AgentProviderRefs>>,

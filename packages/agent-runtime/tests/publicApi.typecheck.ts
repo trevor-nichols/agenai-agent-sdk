@@ -16,6 +16,7 @@ import {
   createAgentEvidenceOutput,
   createAgentProviderEvidence,
   defineAgentProviderDriver,
+  type AgentAccountQuotaPort,
   type AgentProviderSessionContext,
   type AgentSessionBranching,
   type AgentTurnSteering,
@@ -102,3 +103,13 @@ createAgentEventOutput({}, { evidence: providerEventEvidence });
 createAgentEventOutput({}, { evidence: diagnosticEvidence });
 // @ts-expect-error Provider source evidence cannot be emitted as standalone evidence.
 createAgentEvidenceOutput(providerEventEvidence);
+
+const unsupportedQuota: AgentAccountQuotaPort = { kind: "unsupported" };
+// @ts-expect-error Unsupported quota must not expose a callable query.
+unsupportedQuota.query;
+// @ts-expect-error A supported quota query requires its callable method.
+const missingQuotaQuery: AgentAccountQuotaPort = { kind: "query" };
+void missingQuotaQuery;
+// @ts-expect-error Query plus observation requires both callable methods.
+const missingQuotaObserver: AgentAccountQuotaPort = { kind: "query_and_observe", query: () => { throw new Error("unused"); } };
+void missingQuotaObserver;

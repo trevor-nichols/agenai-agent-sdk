@@ -57,13 +57,13 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.2.4", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.2.5", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.2.4" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.2.5" },
   },
 ];
 
@@ -152,7 +152,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.2.4");
+  assert.equal(manifest.version, "0.2.5");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -290,6 +290,7 @@ import {
   parseAgentTurnId,
   type AgentItemSnapshot,
 } from "@agen-ai/agent-protocol";
+import { parseAgentAccountQuotaSnapshot, type AgentAccountQuotaSnapshot } from "@agen-ai/agent-protocol/account-quota";
 import { parseAgentSessionBinding } from "@agen-ai/agent-protocol/sessions";
 import { parseAgentTurnRunInput } from "@agen-ai/agent-protocol/turns";
 import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
@@ -303,6 +304,8 @@ import {
   createAgentEventOutput,
   createAgentProviderReadiness,
   defineAgentProviderDriver,
+  validateAgentAccountQuotaPort,
+  type AgentAccountQuotaPort,
   type AgentProviderSession,
 } from "@agen-ai/agent-runtime";
 import {
@@ -313,7 +316,24 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.2.4");
+assert.equal(protocolManifest.version, "0.2.5");
+
+const quotaSnapshot: AgentAccountQuotaSnapshot = parseAgentAccountQuotaSnapshot({
+  schemaVersion: 1, sourceId: "packed-source", observedAt: "2026-09-07T12:00:00.000Z",
+  state: "available", completeness: "partial", windows: [],
+  allowance: { included: "unknown", extra: "unknown", reserve: "unknown" },
+});
+const quotaLifetime = new AbortController();
+const quotaCandidate: AgentAccountQuotaPort = { kind: "query", query: () => quotaSnapshot };
+const quotaPort = validateAgentAccountQuotaPort({
+  providerKey: parseAgentProviderKey("packed-provider"), port: quotaCandidate,
+  signal: quotaLifetime.signal,
+});
+assert.equal(quotaPort.kind, "query");
+if (quotaPort.kind !== "query") throw new Error("Packed quota port lost capability");
+assert.deepEqual(await quotaPort.query({ signal: new AbortController().signal }), quotaSnapshot);
+quotaLifetime.abort();
+await assert.rejects(async () => quotaPort.query({ signal: new AbortController().signal }));
 
 assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
@@ -456,6 +476,7 @@ const steeringDriver = defineAgentProviderDriver({
       branching: { kind: "unsupported" },
       authentication: { kind: "unsupported" },
     },
+    accountQuota: { kind: "unsupported" },
     checkReadiness: () => createAgentProviderReadiness({
       status: "ready",
       checkedAt: "2026-08-04T00:00:00.000Z",

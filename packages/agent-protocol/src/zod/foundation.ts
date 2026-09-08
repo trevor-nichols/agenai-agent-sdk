@@ -53,7 +53,7 @@ const CANONICAL_OPAQUE_STRING_PATTERN =
   /^(?![\s\S]*[\u0000-\u001F\u007F-\u009F])\S(?:[\s\S]*\S)?$/u;
 const CANONICAL_NON_BLANK_STRING_PATTERN = /^(?:\S|\S[\s\S]*\S)$/u;
 
-function canonicalOpaqueStringSchema(
+export function createAgentCanonicalOpaqueStringSchema(
   maxLength: number,
   message: string,
 ): z.ZodString {
@@ -64,7 +64,7 @@ function canonicalOpaqueStringSchema(
     .regex(CANONICAL_OPAQUE_STRING_PATTERN, message);
 }
 
-export const AgentCanonicalIdValueSchema = canonicalOpaqueStringSchema(
+export const AgentCanonicalIdValueSchema = createAgentCanonicalOpaqueStringSchema(
   AGENT_PROTOCOL_ID_MAX_LENGTH,
   'Opaque IDs must be canonical and contain no control or surrounding whitespace.',
 );
@@ -84,7 +84,7 @@ export const AgentCanonicalNonBlankTextSchema =
 export const AgentCanonicalCodeSchema =
   createAgentCanonicalNonBlankStringSchema(AGENT_PROTOCOL_CODE_MAX_LENGTH);
 
-const ProviderReferenceSchema = canonicalOpaqueStringSchema(
+const ProviderReferenceSchema = createAgentCanonicalOpaqueStringSchema(
   AGENT_PROTOCOL_PROVIDER_REFERENCE_MAX_LENGTH,
   'Provider references must be canonical and contain no control or surrounding whitespace.',
 );

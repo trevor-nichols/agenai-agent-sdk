@@ -21,6 +21,39 @@ import {
 } from "../src/index.js";
 import { createFakeAgentProvider } from "../src/testing/index.js";
 
+test("quota failures do not change readiness and disposal cancels retained quota ports", async () => {
+  const failure = new Error("Synthetic quota outage");
+  let pendingSignal: AbortSignal | undefined;
+  let calls = 0;
+  const fake = createFakeAgentProvider({
+    accountQuota: {
+      kind: "query",
+      query: ({ signal }) => {
+        calls += 1;
+        if (calls === 1) throw failure;
+        pendingSignal = signal;
+        return new Promise(() => undefined);
+      },
+    },
+  });
+  const registry = await createAgentProviderRegistry({
+    drivers: [fake.driver], definitions: [fake.definition],
+  });
+  const instance = registry.requireInstance(fake.definition.instanceId);
+  const quota = instance.accountQuota;
+  assert.equal(quota.kind, "query");
+  if (quota.kind !== "query") throw new Error("Missing query port");
+  await assert.rejects(async () => quota.query({ signal: new AbortController().signal }), (error) => error === failure);
+  assert.equal((await registry.checkReadiness(fake.definition.instanceId)).status, "ready");
+  const query = Promise.resolve(quota.query({ signal: new AbortController().signal }));
+  const canceled = assert.rejects(query, { name: "AbortError" });
+  await registry.dispose();
+  await canceled;
+  assert.equal(pendingSignal?.aborted, true);
+  await assert.rejects(async () => quota.query({ signal: new AbortController().signal }), { name: "AbortError" });
+  assert.equal(calls, 2);
+});
+
 test("registry exposes deterministic catalogs, readiness, lookup, and idempotent cleanup", async () => {
   const first = createFakeAgentProvider({
     providerKey: "z-provider",
@@ -157,6 +190,7 @@ test("registry validates materialized instance identity and capability ownership
         versionReporting: false,
       }),
       adapter,
+      accountQuota: { kind: "unsupported" },
       checkReadiness: () =>
         createAgentProviderReadiness({
           status: "ready",
@@ -181,7 +215,7 @@ test("registry validates materialized instance identity and capability ownership
 });
 
 test("registry rejects missing materialized instance ports before publication", async () => {
-  for (const missingPort of ["checkReadiness", "dispose"] as const) {
+  for (const missingPort of ["checkReadiness", "dispose", "accountQuota"] as const) {
     const fake = createFakeAgentProvider({
       providerKey: `missing-${missingPort.toLowerCase()}-provider`,
       instanceId: `missing-${missingPort.toLowerCase()}-instance`,
@@ -265,6 +299,7 @@ test("registry cleans earlier instances when a rejected instance also fails clea
         branching: { kind: "unsupported" },
         authentication: { kind: "unsupported" },
       },
+      accountQuota: { kind: "unsupported" },
       checkReadiness: () =>
         createAgentProviderReadiness({
           status: "ready",

@@ -3,6 +3,28 @@
 All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. The three
 packages always ship together at one version during beta.
 
+## 0.2.5 - 2026-09-08
+
+This coordinated release preserves Agent Protocol V8 and introduces account-quota snapshot
+schema version 1 outside session events.
+
+### Added
+
+- Add the validator-neutral `/account-quota` entrypoint with bounded snapshots, quota windows,
+  allowance states, source identity, and original observation timestamps.
+- Add instance-scoped quota query and observation ports with caller and instance cancellation,
+  validated snapshots, sequential observation, and iterator cleanup.
+- Extend fake-provider, conformance, generated-schema, and packed-consumer coverage for quota.
+
+### Changed
+
+- Require `accountQuota` on every materialized provider instance. Providers without support must
+  explicitly return `{ kind: "unsupported" }` with no handlers.
+- Advance validation, protocol, and runtime packages together to `0.2.5`; the validation API and
+  public Agent Protocol V8 event version remain unchanged.
+
+See [MIGRATING-TO-0.2.5.md](MIGRATING-TO-0.2.5.md) before upgrading driver implementations.
+
 ## 0.2.4 - 2026-09-05
 
 This coordinated patch release preserves Agent Protocol V8 and advances all three packages

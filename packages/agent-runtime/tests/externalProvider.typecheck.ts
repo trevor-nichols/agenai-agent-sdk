@@ -155,6 +155,7 @@ export const externalProviderDriver = defineAgentProviderDriver({
         branching: { kind: "unsupported" },
         authentication: { kind: "unsupported" },
       },
+      accountQuota: { kind: "unsupported" },
       checkReadiness: () =>
         createAgentProviderReadiness({
           status: "ready",

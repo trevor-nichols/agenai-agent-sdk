@@ -31,6 +31,7 @@ import {
 } from "@agen-ai/agent-protocol";
 
 import { createAgentEventOutput } from "../outputs.js";
+import type { AgentAccountQuotaPort } from "../accountQuota/types.js";
 import {
   defineAgentProviderDriver,
   type AgentProviderDriver,
@@ -58,6 +59,7 @@ export interface FakeAgentProviderOptions {
   readonly capabilities?: AgentCapabilities;
   readonly now?: () => string;
   readonly steeringResult?: AgentTurnSteeringResult;
+  readonly accountQuota?: AgentAccountQuotaPort;
 }
 
 export type FakeAgentSteeringInput = Readonly<
@@ -753,6 +755,7 @@ export function createFakeAgentProvider(
         instanceId: createdInstanceId,
         capabilities,
         adapter: fakeAdapter({ state, capabilities, now, steeringResult }),
+        accountQuota: options.accountQuota ?? { kind: "unsupported" },
         checkReadiness: () =>
           createAgentProviderReadiness({
             status: "ready",

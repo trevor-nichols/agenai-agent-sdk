@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod/v4';
 
+import { AgentAccountQuotaSnapshotPortableSchema } from '../src/zod/accountQuota.ts';
 import { AgentArtifactDescriptorSchema } from '../src/zod/artifacts.ts';
 import { AgentCapabilitiesPortableSchema } from '../src/zod/capabilities.ts';
 import {
@@ -54,6 +55,13 @@ const checkOnly = process.argv.includes('--check');
 const dialect = 'https://json-schema.org/draft/2020-12/schema';
 
 const definitions = [
+  {
+    exportName: 'AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.account-quota-snapshot',
+    direction: 'output',
+    schema: AgentAccountQuotaSnapshotPortableSchema,
+    parserInvariants: ['quota_observation_ordering', 'quota_quantity_presence', 'quota_reset_ordering', 'serialized_bytes', 'unique_model_ids', 'unique_pool_window_ids'],
+  },
   {
     exportName: 'AGENT_SESSION_BINDING_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.session-binding',

@@ -3,20 +3,20 @@
 `@agen-ai/agent-runtime` is the process-local service-provider interface for coding-agent
 implementations. It preserves a small ownership chain: a driver parses host configuration and
 materializes an instance; the instance owns one opaque ID, technical capabilities, an adapter,
-readiness, and disposal; the adapter opens provider-native sessions; each returned session owns
-its binding and conversation-local operations.
+an account-quota observation port, readiness, and disposal; the adapter opens provider-native
+sessions; each returned session owns its binding and conversation-local operations.
 
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This source package implements Agent Protocol V8. Agent Protocol V8, private host V16/catalog V10, and Workspaces event V10.
+This source package implements Agent Protocol V8. Agent Protocol V8, private host V18/catalog V11, and Workspaces event V11/member response V12.
 This is intentionally one coordinated tuple rather than a deployable mixed-version graph.
 
 ## Entrypoints
 
 - `@agen-ai/agent-runtime` exports the public driver, instance, adapter, session, output,
-  readiness, bounded-evidence, artifact-candidate, capability-bound interaction validation,
-  and registry APIs.
+  readiness, account-quota port validation, bounded-evidence, artifact-candidate,
+  capability-bound interaction validation, and registry APIs.
 - `@agen-ai/agent-runtime/testing` exports the deterministic fake provider and reusable
   conformance runner.
 
@@ -47,6 +47,17 @@ inventory, integration observation, collaboration spawn/control, and generated-r
 An unsupported declaration exposes exactly `{ kind: "unsupported" }`; a supported declaration must
 expose exactly its typed handlers. Catalogs and results are parsed again at the runtime boundary,
 bounded by the declaration, and correlated to the offered revision and caller-owned identity.
+
+Account-quota observation is an instance port beside the session adapter. Its four exact variants
+are `unsupported`, `query`, `observe`, and `query_and_observe`; supported variants must expose all
+methods named by their kind. Every operation receives an `AbortSignal`. The registry combines that
+caller signal with the materialized-instance lifetime, parses every returned snapshot, closes an
+observation iterator on cancellation or disposal, and preserves provider errors. Quota reads are
+replaceable account state and never become model prompts, conversation events, turn output, or
+execution authorization. A malformed or unavailable quota result cannot invalidate an otherwise
+usable session.
+
+Explicit iterator return and normal end join native cleanup for at most 1,000 ms; cleanup failure or timeout is observable. Cancellation or an existing provider failure keeps its original error while cleanup is still attempted. Iterator closure aborts its producer and removes listeners, and late native rejections remain observed.
 
 Approval continuations are refusal-first. Before delegating to the candidate adapter, the
 validated session proves that the request is still pending and unexpired and that a selected
@@ -132,7 +143,7 @@ export const driver = defineAgentProviderDriver({
     return input;
   },
   createInstance({ instanceId }): MaterializedAgentProviderInstance {
-    // Construct capabilities, adapter, readiness, and disposal here.
+    // Construct capabilities, adapter, accountQuota, readiness, and disposal here.
     throw new Error(`Implement ${parseAgentInstanceId(instanceId)}.`);
   },
 });
@@ -168,9 +179,11 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The package is at `0.2.4` while the public SPI is being proven with external adapters. Pre-1.0
+The package is at `0.2.5` while the public SPI is being proven with external adapters. Pre-1.0
 releases may include breaking changes during this beta period, and those changes are called out in
-the release notes.
+the release notes. Requiring `accountQuota` on every materialized instance is a source-level
+implementer change in the coordinated `0.2.5` release. Upgrade all three SDK packages together;
+there is no compatibility shim or optional-field fallback.
 
 The public runtime implements Agent Protocol V8. Its package version remains independent of private
 host, catalog, persistence, and member-projection versions. V8 directly replaces V7; there is no

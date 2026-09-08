@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Status: `0.2.4` with Agent Protocol V8. The `latest` and `beta` npm tags both select this release.
+> Status: `0.2.5` with Agent Protocol V8. The `latest` and `beta` npm tags both select this release.
 
 ## Why this exists
 
@@ -40,13 +40,13 @@ The dependency chain is intentionally narrow:
 
 ## Install
 
-Install the coordinated `0.2.4` release directly or through npm's default `latest` channel:
+Install the coordinated `0.2.5` release directly or through npm's default `latest` channel:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.2.4
+pnpm add @agen-ai/agent-runtime@0.2.5
 ```
 
-The `beta` tag also selects `0.2.4` for repositories that adopted the prerelease channel. The
+The `beta` tag also selects `0.2.5` for repositories that adopted the prerelease channel. The
 protocol and validation packages are installed automatically. Install them directly only when you
 need their public APIs without the runtime.
 
@@ -92,16 +92,18 @@ Package-specific API and lifecycle notes live in each package README:
 - [`@agen-ai/agent-protocol`](packages/agent-protocol/README.md)
 - [`@agen-ai/agent-runtime`](packages/agent-runtime/README.md)
 
-## What changed in 0.2.4
+## What changed in 0.2.5
 
-This coordinated patch closes the operation-observation correlation boundary introduced with
-Agent Protocol V8. Runtime operation invocations now carry an exact caller-owned observation turn
-ID, and adapters must await every supplied output observer before settling the operation result.
-Validated sessions enforce session and turn correlation, allowed output kinds, lifecycle order,
-capability bounds, and per-output backpressure. See [CHANGELOG.md](CHANGELOG.md) for the complete
-release notes, [MIGRATING-TO-0.2.4.md](MIGRATING-TO-0.2.4.md) for this runtime API change,
-[MIGRATING-TO-0.2.3.md](MIGRATING-TO-0.2.3.md) for the V7-to-V8 upgrade, and
-[MIGRATING-TO-0.2.md](MIGRATING-TO-0.2.md) for the original `0.1.0`-to-`0.2.0` migration.
+This coordinated release adds bounded account-quota observations alongside Agent Protocol V8.
+Every materialized provider instance now declares an `accountQuota` port: unsupported, query,
+observe, or both. The runtime validates snapshots and ties cancellation to the caller and instance
+lifetime. Quota observations stay outside session output and execution admission.
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete release notes and
+[MIGRATING-TO-0.2.5.md](MIGRATING-TO-0.2.5.md) for the required instance field and quota examples.
+Earlier migration guides cover [operation observations](MIGRATING-TO-0.2.4.md),
+[the V7-to-V8 upgrade](MIGRATING-TO-0.2.3.md), and
+[the original 0.2.0 cut](MIGRATING-TO-0.2.md).
 
 The SDK remains beta while external provider adapters prove the public surface. Pre-1.0 releases
 may contain breaking API changes during this period, and release notes call out each one.

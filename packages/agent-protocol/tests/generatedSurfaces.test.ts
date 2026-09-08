@@ -14,6 +14,7 @@ import {
   AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY,
 } from '../src/jsonSchema/index.js';
 import {
+  safeParseAgentAccountQuotaSnapshot,
   safeParseAgentArtifactDescriptor,
   safeParseAgentCapabilities,
   safeParseAgentCollaborationControlInput,
@@ -62,6 +63,7 @@ function stableJson(value: unknown): unknown {
 test('package exports are explicit and complete', () => {
   assert.deepEqual(Object.keys(packageManifest.exports).sort(), [
     '.',
+    './account-quota',
     './artifacts',
     './capabilities',
     './collaboration',
@@ -85,7 +87,7 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 21);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 22);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
@@ -118,6 +120,12 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
     },
   } as const;
   const fixtures = [
+    {
+      contractId: 'agenai.agent-protocol.account-quota-snapshot',
+      parser: safeParseAgentAccountQuotaSnapshot,
+      accepted: { schemaVersion: 1, sourceId: 'source-a', observedAt: protocolTimestamp, state: 'inapplicable' },
+      rejected: { schemaVersion: 1, sourceId: 'source-a', observedAt: protocolTimestamp, state: 'inapplicable', windows: [] },
+    },
     {
       contractId: 'agenai.agent-protocol.turn-input-content',
       parser: safeParseAgentTurnInputContent,

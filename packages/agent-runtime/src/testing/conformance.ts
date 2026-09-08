@@ -231,6 +231,27 @@ export async function runAgentProviderConformance(
     );
     checks.push("readiness", "version_reporting_capability");
 
+    const quota = instance.accountQuota;
+    const quotaAbort = new AbortController();
+    quotaAbort.abort();
+    const quotaOperations: Array<() => Promise<unknown>> = [];
+    if (quota.kind === "query" || quota.kind === "query_and_observe") {
+      quotaOperations.push(async () => quota.query({ signal: quotaAbort.signal }));
+    }
+    if (quota.kind === "observe" || quota.kind === "query_and_observe") {
+      quotaOperations.push(async () => quota.observe({ signal: quotaAbort.signal })[Symbol.asyncIterator]().next());
+    }
+    for (const operation of quotaOperations) {
+      let aborted = false;
+      try {
+        await operation();
+      } catch (error) {
+        aborted = isAgentOperationAbortError(error);
+      }
+      requireCheck(aborted, "account_quota", "Pre-aborted quota work must fail with AbortError.");
+    }
+    checks.push("account_quota");
+
     let createdBindingCount = 0;
     const created = await instance.adapter.createSession({
       sessionId: scenario.createSessionId,

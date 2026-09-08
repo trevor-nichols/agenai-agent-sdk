@@ -19,6 +19,579 @@ export interface AgentProtocolJsonSchemaArtifact {
   readonly schema: Readonly<Record<string, unknown>>;
 }
 
+export const AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.account-quota-snapshot",
+  "protocolVersion": 8,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "quota_observation_ordering",
+    "quota_quantity_presence",
+    "quota_reset_ordering",
+    "serialized_bytes",
+    "unique_model_ids",
+    "unique_pool_window_ids"
+  ],
+  "sha256": "5b8e8bf4c0a870f66b7d8a1f35160a97ca72d8e212990f9722eff5967412102a",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "const": 1,
+        "type": "number"
+      },
+      "__schema1": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema2": {
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+        "type": "string"
+      },
+      "__schema3": {
+        "maxLength": 160,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema4": {
+        "additionalProperties": false,
+        "properties": {
+          "allowanceKind": {
+            "enum": [
+              "included",
+              "extra",
+              "reserve",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "applicability": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "account",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "product",
+                    "type": "string"
+                  },
+                  "productId": {
+                    "$ref": "#/$defs/__schema1"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "productId"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "models",
+                    "type": "string"
+                  },
+                  "modelIds": {
+                    "items": {
+                      "$ref": "#/$defs/__schema1"
+                    },
+                    "maxItems": 32,
+                    "minItems": 1,
+                    "readOnly": true,
+                    "type": "array"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "modelIds"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "unknown",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "label": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "measurement": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "unknown",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "percentage",
+                    "type": "string"
+                  },
+                  "usedPercent": {
+                    "$ref": "#/$defs/__schema6"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "usedPercent"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "quantity",
+                    "type": "string"
+                  },
+                  "limit": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "remaining": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "unit": {
+                    "$ref": "#/$defs/__schema3"
+                  },
+                  "used": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "usedPercent": {
+                    "$ref": "#/$defs/__schema6"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "currency": {
+                    "pattern": "^[A-Z]{3}$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "money",
+                    "type": "string"
+                  },
+                  "limitMinorUnits": {
+                    "$ref": "#/$defs/__schema7"
+                  },
+                  "remainingMinorUnits": {
+                    "$ref": "#/$defs/__schema7"
+                  },
+                  "scale": {
+                    "maximum": 9,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "usedMinorUnits": {
+                    "$ref": "#/$defs/__schema7"
+                  },
+                  "usedPercent": {
+                    "$ref": "#/$defs/__schema6"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "currency",
+                  "scale"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "observedAt": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "period": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "durationSeconds": {
+                    "$ref": "#/$defs/__schema5"
+                  },
+                  "kind": {
+                    "const": "rolling",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "durationSeconds": {
+                    "$ref": "#/$defs/__schema5"
+                  },
+                  "kind": {
+                    "const": "fixed",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "durationSeconds": {
+                    "$ref": "#/$defs/__schema5"
+                  },
+                  "kind": {
+                    "const": "unknown",
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "calendar",
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema3"
+                  },
+                  "unit": {
+                    "enum": [
+                      "day",
+                      "week",
+                      "month",
+                      "year"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "unit",
+                  "timeZone"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "billing_cycle",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "enum": [
+                      "month",
+                      "year",
+                      "unknown"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "unit"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "poolId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "reset": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "observedAt": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "precision": {
+                "enum": [
+                  "reported",
+                  "estimated"
+                ],
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "at",
+              "precision",
+              "observedAt"
+            ],
+            "type": "object"
+          },
+          "startsAt": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "windowId": {
+            "$ref": "#/$defs/__schema1"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "poolId",
+          "windowId",
+          "label",
+          "allowanceKind",
+          "applicability",
+          "period",
+          "measurement",
+          "observedAt"
+        ],
+        "type": "object"
+      },
+      "__schema5": {
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "type": "integer"
+      },
+      "__schema6": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "number"
+      },
+      "__schema7": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.account-quota-snapshot:v8:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "oneOf": [
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountLabel": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "allowance": {
+            "additionalProperties": false,
+            "properties": {
+              "extra": {
+                "enum": [
+                  "allowed",
+                  "unavailable",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "included": {
+                "enum": [
+                  "allowed",
+                  "exhausted",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "reserve": {
+                "enum": [
+                  "allowed",
+                  "unavailable",
+                  "unknown"
+                ],
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "included",
+              "extra",
+              "reserve"
+            ],
+            "type": "object"
+          },
+          "completeness": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "type": "string"
+          },
+          "observedAt": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "planLabel": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "schemaVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "sourceId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "state": {
+            "const": "available",
+            "type": "string"
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "maxItems": 64,
+            "readOnly": true,
+            "type": "array"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "schemaVersion",
+          "sourceId",
+          "observedAt",
+          "state",
+          "completeness",
+          "windows",
+          "allowance"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "observedAt": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "schemaVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "sourceId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "state": {
+            "const": "authentication_required",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "schemaVersion",
+          "sourceId",
+          "observedAt",
+          "state"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "observedAt": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "schemaVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "sourceId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "state": {
+            "const": "inapplicable",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "schemaVersion",
+          "sourceId",
+          "observedAt",
+          "state"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "observedAt": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "schemaVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "sourceId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "state": {
+            "const": "temporarily_unavailable",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "schemaVersion",
+          "sourceId",
+          "observedAt",
+          "state"
+        ],
+        "type": "object"
+      }
+    ]
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
 export const AGENT_SESSION_BINDING_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-binding",
   "protocolVersion": 8,
@@ -8704,6 +9277,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
 } as const satisfies AgentProtocolJsonSchemaArtifact;
 
 export const AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY = [
+  AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA,
   AGENT_SESSION_BINDING_JSON_SCHEMA,
   AGENT_SESSION_CONFIGURATION_JSON_SCHEMA,
   AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA,
