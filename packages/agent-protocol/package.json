@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-protocol",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "private": false,
   "description": "Provider-neutral sessions, turns, requests, capabilities, artifacts, and events for coding-agent runtimes.",
   "type": "module",
@@ -76,7 +76,11 @@
       "types": "./dist/jsonSchema/index.d.ts",
       "import": "./dist/jsonSchema/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./account-quota": {
+      "types": "./dist/public/accountQuota.d.ts",
+      "import": "./dist/public/accountQuota.js"
+    }
   },
   "scripts": {
     "generate:contracts": "node scripts/generate-contract-surfaces.mjs",

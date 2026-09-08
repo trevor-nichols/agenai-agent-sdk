@@ -116,6 +116,7 @@ test("the deterministic fake passes the reusable provider conformance suite", as
     "authentication_capability",
     "readiness",
     "version_reporting_capability",
+    "account_quota",
     "create_session",
     "binding_callback",
     "abort",

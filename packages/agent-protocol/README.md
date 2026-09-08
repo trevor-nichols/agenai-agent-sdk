@@ -3,8 +3,9 @@
 `@agen-ai/agent-protocol` is the provider-neutral data contract for coding-agent runtimes. It
 defines opaque identifiers, sessions, turns, approval and elicitation requests, technical
 capabilities, typed operations, safe configuration and managed-content inventories, integration
-observations, collaboration lifecycles, generated resources, portable artifact descriptors, and
-provider-observed events. The package does not define a transport or execution runtime.
+observations, account-quota observations, collaboration lifecycles, generated resources, portable
+artifact descriptors, and provider-observed events. The package does not define a transport or
+execution runtime.
 
 ## Ownership boundary
 
@@ -20,12 +21,18 @@ identities to protocol IDs.
 the currently running turn. It does not describe, authorize, or implement future-turn queueing;
 that product concern belongs to the caller's control plane.
 
+Account-quota observations describe the allowance state reported by the account that funds a
+provider connection. They do not identify that account, authorize a caller, decide whether a turn
+may run, or represent AgenAI billing. `sourceId`, `poolId`, and `windowId` are opaque correlation
+values. A quota observation with a known zero or an unknown reset remains valid; unavailable states
+carry no fabricated windows or hints.
+
 ## Entrypoints
 
 - `@agen-ai/agent-protocol` exports the complete plain API.
 - `/sessions`, `/turns`, `/requests`, `/events`, `/capabilities`, `/artifacts`, `/operations`,
-  `/configuration`, `/managed-content`, `/integrations`, `/collaboration`, and `/resources` are
-  focused plain entrypoints.
+  `/configuration`, `/managed-content`, `/integrations`, `/collaboration`, `/resources`, and
+  `/account-quota` are focused plain entrypoints.
 - `/zod` is the only entrypoint that exposes Zod schemas.
 - `/json-schema` exposes deterministic draft 2020-12 schema artifacts.
 
@@ -83,7 +90,10 @@ content, and integrations are separate bounded, revisioned catalogs; capability 
 not carry inventory or authority. Operation and configuration input is correlated to the exact
 offered revision and typed field definition. Collaboration exposes canonical graph identity and
 lifecycle state without provider handles. Generated resources expose portable publication state
-and an artifact reference only when the resource is available. None of these domains has a generic
+and an artifact reference only when the resource is available. Account-quota windows keep period,
+measurement, applicability, allowance, and observation timestamps separate so a provider cannot
+collapse unrelated pools into one percentage. Quantity units remain distinct from exact money,
+which uses integer minor units with an explicit scale. None of these domains has a generic
 extension or metadata bag.
 
 ## Errors and trust
@@ -104,11 +114,14 @@ validated protocol output remains canonical across transports and consumers.
 
 ## Versioning and release
 
-The package is at `0.2.4` while the public API is still being proven with external adapters.
+The package is at `0.2.5` while the public API is still being proven with external adapters.
 Pre-1.0 releases may include breaking changes during this beta period, and every such change is
 called out in the release notes. Protocol V8 is independent of any host transport or product
 persistence version. It directly replaces V7 in source; there is no compatibility parser, alias,
-or extension reader.
+or extension reader. The account-quota namespace starts at schema version 1 and is additive to
+Protocol V8. The required `MaterializedAgentProviderInstance.accountQuota` runtime field is a
+source-level implementer change in the coordinated `0.2.5` release; all three SDK packages must
+be upgraded together. See the public repository migration guide for the explicit unsupported port.
 
 The repository release proof builds and packs `@agen-ai/validation`, this package, and
 `@agen-ai/agent-runtime`; rejects workspace-only or private references; then typechecks and runs a

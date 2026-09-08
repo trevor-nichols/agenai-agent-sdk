@@ -11,6 +11,7 @@ import {
 } from "@agen-ai/agent-protocol";
 
 import { validateAgentProviderAdapter } from "./adapterValidation.js";
+import { validateAgentAccountQuotaPort } from "./accountQuota/validation.js";
 import {
   createAgentProviderCatalogEntries,
   createAgentProviderInstanceCatalogEntries,
@@ -242,10 +243,16 @@ function managedInstance(
     status: "active",
     disposePromise: null,
   };
+  const quotaLifetime = new AbortController();
   const instance: MaterializedAgentProviderInstance = Object.freeze({
     instanceId: parseAgentInstanceId(rawInstance.instanceId),
     capabilities,
     adapter: validateAgentProviderAdapter(capabilities, rawInstance.adapter),
+    accountQuota: validateAgentAccountQuotaPort({
+      providerKey,
+      port: rawInstance.accountQuota,
+      signal: quotaLifetime.signal,
+    }),
     checkReadiness: async (input?: AgentProviderReadinessCheckInput) => {
       const readiness = await checkReadiness(input);
       return validateAgentProviderReadiness(readiness);
@@ -254,6 +261,7 @@ function managedInstance(
       if (lifecycle.status === "disposed") return Promise.resolve();
       if (lifecycle.disposePromise) return lifecycle.disposePromise;
       lifecycle.status = "disposing";
+      quotaLifetime.abort(new DOMException("The provider instance was disposed.", "AbortError"));
       lifecycle.disposePromise = Promise.resolve()
         .then(() => dispose())
         .then(() => {

@@ -17,6 +17,7 @@ const checkOnly = process.argv.includes('--check');
 const publicSurfaces = {
   'public/index.ts': [
     '../foundation/index.js',
+    '../accountQuota/index.js',
     '../sessions/index.js',
     '../turns/index.js',
     '../requests/index.js',
@@ -30,6 +31,7 @@ const publicSurfaces = {
     '../artifacts/index.js',
     '../events/index.js',
   ],
+  'public/accountQuota.ts': ['../accountQuota/index.js'],
   'public/sessions.ts': ['../sessions/index.js'],
   'public/turns.ts': ['../turns/index.js'],
   'public/requests.ts': ['../requests/index.js'],
@@ -45,6 +47,8 @@ const publicSurfaces = {
 };
 
 const equalityRecords = [
+  ['AgentAccountQuotaSnapshot', 'AgentAccountQuotaSnapshotSchema', 'accountQuota'],
+  ['AgentAccountQuotaWindow', 'AgentAccountQuotaWindowSchema', 'accountQuota'],
   ['AgentJsonValue', 'AgentJsonValueSchema', 'foundation'],
   ['AgentProviderRefs', 'AgentProviderRefsSchema', 'foundation'],
   ['AgentError', 'AgentErrorSchema', 'foundation'],

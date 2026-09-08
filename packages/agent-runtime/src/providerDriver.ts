@@ -11,6 +11,7 @@ import {
 } from "@agen-ai/agent-protocol";
 
 import type { MaybePromise } from "./foundation.js";
+import type { AgentAccountQuotaPort } from "./accountQuota/types.js";
 import type { AgentProviderReadiness } from "./readiness.js";
 import type { AgentProviderAdapter } from "./sessions.js";
 
@@ -32,6 +33,7 @@ export interface MaterializedAgentProviderInstance {
   readonly instanceId: AgentInstanceId;
   readonly capabilities: AgentCapabilities;
   readonly adapter: AgentProviderAdapter;
+  readonly accountQuota: AgentAccountQuotaPort;
   readonly checkReadiness: (
     input?: AgentProviderReadinessCheckInput,
   ) => MaybePromise<AgentProviderReadiness>;
