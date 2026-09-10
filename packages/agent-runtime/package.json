@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-runtime",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "private": false,
   "description": "Provider-neutral driver, instance, adapter, session, output, and conformance contracts for coding-agent runtimes.",
   "type": "module",
@@ -24,7 +24,11 @@
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./environment": {
+      "types": "./dist/environment/index.d.ts",
+      "import": "./dist/environment/index.js"
+    }
   },
   "scripts": {
     "build": "pnpm run clean && pnpm run build:runtime && pnpm run build:types",

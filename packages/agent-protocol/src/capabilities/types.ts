@@ -2,6 +2,7 @@
 //                types.ts - Technical provider capabilities - Dependencies: foundation
 // ------------------------------------------------------------------------------------------------
 
+import type { AgentEnvironmentCapability } from '../environment/types.js';
 import type { AgentArtifactKind } from '../artifacts/index.js';
 import type {
   AgentCollaborationControlAction,
@@ -167,9 +168,31 @@ export type AgentImageInputCapability =
       supportsImageOnly: boolean;
     }>;
 
+export const AGENT_CONTENT_REFERENCE_TEXT_FORMATS = [
+  'unrestricted', 'single_line', 'literal_single_line',
+] as const;
+
+/** Single lines exclude Unicode Cc, Cf, Zl and Zp; literal lines also exclude $, @, backtick and a leading slash. */
+export type AgentContentReferenceTextFormat = typeof AGENT_CONTENT_REFERENCE_TEXT_FORMATS[number];
+
+export interface AgentContentReferenceTextFormats {
+  readonly prompt: AgentContentReferenceTextFormat;
+  readonly arguments: AgentContentReferenceTextFormat;
+}
+
+export type AgentContentReferenceInputCapability =
+  | Readonly<{ kind: 'unsupported' }>
+  | Readonly<{
+      kind: 'supported';
+      maxReferences: number;
+      arguments: boolean;
+      textFormats: AgentContentReferenceTextFormats;
+    }>;
+
 export interface AgentOperationInputCapability {
   readonly text: true;
   readonly images: AgentImageInputCapability;
+  readonly contentReferences: AgentContentReferenceInputCapability;
 }
 
 export type AgentTurnSteeringCapability =
@@ -180,7 +203,7 @@ export type AgentTurnSteeringCapability =
     }>;
 
 export interface AgentCapabilities {
-  readonly protocolVersion: 8;
+  readonly protocolVersion: 9;
   readonly providerKey: AgentProviderKey;
   readonly sessions: Readonly<{
     create: true;
@@ -211,6 +234,7 @@ export interface AgentCapabilities {
   readonly operations: AgentOperationsCapability;
   readonly managedContent: AgentManagedContentCapability;
   readonly integrations: AgentIntegrationsCapability;
+  readonly environment: AgentEnvironmentCapability;
   readonly collaboration: AgentCollaborationCapability;
   readonly generatedResources: AgentGeneratedResourcesCapability;
   readonly authentication: AgentAuthenticationCapability;

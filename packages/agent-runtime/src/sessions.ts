@@ -12,7 +12,6 @@ import type {
   AgentError,
   AgentGeneratedResourceDescriptor,
   AgentGeneratedResourceId,
-  AgentIntegrationCatalog,
   AgentManagedContentCatalog,
   AgentOperationCatalog,
   AgentOperationInvocation,
@@ -32,6 +31,9 @@ import type {
 import type { MaybePromise } from "./foundation.js";
 import type { AgentProviderOutput } from "./outputs.js";
 import type { AgentArtifactCandidate } from "./artifacts.js";
+import type {
+  AgentEnvironmentObservationPort,
+} from "./environment/types.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Session Open Contracts
@@ -227,15 +229,6 @@ export type AgentManagedContentInventory =
       ) => MaybePromise<AgentManagedContentCatalog>;
     }>;
 
-export type AgentIntegrationObservation =
-  | Readonly<{ kind: "unsupported" }>
-  | Readonly<{
-      kind: "supported";
-      observeIntegrations: (
-        input?: AgentProviderListInput,
-      ) => MaybePromise<AgentIntegrationCatalog>;
-    }>;
-
 export type AgentCollaborationControl =
   | Readonly<{ kind: "unsupported" }>
   | Readonly<{
@@ -270,7 +263,7 @@ export interface AgentProviderSession {
   readonly configuration: AgentSessionConfigurationControl;
   readonly operations: AgentOperationControl;
   readonly managedContent: AgentManagedContentInventory;
-  readonly integrations: AgentIntegrationObservation;
+  readonly environment: AgentEnvironmentObservationPort;
   readonly collaboration: AgentCollaborationControl;
   readonly generatedResources: AgentGeneratedResourceAccess;
   readonly close: (input: AgentProviderCloseSessionInput) => MaybePromise<void>;

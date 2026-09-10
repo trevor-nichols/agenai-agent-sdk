@@ -8,6 +8,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod/v4';
+import { AgentEffectiveContentCatalogPortableSchema } from '../src/zod/effectiveContent.ts';
+import { AgentCommandCatalogPortableSchema } from '../src/zod/commands.ts';
+import { AgentExtensionCatalogPortableSchema } from '../src/zod/extensions.ts';
+import { AgentEnvironmentSnapshotPortableSchema } from '../src/zod/environment.ts';
+
 
 import { AgentAccountQuotaSnapshotPortableSchema } from '../src/zod/accountQuota.ts';
 import { AgentArtifactDescriptorSchema } from '../src/zod/artifacts.ts';
@@ -56,6 +61,35 @@ const dialect = 'https://json-schema.org/draft/2020-12/schema';
 
 const definitions = [
   {
+    exportName: 'AGENT_EFFECTIVE_CONTENT_CATALOG_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.effective-content-catalog',
+    direction: 'output',
+    schema: AgentEffectiveContentCatalogPortableSchema,
+    parserInvariants: ['bounded_acyclic_input', 'canonical_identity_order', 'qualified_reference_consistency', 'serialized_utf8_bytes', 'aggregate_collection_limits', 'effective_content_semantics'],
+  },
+  {
+    exportName: 'AGENT_COMMAND_CATALOG_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.command-catalog',
+    direction: 'output',
+    schema: AgentCommandCatalogPortableSchema,
+    parserInvariants: ['bounded_acyclic_input', 'canonical_identity_order', 'qualified_reference_consistency', 'serialized_utf8_bytes', 'aggregate_collection_limits'],
+  },
+  {
+    exportName: 'AGENT_EXTENSION_CATALOG_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.extension-catalog',
+    direction: 'output',
+    schema: AgentExtensionCatalogPortableSchema,
+    parserInvariants: ['bounded_acyclic_input', 'canonical_identity_order', 'qualified_reference_consistency', 'serialized_utf8_bytes', 'aggregate_collection_limits'],
+  },
+  {
+    exportName: 'AGENT_ENVIRONMENT_SNAPSHOT_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.environment-snapshot',
+    direction: 'output',
+    schema: AgentEnvironmentSnapshotPortableSchema,
+    parserInvariants: ['bounded_acyclic_input', 'canonical_identity_order', 'qualified_reference_consistency', 'serialized_utf8_bytes', 'aggregate_collection_limits', 'effective_content_semantics'],
+  },
+
+  {
     exportName: 'AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.account-quota-snapshot',
     direction: 'output',
@@ -91,14 +125,14 @@ const definitions = [
     contractId: 'agenai.agent-protocol.turn-input-content',
     direction: 'input',
     schema: AgentTurnInputContentSchema,
-    parserInvariants: ['inline_image_decoded_byte_size', 'serialized_bytes'],
+    parserInvariants: ['inline_image_decoded_byte_size', 'serialized_bytes', 'content_reference_limits', 'unique_content_references'],
   },
   {
     exportName: 'AGENT_TURN_RUN_INPUT_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.turn-run-input',
     direction: 'input',
     schema: AgentTurnRunInputPortableSchema,
-    parserInvariants: ['inline_image_decoded_byte_size', 'serialized_bytes'],
+    parserInvariants: ['inline_image_decoded_byte_size', 'serialized_bytes', 'content_reference_limits', 'unique_content_references'],
   },
   {
     exportName: 'AGENT_REQUEST_JSON_SCHEMA',

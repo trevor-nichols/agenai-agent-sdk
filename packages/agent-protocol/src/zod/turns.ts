@@ -14,6 +14,8 @@ import {
 import { compareStringsByUnicodeCodePoint } from '../foundation/ordering.js';
 import {
   AGENT_CONTENT_STREAM_KINDS,
+  AGENT_CONTENT_REFERENCES_MAX_LENGTH,
+  AGENT_CONTENT_REFERENCE_ARGUMENT_BYTES_LIMIT,
   AGENT_CONTEXT_COMPACTION_DURATION_MAX_MILLISECONDS,
   AGENT_CONTEXT_COMPACTION_SUMMARY_PREVIEW_MAX_LENGTH,
   AGENT_CONTEXT_COMPACTION_TRIGGERS,
@@ -45,6 +47,8 @@ import {
 import {
   AgentCanonicalIdValueSchema,
   AgentErrorSchema,
+  AgentEnvironmentIdSchema,
+  AgentEffectiveContentIdSchema,
   AgentIsoDateTimeSchema,
   AgentItemIdSchema,
   AgentTurnIdSchema,
@@ -150,9 +154,25 @@ const AgentImageInputPartSchema = z
   .strict()
   .readonly();
 
+const ContentReferenceRevisionSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+export const AgentContentReferenceInputPartSchema = z.object({
+  type: z.literal('content_reference'),
+  environmentId: AgentEnvironmentIdSchema,
+  environmentRevision: ContentReferenceRevisionSchema,
+  contentCatalogRevision: ContentReferenceRevisionSchema,
+  contentId: AgentEffectiveContentIdSchema,
+  contentRevision: ContentReferenceRevisionSchema,
+  arguments: z.string().max(AGENT_CONTENT_REFERENCE_ARGUMENT_BYTES_LIMIT).optional(),
+}).strict().superRefine((part, context) => {
+  if (part.arguments !== undefined && new TextEncoder().encode(part.arguments).byteLength > AGENT_CONTENT_REFERENCE_ARGUMENT_BYTES_LIMIT) {
+    context.addIssue({ code: 'custom', path: ['arguments'], message: 'Content reference arguments exceed their UTF-8 byte limit.' });
+  }
+}).readonly();
+
 export const AgentTurnInputPartSchema = z.discriminatedUnion('type', [
   AgentTextInputPartSchema,
   AgentImageInputPartSchema,
+  AgentContentReferenceInputPartSchema,
 ]);
 
 export const AgentTurnInteractionModeSchema = z.enum(
@@ -174,6 +194,19 @@ const AgentTurnInputContentObjectSchema = z
 
 const AgentTurnInputContentRefinedSchema =
   AgentTurnInputContentObjectSchema.superRefine((input, context) => {
+    const references = input.parts.filter((part) => part.type === 'content_reference');
+    if (references.length > AGENT_CONTENT_REFERENCES_MAX_LENGTH) {
+      context.addIssue({ code: 'custom', path: ['parts'], message: 'Too many content references.' });
+    }
+    const identities = new Set<string>();
+    input.parts.forEach((part, index) => {
+      if (part.type !== 'content_reference') return;
+      const identity = JSON.stringify([part.environmentId, part.contentId]);
+      if (identities.has(identity)) {
+        context.addIssue({ code: 'custom', path: ['parts', index], message: 'Content references must be unique.' });
+      }
+      identities.add(identity);
+    });
     const content = {
       parts: input.parts,
       ...(input.summary === undefined ? {} : { summary: input.summary }),

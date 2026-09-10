@@ -3,7 +3,7 @@
 `@agen-ai/agent-protocol` is the provider-neutral data contract for coding-agent runtimes. It
 defines opaque identifiers, sessions, turns, approval and elicitation requests, technical
 capabilities, typed operations, safe configuration and managed-content inventories, integration
-observations, account-quota observations, collaboration lifecycles, generated resources, portable
+observations, effective harness content and package catalogs, environment observations, account-quota observations, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
 
@@ -32,7 +32,7 @@ carry no fabricated windows or hints.
 - `@agen-ai/agent-protocol` exports the complete plain API.
 - `/sessions`, `/turns`, `/requests`, `/events`, `/capabilities`, `/artifacts`, `/operations`,
   `/configuration`, `/managed-content`, `/integrations`, `/collaboration`, `/resources`, and
-  `/account-quota` are focused plain entrypoints.
+  `/account-quota`, `/effective-content`, `/commands`, `/extensions`, and `/environment` are focused plain entrypoints.
 - `/zod` is the only entrypoint that exposes Zod schemas.
 - `/json-schema` exposes deterministic draft 2020-12 schema artifacts.
 
@@ -50,7 +50,7 @@ import {
 } from '@agen-ai/agent-protocol';
 
 const event: AgentEvent = parseAgentEvent({
-  protocolVersion: 8,
+  protocolVersion: 9,
   type: 'content.delta',
   sessionId: parseAgentSessionId('external-session:42'),
   turnId: parseAgentTurnId('external-turn:9'),
@@ -65,7 +65,7 @@ const event: AgentEvent = parseAgentEvent({
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 ```
 
-Serialized values carry `protocolVersion: 8`; TypeScript API names remain unsuffixed. Unknown
+Serialized values carry `protocolVersion: 9`; TypeScript API names remain unsuffixed. Unknown
 fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
@@ -78,7 +78,7 @@ attribute bag; source evidence belongs outside the portable event. File-change p
 `compareStringsByUnicodeCodePoint` to emit the canonical path ordering required by the protocol
 across both BMP and supplementary Unicode characters.
 
-V8 approval requests correlate to one live item or exact proposed-plan artifact and provide a
+V9 approval requests correlate to one live item or exact proposed-plan artifact and provide a
 bounded list of typed options. Every option declares its decision, persistence, and neutral scope;
 resolutions select one offered `optionId` or explicitly cancel. Approval capabilities advertise
 the exact persistence/scope combinations an adapter can emit. `context.usage.updated` reports
@@ -112,16 +112,47 @@ published JSON Schemas enforce the same rule. Plan-step and progress identifiers
 messages, and error context must contain non-whitespace content without surrounding whitespace so
 validated protocol output remains canonical across transports and consumers.
 
+## Effective environment values
+
+`managedContent` describes content a caller manages and distributes. `effectiveContent` describes
+what the selected harness reports for a workspace or session. Effective descriptors keep registration,
+enablement, user invocation, and model callability separate; unknown facts are explicit. Optional
+`agentDefinition` observations preserve primary/subagent mode and hidden state independently of
+those execution facts. They apply only to agent-definition entries and never grant a spawn action. A package
+belongs in `extensions` and references its contributed content, commands, and integrations. MCP
+servers and Apps/connectors share the discriminated `integrations` catalog.
+
+`AgentEnvironmentSnapshot` composes these bounded domains without copying their inventories. Each
+domain distinguishes unsupported, not initialized, unavailable, partial, and complete observations.
+Catalog revisions describe semantic content; observation timestamps never grant mutation authority.
+The caller supplies an opaque environment identity. Hosts must scope that identity to their own
+account, workspace, configuration, session, and authorization state.
+
+A `content_reference` input part carries the environment and content catalog revisions plus the
+selected content identity and revision. It is neither embedded skill text nor a slash command.
+Providers advertise reference and argument support explicitly. The parser allows at most 16
+references, bounds each argument at 4 KiB of UTF-8, rejects duplicate identities, and includes the
+reference bytes in the existing input envelope. Product admission must still validate current
+catalog identity, visibility, and execution authority before provider delegation.
+
+Supported reference capabilities require `textFormats.prompt` and `textFormats.arguments`:
+`unrestricted` adds no text restriction; `single_line` excludes Unicode control (Cc), format (Cf),
+line separator (Zl), and paragraph separator (Zp) characters; `literal_single_line` also excludes
+`$`, `@`, backticks, and a slash after leading whitespace. These constraints apply only when the
+input contains a content reference and do not replace the ordinary input envelope or other
+admission checks. `findAgentContentReferenceTextIssue` reports the affected field and format
+without returning submitted text. `meetAgentContentReferenceTextFormat` retains the stricter
+constraint when composing capabilities. Runtime and product admission must enforce both fields
+before delegation; a composer can use the same pure functions to preserve and explain an invalid draft.
+
 ## Versioning and release
 
-The package is at `0.2.5` while the public API is still being proven with external adapters.
-Pre-1.0 releases may include breaking changes during this beta period, and every such change is
-called out in the release notes. Protocol V8 is independent of any host transport or product
-persistence version. It directly replaces V7 in source; there is no compatibility parser, alias,
-or extension reader. The account-quota namespace starts at schema version 1 and is additive to
-Protocol V8. The required `MaterializedAgentProviderInstance.accountQuota` runtime field is a
-source-level implementer change in the coordinated `0.2.5` release; all three SDK packages must
-be upgraded together. See the public repository migration guide for the explicit unsupported port.
+Agent Protocol V9 defines the coordinated SDK `0.3.0` contract shared by this package,
+`@agen-ai/validation`, and `@agen-ai/agent-runtime`. Registry publication and dist-tag state are
+release metadata outside this contract. The earlier public `0.2.5` release remains historical. All
+three SDK packages must be released together. Protocol V9 is independent of private transport and
+product persistence versions and directly replaces V8 at live boundaries. There is one current
+parser. The environment and account-quota namespaces each use their own schema version 1.
 
 The repository release proof builds and packs `@agen-ai/validation`, this package, and
 `@agen-ai/agent-runtime`; rejects workspace-only or private references; then typechecks and runs a

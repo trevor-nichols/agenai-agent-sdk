@@ -3,6 +3,8 @@
 // ------------------------------------------------------------------------------------------------
 
 import {
+  AGENT_ENVIRONMENT_DOMAINS,
+  parseAgentEnvironmentSnapshot,
   parseAgentCapabilities,
   parseAgentInstanceId,
   parseAgentIsoDateTime,
@@ -20,6 +22,9 @@ import {
   type AgentCollaborationId,
   type AgentCollaborationRole,
   type AgentCollaborationStatus,
+  type AgentEnvironmentDomain,
+  type AgentEnvironmentId,
+  type AgentEnvironmentSnapshot,
   type AgentInstanceId,
   type AgentIsoDateTime,
   type AgentProviderKey,
@@ -32,6 +37,10 @@ import {
 
 import { createAgentEventOutput } from "../outputs.js";
 import type { AgentAccountQuotaPort } from "../accountQuota/types.js";
+import type {
+  AgentEnvironmentDiscoveryPort,
+  AgentEnvironmentObservationPort,
+} from "../environment/types.js";
 import {
   defineAgentProviderDriver,
   type AgentProviderDriver,
@@ -77,6 +86,8 @@ export interface FakeAgentProviderSnapshot {
   readonly interruptedTurnIds: readonly AgentTurnId[];
   readonly steeringInputs: readonly FakeAgentSteeringInput[];
   readonly configurationRevisions: readonly string[];
+  readonly environmentReadIds: readonly string[];
+  readonly environmentInvalidationIds: readonly string[];
   readonly closeCounts: Readonly<Record<string, number>>;
 }
 
@@ -99,6 +110,8 @@ interface MutableFakeState {
   readonly interruptedTurnIds: AgentTurnId[];
   readonly steeringInputs: FakeAgentSteeringInput[];
   readonly configurationRevisions: string[];
+  readonly environmentReadIds: string[];
+  readonly environmentInvalidationIds: string[];
   readonly closeCounts: Map<string, number>;
 }
 
@@ -121,9 +134,15 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
       maxPixelsPerImage: 36_000_000,
       supportsImageOnly: true,
     },
+    contentReferences: {
+      kind: "supported",
+      maxReferences: 16,
+      arguments: true,
+      textFormats: { prompt: "unrestricted", arguments: "unrestricted" },
+    },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 8,
+    protocolVersion: 9,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
@@ -204,6 +223,16 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
       maxToolsPerServer: 100,
       maxResourcesPerServer: 100,
     },
+    environment: {
+      instance: {
+        kind: "read_and_watch",
+        domains: [...AGENT_ENVIRONMENT_DOMAINS],
+      },
+      session: {
+        kind: "read_and_watch",
+        domains: [...AGENT_ENVIRONMENT_DOMAINS],
+      },
+    },
     collaboration: {
       kind: "supported",
       roles: ["delegate", "reviewer", "researcher", "specialist"],
@@ -243,7 +272,99 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 8 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 9 as const, sessionId, turnId, occurredAt };
+}
+
+function fakeEnvironmentSnapshot(
+  environmentId: string,
+): AgentEnvironmentSnapshot {
+  return parseAgentEnvironmentSnapshot({
+    schemaVersion: 1,
+    environmentId,
+    revision: 1,
+    content: { kind: "unavailable", reasons: ["transient_failure"] },
+    commands: { kind: "unavailable", reasons: ["transient_failure"] },
+    extensions: { kind: "unavailable", reasons: ["transient_failure"] },
+    integrations: { kind: "unavailable", reasons: ["transient_failure"] },
+  });
+}
+
+function fakeDiscoveryEnvironment(
+  state: MutableFakeState,
+  capability: AgentCapabilities["environment"]["instance"],
+): AgentEnvironmentDiscoveryPort {
+  if (capability.kind === "unsupported") return { kind: "unsupported" };
+  const domains: readonly AgentEnvironmentDomain[] = Object.freeze([
+    ...capability.domains,
+  ]);
+  const readEnvironment = async ({ signal, environmentId }: {
+    readonly signal: AbortSignal;
+    readonly environmentId: string;
+  }) => {
+    throwIfAgentOperationAborted(signal);
+    state.environmentReadIds.push(environmentId);
+    return fakeEnvironmentSnapshot(environmentId);
+  };
+  const watchEnvironment = async function* ({ signal, environmentId }: {
+    readonly signal: AbortSignal;
+    readonly environmentId: AgentEnvironmentId;
+  }) {
+    throwIfAgentOperationAborted(signal);
+    state.environmentInvalidationIds.push(environmentId);
+    yield { environmentId, domains: ["content"] as const };
+  };
+  if (capability.kind === "read") {
+    return {
+      kind: "read",
+      domains,
+      readEnvironment,
+    };
+  }
+  return {
+    kind: "read_and_watch",
+    domains,
+    readEnvironment,
+    watchEnvironment,
+  };
+}
+
+function fakeObservationEnvironment(
+  state: MutableFakeState,
+  capability: AgentCapabilities["environment"]["session"],
+): AgentEnvironmentObservationPort {
+  if (capability.kind === "unsupported") return { kind: "unsupported" };
+  const domains: readonly AgentEnvironmentDomain[] = Object.freeze([
+    ...capability.domains,
+  ]);
+  const readEnvironment = async ({ signal, environmentId }: {
+    readonly signal: AbortSignal;
+    readonly environmentId: string;
+  }) => {
+    throwIfAgentOperationAborted(signal);
+    state.environmentReadIds.push(environmentId);
+    return fakeEnvironmentSnapshot(environmentId);
+  };
+  const watchEnvironment = async function* ({ signal, environmentId }: {
+    readonly signal: AbortSignal;
+    readonly environmentId: AgentEnvironmentId;
+  }) {
+    throwIfAgentOperationAborted(signal);
+    state.environmentInvalidationIds.push(environmentId);
+    yield { environmentId, domains: ["content"] as const };
+  };
+  if (capability.kind === "read") {
+    return {
+      kind: "read",
+      domains,
+      readEnvironment,
+    };
+  }
+  return {
+    kind: "read_and_watch",
+    domains,
+    readEnvironment,
+    watchEnvironment,
+  };
 }
 
 function requestForTurn(turnId: AgentTurnId): AgentRequest {
@@ -535,20 +656,10 @@ function fakeSession(input: {
             },
           }
         : { kind: "unsupported" },
-    integrations:
-      input.capabilities.integrations.kind === "supported"
-        ? {
-            kind: "supported",
-            observeIntegrations: async (listInput = {}) => {
-              throwIfAgentOperationAborted(listInput.signal);
-              return {
-                revision: 1,
-                observedAt: input.now(),
-                integrations: [],
-              };
-            },
-          }
-        : { kind: "unsupported" },
+    environment: fakeObservationEnvironment(
+      input.state,
+      input.capabilities.environment.session,
+    ),
     collaboration:
       input.capabilities.collaboration.kind === "supported"
         ? {
@@ -736,6 +847,8 @@ export function createFakeAgentProvider(
     interruptedTurnIds: [],
     steeringInputs: [],
     configurationRevisions: [],
+    environmentReadIds: [],
+    environmentInvalidationIds: [],
     closeCounts: new Map(),
   };
 
@@ -755,6 +868,10 @@ export function createFakeAgentProvider(
         instanceId: createdInstanceId,
         capabilities,
         adapter: fakeAdapter({ state, capabilities, now, steeringResult }),
+        environment: fakeDiscoveryEnvironment(
+          state,
+          capabilities.environment.instance,
+        ),
         accountQuota: options.accountQuota ?? { kind: "unsupported" },
         checkReadiness: () =>
           createAgentProviderReadiness({
@@ -793,6 +910,10 @@ export function createFakeAgentProvider(
         steeringInputs: Object.freeze([...state.steeringInputs]),
         configurationRevisions: Object.freeze([
           ...state.configurationRevisions,
+        ]),
+        environmentReadIds: Object.freeze([...state.environmentReadIds]),
+        environmentInvalidationIds: Object.freeze([
+          ...state.environmentInvalidationIds,
         ]),
         closeCounts: Object.freeze(Object.fromEntries(state.closeCounts)),
       }),

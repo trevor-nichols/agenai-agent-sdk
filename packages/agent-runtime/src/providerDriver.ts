@@ -12,6 +12,7 @@ import {
 
 import type { MaybePromise } from "./foundation.js";
 import type { AgentAccountQuotaPort } from "./accountQuota/types.js";
+import type { AgentEnvironmentDiscoveryPort } from "./environment/types.js";
 import type { AgentProviderReadiness } from "./readiness.js";
 import type { AgentProviderAdapter } from "./sessions.js";
 
@@ -34,6 +35,7 @@ export interface MaterializedAgentProviderInstance {
   readonly capabilities: AgentCapabilities;
   readonly adapter: AgentProviderAdapter;
   readonly accountQuota: AgentAccountQuotaPort;
+  readonly environment: AgentEnvironmentDiscoveryPort;
   readonly checkReadiness: (
     input?: AgentProviderReadinessCheckInput,
   ) => MaybePromise<AgentProviderReadiness>;

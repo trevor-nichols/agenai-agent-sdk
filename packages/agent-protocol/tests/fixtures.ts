@@ -5,11 +5,13 @@
 export const protocolTimestamp = '2026-08-03T20:00:00.000Z';
 
 const unsupportedInput = {
+  contentReferences: { kind: "unsupported" as const },
   text: true,
   images: { kind: 'unsupported' },
 } as const;
 
 const supportedInput = {
+  contentReferences: { kind: "unsupported" as const },
   text: true,
   images: {
     kind: 'supported',
@@ -129,7 +131,8 @@ const supportedNativeDomains = {
 
 export const providerCapabilityFixtures = {
   fixture: {
-    protocolVersion: 8,
+    environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+    protocolVersion: 9,
     providerKey: 'fixture',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -161,7 +164,8 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   codex: {
-    protocolVersion: 8,
+    environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+    protocolVersion: 9,
     providerKey: 'codex',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -184,7 +188,8 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   claudeCode: {
-    protocolVersion: 8,
+    environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+    protocolVersion: 9,
     providerKey: 'claude_code',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -207,7 +212,8 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   opencode: {
-    protocolVersion: 8,
+    environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+    protocolVersion: 9,
     providerKey: 'opencode',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -230,7 +236,8 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   cursor: {
-    protocolVersion: 8,
+    environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+    protocolVersion: 9,
     providerKey: 'cursor_acp',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -253,7 +260,8 @@ export const providerCapabilityFixtures = {
     versionReporting: true,
   },
   grokBuild: {
-    protocolVersion: 8,
+    environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+    protocolVersion: 9,
     providerKey: 'grok_build',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -278,7 +286,7 @@ export const providerCapabilityFixtures = {
 } as const;
 
 const eventBase = {
-  protocolVersion: 8,
+  protocolVersion: 9,
   sessionId: 'session:external-42',
   turnId: 'turn:external-9',
   occurredAt: protocolTimestamp,

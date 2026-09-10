@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                v8ContractFreeze.test.ts - V8 public parser proofs - Dependencies: Node test, public protocol API
+//                approvalContextContracts.test.ts - public parser proofs - Dependencies: Node test, public protocol API
 // ------------------------------------------------------------------------------------------------
 
 import assert from 'node:assert/strict';
@@ -57,7 +57,8 @@ const onceApprovalRequest = {
 
 function capabilitiesWithApproval(approval: unknown): unknown {
   return {
-    protocolVersion: 8,
+    environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+    protocolVersion: 9,
     providerKey: 'v8-contract-provider',
     sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
     turns: {
@@ -73,7 +74,8 @@ function capabilitiesWithApproval(approval: unknown): unknown {
       usage: { kind: 'unsupported' },
       compaction: { kind: 'unsupported' },
     },
-    input: { text: true, images: { kind: 'unsupported' } },
+    input: {
+      contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: 'unsupported' } },
     output: {
       streaming: true,
       plans: false,
@@ -91,7 +93,7 @@ function capabilitiesWithApproval(approval: unknown): unknown {
   };
 }
 
-test('V8 approval capability and request freeze exact bounded once semantics', () => {
+test('approval capability and request freeze exact bounded once semantics', () => {
   const approvalCapability = {
     kind: 'supported',
     modes: [
@@ -136,9 +138,9 @@ test('V8 approval capability and request freeze exact bounded once semantics', (
   );
 });
 
-test('V8 context usage and compaction examples retain only bounded neutral facts', () => {
+test('context usage and compaction examples retain only bounded neutral facts', () => {
   const usage = {
-    protocolVersion: 8,
+    protocolVersion: 9,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -182,7 +184,7 @@ test('V8 context usage and compaction examples retain only bounded neutral facts
 //                Frozen Negative Examples
 // ------------------------------------------------------------------------------------------------
 
-test('V8 approval freeze rejects ambiguous correlation, choices, and legacy decisions', () => {
+test('approval freeze rejects ambiguous correlation, choices, and legacy decisions', () => {
   const invalidRequests = [
     {
       ...onceApprovalRequest,
@@ -249,7 +251,7 @@ test('V8 approval freeze rejects ambiguous correlation, choices, and legacy deci
   );
 });
 
-test('V8 capability freeze rejects duplicate and noncanonical modes/scopes', () => {
+test('capability freeze rejects duplicate and noncanonical modes/scopes', () => {
   const invalidCapabilities = [
     { kind: 'supported', modes: [] },
     {
@@ -312,9 +314,9 @@ test('V8 capability freeze rejects duplicate and noncanonical modes/scopes', () 
   }
 });
 
-test('V8 context freeze rejects impossible usage and compaction measurements', () => {
+test('context freeze rejects impossible usage and compaction measurements', () => {
   const usageBase = {
-    protocolVersion: 8,
+    protocolVersion: 9,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',

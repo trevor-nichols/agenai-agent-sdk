@@ -4,10 +4,13 @@
 
 import {
   matchesAgentSessionBinding,
+  parseAgentEnvironmentId,
   parseAgentRequestResolutionFor,
   parseAgentTurnId,
   type AgentCollaborationSpawnInput,
   type AgentConfigurationSelectionInput,
+  type AgentEnvironmentId,
+  type AgentEnvironmentInvalidation,
   type AgentGeneratedResourceId,
   type AgentOperationInvocation,
   type AgentRequest,
@@ -49,6 +52,7 @@ export interface AgentProviderConformanceScenario {
   readonly operationInvocation?: AgentOperationInvocation;
   readonly collaborationSpawn?: AgentCollaborationSpawnInput;
   readonly generatedResourceId?: AgentGeneratedResourceId;
+  readonly environmentId?: AgentEnvironmentId;
   readonly createSessionId: AgentSessionId;
   readonly resumeSessionId: AgentSessionId;
   readonly branchSessionId?: AgentSessionId;
@@ -89,6 +93,28 @@ function requireCheck(
   message: string,
 ): asserts condition {
   if (!condition) throw new AgentProviderConformanceError(check, message);
+}
+
+async function checkEnvironmentWatch(input: {
+  readonly iterator: AsyncIterator<AgentEnvironmentInvalidation>;
+  readonly controller: AbortController;
+  readonly environmentId: AgentEnvironmentId;
+  readonly check: string;
+}): Promise<void> {
+  const pending = input.iterator.next();
+  // An idle native watch is valid. Cancel the pending observation instead of
+  // requiring a provider to fabricate a change for conformance.
+  await Promise.resolve();
+  input.controller.abort(new DOMException('Conformance watch complete.', 'AbortError'));
+  try {
+    const next = await pending;
+    requireCheck(next.done || next.value.environmentId === input.environmentId,
+      input.check, 'Environment watch returned a different identity.');
+  } catch (error) {
+    if (!isAgentOperationAbortError(error)) throw error;
+  } finally {
+    await input.iterator.return?.();
+  }
 }
 
 interface StartedAgentProviderTurn {
@@ -252,6 +278,49 @@ export async function runAgentProviderConformance(
     }
     checks.push("account_quota");
 
+    const environmentId = scenario.environmentId
+      ?? parseAgentEnvironmentId("conformance-environment:instance");
+    if (instance.capabilities.environment.instance.kind === "unsupported") {
+      requireCheck(
+        instance.environment.kind === "unsupported",
+        "environment_instance",
+        "Unsupported instance environment exposed a discovery port.",
+      );
+    } else {
+      requireCheck(
+        instance.environment.kind ===
+          instance.capabilities.environment.instance.kind,
+        "environment_instance",
+        "Instance environment capability has no matching discovery port.",
+      );
+      const readSignal = new AbortController();
+      let executionStarted = 0;
+      const snapshot = await instance.environment.readEnvironment({
+        signal: readSignal.signal,
+        environmentId,
+        workingDirectory: scenario.workingDirectory,
+        configuration: scenario.configuration,
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
+      });
+      requireCheck(
+        snapshot.environmentId === environmentId && executionStarted === 1,
+        "environment_instance",
+        "Instance environment discovery did not echo its identity and start receipt.",
+      );
+      if (instance.environment.kind === "read_and_watch") {
+        const iterator = instance.environment.watchEnvironment({
+          signal: readSignal.signal,
+          environmentId,
+          workingDirectory: scenario.workingDirectory,
+          configuration: scenario.configuration,
+        })[Symbol.asyncIterator]();
+        await checkEnvironmentWatch({ iterator, controller: readSignal, environmentId, check: 'environment_instance' });
+      }
+    }
+    checks.push("environment_instance");
+
     let createdBindingCount = 0;
     const created = await instance.adapter.createSession({
       sessionId: scenario.createSessionId,
@@ -268,6 +337,43 @@ export async function runAgentProviderConformance(
       "Create session did not report exactly one binding.",
     );
     checks.push("create_session", "binding_callback");
+
+    if (instance.capabilities.environment.session.kind === "unsupported") {
+      requireCheck(
+        created.environment.kind === "unsupported",
+        "environment_session",
+        "Unsupported session environment exposed an observation port.",
+      );
+    } else {
+      requireCheck(
+        created.environment.kind ===
+          instance.capabilities.environment.session.kind,
+        "environment_session",
+        "Session environment capability has no matching observation port.",
+      );
+      const readSignal = new AbortController();
+      let executionStarted = 0;
+      const snapshot = await created.environment.readEnvironment({
+        signal: readSignal.signal,
+        environmentId,
+        onProviderExecutionStarted: () => {
+          executionStarted += 1;
+        },
+      });
+      requireCheck(
+        snapshot.environmentId === environmentId && executionStarted === 1,
+        "environment_session",
+        "Session environment observation did not echo its identity and start receipt.",
+      );
+      if (created.environment.kind === "read_and_watch") {
+        const iterator = created.environment.watchEnvironment({
+          signal: readSignal.signal,
+          environmentId,
+        })[Symbol.asyncIterator]();
+        await checkEnvironmentWatch({ iterator, controller: readSignal, environmentId, check: 'environment_session' });
+      }
+    }
+    checks.push("environment_session");
 
     const aborted = new AbortController();
     aborted.abort(new DOMException("Conformance abort.", "AbortError"));
@@ -512,22 +618,6 @@ export async function runAgentProviderConformance(
       );
     }
     checks.push("managed_content");
-
-    if (instance.capabilities.integrations.kind === "supported") {
-      requireCheck(
-        created.integrations.kind === "supported",
-        "integrations",
-        "Supported integrations have no observation port.",
-      );
-      await created.integrations.observeIntegrations();
-    } else {
-      requireCheck(
-        created.integrations.kind === "unsupported",
-        "integrations",
-        "Unsupported integrations exposed an observation port.",
-      );
-    }
-    checks.push("integrations");
 
     if (instance.capabilities.collaboration.kind === "supported") {
       requireCheck(

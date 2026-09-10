@@ -4,6 +4,8 @@
 
 import type {
   AgentError,
+  AgentEnvironmentId,
+  AgentEffectiveContentId,
   AgentIsoDateTime,
   AgentItemId,
   AgentTurnId,
@@ -61,7 +63,23 @@ export interface AgentImageInputPart {
   readonly source: AgentImageInputSource;
 }
 
-export type AgentTurnInputPart = AgentTextInputPart | AgentImageInputPart;
+export const AGENT_CONTENT_REFERENCES_MAX_LENGTH = 16;
+export const AGENT_CONTENT_REFERENCE_ARGUMENT_BYTES_LIMIT = 4_096;
+
+export interface AgentContentReferenceInputPart {
+  readonly type: 'content_reference';
+  readonly environmentId: AgentEnvironmentId;
+  readonly environmentRevision: number;
+  readonly contentCatalogRevision: number;
+  readonly contentId: AgentEffectiveContentId;
+  readonly contentRevision: number;
+  readonly arguments?: string | undefined;
+}
+
+export type AgentTurnInputPart =
+  | AgentTextInputPart
+  | AgentImageInputPart
+  | AgentContentReferenceInputPart;
 
 export const AGENT_TURN_INTERACTION_MODES = ['default', 'plan'] as const;
 

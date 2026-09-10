@@ -17,10 +17,12 @@ import {
   parseAgentSessionId,
   parseAgentTurnId,
   type AgentSessionConfiguration,
+  type AgentEnvironmentInvalidation,
 } from "@agen-ai/agent-protocol";
 
 import {
   validateAgentProviderAdapter,
+  type AgentProviderDriver,
 } from "../src/index.js";
 import {
   AgentProviderConformanceError,
@@ -37,6 +39,54 @@ const configuration: AgentSessionConfiguration = {
     value: { fieldKind: "single_select", optionId: "fake-model" },
   }],
 };
+
+test('conformance accepts idle environment watches and closes both subscriptions', async () => {
+  const base = createFakeAgentProvider().capabilities;
+  const fake = createFakeAgentProvider({ capabilities: parseAgentCapabilities({
+    ...base,
+    sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
+    turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
+    requests: { approval: { kind: 'unsupported' }, elicitation: { kind: 'unsupported' } },
+    configuration: { kind: 'managed' }, operations: { kind: 'unsupported' },
+    collaboration: { kind: 'unsupported' }, generatedResources: { kind: 'unsupported' },
+  }) });
+  let opened = 0;
+  let closed = 0;
+  async function* watchEnvironment({ signal }: { readonly signal: AbortSignal }): AsyncIterable<AgentEnvironmentInvalidation> {
+    opened++;
+    try {
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        else signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+    } finally { closed++; }
+  }
+  const driver: AgentProviderDriver = { ...fake.driver, async materialize(definition) {
+    const instance = await fake.driver.materialize(definition);
+    assert.equal(instance.environment.kind, 'read_and_watch');
+    return { ...instance,
+      environment: { ...instance.environment, watchEnvironment },
+      adapter: { ...instance.adapter, async createSession(context) {
+        const session = await instance.adapter.createSession(context);
+        assert.equal(session.environment.kind, 'read_and_watch');
+        return { ...session, environment: { ...session.environment, watchEnvironment } };
+      } },
+    };
+  } };
+  const report = await runAgentProviderConformance({
+    driver, definition: fake.definition, workingDirectory: '/workspace',
+    configuration: { kind: 'managed', revision: parseAgentConfigurationRevisionId('idle') },
+    createSessionId: parseAgentSessionId('idle-create'), resumeSessionId: parseAgentSessionId('idle-resume'),
+    abortedSessionId: parseAgentSessionId('idle-abort'), interruptionSessionId: parseAgentSessionId('idle-interrupt'),
+    turn: { turnId: parseAgentTurnId('idle-turn'), interactionMode: 'default', parts: [{ type: 'text', text: 'test' }] },
+    interruptionTurn: { turnId: parseAgentTurnId('idle-interruption-turn'), interactionMode: 'default', parts: [{ type: 'text', text: 'test' }] },
+    resolutionFor() { throw new Error('Unexpected request'); },
+  });
+  assert.ok(report.checks.includes('environment_instance'));
+  assert.ok(report.checks.includes('environment_session'));
+  assert.equal(opened, 2);
+  assert.equal(closed, 2);
+});
 
 test("the deterministic fake passes the reusable provider conformance suite", async () => {
   const fake = createFakeAgentProvider();
@@ -117,8 +167,10 @@ test("the deterministic fake passes the reusable provider conformance suite", as
     "readiness",
     "version_reporting_capability",
     "account_quota",
+    "environment_instance",
     "create_session",
     "binding_callback",
+    "environment_session",
     "abort",
     "turn_order",
     "request_resolution",
@@ -127,7 +179,6 @@ test("the deterministic fake passes the reusable provider conformance suite", as
     "configuration",
     "operations",
     "managed_content",
-    "integrations",
     "collaboration",
     "generated_resources",
     "idempotent_session_close",
@@ -217,7 +268,8 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     providerKey,
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
-      protocolVersion: 8,
+      environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+      protocolVersion: 9,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {
@@ -233,7 +285,8 @@ test("conformance verifies explicit unsupported operation discriminants", async 
         usage: { kind: "unsupported" },
         compaction: { kind: "unsupported" },
       },
-      input: { text: true, images: { kind: "unsupported" } },
+      input: {
+        contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
       output: {
         streaming: false,
         plans: false,

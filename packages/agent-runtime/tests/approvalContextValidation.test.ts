@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                v8SessionValidation.test.ts - Stateful V8 refusal and context proofs
+//                approvalContextValidation.test.ts - Stateful refusal and context proofs
 // ------------------------------------------------------------------------------------------------
 
 import assert from "node:assert/strict";
@@ -47,7 +47,8 @@ const configuration = {
 };
 
 const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
-  protocolVersion: 8,
+  environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+  protocolVersion: 9,
   providerKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -63,7 +64,8 @@ const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
     usage: { kind: "unsupported" },
     compaction: { kind: "unsupported" },
   },
-  input: { text: true, images: { kind: "unsupported" } },
+  input: {
+    contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
   output: {
     streaming: true,
     plans: false,
@@ -160,7 +162,7 @@ function event<TType extends AgentEvent["type"]>(
   payload: Extract<AgentEvent, { readonly type: TType }>["payload"],
 ) {
   return createAgentEventOutput({
-    protocolVersion: 8,
+    protocolVersion: 9,
     sessionId,
     turnId,
     occurredAt,
@@ -184,7 +186,7 @@ function candidateSession(
     configuration: { kind: "managed" },
     operations: { kind: "unsupported" },
     managedContent: { kind: "unsupported" },
-    integrations: { kind: "unsupported" },
+    environment: { kind: "unsupported" },
     collaboration: { kind: "unsupported" },
     generatedResources: { kind: "unsupported" },
     close: async () => undefined,
@@ -244,7 +246,7 @@ function waitingApprovalOutputs(turnId: AgentTurnId, request: AgentRequest) {
 //                Approval Refusal Boundaries
 // ------------------------------------------------------------------------------------------------
 
-test("V8 refuses unoffered and expired approval choices before provider delegation", async () => {
+test("refuses unoffered and expired approval choices before provider delegation", async () => {
   const scenarios = [
     {
       name: "unoffered option",
@@ -301,7 +303,7 @@ test("V8 refuses unoffered and expired approval choices before provider delegati
   }
 });
 
-test("V8 admits only neutral cancellation after approval expiry", async () => {
+test("admits only neutral cancellation after approval expiry", async () => {
   const turnId = parseAgentTurnId("turn:v8-expired-cancellation");
   const request = approvalRequest({
     requestId: parseAgentRequestId("request:v8-expired-cancellation"),
@@ -341,7 +343,7 @@ test("V8 admits only neutral cancellation after approval expiry", async () => {
   assert.equal(delegatedResolutions, 1);
 });
 
-test("V8 refuses uncorrelated approvals and unadvertised approval modes", async () => {
+test("refuses uncorrelated approvals and unadvertised approval modes", async () => {
   const uncorrelatedTurnId = parseAgentTurnId("turn:v8-uncorrelated");
   const uncorrelatedRequest = approvalRequest({
     requestId: parseAgentRequestId("request:v8-uncorrelated"),
@@ -400,7 +402,7 @@ test("V8 refuses uncorrelated approvals and unadvertised approval modes", async 
   }
 });
 
-test("V8 rejects a pending plan approval when its correlation is replaced", async () => {
+test("rejects a pending plan approval when its correlation is replaced", async () => {
   const turnId = parseAgentTurnId("turn:v8-replaced-plan-correlation");
   const artifactId = parseAgentArtifactId("artifact:v8-replaced-plan-correlation");
   const request = approvalRequest({
@@ -456,7 +458,7 @@ test("V8 rejects a pending plan approval when its correlation is replaced", asyn
   assert.equal(delegatedResolutions, 0);
 });
 
-test("V8 rejects terminal item revival before approval visibility", async () => {
+test("rejects terminal item revival before approval visibility", async () => {
   const scenarios = [
     {
       name: "completed-event",
@@ -522,7 +524,7 @@ test("V8 rejects terminal item revival before approval visibility", async () => 
   }
 });
 
-test("V8 rejects approvals opened after completion with a live status", async () => {
+test("rejects approvals opened after completion with a live status", async () => {
   const turnId = parseAgentTurnId("turn:v8-completed-live-approval");
   const request = approvalRequest({
     requestId: parseAgentRequestId("request:v8-completed-live-approval"),
@@ -563,7 +565,7 @@ test("V8 rejects approvals opened after completion with a live status", async ()
   );
 });
 
-test("V8 rejects a pending approval when its subject becomes terminal", async () => {
+test("rejects a pending approval when its subject becomes terminal", async () => {
   const scenarios = [
     {
       name: "completed-event",
@@ -636,7 +638,7 @@ test("V8 rejects a pending approval when its subject becomes terminal", async ()
   }
 });
 
-test("V8 preserves a pending approval across an unknown item update", async () => {
+test("preserves a pending approval across an unknown item update", async () => {
   const turnId = parseAgentTurnId("turn:v8-pending-approval-unknown-update");
   const request = approvalRequest({
     requestId: parseAgentRequestId(
@@ -679,7 +681,7 @@ test("V8 preserves a pending approval across an unknown item update", async () =
   }));
 });
 
-test("V8 preserves terminal item authority across request continuations", async () => {
+test("preserves terminal item authority across request continuations", async () => {
   const turnId = parseAgentTurnId("turn:v8-continuation-item-revival");
   const firstRequest = approvalRequest({
     requestId: parseAgentRequestId("request:v8-continuation-first"),
@@ -756,7 +758,7 @@ test("V8 preserves terminal item authority across request continuations", async 
   assert.equal(delegatedResolutions, 1);
 });
 
-test("V8 preserves the in-progress watermark through unknown item updates", async () => {
+test("preserves the in-progress watermark through unknown item updates", async () => {
   const turnId = parseAgentTurnId("turn:v8-indirect-item-regression");
   const itemId = parseAgentItemId("item:v8-indirect-item-regression");
   const opened = await openSession(
@@ -822,7 +824,7 @@ function processStarted() {
   });
 }
 
-test("V8 accepts monotonic usage and one post-compaction occupancy decrease", async () => {
+test("accepts monotonic usage and one post-compaction occupancy decrease", async () => {
   const turnId = parseAgentTurnId("turn:v8-valid-compaction");
   const nextTurnId = parseAgentTurnId("turn:v8-valid-next");
   let runs = 0;
@@ -868,7 +870,7 @@ test("V8 accepts monotonic usage and one post-compaction occupancy decrease", as
   assert.equal(runs, 2);
 });
 
-test("V8 resets only materialization usage at an observed process boundary", async () => {
+test("resets only materialization usage at an observed process boundary", async () => {
   const runScenario = async (
     measurementScope: "session" | "materialization",
   ): Promise<void> => {
@@ -921,7 +923,7 @@ test("V8 resets only materialization usage at an observed process boundary", asy
   await runScenario("session");
 });
 
-test("V8 accepts unknown compaction only as a supported-provider fallback", async () => {
+test("accepts unknown compaction only as a supported-provider fallback", async () => {
   const manualOnlyCapabilities = parseAgentCapabilities({
     ...baseCapabilities,
     context: {
@@ -975,7 +977,7 @@ test("V8 accepts unknown compaction only as a supported-provider fallback", asyn
   );
 });
 
-test("V8 rejects duplicate, regressing, and post-terminal context samples", async () => {
+test("rejects duplicate, regressing, and post-terminal context samples", async () => {
   const scenarios: readonly {
     readonly name: string;
     readonly outputs: (turnId: AgentTurnId) => readonly AgentProviderOutput[];
@@ -1058,7 +1060,7 @@ test("V8 rejects duplicate, regressing, and post-terminal context samples", asyn
   }
 });
 
-test("V8 refuses context facts outside the advertised capability", async () => {
+test("refuses context facts outside the advertised capability", async () => {
   const limitedCapabilities = parseAgentCapabilities({
     ...baseCapabilities,
     context: {

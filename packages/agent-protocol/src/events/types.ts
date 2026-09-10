@@ -54,7 +54,7 @@ export const AGENT_EVENT_TYPES = [
 export type AgentEventType = (typeof AGENT_EVENT_TYPES)[number];
 
 interface AgentEventBase<Type extends AgentEventType, Payload> {
-  readonly protocolVersion: 8;
+  readonly protocolVersion: 9;
   readonly type: Type;
   readonly sessionId: AgentSessionId;
   readonly providerRefs?: AgentProviderRefs;

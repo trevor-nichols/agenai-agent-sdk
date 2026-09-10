@@ -3,20 +3,22 @@
 `@agen-ai/agent-runtime` is the process-local service-provider interface for coding-agent
 implementations. It preserves a small ownership chain: a driver parses host configuration and
 materializes an instance; the instance owns one opaque ID, technical capabilities, an adapter,
-an account-quota observation port, readiness, and disposal; the adapter opens provider-native
+account-quota and environment discovery ports, readiness, and disposal; the adapter opens provider-native
 sessions; each returned session owns its binding and conversation-local operations.
 
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This source package implements Agent Protocol V8. Agent Protocol V8, private host V18/catalog V11, and Workspaces event V11/member response V12.
-This is intentionally one coordinated tuple rather than a deployable mixed-version graph.
+This source package implements Agent Protocol V9 as part of the coordinated SDK `0.3.0` contract.
+The SDK contract version is independent of private transport and product persistence versions. This
+is intentionally one coordinated tuple rather than a deployable mixed-version graph.
 
 ## Entrypoints
 
 - `@agen-ai/agent-runtime` exports the public driver, instance, adapter, session, output,
   readiness, account-quota port validation, bounded-evidence, artifact-candidate,
   capability-bound interaction validation, and registry APIs.
+- `@agen-ai/agent-runtime/environment` exports the instance discovery and session observation ports.
 - `@agen-ai/agent-runtime/testing` exports the deterministic fake provider and reusable
   conformance runner.
 
@@ -41,9 +43,9 @@ exactly once before returning the matching session. Capability-dependent operati
 `supported`/`unsupported` discriminants, and the runtime rejects handlers that disagree with the
 instance capability declaration.
 
-V8 replaces interaction-extension booleans with cohesive capability-matched session ports:
+Sessions expose cohesive capability-matched ports:
 configuration inventory and selection, typed operation inventory and invocation, managed-content
-inventory, integration observation, collaboration spawn/control, and generated-resource access.
+inventory, environment observation, collaboration spawn/control, and generated-resource access.
 An unsupported declaration exposes exactly `{ kind: "unsupported" }`; a supported declaration must
 expose exactly its typed handlers. Catalogs and results are parsed again at the runtime boundary,
 bounded by the declaration, and correlated to the offered revision and caller-owned identity.
@@ -170,6 +172,26 @@ The runtime distinguishes programmer/contract failures from provider failures:
 Provider-native exceptions should be normalized or safely wrapped at the provider boundary. Do
 not attach credentials, raw prompts, product identities, or unbounded output to public errors.
 
+## Scoped environment observation
+
+`MaterializedAgentProviderInstance.environment` discovers a caller-selected workspace and
+configuration. `AgentProviderSession.environment` observes the already bound session. Both ports
+use exact `unsupported`, `read`, or `read_and_watch` variants and declare their observed domains.
+Unsupported domains cannot expose methods or be returned as available observations.
+
+Every read and watch receives an `AbortSignal` and a caller-supplied `environmentId`; snapshots and
+invalidations must echo that identity. Discovery also requires a canonical absolute working directory
+and validated session configuration. The runtime preserves method receivers and provider exceptions,
+combines caller cancellation with instance/session lifetime, rejects operations after disposal, and
+closes watch iterators with bounded cleanup. It does not accept late yields or concurrent pulls.
+The optional read execution observer runs after prechecks immediately before native delegation.
+An environment metadata error alone does not invalidate an otherwise healthy turn session.
+
+Inventory observation never authorizes invocation. The host owns account/workspace scope, freshness,
+visibility, immutable content admission, and durable mutation authority. Providers should obtain
+registered facts from their native harness and report gaps explicitly; a successful empty inventory
+must not stand in for a failed read. No provider is required to start a model turn for discovery.
+
 ## Conformance and release
 
 Every external driver should run `runAgentProviderConformance` from
@@ -179,15 +201,12 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The package is at `0.2.5` while the public SPI is being proven with external adapters. Pre-1.0
-releases may include breaking changes during this beta period, and those changes are called out in
-the release notes. Requiring `accountQuota` on every materialized instance is a source-level
-implementer change in the coordinated `0.2.5` release. Upgrade all three SDK packages together;
-there is no compatibility shim or optional-field fallback.
-
-The public runtime implements Agent Protocol V8. Its package version remains independent of private
-host, catalog, persistence, and member-projection versions. V8 directly replaces V7; there is no
-runtime shim or dual-protocol session surface.
+The coordinated SDK version for this source is `0.3.0`, and the source implements Agent Protocol
+V9. The earlier public `0.2.5` release is historical. Upgrade all three SDK packages together. Every materialized instance requires `environment` and
+`accountQuota`; every session requires `environment`. The former standalone `integrations`
+observation port is removed. The public runtime implements Agent Protocol V9 with one current
+adapter/session surface. Package versions remain independent of private transport and product
+persistence versions.
 
 Run the clean packed-consumer proof before any release:
 

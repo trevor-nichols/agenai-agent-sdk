@@ -14,6 +14,17 @@ import {
 } from '../src/public/index.js';
 import { providerCapabilityFixtures } from './fixtures.js';
 
+test('field-free native operations advertise an empty field set and a zero field budget', () => {
+  const operations = {
+    kind: 'supported', operationKinds: ['integration_control'], fieldKinds: [],
+    executionModes: ['immediate'], maxOperations: 2, maxFieldsPerOperation: 0,
+  };
+  assert.deepEqual(parseAgentCapabilities({ ...providerCapabilityFixtures.fixture, operations }).operations, operations);
+  assert.equal(safeParseAgentCapabilities({
+    ...providerCapabilityFixtures.fixture, operations: { ...operations, maxFieldsPerOperation: -1 },
+  }).success, false);
+});
+
 test('all accepted provider capability fixtures preserve truthful differences', () => {
   const parsed = Object.fromEntries(
     Object.entries(providerCapabilityFixtures).map(([key, value]) => [
@@ -155,7 +166,8 @@ test('image capabilities enforce canonical bounded cross-field invariants', () =
     assert.equal(
       safeParseAgentCapabilities({
         ...providerCapabilityFixtures.fixture,
-        input: { text: true, images },
+        input: {
+          contentReferences: { kind: "unsupported" as const }, text: true, images },
       }).success,
       false,
     );
