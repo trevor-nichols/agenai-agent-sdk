@@ -4,6 +4,7 @@
 
 export * from "./adapterValidation.js";
 export * from "./accountQuota/index.js";
+export * from "./environment/index.js";
 export * from "./artifacts.js";
 export * from "./contractErrors.js";
 export * from "./evidence.js";

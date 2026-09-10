@@ -4,6 +4,8 @@
 
 import {
   AGENT_COLLABORATION_GRAPH_LIMITS,
+  AGENT_CONTENT_REFERENCES_MAX_LENGTH,
+  findAgentContentReferenceTextIssue,
   matchesAgentSessionBinding,
   parseAgentCollaborationControlInput,
   parseAgentCollaborationSpawnInput,
@@ -41,11 +43,11 @@ import {
   createAgentArtifactCandidate,
   type AgentArtifactCandidate,
 } from "./artifacts.js";
+import { validateAgentEnvironmentObservationPort } from "./environment/validation.js";
 import {
   validateAgentCollaborationNodeForCapabilities,
   validateAgentConfigurationCatalogForCapabilities,
   validateAgentGeneratedResourceForCapabilities,
-  validateAgentIntegrationCatalogForCapabilities,
   validateAgentManagedContentCatalogForCapabilities,
   validateAgentOperationCatalogForCapabilities,
   validateAgentOperationResultForInvocation,
@@ -113,7 +115,7 @@ function validateSessionPorts(
       "configuration",
       "operations",
       "managedContent",
-      "integrations",
+      "environment",
       "collaboration",
       "generatedResources",
       "close",
@@ -136,9 +138,9 @@ function validateSessionPorts(
     session.managedContent === null ||
     typeof session.managedContent !== "object" ||
     !["supported", "unsupported"].includes(session.managedContent.kind) ||
-    session.integrations === null ||
-    typeof session.integrations !== "object" ||
-    !["supported", "unsupported"].includes(session.integrations.kind) ||
+    session.environment === null ||
+    typeof session.environment !== "object" ||
+    !["read", "read_and_watch", "unsupported"].includes(session.environment.kind) ||
     session.collaboration === null ||
     typeof session.collaboration !== "object" ||
     !["supported", "unsupported"].includes(session.collaboration.kind) ||
@@ -184,10 +186,12 @@ function validateSessionPorts(
         : ["kind"],
     ) ||
     !hasExactOwnKeys(
-      session.integrations,
-      session.integrations.kind === "supported"
-        ? ["kind", "observeIntegrations"]
-        : ["kind"],
+      session.environment,
+      session.environment.kind === "unsupported"
+        ? ["kind"]
+        : session.environment.kind === "read"
+          ? ["kind", "domains", "readEnvironment"]
+          : ["kind", "domains", "readEnvironment", "watchEnvironment"],
     ) ||
     !hasExactOwnKeys(
       session.collaboration,
@@ -222,10 +226,11 @@ function validateSessionPorts(
       (capabilities.managedContent.kind === "supported") ||
     (session.managedContent.kind === "supported" &&
       typeof session.managedContent.listManagedContent !== "function") ||
-    (session.integrations.kind === "supported") !==
-      (capabilities.integrations.kind === "supported") ||
-    (session.integrations.kind === "supported" &&
-      typeof session.integrations.observeIntegrations !== "function") ||
+    session.environment.kind !== capabilities.environment.session.kind ||
+    (session.environment.kind !== "unsupported" &&
+      (typeof session.environment.readEnvironment !== "function" ||
+        (session.environment.kind === "read_and_watch" &&
+          typeof session.environment.watchEnvironment !== "function"))) ||
     (session.collaboration.kind === "supported") !==
       (capabilities.collaboration.kind === "supported") ||
     (session.collaboration.kind === "supported" &&
@@ -1064,59 +1069,92 @@ function assertAgentTurnInputCapability(input: {
   readonly providerKey: AgentProviderKey;
 }): void {
   const imageParts = input.parts.filter((part) => part.type === "image");
-  if (imageParts.length === 0) return;
-
-  const imageCapability = input.capability.images;
-  if (imageCapability.kind === "unsupported") {
-    throwAgentProviderContractError(
-      input.providerKey,
-      "input_capability_mismatch",
-      `Provider ${input.providerKey} does not accept image input.`,
-    );
-  }
-
-  const reject = (reason: string): never =>
-    throwAgentProviderContractError(
-      input.providerKey,
-      "input_capability_mismatch",
-      `Provider ${input.providerKey} cannot accept this image input: ${reason}.`,
-    );
-
-  if (imageParts.length > imageCapability.maxImages) {
-    reject("image count exceeds the declared limit");
-  }
-  if (
-    !imageCapability.supportsImageOnly &&
-    !input.parts.some((part) => part.type === "text" && part.text.trim().length > 0)
-  ) {
-    reject("image-only input is unsupported");
-  }
-
-  let totalBytes = 0;
-  for (const part of imageParts) {
-    const { source } = part;
-    if (!imageCapability.sourceKinds.includes(source.type)) {
-      reject(`source kind ${source.type} is unsupported`);
+  if (imageParts.length > 0) {
+    const imageCapability = input.capability.images;
+    if (imageCapability.kind === "unsupported") {
+      throwAgentProviderContractError(
+        input.providerKey,
+        "input_capability_mismatch",
+        `Provider ${input.providerKey} does not accept image input.`,
+      );
     }
-    if (!imageCapability.mediaTypes.includes(source.mediaType)) {
-      reject(`media type ${source.mediaType} is unsupported`);
-    }
-    if (source.byteSize > imageCapability.maxBytesPerImage) {
-      reject("an image exceeds the declared byte limit");
+
+    const reject = (reason: string): never =>
+      throwAgentProviderContractError(
+        input.providerKey,
+        "input_capability_mismatch",
+        `Provider ${input.providerKey} cannot accept this image input: ${reason}.`,
+      );
+
+    if (imageParts.length > imageCapability.maxImages) {
+      reject("image count exceeds the declared limit");
     }
     if (
-      source.widthPixels > imageCapability.maxWidthPixels ||
-      source.heightPixels > imageCapability.maxHeightPixels ||
-      source.widthPixels * source.heightPixels
-        > imageCapability.maxPixelsPerImage
+      !imageCapability.supportsImageOnly &&
+      !input.parts.some((part) => part.type === "text" && part.text.trim().length > 0)
     ) {
-      reject("an image exceeds the declared dimension or pixel limit");
+      reject("image-only input is unsupported");
     }
-    totalBytes += source.byteSize;
+
+    let totalBytes = 0;
+    for (const part of imageParts) {
+      const { source } = part;
+      if (!imageCapability.sourceKinds.includes(source.type)) {
+        reject(`source kind ${source.type} is unsupported`);
+      }
+      if (!imageCapability.mediaTypes.includes(source.mediaType)) {
+        reject(`media type ${source.mediaType} is unsupported`);
+      }
+      if (source.byteSize > imageCapability.maxBytesPerImage) {
+        reject("an image exceeds the declared byte limit");
+      }
+      if (
+        source.widthPixels > imageCapability.maxWidthPixels ||
+        source.heightPixels > imageCapability.maxHeightPixels ||
+        source.widthPixels * source.heightPixels
+          > imageCapability.maxPixelsPerImage
+      ) {
+        reject("an image exceeds the declared dimension or pixel limit");
+      }
+      totalBytes += source.byteSize;
+    }
+    if (totalBytes > imageCapability.maxTotalBytes) {
+      reject("aggregate image bytes exceed the declared limit");
+    }
   }
-  if (totalBytes > imageCapability.maxTotalBytes) {
-    reject("aggregate image bytes exceed the declared limit");
+
+  const contentReferenceParts = input.parts.filter(
+    (part) => part.type === "content_reference",
+  );
+  if (contentReferenceParts.length === 0) return;
+  const contentReferenceCapability = input.capability.contentReferences;
+  const rejectReference = (reason: string): never =>
+    throwAgentProviderContractError(
+      input.providerKey,
+      "input_capability_mismatch",
+      `Provider ${input.providerKey} cannot accept this content reference input: ${reason}.`,
+    );
+  if (contentReferenceParts.length > AGENT_CONTENT_REFERENCES_MAX_LENGTH) {
+    rejectReference("content reference count exceeds the protocol limit");
   }
+  if (contentReferenceCapability.kind === "unsupported") {
+    return rejectReference("content references are unsupported");
+  }
+  if (contentReferenceParts.length > contentReferenceCapability.maxReferences) {
+    rejectReference("content reference count exceeds the declared limit");
+  }
+  if (
+    !contentReferenceCapability.arguments
+    && contentReferenceParts.some((part) => part.arguments !== undefined)
+  ) {
+    rejectReference("reference arguments are unsupported");
+  }
+  const textIssue = findAgentContentReferenceTextIssue({
+    prompt: input.parts.filter((part) => part.type === 'text').map((part) => part.text).join('\n'),
+    arguments: contentReferenceParts.map((part) => part.arguments ?? ''),
+    textFormats: contentReferenceCapability.textFormats,
+  });
+  if (textIssue) rejectReference(`${textIssue.target} must use ${textIssue.format} text`);
 }
 
 export function validateAgentProviderSession(input: {
@@ -1167,6 +1205,14 @@ export function validateAgentProviderSession(input: {
     );
   }
   validateSessionPorts(capabilities, input.candidate);
+
+  const sessionLifetime = new AbortController();
+  const environment = validateAgentEnvironmentObservationPort({
+    providerKey,
+    capability: capabilities.environment.session,
+    port: input.candidate.environment,
+    signal: sessionLifetime.signal,
+  });
 
   const pendingRequests = new Map<string, PendingAgentRequest>();
   const waitingTurnStates = new Map<AgentTurnId, AgentTurnSequenceState>();
@@ -1922,26 +1968,6 @@ export function validateAgentProviderSession(input: {
           },
         });
 
-  const declaredIntegrations = input.candidate.integrations;
-  const integrations =
-    declaredIntegrations.kind === "unsupported"
-      ? Object.freeze({ kind: "unsupported" as const })
-      : Object.freeze({
-          kind: "supported" as const,
-          observeIntegrations: async (
-            listInput: Parameters<typeof declaredIntegrations.observeIntegrations>[0] = {},
-          ) => {
-            requireUsable();
-            throwIfAgentOperationAborted(listInput.signal);
-            return validateAgentIntegrationCatalogForCapabilities(
-              capabilities,
-              await declaredIntegrations.observeIntegrations(
-                listInput.signal === undefined ? {} : { signal: listInput.signal },
-              ),
-            );
-          },
-        });
-
   const declaredCollaboration = input.candidate.collaboration;
   const collaboration =
     declaredCollaboration.kind === "unsupported"
@@ -2276,6 +2302,7 @@ export function validateAgentProviderSession(input: {
       throw new TypeError("Provider session close reason is unsupported.");
     }
     unusable = true;
+    sessionLifetime.abort(new DOMException("The provider session was closed.", "AbortError"));
     closePromise = Promise.resolve()
       .then(() => input.candidate.close(closeInput))
       .then(() => {
@@ -2296,7 +2323,7 @@ export function validateAgentProviderSession(input: {
     configuration,
     operations,
     managedContent,
-    integrations,
+    environment,
     collaboration,
     generatedResources,
     close,

@@ -19,6 +19,10 @@ import {
   AgentItemIdSchema,
   AgentJsonValueSchema,
   AgentManagedContentIdSchema,
+  AgentEnvironmentIdSchema,
+  AgentEffectiveContentIdSchema,
+  AgentCommandIdSchema,
+  AgentExtensionIdSchema,
   AgentOperationIdSchema,
   AgentOperationInvocationIdSchema,
   AgentProviderConversationIdSchema,
@@ -49,6 +53,10 @@ import type {
   AgentItemId,
   AgentJsonValue,
   AgentManagedContentId,
+  AgentEnvironmentId,
+  AgentEffectiveContentId,
+  AgentCommandId,
+  AgentExtensionId,
   AgentOperationId,
   AgentOperationInvocationId,
   AgentProviderConversationId,
@@ -237,3 +245,16 @@ export function safeParseAgentError(
 ): AgentProtocolParseResult<AgentError> {
   return safeParseWithSchema(AgentErrorSchema, input);
 }
+
+const environmentIdParser = idParser<AgentEnvironmentId>(AgentEnvironmentIdSchema);
+export const parseAgentEnvironmentId = environmentIdParser.parse;
+export const safeParseAgentEnvironmentId = environmentIdParser.safeParse;
+const effectiveContentIdParser = idParser<AgentEffectiveContentId>(AgentEffectiveContentIdSchema);
+export const parseAgentEffectiveContentId = effectiveContentIdParser.parse;
+export const safeParseAgentEffectiveContentId = effectiveContentIdParser.safeParse;
+const commandIdParser = idParser<AgentCommandId>(AgentCommandIdSchema);
+export const parseAgentCommandId = commandIdParser.parse;
+export const safeParseAgentCommandId = commandIdParser.safeParse;
+const extensionIdParser = idParser<AgentExtensionId>(AgentExtensionIdSchema);
+export const parseAgentExtensionId = extensionIdParser.parse;
+export const safeParseAgentExtensionId = extensionIdParser.safeParse;

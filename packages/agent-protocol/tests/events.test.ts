@@ -30,6 +30,7 @@ test('the fixture corpus covers every provider-observed event discriminant', () 
 test('events reject unsupported versions, unknown fields, and product coordinates', () => {
   const base = eventFixtureCorpus[0];
   for (const invalid of [
+    { ...base, protocolVersion: 8 },
     { ...base, protocolVersion: 2 },
     { ...base, protocolVersion: 1 },
     { ...base, unexpected: true },
@@ -46,7 +47,7 @@ test('events reject unsupported versions, unknown fields, and product coordinate
 
 test('events enforce reference, state, terminal, progress, and byte invariants', () => {
   const base = {
-    protocolVersion: 8,
+    protocolVersion: 9,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -95,7 +96,7 @@ test('events enforce reference, state, terminal, progress, and byte invariants',
 
 test('events reject noncanonical identifiers and diagnostic strings', () => {
   const base = {
-    protocolVersion: 8,
+    protocolVersion: 9,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -165,7 +166,7 @@ test('events reject noncanonical identifiers and diagnostic strings', () => {
 
 test('plan snapshots preserve canceled status and optional canonical priority', () => {
   const base = {
-    protocolVersion: 8,
+    protocolVersion: 9,
     sessionId: 'session:plan-semantics',
     turnId: 'turn:plan-semantics',
     occurredAt: protocolTimestamp,

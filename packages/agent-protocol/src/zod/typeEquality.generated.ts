@@ -10,35 +10,63 @@ import type { AgentAccountQuotaSnapshot, AgentAccountQuotaWindow } from '../acco
 import type { AgentArtifactDescriptor } from '../artifacts/types.js';
 import type { AgentCapabilities } from '../capabilities/types.js';
 import type { AgentCollaborationControlInput, AgentCollaborationNode, AgentCollaborationSpawnInput } from '../collaboration/types.js';
+import type { AgentCommandCatalog, AgentCommandDescriptor } from '../commands/types.js';
 import type { AgentConfigurationCatalog, AgentConfigurationSelectionInput } from '../configuration/types.js';
+import type { AgentEffectiveContentCatalog, AgentEffectiveContentDescriptor } from '../effectiveContent/types.js';
+import type { AgentEnvironmentCapability, AgentEnvironmentInvalidation, AgentEnvironmentSnapshot } from '../environment/types.js';
 import type { AgentEvent } from '../events/types.js';
+import type { AgentExtensionCatalog, AgentExtensionDescriptor } from '../extensions/types.js';
 import type { AgentError, AgentJsonValue, AgentProviderRefs } from '../foundation/types.js';
-import type { AgentIntegrationCatalog, AgentIntegrationDescriptor } from '../integrations/types.js';
+import type { AgentIntegrationCatalog, AgentIntegrationDescriptor, AgentMcpIntegrationDescriptor } from '../integrations/types.js';
 import type { AgentManagedContentCatalog, AgentManagedContentDescriptor } from '../managedContent/types.js';
 import type { AgentOperationCatalog, AgentOperationDescriptor, AgentOperationInvocation, AgentOperationResult } from '../operations/types.js';
 import type { AgentRequest, AgentRequestResolution } from '../requests/types.js';
 import type { AgentGeneratedResourceDescriptor } from '../resources/types.js';
 import type { AgentSessionBinding, AgentSessionConfiguration, AgentSessionOpenInput } from '../sessions/types.js';
-import type { AgentItemSnapshot, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
+import type { AgentContentReferenceInputPart, AgentItemSnapshot, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
 import { AgentAccountQuotaSnapshotSchema, AgentAccountQuotaWindowSchema } from './accountQuota.js';
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
 import { AgentCapabilitiesSchema } from './capabilities.js';
 import { AgentCollaborationControlInputSchema, AgentCollaborationNodeSchema, AgentCollaborationSpawnInputSchema } from './collaboration.js';
+import { AgentCommandCatalogSchema, AgentCommandDescriptorSchema } from './commands.js';
 import { AgentConfigurationCatalogSchema, AgentConfigurationSelectionInputSchema } from './configuration.js';
+import { AgentEffectiveContentCatalogSchema, AgentEffectiveContentDescriptorSchema } from './effectiveContent.js';
+import { AgentEnvironmentCapabilitySchema, AgentEnvironmentInvalidationSchema, AgentEnvironmentSnapshotSchema } from './environment.js';
 import { AgentEventSchema } from './events.js';
+import { AgentExtensionCatalogSchema, AgentExtensionDescriptorSchema } from './extensions.js';
 import { AgentErrorSchema, AgentJsonValueSchema, AgentProviderRefsSchema } from './foundation.js';
-import { AgentIntegrationCatalogSchema, AgentIntegrationDescriptorSchema } from './integrations.js';
+import { AgentIntegrationCatalogSchema, AgentIntegrationDescriptorSchema, AgentMcpIntegrationDescriptorSchema } from './integrations.js';
 import { AgentManagedContentCatalogSchema, AgentManagedContentDescriptorSchema } from './managedContent.js';
 import { AgentOperationCatalogSchema, AgentOperationDescriptorSchema, AgentOperationInvocationSchema, AgentOperationResultSchema } from './operations.js';
 import { AgentRequestResolutionSchema, AgentRequestSchema } from './requests.js';
 import { AgentGeneratedResourceDescriptorSchema } from './resources.js';
 import { AgentSessionBindingSchema, AgentSessionConfigurationSchema, AgentSessionOpenInputSchema } from './sessions.js';
-import { AgentItemSnapshotSchema, AgentTurnInputContentSchema, AgentTurnInterruptionInputSchema, AgentTurnRunInputSchema } from './turns.js';
+import { AgentContentReferenceInputPartSchema, AgentItemSnapshotSchema, AgentTurnInputContentSchema, AgentTurnInterruptionInputSchema, AgentTurnRunInputSchema } from './turns.js';
 
 type Extends<Left, Right> = [Left] extends [Right] ? true : false;
 type Assert<Value extends true> = Value;
 
 export type AgentProtocolSchemaTypeAssertions = readonly [
+  Assert<Extends<z.output<typeof AgentEffectiveContentCatalogSchema>, AgentEffectiveContentCatalog>>,
+  Assert<Extends<AgentEffectiveContentCatalog, z.output<typeof AgentEffectiveContentCatalogSchema>>>,
+  Assert<Extends<z.output<typeof AgentEffectiveContentDescriptorSchema>, AgentEffectiveContentDescriptor>>,
+  Assert<Extends<AgentEffectiveContentDescriptor, z.output<typeof AgentEffectiveContentDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentCommandCatalogSchema>, AgentCommandCatalog>>,
+  Assert<Extends<AgentCommandCatalog, z.output<typeof AgentCommandCatalogSchema>>>,
+  Assert<Extends<z.output<typeof AgentCommandDescriptorSchema>, AgentCommandDescriptor>>,
+  Assert<Extends<AgentCommandDescriptor, z.output<typeof AgentCommandDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentExtensionCatalogSchema>, AgentExtensionCatalog>>,
+  Assert<Extends<AgentExtensionCatalog, z.output<typeof AgentExtensionCatalogSchema>>>,
+  Assert<Extends<z.output<typeof AgentExtensionDescriptorSchema>, AgentExtensionDescriptor>>,
+  Assert<Extends<AgentExtensionDescriptor, z.output<typeof AgentExtensionDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentEnvironmentSnapshotSchema>, AgentEnvironmentSnapshot>>,
+  Assert<Extends<AgentEnvironmentSnapshot, z.output<typeof AgentEnvironmentSnapshotSchema>>>,
+  Assert<Extends<z.output<typeof AgentEnvironmentInvalidationSchema>, AgentEnvironmentInvalidation>>,
+  Assert<Extends<AgentEnvironmentInvalidation, z.output<typeof AgentEnvironmentInvalidationSchema>>>,
+  Assert<Extends<z.output<typeof AgentEnvironmentCapabilitySchema>, AgentEnvironmentCapability>>,
+  Assert<Extends<AgentEnvironmentCapability, z.output<typeof AgentEnvironmentCapabilitySchema>>>,
+  Assert<Extends<z.output<typeof AgentContentReferenceInputPartSchema>, AgentContentReferenceInputPart>>,
+  Assert<Extends<AgentContentReferenceInputPart, z.output<typeof AgentContentReferenceInputPartSchema>>>,
   Assert<Extends<z.output<typeof AgentAccountQuotaSnapshotSchema>, AgentAccountQuotaSnapshot>>,
   Assert<Extends<AgentAccountQuotaSnapshot, z.output<typeof AgentAccountQuotaSnapshotSchema>>>,
   Assert<Extends<z.output<typeof AgentAccountQuotaWindowSchema>, AgentAccountQuotaWindow>>,
@@ -87,6 +115,8 @@ export type AgentProtocolSchemaTypeAssertions = readonly [
   Assert<Extends<AgentIntegrationCatalog, z.output<typeof AgentIntegrationCatalogSchema>>>,
   Assert<Extends<z.output<typeof AgentIntegrationDescriptorSchema>, AgentIntegrationDescriptor>>,
   Assert<Extends<AgentIntegrationDescriptor, z.output<typeof AgentIntegrationDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentMcpIntegrationDescriptorSchema>, AgentMcpIntegrationDescriptor>>,
+  Assert<Extends<AgentMcpIntegrationDescriptor, z.output<typeof AgentMcpIntegrationDescriptorSchema>>>,
   Assert<Extends<z.output<typeof AgentCollaborationNodeSchema>, AgentCollaborationNode>>,
   Assert<Extends<AgentCollaborationNode, z.output<typeof AgentCollaborationNodeSchema>>>,
   Assert<Extends<z.output<typeof AgentCollaborationSpawnInputSchema>, AgentCollaborationSpawnInput>>,

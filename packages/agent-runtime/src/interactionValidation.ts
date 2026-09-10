@@ -139,14 +139,12 @@ export function validateAgentIntegrationCatalogForCapabilities(
     || catalog.integrations.some(
       (integration) =>
         !capability.integrationKinds.includes(integration.kind)
-        || integration.servers.length
-          > capability.maxServersPerIntegration
-        || integration.servers.some(
-          (server) =>
-            server.tools.length > capability.maxToolsPerServer
-            || server.resources.length
-              > capability.maxResourcesPerServer,
-        ),
+        || (integration.kind === "mcp"
+          ? integration.servers.length > capability.maxServersPerIntegration
+            || integration.servers.some((server) =>
+              server.tools.length > capability.maxToolsPerServer
+              || server.resources.length > capability.maxResourcesPerServer)
+          : (integration.tools?.length ?? 0) > capability.maxToolsPerServer),
     )
   ) {
     return invalidInventory(

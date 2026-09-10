@@ -67,8 +67,12 @@ test('package exports are explicit and complete', () => {
     './artifacts',
     './capabilities',
     './collaboration',
+    './commands',
     './configuration',
+    './effective-content',
+    './environment',
     './events',
+    './extensions',
     './integrations',
     './json-schema',
     './managed-content',
@@ -87,12 +91,12 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 22);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 26);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 8);
+    assert.equal(artifact.protocolVersion, 9);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -486,6 +490,8 @@ test('turn JSON Schemas declare decoded inline-image byte-size parity', () => {
     assert.deepEqual(artifact.parserInvariants, [
       'inline_image_decoded_byte_size',
       'serialized_bytes',
+      'content_reference_limits',
+      'unique_content_references',
     ]);
     assert.equal(ajv.compile(artifact.schema)(testCase.value), true);
     assert.equal(testCase.parser(testCase.value).success, false);
@@ -664,7 +670,7 @@ test('event JSON Schema declares residual V8 semantic parser invariants', () => 
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 8,
+    protocolVersion: 9,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',

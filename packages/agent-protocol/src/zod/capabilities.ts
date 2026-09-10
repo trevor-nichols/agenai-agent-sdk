@@ -4,12 +4,16 @@
 
 import { z } from 'zod/v4';
 
+import { AgentEnvironmentCapabilitySchema } from './environment.js';
+import { AGENT_CONTENT_REFERENCES_MAX_LENGTH } from '../turns/types.js';
+
 import {
   AGENT_PROTOCOL_VERSION,
 } from '../foundation/types.js';
 import { AGENT_ARTIFACT_KINDS } from '../artifacts/types.js';
 import {
   AGENT_AUTHENTICATION_FLOWS,
+  AGENT_CONTENT_REFERENCE_TEXT_FORMATS,
   AGENT_FILE_CHANGE_MODES,
   type AgentCapabilities,
 } from '../capabilities/types.js';
@@ -268,10 +272,24 @@ export const AgentImageInputCapabilitySchema = z.discriminatedUnion('kind', [
     .readonly(),
 ]);
 
+export const AgentContentReferenceInputCapabilitySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z.object({
+    kind: z.literal('supported'),
+    maxReferences: z.number().int().min(1).max(AGENT_CONTENT_REFERENCES_MAX_LENGTH),
+    arguments: z.boolean(),
+    textFormats: z.object({
+      prompt: z.enum(AGENT_CONTENT_REFERENCE_TEXT_FORMATS),
+      arguments: z.enum(AGENT_CONTENT_REFERENCE_TEXT_FORMATS),
+    }).strict().readonly(),
+  }).strict().readonly(),
+]);
+
 export const AgentOperationInputCapabilitySchema = z
   .object({
     text: z.literal(true),
     images: AgentImageInputCapabilitySchema,
+    contentReferences: AgentContentReferenceInputCapabilitySchema,
   })
   .strict()
   .readonly();
@@ -289,7 +307,6 @@ const AgentOperationsCapabilitySchema = z.discriminatedUnion('kind', [
         .readonly(),
       fieldKinds: z
         .array(z.enum(AGENT_OPERATION_FIELD_KINDS))
-        .min(1)
         .max(AGENT_OPERATION_FIELD_KINDS.length)
         .meta({ uniqueItems: true })
         .readonly(),
@@ -302,9 +319,7 @@ const AgentOperationsCapabilitySchema = z.discriminatedUnion('kind', [
       maxOperations: boundedPositiveSafeInteger(
         AGENT_OPERATION_CATALOG_MAX_LENGTH,
       ),
-      maxFieldsPerOperation: boundedPositiveSafeInteger(
-        AGENT_OPERATION_FIELDS_MAX_LENGTH,
-      ),
+      maxFieldsPerOperation: z.number().int().min(0).max(AGENT_OPERATION_FIELDS_MAX_LENGTH),
     })
     .strict()
     .readonly(),
@@ -508,6 +523,7 @@ export const AgentCapabilitiesPortableSchema = z
     operations: AgentOperationsCapabilitySchema,
     managedContent: AgentManagedContentCapabilitySchema,
     integrations: AgentIntegrationsCapabilitySchema,
+    environment: AgentEnvironmentCapabilitySchema,
     collaboration: AgentCollaborationCapabilitySchema,
     generatedResources: AgentGeneratedResourcesCapabilitySchema,
     authentication: z.discriminatedUnion('kind', [

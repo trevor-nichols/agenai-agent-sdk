@@ -18,6 +18,10 @@ export {
   AgentItemIdSchema,
   AgentJsonValueSchema,
   AgentManagedContentIdSchema,
+  AgentEnvironmentIdSchema,
+  AgentEffectiveContentIdSchema,
+  AgentCommandIdSchema,
+  AgentExtensionIdSchema,
   AgentOperationIdSchema,
   AgentOperationInvocationIdSchema,
   AgentProviderConversationIdSchema,
@@ -63,6 +67,7 @@ export {
   AgentTurnInputContentSchema,
   AgentTurnInteractionModeSchema,
   AgentTurnInputPartSchema,
+  AgentContentReferenceInputPartSchema,
   AgentTurnInterruptionInputSchema,
   AgentTurnRunInputSchema,
   AgentWebSearchDetailsSchema,
@@ -94,6 +99,7 @@ export {
 export {
   AgentIntegrationCatalogSchema,
   AgentIntegrationDescriptorSchema,
+  AgentMcpIntegrationDescriptorSchema,
 } from './integrations.js';
 export {
   AgentCollaborationControlInputSchema,
@@ -104,8 +110,15 @@ export { AgentGeneratedResourceDescriptorSchema } from './resources.js';
 export {
   AgentApprovalCapabilitySchema,
   AgentCapabilitiesSchema,
+  AgentContentReferenceInputCapabilitySchema,
 } from './capabilities.js';
 export { AgentArtifactDescriptorSchema } from './artifacts.js';
 export { AgentContextUsageSchema, AgentEventSchema } from './events.js';
 export type { AgentProtocolSchemaTypeAssertions } from './typeEquality.generated.js';
 export * from './accountQuota.js';
+
+export * from './environmentFacts.js';
+export * from './effectiveContent.js';
+export * from './commands.js';
+export * from './extensions.js';
+export * from './environment.js';

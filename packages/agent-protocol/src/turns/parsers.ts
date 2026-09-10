@@ -6,12 +6,14 @@ import type { AgentProtocolParseResult } from '../foundation/index.js';
 import { parseWithSchema, safeParseWithSchema } from '../internal/parsers.js';
 import {
   AgentItemSnapshotSchema,
+  AgentContentReferenceInputPartSchema,
   AgentTurnInputContentSchema,
   AgentTurnInterruptionInputSchema,
   AgentTurnRunInputSchema,
 } from '../zod/turns.js';
 import type {
   AgentItemSnapshot,
+  AgentContentReferenceInputPart,
   AgentTurnInputContent,
   AgentTurnInterruptionInput,
   AgentTurnRunInput,
@@ -59,4 +61,12 @@ export function safeParseAgentItemSnapshot(
   input: unknown,
 ): AgentProtocolParseResult<AgentItemSnapshot> {
   return safeParseWithSchema(AgentItemSnapshotSchema, input);
+}
+
+export function parseAgentContentReferenceInputPart(input: unknown): AgentContentReferenceInputPart {
+  return parseWithSchema(AgentContentReferenceInputPartSchema, input);
+}
+
+export function safeParseAgentContentReferenceInputPart(input: unknown): AgentProtocolParseResult<AgentContentReferenceInputPart> {
+  return safeParseWithSchema(AgentContentReferenceInputPartSchema, input);
 }

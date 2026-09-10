@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-protocol",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "private": false,
   "description": "Provider-neutral sessions, turns, requests, capabilities, artifacts, and events for coding-agent runtimes.",
   "type": "module",
@@ -80,6 +80,22 @@
     "./account-quota": {
       "types": "./dist/public/accountQuota.d.ts",
       "import": "./dist/public/accountQuota.js"
+    },
+    "./effective-content": {
+      "types": "./dist/public/effectiveContent.d.ts",
+      "import": "./dist/public/effectiveContent.js"
+    },
+    "./commands": {
+      "types": "./dist/public/commands.d.ts",
+      "import": "./dist/public/commands.js"
+    },
+    "./extensions": {
+      "types": "./dist/public/extensions.d.ts",
+      "import": "./dist/public/extensions.js"
+    },
+    "./environment": {
+      "types": "./dist/public/environment.d.ts",
+      "import": "./dist/public/environment.js"
     }
   },
   "scripts": {

@@ -14,6 +14,8 @@ import {
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
   parseAgentGeneratedResourceDescriptor,
+  parseAgentEnvironmentId,
+  parseAgentContentReferenceInputPart,
   parseAgentGeneratedResourceId,
   parseAgentIsoDateTime,
   parseAgentItemId,
@@ -52,7 +54,8 @@ import { createFakeAgentProvider } from "../src/testing/index.js";
 
 const providerKey = parseAgentProviderKey("contract-fixture");
 const capabilities: AgentCapabilities = parseAgentCapabilities({
-  protocolVersion: 8,
+  environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
+  protocolVersion: 9,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -68,7 +71,8 @@ const capabilities: AgentCapabilities = parseAgentCapabilities({
     usage: { kind: "unsupported" },
     compaction: { kind: "unsupported" },
   },
-  input: { text: true, images: { kind: "unsupported" } },
+  input: {
+    contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
   output: {
     streaming: true,
     plans: false,
@@ -110,7 +114,8 @@ const steeringCapabilities: AgentCapabilities = parseAgentCapabilities({
     interrupt: false,
     steer: {
       kind: "supported",
-      input: { text: true, images: { kind: "unsupported" } },
+      input: {
+        contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
     },
   },
 });
@@ -173,7 +178,7 @@ function allowOnceResolution(requestId: ReturnType<typeof parseAgentRequestId>) 
 }
 
 function eventBase(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
-  return { protocolVersion: 8 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 9 as const, sessionId, turnId, occurredAt };
 }
 
 function waitingForRequestOutputs(input: {
@@ -256,7 +261,7 @@ function session(
     binding: { conversationId: "contract-conversation" as never },
     runTurn: async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 8,
+        protocolVersion: 9,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -264,7 +269,7 @@ function session(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 8,
+        protocolVersion: 9,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -278,7 +283,7 @@ function session(
     configuration: { kind: "managed" },
     operations: { kind: "unsupported" },
     managedContent: { kind: "unsupported" },
-    integrations: { kind: "unsupported" },
+    environment: { kind: "unsupported" },
     collaboration: { kind: "unsupported" },
     generatedResources: { kind: "unsupported" },
     close: async () => undefined,
@@ -822,7 +827,7 @@ test("capability declarations must match callable adapter and session ports", as
     { configuration: { kind: "managed" } },
     { operations: { kind: "unsupported" } },
     { managedContent: { kind: "unsupported" } },
-    { integrations: { kind: "unsupported" } },
+    { environment: { kind: "unsupported" } },
     { collaboration: { kind: "unsupported" } },
     { generatedResources: { kind: "unsupported" } },
   ];
@@ -1836,7 +1841,7 @@ test("session operation observations are validated and preserve output backpress
           invokeOperation: async (operationInput) => {
             operationInput.onProviderExecutionStarted?.();
             await operationInput.onOutput?.(createAgentEventOutput({
-              protocolVersion: 8,
+              protocolVersion: 9,
               type: "item.completed",
               sessionId,
               turnId: operationInput.observationTurnId,
@@ -2564,7 +2569,7 @@ test("validated sessions reject cross-session output and malformed turn ordering
       const opened = session({
         runTurn: async function* (turnInput) {
           yield createAgentEventOutput({
-            protocolVersion: 8,
+            protocolVersion: 9,
             type: "turn.started",
             sessionId: "another-session",
             turnId: turnInput.turnId,
@@ -2827,6 +2832,7 @@ test("run input enforces every structured image capability before provider deleg
   const imageCapabilities = parseAgentCapabilities({
     ...capabilities,
     input: {
+      contentReferences: { kind: "unsupported" as const },
       text: true,
       images: {
         kind: "supported",
@@ -3366,7 +3372,8 @@ test("steering remains active while a request continuation executes", async () =
         interrupt: false,
         steer: {
           kind: "supported",
-          input: { text: true, images: { kind: "unsupported" } },
+          input: {
+            contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
         },
       },
     }),
@@ -4359,4 +4366,88 @@ test("authentication output remains correlated to its requested attempt", async 
       error instanceof AgentProviderContractError &&
       error.code === "output_authentication_attempt_mismatch",
   );
+});
+
+test("environment read failures preserve a healthy session's turn execution", async () => {
+  const nativeFailure = new Error("Synthetic catalog failure");
+  const supported = parseAgentCapabilities({
+    ...capabilities,
+    environment: { instance: { kind: "unsupported" }, session: { kind: "read", domains: ["content"] } },
+  });
+  const validated = validateAgentProviderAdapter(supported, adapter((input) => {
+    const opened = session({ environment: {
+      kind: "read", domains: ["content"],
+      readEnvironment: async () => { throw nativeFailure; },
+    } });
+    input.onBindingCreated(opened.binding);
+    return opened;
+  }));
+  const opened = await validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated: () => undefined });
+  if (opened.environment.kind !== "read") throw new Error("Expected environment read port.");
+  await assert.rejects(opened.environment.readEnvironment({ environmentId: parseAgentEnvironmentId("healthy-session-environment"), signal: new AbortController().signal }), (error) => error === nativeFailure);
+  const output = await collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("after-metadata-failure"), interactionMode: "default", parts: [{ type: "text", text: "Continue." }] }));
+  assert.equal(output.length, 2);
+  await opened.close({ reason: "shutdown" });
+});
+
+test("content reference capability is checked before provider delegation and preserves exact accepted input", async () => {
+  const part = parseAgentContentReferenceInputPart({ type: "content_reference", environmentId: "environment:a", environmentRevision: 1, contentCatalogRevision: 2, contentId: "content:a", contentRevision: 3 });
+  for (const supported of [false, true]) {
+    let received: readonly unknown[] | undefined;
+    const selected = parseAgentCapabilities({ ...capabilities, input: { ...capabilities.input, contentReferences: supported ? { kind: "supported", maxReferences: 1, arguments: false, textFormats: { prompt: "unrestricted", arguments: "unrestricted" } } : { kind: "unsupported" } } });
+    const validated = validateAgentProviderAdapter(selected, adapter((input) => {
+      const base = session();
+      const opened = session({ runTurn: async function* (turn) {
+        received = turn.parts;
+        yield* base.runTurn(turn);
+      } });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }));
+    const opened = await validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated: () => undefined });
+    const turn = { turnId: parseAgentTurnId("reference-capability"), interactionMode: "default" as const, parts: [part] };
+    if (supported) {
+      await collectOutputs(opened.runTurn(turn));
+      assert.deepEqual(received, [part]);
+      await assert.rejects(collectOutputs(opened.runTurn({ ...turn, turnId: parseAgentTurnId("reference-arguments"), parts: [{ ...part, arguments: "unqualified" }] })), (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
+    } else {
+      await assert.rejects(collectOutputs(opened.runTurn(turn)), (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
+      assert.equal(received, undefined);
+    }
+    await opened.close({ reason: "shutdown" });
+  }
+});
+
+test("skill text restrictions reject before delegation and leave the session usable", async () => {
+  const reference = parseAgentContentReferenceInputPart({ type: "content_reference", environmentId: "environment:text", environmentRevision: 1, contentCatalogRevision: 2, contentId: "content:text", contentRevision: 3 });
+  let calls = 0;
+  const selected = parseAgentCapabilities({ ...capabilities, input: { ...capabilities.input,
+    contentReferences: { kind: "supported", maxReferences: 1, arguments: true,
+      textFormats: { prompt: "literal_single_line", arguments: "single_line" } },
+  } });
+  const validated = validateAgentProviderAdapter(selected, adapter((input) => {
+    const base = session();
+    const opened = session({ runTurn: async function* (turn) { calls += 1; yield* base.runTurn(turn); } });
+    input.onBindingCreated(opened.binding);
+    return opened;
+  }));
+  const opened = await validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated: () => undefined });
+  for (const parts of [
+    [reference, { type: "text" as const, text: "Review:\nFocus on auth." }],
+    [reference, { type: "text" as const, text: "Explain @agenai imports." }],
+    [{ ...reference, arguments: "private\nargument" }],
+  ]) {
+    await assert.rejects(collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("text-rejected"), interactionMode: "default", parts })),
+      (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
+  }
+  assert.equal(calls, 0);
+  await collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("text-corrected"), interactionMode: "default",
+    parts: [{ ...reference, arguments: "@allowed-in-single-line" }, { type: "text", text: "Review authentication." }],
+  }));
+  assert.equal(calls, 1);
+  await collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("ordinary-text"), interactionMode: "default",
+    parts: [{ type: "text", text: "Without a skill:\nExplain @agenai imports." }],
+  }));
+  assert.equal(calls, 2);
+  await opened.close({ reason: "shutdown" });
 });

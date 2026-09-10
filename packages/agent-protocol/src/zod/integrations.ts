@@ -4,9 +4,14 @@
 
 import { z } from 'zod/v4';
 
+import { AgentAvailabilityFactSchema, AgentEnvironmentSourceSchema } from './environmentFacts.js';
+import { agentProtocolSerializedJsonBytes } from '../foundation/types.js';
+
 import { compareStringsByUnicodeCodePoint } from '../foundation/ordering.js';
 import {
   AGENT_INTEGRATION_DESCRIPTION_MAX_LENGTH,
+  AGENT_INTEGRATION_CONTRIBUTIONS_MAX_LENGTH,
+  AGENT_INTEGRATION_CATALOG_BYTES_LIMIT,
   AGENT_INTEGRATION_CATALOG_MAX_LENGTH,
   AGENT_INTEGRATION_NAME_MAX_LENGTH,
   AGENT_INTEGRATION_RESOURCES_MAX_LENGTH,
@@ -15,6 +20,7 @@ import {
   AGENT_INTEGRATION_TOOLS_MAX_LENGTH,
   type AgentIntegrationCatalog,
   type AgentIntegrationDescriptor,
+  type AgentMcpIntegrationDescriptor,
 } from '../integrations/types.js';
 import {
   AgentIntegrationIdSchema,
@@ -23,6 +29,7 @@ import {
   AgentIntegrationToolIdSchema,
   AgentIsoDateTimeSchema,
   createAgentCanonicalNonBlankStringSchema,
+  withAcyclicProtocolInput,
 } from './foundation.js';
 
 const PositiveSafeIntegerSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -74,7 +81,7 @@ function addOrderedUniqueIssues(
   });
 }
 
-const AgentIntegrationDescriptorPortableSchema = z.object({
+const McpIntegrationSchema = z.object({
   integrationId: AgentIntegrationIdSchema,
   revision: PositiveSafeIntegerSchema,
   kind: z.literal('mcp'),
@@ -83,14 +90,47 @@ const AgentIntegrationDescriptorPortableSchema = z.object({
   servers: z.array(ServerSchema).max(AGENT_INTEGRATION_SERVERS_MAX_LENGTH).readonly(),
 }).strict().readonly();
 
-export const AgentIntegrationDescriptorSchema: z.ZodType<AgentIntegrationDescriptor> =
-  AgentIntegrationDescriptorPortableSchema.superRefine((integration, context) => {
-    addOrderedUniqueIssues(integration.servers.map((server) => server.serverId), ['servers'], 'Integration server IDs', context);
-    integration.servers.forEach((server, serverIndex) => {
-      addOrderedUniqueIssues(server.tools.map((tool) => tool.toolId), ['servers', serverIndex, 'tools'], 'Integration tool IDs', context);
-      addOrderedUniqueIssues(server.resources.map((resource) => resource.resourceId), ['servers', serverIndex, 'resources'], 'Integration resource IDs', context);
-    });
+const ConnectorIntegrationSchema = z.object({
+  integrationId: AgentIntegrationIdSchema,
+  revision: PositiveSafeIntegerSchema,
+  kind: z.literal('connector'),
+  name: NameSchema,
+  description: DescriptionSchema.optional(),
+  source: AgentEnvironmentSourceSchema,
+  installation: AgentAvailabilityFactSchema,
+  enablement: AgentAvailabilityFactSchema,
+  authentication: AgentAvailabilityFactSchema,
+  health: z.enum(AGENT_INTEGRATION_STATUSES),
+  callability: AgentAvailabilityFactSchema,
+  tools: z.array(ToolSchema).max(AGENT_INTEGRATION_TOOLS_MAX_LENGTH).readonly().optional(),
+}).strict().readonly();
+
+const AgentIntegrationDescriptorPortableSchema = z.discriminatedUnion('kind', [
+  McpIntegrationSchema,
+  ConnectorIntegrationSchema,
+]);
+
+function validateIntegrationDescriptor(integration: AgentIntegrationDescriptor, context: z.RefinementCtx): void {
+  if (integration.kind === 'connector') {
+    addOrderedUniqueIssues((integration.tools ?? []).map((tool) => tool.toolId), ['tools'], 'Connector tool IDs', context);
+    if (integration.callability.kind === 'known' && integration.callability.value &&
+      [integration.installation, integration.enablement, integration.authentication].some((fact) => fact.kind === 'known' && !fact.value)) {
+      context.addIssue({ code: 'custom', path: ['callability'], message: 'A connector cannot be callable when installation, enablement or authentication is denied.' });
+    }
+    return;
+  }
+  addOrderedUniqueIssues(integration.servers.map((server) => server.serverId), ['servers'], 'Integration server IDs', context);
+  integration.servers.forEach((server, serverIndex) => {
+    addOrderedUniqueIssues(server.tools.map((tool) => tool.toolId), ['servers', serverIndex, 'tools'], 'Integration tool IDs', context);
+    addOrderedUniqueIssues(server.resources.map((resource) => resource.resourceId), ['servers', serverIndex, 'resources'], 'Integration resource IDs', context);
   });
+}
+
+export const AgentIntegrationDescriptorSchema: z.ZodType<AgentIntegrationDescriptor> =
+  AgentIntegrationDescriptorPortableSchema.superRefine(validateIntegrationDescriptor);
+
+export const AgentMcpIntegrationDescriptorSchema: z.ZodType<AgentMcpIntegrationDescriptor> =
+  McpIntegrationSchema.superRefine(validateIntegrationDescriptor);
 
 export const AgentIntegrationCatalogPortableSchema = z.object({
   revision: PositiveSafeIntegerSchema,
@@ -101,7 +141,19 @@ export const AgentIntegrationCatalogPortableSchema = z.object({
 }).strict().readonly();
 
 export const AgentIntegrationCatalogSchema: z.ZodType<AgentIntegrationCatalog> =
-  AgentIntegrationCatalogPortableSchema.superRefine((catalog, context) => {
+  withAcyclicProtocolInput(AgentIntegrationCatalogPortableSchema, {
+    maxDepth: 16,
+    maxCollectionLength: AGENT_INTEGRATION_CONTRIBUTIONS_MAX_LENGTH,
+  }).superRefine((catalog, context) => {
+    const contributions = catalog.integrations.reduce((count, integration) => count + (integration.kind === 'mcp'
+      ? integration.servers.reduce((total, server) => total + server.tools.length + server.resources.length, 0)
+      : (integration.tools?.length ?? 0)), 0);
+    if (contributions > AGENT_INTEGRATION_CONTRIBUTIONS_MAX_LENGTH) {
+      context.addIssue({ code: 'custom', path: ['integrations'], message: 'Integration contributions exceed the aggregate limit.' });
+    }
+    if (agentProtocolSerializedJsonBytes(catalog) > AGENT_INTEGRATION_CATALOG_BYTES_LIMIT) {
+      context.addIssue({ code: 'custom', message: 'Integration catalog exceeds its serialized UTF-8 byte limit.' });
+    }
     addOrderedUniqueIssues(catalog.integrations.map((integration) => integration.integrationId), ['integrations'], 'Integration IDs', context);
     catalog.integrations.forEach((integration, integrationIndex) => {
       const parsed = AgentIntegrationDescriptorSchema.safeParse(integration);

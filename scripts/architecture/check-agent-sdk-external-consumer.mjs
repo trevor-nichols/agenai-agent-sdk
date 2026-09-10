@@ -57,13 +57,13 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.2.5", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.3.0", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.2.5" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.3.0" },
   },
 ];
 
@@ -152,7 +152,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.2.5");
+  assert.equal(manifest.version, "0.3.0");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -278,6 +278,7 @@ import { normalizeZodValidationError } from "@agen-ai/validation/zod";
 import {
   parseAgentCollaborationId,
   parseAgentConfigurationRevisionId,
+  parseAgentEnvironmentId,
   parseAgentGeneratedResourceId,
   parseAgentInstanceId,
   parseAgentIsoDateTime,
@@ -292,6 +293,17 @@ import {
 } from "@agen-ai/agent-protocol";
 import { parseAgentAccountQuotaSnapshot, type AgentAccountQuotaSnapshot } from "@agen-ai/agent-protocol/account-quota";
 import { parseAgentSessionBinding } from "@agen-ai/agent-protocol/sessions";
+import { parseAgentEnvironmentSnapshot, type AgentEnvironmentSnapshot } from "@agen-ai/agent-protocol/environment";
+import { parseAgentEffectiveContentCatalog } from "@agen-ai/agent-protocol/effective-content";
+import { parseAgentCommandCatalog } from "@agen-ai/agent-protocol/commands";
+import { parseAgentExtensionCatalog } from "@agen-ai/agent-protocol/extensions";
+import {
+  validateAgentEnvironmentDiscoveryPort,
+  validateAgentEnvironmentObservationPort,
+  type AgentEnvironmentDiscoveryInput,
+  type AgentEnvironmentDiscoveryPort,
+  type AgentEnvironmentObservationPort,
+} from "@agen-ai/agent-runtime/environment";
 import { parseAgentTurnRunInput } from "@agen-ai/agent-protocol/turns";
 import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
 import { parseAgentEvent } from "@agen-ai/agent-protocol/events";
@@ -316,7 +328,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.2.5");
+assert.equal(protocolManifest.version, "0.3.0");
 
 const quotaSnapshot: AgentAccountQuotaSnapshot = parseAgentAccountQuotaSnapshot({
   schemaVersion: 1, sourceId: "packed-source", observedAt: "2026-09-07T12:00:00.000Z",
@@ -335,11 +347,286 @@ assert.deepEqual(await quotaPort.query({ signal: new AbortController().signal })
 quotaLifetime.abort();
 await assert.rejects(async () => quotaPort.query({ signal: new AbortController().signal }));
 
+const environmentId = parseAgentEnvironmentId("packed-environment");
+const emptyCatalog = { revision: 1, observedAt: "2026-09-08T12:00:00.000Z" };
+assert.equal(parseAgentEffectiveContentCatalog({ ...emptyCatalog, content: [] }).content.length, 0);
+const commandCatalog = parseAgentCommandCatalog({ ...emptyCatalog, commands: [] });
+assert.equal(commandCatalog.commands.length, 0);
+assert.equal(parseAgentExtensionCatalog({ ...emptyCatalog, extensions: [] }).extensions.length, 0);
+const environmentSnapshot: AgentEnvironmentSnapshot = parseAgentEnvironmentSnapshot({
+  schemaVersion: 1, environmentId, revision: 1,
+  content: { kind: "available", extent: "session", completeness: "complete", reasons: [], catalog: { ...emptyCatalog, content: [] } },
+  commands: { kind: "unsupported", reasons: [] },
+  extensions: { kind: "unsupported", reasons: [] },
+  integrations: { kind: "unsupported", reasons: [] },
+});
+
+const environmentConfiguration = {
+  kind: "managed" as const,
+  revision: parseAgentConfigurationRevisionId("packed-environment-configuration"),
+};
+const environmentWorkingDirectory = "/tmp/external-agent-sdk-environment";
+
+const requireDiscoveryInput = (input: AgentEnvironmentDiscoveryInput) => input;
+// @ts-expect-error Discovery inputs require the scoped working directory and configuration.
+requireDiscoveryInput({
+  signal: new AbortController().signal,
+  environmentId,
+});
+
+const missingDiscoveryWatchPort = {
+  kind: "read_and_watch" as const,
+  domains: ["content"] as const,
+  readEnvironment: async () => environmentSnapshot,
+};
+// @ts-expect-error A read_and_watch discovery port must expose watchEnvironment.
+const typedMissingDiscoveryWatchPort: AgentEnvironmentDiscoveryPort = missingDiscoveryWatchPort;
+void typedMissingDiscoveryWatchPort;
+
+const discoverySnapshot: AgentEnvironmentSnapshot = parseAgentEnvironmentSnapshot({
+  ...environmentSnapshot,
+  content: { kind: "available", extent: "workspace_discovery", completeness: "complete", reasons: [], catalog: { ...emptyCatalog, content: [] } },
+});
+let discoveryWatchCleanupCount = 0;
+const discoveryCandidate: AgentEnvironmentDiscoveryPort = {
+  kind: "read_and_watch",
+  domains: ["content"],
+  async readEnvironment(input) {
+    assert.equal(this, discoveryCandidate);
+    assert.equal(input.environmentId, environmentId);
+    assert.equal(input.workingDirectory, environmentWorkingDirectory);
+    assert.deepEqual(input.configuration, environmentConfiguration);
+    return discoverySnapshot;
+  },
+  async *watchEnvironment(input) {
+    assert.equal(this, discoveryCandidate);
+    assert.equal(input.environmentId, environmentId);
+    assert.equal(input.workingDirectory, environmentWorkingDirectory);
+    assert.deepEqual(input.configuration, environmentConfiguration);
+    try {
+      yield { environmentId, domains: ["content"] as const };
+    } finally {
+      discoveryWatchCleanupCount += 1;
+    }
+  },
+};
+const discoveryLifetime = new AbortController();
+const discoveryPort = validateAgentEnvironmentDiscoveryPort({
+  providerKey: parseAgentProviderKey("packed-environment-discovery-provider"),
+  capability: { kind: "read_and_watch", domains: ["content"] },
+  port: discoveryCandidate,
+  signal: discoveryLifetime.signal,
+});
+assert.equal(discoveryPort.kind, "read_and_watch");
+if (discoveryPort.kind !== "read_and_watch") {
+  throw new Error("Packed discovery port lost its watch capability");
+}
+let discoveryExecutionStarted = 0;
+assert.deepEqual(
+  await discoveryPort.readEnvironment({
+    signal: new AbortController().signal,
+    environmentId,
+    workingDirectory: environmentWorkingDirectory,
+    configuration: environmentConfiguration,
+    onProviderExecutionStarted: () => {
+      discoveryExecutionStarted += 1;
+    },
+  }),
+  discoverySnapshot,
+);
+assert.equal(discoveryExecutionStarted, 1);
+const discoveryWatchIterator = discoveryPort.watchEnvironment({
+  signal: new AbortController().signal,
+  environmentId,
+  workingDirectory: environmentWorkingDirectory,
+  configuration: environmentConfiguration,
+})[Symbol.asyncIterator]();
+assert.deepEqual(await discoveryWatchIterator.next(), {
+  done: false,
+  value: { environmentId, domains: ["content"] },
+});
+await discoveryWatchIterator.return?.();
+assert.equal(discoveryWatchCleanupCount, 1);
+discoveryLifetime.abort();
+
+const isProviderContractError = (error: unknown): boolean =>
+  error instanceof Error && error.name === "AgentProviderContractError";
+assert.throws(
+  () => validateAgentEnvironmentObservationPort({
+    providerKey: parseAgentProviderKey("packed-environment-malformed-provider"),
+    capability: { kind: "read", domains: ["content"] },
+    port: { kind: "read", domains: ["content"] },
+    signal: new AbortController().signal,
+  }),
+  isProviderContractError,
+);
+assert.throws(
+  () => validateAgentEnvironmentObservationPort({
+    providerKey: parseAgentProviderKey("packed-environment-parity-provider"),
+    capability: { kind: "read_and_watch", domains: ["content"] },
+    port: {
+      kind: "read",
+      domains: ["content"],
+      readEnvironment: async () => environmentSnapshot,
+    },
+    signal: new AbortController().signal,
+  }),
+  isProviderContractError,
+);
+
+const environmentLifetime = new AbortController();
+const environmentCandidate: AgentEnvironmentObservationPort = {
+  kind: "read", domains: ["content"],
+  async readEnvironment(input) {
+    assert.equal(this, environmentCandidate);
+    assert.equal(input.environmentId, environmentId);
+    return environmentSnapshot;
+  },
+};
+const environmentPort = validateAgentEnvironmentObservationPort({
+  providerKey: parseAgentProviderKey("packed-environment-provider"),
+  capability: { kind: "read", domains: ["content"] },
+  port: environmentCandidate,
+  signal: environmentLifetime.signal,
+});
+assert.equal(environmentPort.kind, "read");
+if (environmentPort.kind !== "read") {
+  throw new Error("Packed observation port lost its read capability");
+}
+
+const readInput = { environmentId, signal: new AbortController().signal };
+assert.deepEqual(await environmentPort.readEnvironment(readInput), environmentSnapshot);
+await assert.rejects(() => environmentPort.readEnvironment({ ...readInput, environmentId: parseAgentEnvironmentId("wrong-generation") }));
+environmentLifetime.abort();
+await assert.rejects(() => environmentPort.readEnvironment(readInput));
+
+const wrongSnapshotLifetime = new AbortController();
+const wrongSnapshotPort = validateAgentEnvironmentObservationPort({
+  providerKey: parseAgentProviderKey("packed-environment-wrong-snapshot-provider"),
+  capability: { kind: "read", domains: ["content"] },
+  port: {
+    kind: "read",
+    domains: ["content"],
+    readEnvironment: async () => ({
+      ...environmentSnapshot,
+      environmentId: parseAgentEnvironmentId("returned-wrong-generation"),
+    }),
+  },
+  signal: wrongSnapshotLifetime.signal,
+});
+if (wrongSnapshotPort.kind !== "read") {
+  throw new Error("Packed wrong-snapshot port lost its read capability");
+}
+await assert.rejects(
+  () => wrongSnapshotPort.readEnvironment(readInput),
+  isProviderContractError,
+);
+wrongSnapshotLifetime.abort();
+
+const undeclaredDomainLifetime = new AbortController();
+const undeclaredDomainPort = validateAgentEnvironmentObservationPort({
+  providerKey: parseAgentProviderKey("packed-environment-undeclared-domain-provider"),
+  capability: { kind: "read", domains: ["content"] },
+  port: {
+    kind: "read",
+    domains: ["content"],
+    readEnvironment: async () => ({
+      ...environmentSnapshot,
+      commands: {
+        kind: "available",
+        extent: "session",
+        completeness: "complete",
+        reasons: [],
+        catalog: commandCatalog,
+      },
+    }),
+  },
+  signal: undeclaredDomainLifetime.signal,
+});
+if (undeclaredDomainPort.kind !== "read") {
+  throw new Error("Packed undeclared-domain port lost its read capability");
+}
+await assert.rejects(
+  () => undeclaredDomainPort.readEnvironment(readInput),
+  isProviderContractError,
+);
+undeclaredDomainLifetime.abort();
+
+let resolvePendingObservation:
+  ((value: AgentEnvironmentSnapshot | PromiseLike<AgentEnvironmentSnapshot>) => void)
+  | undefined;
+let pendingObservationResolved = false;
+const pendingObservationLifetime = new AbortController();
+const pendingObservationPort = validateAgentEnvironmentObservationPort({
+  providerKey: parseAgentProviderKey("packed-environment-pending-provider"),
+  capability: { kind: "read", domains: ["content"] },
+  port: {
+    kind: "read",
+    domains: ["content"],
+    readEnvironment: async () => new Promise<AgentEnvironmentSnapshot>((resolve) => {
+      resolvePendingObservation = resolve;
+    }),
+  },
+  signal: pendingObservationLifetime.signal,
+});
+if (pendingObservationPort.kind !== "read") {
+  throw new Error("Packed pending observation port lost its read capability");
+}
+const pendingReadAbort = new AbortController();
+const pendingRead = pendingObservationPort.readEnvironment({
+  environmentId,
+  signal: pendingReadAbort.signal,
+}).then(() => {
+  pendingObservationResolved = true;
+});
+assert.ok(resolvePendingObservation);
+pendingReadAbort.abort(new DOMException("Pending environment read canceled.", "AbortError"));
+await assert.rejects(pendingRead);
+assert.equal(pendingObservationResolved, false);
+const resolvePending = resolvePendingObservation;
+assert.ok(resolvePending);
+resolvePending(environmentSnapshot);
+await Promise.resolve();
+assert.equal(pendingObservationResolved, false);
+pendingObservationLifetime.abort();
+
+const referencePart = {
+  type: "content_reference" as const,
+  environmentId,
+  environmentRevision: 2,
+  contentCatalogRevision: 3,
+  contentId: "packed-content",
+  contentRevision: 4,
+  arguments: JSON.stringify({ mode: "preview", scope: "document" }),
+};
+const referenceInput = parseAgentTurnRunInput({
+  turnId: parseAgentTurnId("packed-content-reference"), interactionMode: "default",
+  parts: [referencePart],
+});
+assert.deepEqual(referenceInput.parts[0], referencePart);
+const roundTrippedReferenceInput = parseAgentTurnRunInput(
+  JSON.parse(JSON.stringify(referenceInput)),
+);
+assert.deepEqual(roundTrippedReferenceInput.parts[0], referenceInput.parts[0]);
+assert.throws(() => parseAgentTurnRunInput({
+  turnId: parseAgentTurnId("packed-content-reference-utf8-limit"),
+  interactionMode: "default",
+  parts: [{ ...referencePart, arguments: "é".repeat(2_049) }],
+}));
+assert.throws(() => parseAgentTurnRunInput({
+  turnId: parseAgentTurnId("packed-content-reference-size-limit"),
+  interactionMode: "default",
+  parts: Array.from({ length: 17 }, () => ({
+    type: "text" as const,
+    text: "x".repeat(63_000),
+  })),
+}));
+
 assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 8);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 9);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -385,7 +672,7 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 8,
+  protocolVersion: 9,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -393,7 +680,7 @@ const steeringCapabilities = parseAgentCapabilities({
     interrupt: false,
     steer: {
       kind: "supported",
-      input: { text: true, images: { kind: "unsupported" } },
+      input: { text: true, images: { kind: "unsupported" }, contentReferences: { kind: "unsupported" } },
     },
   },
   requests: {
@@ -404,7 +691,7 @@ const steeringCapabilities = parseAgentCapabilities({
     usage: { kind: "unsupported" },
     compaction: { kind: "unsupported" },
   },
-  input: { text: true, images: { kind: "unsupported" } },
+  input: { text: true, images: { kind: "unsupported" }, contentReferences: { kind: "unsupported" } },
   output: {
     streaming: false,
     plans: false,
@@ -415,6 +702,7 @@ const steeringCapabilities = parseAgentCapabilities({
   operations: { kind: "unsupported" },
   managedContent: { kind: "unsupported" },
   integrations: { kind: "unsupported" },
+  environment: { instance: { kind: "unsupported" }, session: { kind: "unsupported" } },
   collaboration: { kind: "unsupported" },
   generatedResources: { kind: "unsupported" },
   authentication: { kind: "unsupported" },
@@ -426,7 +714,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
   },
   runTurn: async function* (input) {
     yield createAgentEventOutput({
-      protocolVersion: 8,
+      protocolVersion: 9,
       type: "turn.started",
       sessionId,
       turnId: input.turnId,
@@ -434,7 +722,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
       payload: {},
     });
     yield createAgentEventOutput({
-      protocolVersion: 8,
+      protocolVersion: 9,
       type: "turn.completed",
       sessionId,
       turnId: input.turnId,
@@ -454,7 +742,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
   configuration: { kind: "managed" },
   operations: { kind: "unsupported" },
   managedContent: { kind: "unsupported" },
-  integrations: { kind: "unsupported" },
+  environment: { kind: "unsupported" },
   collaboration: { kind: "unsupported" },
   generatedResources: { kind: "unsupported" },
   close: async () => undefined,
@@ -477,6 +765,7 @@ const steeringDriver = defineAgentProviderDriver({
       authentication: { kind: "unsupported" },
     },
     accountQuota: { kind: "unsupported" },
+    environment: { kind: "unsupported" },
     checkReadiness: () => createAgentProviderReadiness({
       status: "ready",
       checkedAt: "2026-08-04T00:00:00.000Z",
@@ -584,6 +873,8 @@ assert.ok(report.checks.includes("create_session"));
 assert.ok(report.checks.includes("resume_session"));
 assert.ok(report.checks.includes("request_resolution"));
 assert.ok(report.checks.includes("interruption"));
+assert.ok(report.checks.includes("environment_instance"));
+assert.ok(report.checks.includes("environment_session"));
 assert.ok(report.checks.includes("idempotent_session_close"));
 assert.ok(report.checks.includes("idempotent_disposal"));
 
@@ -592,7 +883,7 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 8,
+    protocolVersion: 9,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
@@ -608,7 +899,7 @@ const limited = createFakeAgentProvider({
       usage: { kind: "unsupported" },
       compaction: { kind: "unsupported" },
     },
-    input: { text: true, images: { kind: "unsupported" } },
+    input: { text: true, images: { kind: "unsupported" }, contentReferences: { kind: "unsupported" } },
     output: {
       streaming: false,
       plans: false,
@@ -619,6 +910,7 @@ const limited = createFakeAgentProvider({
     operations: { kind: "unsupported" },
     managedContent: { kind: "unsupported" },
     integrations: { kind: "unsupported" },
+  environment: { instance: { kind: "unsupported" }, session: { kind: "unsupported" } },
     collaboration: { kind: "unsupported" },
     generatedResources: { kind: "unsupported" },
     authentication: { kind: "unsupported" },
@@ -655,7 +947,7 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 8,
+  protocolVersion: 9,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -677,7 +969,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 8,
+  protocolVersion: 9,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),

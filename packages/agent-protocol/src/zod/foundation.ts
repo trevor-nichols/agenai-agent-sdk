@@ -29,6 +29,10 @@ import {
   type AgentItemId,
   type AgentJsonValue,
   type AgentManagedContentId,
+  type AgentEnvironmentId,
+  type AgentEffectiveContentId,
+  type AgentCommandId,
+  type AgentExtensionId,
   type AgentOperationId,
   type AgentOperationInvocationId,
   type AgentProviderConversationId,
@@ -117,6 +121,15 @@ export const AgentOperationInvocationIdSchema =
   opaqueStringSchema<AgentOperationInvocationId>(AgentCanonicalIdValueSchema);
 export const AgentManagedContentIdSchema =
   opaqueStringSchema<AgentManagedContentId>(AgentCanonicalIdValueSchema);
+export const AgentEnvironmentIdSchema =
+  opaqueStringSchema<AgentEnvironmentId>(AgentCanonicalIdValueSchema);
+export const AgentEffectiveContentIdSchema =
+  opaqueStringSchema<AgentEffectiveContentId>(AgentCanonicalIdValueSchema);
+export const AgentCommandIdSchema =
+  opaqueStringSchema<AgentCommandId>(AgentCanonicalIdValueSchema);
+export const AgentExtensionIdSchema =
+  opaqueStringSchema<AgentExtensionId>(AgentCanonicalIdValueSchema);
+
 export const AgentIntegrationIdSchema =
   opaqueStringSchema<AgentIntegrationId>(AgentCanonicalIdValueSchema);
 export const AgentIntegrationServerIdSchema =

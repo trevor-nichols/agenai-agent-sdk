@@ -12,6 +12,7 @@ import {
 
 import { validateAgentProviderAdapter } from "./adapterValidation.js";
 import { validateAgentAccountQuotaPort } from "./accountQuota/validation.js";
+import { validateAgentEnvironmentDiscoveryPort } from "./environment/validation.js";
 import {
   createAgentProviderCatalogEntries,
   createAgentProviderInstanceCatalogEntries,
@@ -244,6 +245,7 @@ function managedInstance(
     disposePromise: null,
   };
   const quotaLifetime = new AbortController();
+  const environmentLifetime = new AbortController();
   const instance: MaterializedAgentProviderInstance = Object.freeze({
     instanceId: parseAgentInstanceId(rawInstance.instanceId),
     capabilities,
@@ -252,6 +254,12 @@ function managedInstance(
       providerKey,
       port: rawInstance.accountQuota,
       signal: quotaLifetime.signal,
+    }),
+    environment: validateAgentEnvironmentDiscoveryPort({
+      providerKey,
+      capability: capabilities.environment.instance,
+      port: rawInstance.environment,
+      signal: environmentLifetime.signal,
     }),
     checkReadiness: async (input?: AgentProviderReadinessCheckInput) => {
       const readiness = await checkReadiness(input);
@@ -262,6 +270,7 @@ function managedInstance(
       if (lifecycle.disposePromise) return lifecycle.disposePromise;
       lifecycle.status = "disposing";
       quotaLifetime.abort(new DOMException("The provider instance was disposed.", "AbortError"));
+      environmentLifetime.abort(new DOMException("The provider instance was disposed.", "AbortError"));
       lifecycle.disposePromise = Promise.resolve()
         .then(() => dispose())
         .then(() => {

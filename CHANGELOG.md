@@ -3,6 +3,55 @@
 All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. The three
 packages always ship together at one version during beta.
 
+## 0.3.0 - 2026-09-10
+
+This coordinated release advances all three packages from Agent Protocol V8 to V9. The `beta`
+and `latest` npm tags select the same `0.3.0` release.
+
+### Added
+
+- Add effective environment observations with bounded `content`, `commands`, `extensions`, and
+  `integrations` domains. Each domain reports unsupported, not initialized, unavailable, partial,
+  or complete state with scoped evidence, catalog revision, and observation time.
+- Add focused plain entrypoints for `/effective-content`, `/commands`, `/extensions`, and
+  `/environment`, plus parsers and the explicit `/zod` and `/json-schema` surfaces for the new
+  contracts.
+- Add capability-bound instance discovery and session observation ports. Each port explicitly
+  declares `unsupported`, `read`, or `read_and_watch`; supported ports declare the domains they
+  observe, and reads and invalidations echo the caller-supplied environment identity.
+- Add selected `content_reference` turn input parts carrying environment, catalog, content, and
+  content revisions. Add capability fields for reference count, argument support, and prompt or
+  argument text formats.
+- Add Apps or connector integration descriptors alongside MCP descriptors in the shared
+  integrations catalog. Extension descriptors can reference exact contributed content, command,
+  and integration catalog generations.
+
+### Changed
+
+- Require serialized protocol values and capability declarations to carry `protocolVersion: 9`.
+  V8 values are rejected at the live boundary; the public parser has no compatibility mode.
+- Require every materialized instance to expose `environment`, using `{ kind: "unsupported" }`
+  when discovery is unavailable. Require every provider session to expose its matching
+  environment observation port.
+- Enforce canonical absolute discovery working directories, validated configuration, exact
+  environment identity echoing, declared domain matching, caller and owner cancellation, and
+  sequential watch pulls with bounded native iterator cleanup.
+- Keep `managedContent` as caller-managed content and `effectiveContent` as native harness
+  evidence. Effective inventory does not authorize a selected reference or provider operation;
+  the product host supplies current visibility and execution authority.
+- Keep all three package versions coordinated at `0.3.0`. Account-quota observations remain an
+  instance-scoped public port outside session events and execution admission.
+
+### Removed
+
+- Remove the standalone provider-session `integrations` observation port. MCP servers and Apps or
+  connectors are now reported through the environment integration catalog.
+- Remove Agent Protocol V8 parsing and compatibility behavior at the public boundary.
+
+Provider-native adapters, credentials, process management, native identifiers, and private host
+or transport protocols remain outside the public package set. Update adapter implementations with
+[MIGRATING-TO-0.3.md](MIGRATING-TO-0.3.md) before using this release.
+
 ## 0.2.5 - 2026-09-08
 
 This coordinated release preserves Agent Protocol V8 and introduces account-quota snapshot
