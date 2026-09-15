@@ -9,7 +9,7 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This source package implements Agent Protocol V9 as part of the coordinated SDK `0.3.0` contract.
+This source package implements Agent Protocol V9 as part of the coordinated SDK `0.3.1` contract.
 The SDK contract version is independent of private transport and product persistence versions. This
 is intentionally one coordinated tuple rather than a deployable mixed-version graph.
 
@@ -42,6 +42,12 @@ an authorization credential. Create and branch implementations must invoke `onBi
 exactly once before returning the matching session. Capability-dependent operations use explicit
 `supported`/`unsupported` discriminants, and the runtime rejects handlers that disagree with the
 instance capability declaration.
+
+Authentication is adapter-owned. The public runtime does not require an API key or prefer one
+credential mechanism over another: an adapter may use an existing subscription login, an
+interactive account flow, an API credential, or another provider-supported mechanism. The host
+owns authorization to select that adapter and must keep provider-native credentials, account
+paths, and login controls outside the public SDK contracts.
 
 Sessions expose cohesive capability-matched ports:
 configuration inventory and selection, typed operation inventory and invocation, managed-content
@@ -201,8 +207,9 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The coordinated SDK version for this source is `0.3.0`, and the source implements Agent Protocol
-V9. The earlier public `0.2.5` release is historical. Upgrade all three SDK packages together. Every materialized instance requires `environment` and
+The coordinated SDK version for this source is `0.3.1`, and the source implements Agent Protocol
+V9. The earlier public `0.3.0` release implemented the same protocol and remains historical.
+Upgrade all three SDK packages together. Every materialized instance requires `environment` and
 `accountQuota`; every session requires `environment`. The former standalone `integrations`
 observation port is removed. The public runtime implements Agent Protocol V9 with one current
 adapter/session surface. Package versions remain independent of private transport and product
