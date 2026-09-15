@@ -3,6 +3,22 @@
 All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. The three
 packages always ship together at one version during beta.
 
+## 0.3.1 - 2026-09-12
+
+This coordinated patch release preserves Agent Protocol V9 and the complete public API shipped in
+`0.3.0`. The `beta` and `latest` npm tags select the same `0.3.1` release.
+
+### Changed
+
+- Clarify that authentication and credential selection are adapter-owned. The public SDK neither
+  requires API keys nor prefers them over provider-supported subscription or interactive login.
+- Advance all three package manifests and packed dependency ranges together to `0.3.1` without
+  adding provider-native account, credential, terminal, or product authorization contracts.
+- Refresh the governed public projection, repository checks, and packed external-consumer proof
+  for the coordinated patch release.
+
+See [MIGRATING-TO-0.3.1.md](MIGRATING-TO-0.3.1.md) for the compatibility and release checklist.
+
 ## 0.3.0 - 2026-09-10
 
 This coordinated release advances all three packages from Agent Protocol V8 to V9. The `beta`

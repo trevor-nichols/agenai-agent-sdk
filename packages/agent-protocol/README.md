@@ -147,12 +147,13 @@ before delegation; a composer can use the same pure functions to preserve and ex
 
 ## Versioning and release
 
-Agent Protocol V9 defines the coordinated SDK `0.3.0` contract shared by this package,
+Agent Protocol V9 defines the coordinated SDK `0.3.1` contract shared by this package,
 `@agen-ai/validation`, and `@agen-ai/agent-runtime`. Registry publication and dist-tag state are
-release metadata outside this contract. The earlier public `0.2.5` release remains historical. All
-three SDK packages must be released together. Protocol V9 is independent of private transport and
-product persistence versions and directly replaces V8 at live boundaries. There is one current
-parser. The environment and account-quota namespaces each use their own schema version 1.
+release metadata outside this contract. The earlier public `0.3.0` release implemented the same
+protocol and remains historical. All three SDK packages must be released together. Protocol V9 is
+independent of private transport and product
+persistence versions and directly replaces V8 at live boundaries. There is one current parser. The
+environment and account-quota namespaces each use their own schema version 1.
 
 The repository release proof builds and packs `@agen-ai/validation`, this package, and
 `@agen-ai/agent-runtime`; rejects workspace-only or private references; then typechecks and runs a

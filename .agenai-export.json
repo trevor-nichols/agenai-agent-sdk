@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "6f1090e0d6d639c018c346b34fab7cbe21562286",
+  "sourceRevision": "1575089aaed374968ff3b82d04e6470007a335b7",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -34,6 +34,7 @@
     "MIGRATING-TO-0.2.4.md",
     "MIGRATING-TO-0.2.5.md",
     "MIGRATING-TO-0.2.md",
+    "MIGRATING-TO-0.3.1.md",
     "MIGRATING-TO-0.3.md",
     "README.md",
     "RELEASING.md",

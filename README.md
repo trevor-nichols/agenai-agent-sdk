@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Status: `0.3.0` with Agent Protocol V9. The `latest` and `beta` npm tags both select this release.
+> Status: `0.3.1` with Agent Protocol V9. The npm `latest` and `beta` tags both select this release.
 
 ## Why this exists
 
@@ -19,6 +19,11 @@ Provider-specific protocols, credentials, process management, native session ide
 provider adapters stay with the adapter owner. They are not shipped in these public packages.
 Product concerns such as users, workspaces, authorization, billing, persistence, and scheduling
 stay in the host.
+
+The SDK does not require an API key or rank credential mechanisms. An adapter can use an existing
+subscription login, an interactive account flow, an API credential, or another provider-supported
+mechanism. The host decides which configured adapter an authorized caller may use; the adapter
+keeps its credential material and native login lifecycle private.
 
 Write the host once. Adapt each agent once.
 
@@ -41,18 +46,18 @@ The dependency chain is intentionally narrow:
 
 ## Install
 
-Install the coordinated `0.3.0` release directly or through npm's `latest` channel:
+Install the coordinated `0.3.1` release directly or through npm's `latest` channel:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.3.0
+pnpm add @agen-ai/agent-runtime@0.3.1
 ```
 
-The `beta` tag also selects `0.3.0` for repositories that use the prerelease channel. The protocol
+The `beta` tag also selects `0.3.1` for repositories that use the prerelease channel. The protocol
 and validation packages are installed automatically. Install them directly when you need their
 public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.3.0 @agen-ai/agent-protocol@0.3.0
+pnpm add @agen-ai/validation@0.3.1 @agen-ai/agent-protocol@0.3.1
 ```
 
 All three packages must use the same version. Agent Protocol V9 is a direct replacement for V8 at
@@ -155,6 +160,16 @@ Package-specific API and lifecycle notes live in each package README:
 - [`@agen-ai/validation`](packages/validation/README.md)
 - [`@agen-ai/agent-protocol`](packages/agent-protocol/README.md)
 - [`@agen-ai/agent-runtime`](packages/agent-runtime/README.md)
+
+## What changed in 0.3.1
+
+This coordinated patch preserves Agent Protocol V9 and all public type and runtime behavior. It
+clarifies the provider-neutral authentication boundary: credential selection and login lifecycle
+belong to adapters, and the SDK neither requires API keys nor treats them as the default. No public
+Claude adapter, provider account identity, credential path, or product authorization type is added.
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete release notes and
+[MIGRATING-TO-0.3.1.md](MIGRATING-TO-0.3.1.md) for the compatibility and upgrade checklist.
 
 ## What changed in 0.3.0
 
