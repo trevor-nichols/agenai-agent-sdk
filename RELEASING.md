@@ -85,8 +85,10 @@ For a new package, npm staging can create a public `0.0.0-stage` placeholder whi
 staged payload. It requires npm >=11.15.0 and Node >=22.14.0. This is a registry write requiring
 separate approval. [npm staged-publishing documentation](https://docs.npmjs.com/staged-publishing/)
 
-The following bootstrap composes documented operations; it has not been performed or live-qualified
-for these packages. Use organization access, a signed-in maintainer session and account 2FA:
+During the `0.4.0` setup, staging admitted trusted-publisher configuration for all four optional
+package names even while public package metadata returned HTTP 404. Inspect the authenticated stage
+and trust records rather than relying on a public placeholder. Use organization access, a signed-in
+maintainer session and account 2FA:
 
 1. In a disposable directory outside the SDK checkout, review a minimal manifest for one new
    optional package. Use a distinct version such as `0.0.0-bootstrap.0`, with no SDK payload:
@@ -104,7 +106,8 @@ for these packages. Use organization access, a signed-in maintainer session and 
 2. From that directory, run `npm stage publish --access public --tag bootstrap`. Inspect
    `npm stage list @agen-ai/acp-transport`, `npm stage view STAGE_ID` and
    `npm view @agen-ai/acp-transport versions dist-tags --json`, replacing `STAGE_ID` with the
-   exact returned stage identity. Confirm the placeholder, intended name and distinct staged version.
+   exact returned stage identity. Confirm the intended name and distinct staged version, and record
+   whether public metadata exposes a placeholder or still returns HTTP 404.
 3. Configure the exact trusted publisher below and inspect it with `npm trust list`. Repeat the
    isolated setup for `@agen-ai/agent-orchestration`, `@agen-ai/provider-acp` and `@agen-ai/acp-registry`.
 4. Reject each unneeded bootstrap stage with `npm stage reject STAGE_ID`; never approve it. Confirm

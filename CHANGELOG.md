@@ -82,7 +82,7 @@ and core dependency boundaries. It introduces the four optional packages alongsi
   limits remain in force; writer saturation stops synchronous rejection floods before
   further request IDs can be retained.
 - Include the transport in standalone projection, packed consumer proofs, and guarded release
-  source workflows. This prepares source only; the transport has not been published.
+  workflows as part of the coordinated seven-package release.
 
 - Add optional `@agen-ai/provider-acp` with injected connections and an explicit `/node` launcher.
   Map bounded text, reasoning, tool progress and exact once-only permission answers through
