@@ -116,7 +116,7 @@ assert.ok(orchestrationPublish < transportInspection && transportInspection < tr
 assert.ok(transportPublish < providerInspection && providerInspection < providerPublish);
 assert.ok(providerPublish < registryInspection && registryInspection < registryPublish);
 assert.match(releaseWorkflow, /verify-package-publication\.mjs/u);
-assert.match(releaseWorkflow, /--require-present --attempts 30 --delay-ms 10000/u);
+assert.match(releaseWorkflow, /--require-present --attempts 90 --delay-ms 10000/u);
 assert.match(releaseWorkflow, /release_ref:/u);
 assert.match(releaseWorkflow, /release_commit="\$\(git rev-parse "\$RELEASE_REF\^\{commit\}"\)"/u);
 assert.match(releaseWorkflow, /RELEASE_SHA=\$release_commit/u);

@@ -155,7 +155,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 10000
+          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect agent protocol publication
         id: agent_protocol
@@ -178,7 +178,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 10000
+          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect agent runtime publication
         id: agent_runtime
@@ -201,7 +201,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 10000
+          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect agent orchestration publication
         id: agent_orchestration
@@ -224,7 +224,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 10000
+          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect ACP transport publication
         id: acp_transport
@@ -247,7 +247,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 10000
+          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect ACP provider publication
         id: provider_acp
@@ -270,7 +270,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 10000
+          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect ACP registry publication
         id: acp_registry
@@ -293,7 +293,7 @@ jobs:
           --npm-tag "${{ inputs.npm_tag }}"
           --release-ref "$RELEASE_REF"
           --release-sha "$RELEASE_SHA"
-          --require-present --attempts 30 --delay-ms 10000
+          --require-present --attempts 90 --delay-ms 10000
 
       - name: Verify registry signatures and provenance
         shell: bash

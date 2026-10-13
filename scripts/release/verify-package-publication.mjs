@@ -417,8 +417,8 @@ function parseArguments(argv) {
     else if (argument === "--delay-ms") options.delayMs = Number.parseInt(value, 10);
     else throw new Error(`Unknown argument: ${argument}`);
   }
-  if (!Number.isSafeInteger(options.attempts) || options.attempts < 1 || options.attempts > 30) {
-    throw new Error(`Attempts must be an integer from 1 through 30.`);
+  if (!Number.isSafeInteger(options.attempts) || options.attempts < 1 || options.attempts > 90) {
+    throw new Error(`Attempts must be an integer from 1 through 90.`);
   }
   if (!Number.isSafeInteger(options.delayMs) || options.delayMs < 0 || options.delayMs > 10_000) {
     throw new Error(`Delay must be an integer from 0 through 10000 milliseconds.`);
