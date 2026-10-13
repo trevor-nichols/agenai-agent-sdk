@@ -19,7 +19,6 @@ import {
   type AgentApprovalOptionId,
   type AgentCollaborationId,
   type AgentConfigurationRevisionId,
-  type AgentError,
   type AgentInstanceId,
   type AgentIntegrationId,
   type AgentIntegrationResourceId,
@@ -321,7 +320,7 @@ export const AgentJsonValueSchema: z.ZodType<AgentJsonValue> =
   }).superRefine(addJsonByteBoundsIssue);
 
 // ------------------------------------------------------------------------------------------------
-//                Correlation and Error Schemas
+//                Correlation Schemas
 // ------------------------------------------------------------------------------------------------
 
 export const AgentProviderRefsPortableSchema = z
@@ -340,22 +339,3 @@ export const AgentProviderRefsSchema: z.ZodType<AgentProviderRefs> =
     (value) => Object.values(value).some((item) => item !== undefined),
     { message: 'At least one provider reference is required.' },
   );
-
-export const AgentErrorContextSchema = z
-  .object({
-    operation: createAgentCanonicalNonBlankStringSchema(160).optional(),
-    component: createAgentCanonicalNonBlankStringSchema(160).optional(),
-    status: createAgentCanonicalNonBlankStringSchema(160).optional(),
-  })
-  .strict()
-  .readonly();
-
-export const AgentErrorSchema: z.ZodType<AgentError> = z
-  .object({
-    code: AgentCanonicalCodeSchema,
-    message: AgentCanonicalNonBlankTextSchema,
-    retryable: z.boolean(),
-    context: AgentErrorContextSchema.optional(),
-  })
-  .strict()
-  .readonly();

@@ -4,6 +4,8 @@
 
 import { z } from 'zod/v4';
 
+import { AgentErrorContextSchema, AgentErrorSchema } from './failures.js';
+
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
 import { AgentCollaborationNodePortableSchema } from './collaboration.js';
 import {
@@ -36,8 +38,6 @@ import {
   AgentCanonicalCodeSchema,
   AgentCanonicalIdValueSchema,
   AgentCanonicalNonBlankTextSchema,
-  AgentErrorContextSchema,
-  AgentErrorSchema,
   AgentIsoDateTimeSchema,
   AgentItemIdSchema,
   AgentProviderRefsPortableSchema,
@@ -120,6 +120,22 @@ const PositiveSafeIntegerSchema = z
   .int()
   .positive()
   .max(Number.MAX_SAFE_INTEGER);
+
+const RuntimeRetryingPayloadSchema = z.object({
+  owner: z.literal('provider'),
+  error: AgentErrorSchema,
+  attempt: PositiveSafeIntegerSchema.optional(),
+  maxAttempts: PositiveSafeIntegerSchema.optional(),
+  delayMs: NonNegativeSafeIntegerSchema.optional(),
+}).strict().readonly().superRefine((retry, context) => {
+  if (retry.attempt !== undefined && retry.maxAttempts !== undefined && retry.attempt > retry.maxAttempts) {
+    context.addIssue({
+      code: 'custom',
+      path: ['attempt'],
+      message: 'Retry ordinal cannot exceed the maximum number of retries.',
+    });
+  }
+});
 
 const AgentContextCumulativeUsageSchema = z
   .object({
@@ -252,13 +268,13 @@ export const AgentEventPortableSchema = z.discriminatedUnion('type', [
       .strict()
       .readonly(),
   ),
+  turnEvent('runtime.retrying', RuntimeRetryingPayloadSchema),
   optionallyTurnScopedEvent(
     'runtime.warning',
     z
       .object({
         code: AgentCanonicalCodeSchema,
         message: AgentCanonicalNonBlankTextSchema,
-        retryable: z.boolean().optional(),
         context: AgentErrorContextSchema.optional(),
       })
       .strict()

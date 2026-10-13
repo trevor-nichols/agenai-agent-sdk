@@ -46,6 +46,7 @@ export const AGENT_EVENT_TYPES = [
   'operation.updated',
   'collaboration.updated',
   'resource.updated',
+  'runtime.retrying',
   'runtime.warning',
   'runtime.error',
   'provider.diagnostic',
@@ -54,7 +55,7 @@ export const AGENT_EVENT_TYPES = [
 export type AgentEventType = (typeof AGENT_EVENT_TYPES)[number];
 
 interface AgentEventBase<Type extends AgentEventType, Payload> {
-  readonly protocolVersion: 9;
+  readonly protocolVersion: 10;
   readonly type: Type;
   readonly sessionId: AgentSessionId;
   readonly providerRefs?: AgentProviderRefs;
@@ -181,12 +182,24 @@ export type AgentResourceUpdatedEvent = AgentOptionallyTurnScopedEventBase<
   Readonly<{ resource: AgentGeneratedResourceDescriptor }>
 >;
 
+export type AgentRuntimeRetryingEvent = AgentTurnEventBase<
+  'runtime.retrying',
+  Readonly<{
+    owner: 'provider';
+    error: AgentError;
+    /** One-based retry ordinal, excluding the original attempt. */
+    attempt?: number;
+    /** Maximum number of retries, excluding the original attempt. */
+    maxAttempts?: number;
+    delayMs?: number;
+  }>
+>;
+
 export type AgentRuntimeWarningEvent = AgentOptionallyTurnScopedEventBase<
   'runtime.warning',
   Readonly<{
     code: string;
     message: string;
-    retryable?: boolean;
     context?: AgentErrorContext;
   }>
 >;
@@ -223,6 +236,7 @@ export type AgentEvent =
   | AgentOperationUpdatedEvent
   | AgentCollaborationUpdatedEvent
   | AgentResourceUpdatedEvent
+  | AgentRuntimeRetryingEvent
   | AgentRuntimeWarningEvent
   | AgentRuntimeErrorEvent
   | AgentProviderDiagnosticEvent;

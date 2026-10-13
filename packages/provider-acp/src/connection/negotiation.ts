@@ -1,0 +1,47 @@
+import type { AcpJsonObject, AcpJsonValue } from '@agen-ai/acp-transport';
+import type { AcpNegotiatedAgent } from './contracts.js';
+import { AcpProviderConnectionError } from './errors.js';
+
+function immutableProtocolData(value: AcpJsonValue): AcpJsonValue {
+  if (Array.isArray(value)) {
+    const items = value.map(immutableProtocolData);
+    Object.freeze(items);
+    return items;
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.keys(value).sort()
+      .filter((key) => key !== '_meta')
+      .map((key) => [key, immutableProtocolData(value[key] as AcpJsonValue)]);
+    return Object.freeze(Object.fromEntries(entries));
+  }
+  return value;
+}
+
+/** The transport has already validated the complete pinned initialize response. */
+export function readNegotiatedAgent(response: AcpJsonValue): AcpNegotiatedAgent {
+  const value = response as AcpJsonObject;
+  if (value.protocolVersion !== 1) {
+    throw new AcpProviderConnectionError('acp_provider_version_unsupported', 'ACP wire version 1 is required.');
+  }
+  const info = value.agentInfo as AcpJsonObject | null | undefined;
+  let agentInfo: AcpNegotiatedAgent['agentInfo'];
+  if (info) {
+    for (const [key, maximum] of [['name', 256], ['version', 160]] as const) {
+      const text = info[key];
+      if (typeof text !== 'string' || !text || text !== text.trim() || text.length > maximum || /[\p{Cc}\p{Cf}]/u.test(text)) {
+        throw new AcpProviderConnectionError('acp_provider_identity_invalid', 'ACP implementation identity is invalid.');
+      }
+    }
+    agentInfo = Object.freeze({ name: info.name as string, version: info.version as string });
+  }
+  return Object.freeze({
+    protocolVersion: 1,
+    ...(agentInfo ? { agentInfo } : {}),
+    agentCapabilities: immutableProtocolData(value.agentCapabilities ?? {}) as AcpJsonObject,
+    authMethods: immutableProtocolData(value.authMethods ?? []) as readonly AcpJsonValue[],
+  });
+}
+
+export function negotiatedEnvelope(negotiated: AcpNegotiatedAgent): string {
+  return JSON.stringify(negotiated);
+}

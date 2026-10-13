@@ -2,6 +2,8 @@
 //                adapterValidation.test.ts - Capability and session invariant coverage
 // ------------------------------------------------------------------------------------------------
 
+import { fixtureTurn, collectToRequest, resolveAndCollectTurn } from "./fixtures/turnExecution.js";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -43,7 +45,6 @@ import {
   createAgentEventOutput,
   validateAgentProviderAdapter,
   type AgentProviderAdapter,
-  type AgentProviderOperationResult,
   type AgentProviderOutput,
   type AgentProviderSession,
   type AgentProviderSteerTurnInput,
@@ -55,7 +56,7 @@ import { createFakeAgentProvider } from "../src/testing/index.js";
 const providerKey = parseAgentProviderKey("contract-fixture");
 const capabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 9,
+  protocolVersion: 10,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -98,15 +99,6 @@ const requestCapabilities: AgentCapabilities = parseAgentCapabilities({
     elicitation: { kind: "unsupported" },
   },
 });
-const interruptibleRequestCapabilities: AgentCapabilities =
-  parseAgentCapabilities({
-    ...requestCapabilities,
-    turns: {
-      interactionModes: ["default"],
-      interrupt: true,
-      steer: { kind: "unsupported" },
-    },
-  });
 const steeringCapabilities: AgentCapabilities = parseAgentCapabilities({
   ...capabilities,
   turns: {
@@ -178,7 +170,23 @@ function allowOnceResolution(requestId: ReturnType<typeof parseAgentRequestId>) 
 }
 
 function eventBase(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
-  return { protocolVersion: 9 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 10 as const, sessionId, turnId, occurredAt };
+}
+
+function retryingOutput(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
+  return createAgentEventOutput({
+    ...eventBase(turnId, occurredAt),
+    type: "runtime.retrying",
+    payload: {
+      owner: "provider",
+      error: {
+        category: "overloaded",
+        code: "provider_overloaded",
+        message: "The provider is temporarily overloaded.",
+        recovery: { kind: "retry" },
+      },
+    },
+  });
 }
 
 function waitingForRequestOutputs(input: {
@@ -259,9 +267,9 @@ function session(
 ): AgentProviderSession {
   return {
     binding: { conversationId: "contract-conversation" as never },
-    runTurn: async function* (input) {
+    startTurn: fixtureTurn(async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 9,
+        protocolVersion: 10,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -269,15 +277,15 @@ function session(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 9,
+        protocolVersion: 10,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
         occurredAt: "2026-08-04T00:00:00.000Z",
         payload: { outcome: "completed" },
       });
-    },
-    resolveRequest: async function* () {},
+    }, async function* () {}),
+
     interruption: { kind: "unsupported" },
     steering: { kind: "unsupported" },
     configuration: { kind: "managed" },
@@ -1118,14 +1126,14 @@ test("provider output cannot exceed declared event, item, artifact, or request c
       boundaryCase.capabilities,
       adapter((input) => {
         const opened = session({
-          runTurn: async function* (turnInput) {
+          startTurn: fixtureTurn(async function* (turnInput) {
             yield createAgentEventOutput({
               ...eventBase(turnInput.turnId, occurredAt),
               type: "turn.started",
               payload: {},
             });
             yield boundaryCase.output(turnInput.turnId);
-          },
+          }),
         });
         input.onBindingCreated(opened.binding);
         return opened;
@@ -1139,13 +1147,13 @@ test("provider output cannot exceed declared event, item, artifact, or request c
     });
 
     await assert.rejects(
-      collectOutputs(
-        opened.runTurn({
+      async () => (collectOutputs(
+        opened.startTurn({
           turnId: parseAgentTurnId(`contract-output-${boundaryCase.name}`),
           interactionMode: "default",
           parts: [{ type: "text", text: "Exercise output validation." }],
-        }),
-      ),
+        }).outputs,
+      )),
       (error: unknown) =>
         error instanceof AgentProviderContractError &&
         error.code === "output_capability_mismatch",
@@ -1284,9 +1292,10 @@ test("generated-resource lifecycle admits stable expiration from settled states"
             ...identity,
             status: previousStatus,
             error: {
+              category: "unknown",
               code: "generation_failed",
               message: "The preview could not be generated.",
-              retryable: false,
+              recovery: { kind: "unknown" },
             },
           },
     );
@@ -1753,14 +1762,14 @@ test("interaction observations enforce per-turn bounds and forward-only lifecycl
       adapter((input) => {
         const opened = session({
           ...scenario.ports,
-          runTurn: async function* () {
+          startTurn: fixtureTurn(async function* () {
             yield createAgentEventOutput({
               ...eventBase(turnId, occurredAt),
               type: "turn.started",
               payload: {},
             });
             yield* scenario.outputs;
-          },
+          }),
         });
         input.onBindingCreated(opened.binding);
         return opened;
@@ -1773,11 +1782,11 @@ test("interaction observations enforce per-turn bounds and forward-only lifecycl
       onBindingCreated: () => undefined,
     });
     await assert.rejects(
-      collectOutputs(opened.runTurn({
+      async () => (collectOutputs(opened.startTurn({
         turnId,
         interactionMode: "default",
         parts: [{ type: "text", text: "Observe interactions." }],
-      })),
+      }).outputs)),
       (error: unknown) =>
         error instanceof AgentProviderContractError
         && error.code === scenario.expectedCode,
@@ -1787,126 +1796,149 @@ test("interaction observations enforce per-turn bounds and forward-only lifecycl
   }
 });
 
-test("session operation observations are validated and preserve output backpressure", async () => {
-  const operationId = parseAgentOperationId("compact-context");
-  const invocationId = parseAgentOperationInvocationId(
-    "invocation:compact-context",
-  );
-  const observationTurnId = parseAgentTurnId(
-    "operation-observation:compact-context",
-  );
-  const operationCapabilities = parseAgentCapabilities({
-    ...capabilities,
-    context: {
-      usage: { kind: "unsupported" },
-      compaction: {
-        kind: "supported",
-        triggers: ["manual"],
-        sameSessionContinuation: true,
-      },
-    },
-    operations: {
-      kind: "supported",
-      operationKinds: ["session_control"],
-      fieldKinds: ["text"],
-      executionModes: ["immediate"],
-      maxOperations: 1,
-      maxFieldsPerOperation: 1,
-    },
-  });
-  const outputEntered = Promise.withResolvers<void>();
-  const releaseOutput = Promise.withResolvers<void>();
-  const validated = validateAgentProviderAdapter(
-    operationCapabilities,
-    adapter((input) => {
-      const opened = session({
-        operations: {
-          kind: "supported",
-          listOperations: async () => ({
-            revision: 1,
-            operations: [{
-              operationId,
-              revision: 1,
-              kind: "session_control",
-              title: "Compact context",
-              context: "session",
-              timing: "idle_session",
-              executionMode: "immediate",
-              fields: [],
-              confirmation: "required",
-              idempotency: "required",
-              resultKind: "none",
-            }],
-          }),
-          invokeOperation: async (operationInput) => {
-            operationInput.onProviderExecutionStarted?.();
-            await operationInput.onOutput?.(createAgentEventOutput({
-              protocolVersion: 9,
-              type: "item.completed",
-              sessionId,
-              turnId: operationInput.observationTurnId,
-              occurredAt: "2026-08-04T00:00:00.000Z",
-              payload: {
-                itemId: parseAgentItemId("operation-compaction:item"),
-                itemKind: "context_compaction",
-                status: "completed",
-                details: { trigger: "manual" },
-              },
-            }));
-            return {
-              invocationId: operationInput.invocation.invocationId,
-              status: "completed",
-            };
+test("session operation observations preserve backpressure and reject turn-owned retries", async (context) => {
+  for (const retryFromOperation of [false, true]) {
+    await context.test(retryFromOperation ? "turn-owned retry rejected" : "compaction accepted", async () => {
+      const operationId = parseAgentOperationId("compact-context");
+      const invocationId = parseAgentOperationInvocationId(
+        "invocation:compact-context",
+      );
+      const observationTurnId = parseAgentTurnId(
+        "operation-observation:compact-context",
+      );
+      const operationCapabilities = parseAgentCapabilities({
+        ...capabilities,
+        context: {
+          usage: { kind: "unsupported" },
+          compaction: {
+            kind: "supported",
+            triggers: ["manual"],
+            sameSessionContinuation: true,
           },
         },
+        operations: {
+          kind: "supported",
+          operationKinds: ["session_control"],
+          fieldKinds: ["text"],
+          executionModes: ["immediate"],
+          maxOperations: 1,
+          maxFieldsPerOperation: 1,
+        },
       });
-      input.onBindingCreated(opened.binding);
-      return opened;
-    }),
-  );
-  const opened = await validated.createSession({
-    sessionId,
-    workingDirectory: "/host/session",
-    configuration,
-    onBindingCreated: () => undefined,
-  });
-  assert.equal(opened.operations.kind, "supported");
-  if (opened.operations.kind !== "supported") return;
+      const outputEntered = Promise.withResolvers<void>();
+      const releaseOutput = Promise.withResolvers<void>();
+      let deliveredOutputs = 0;
+      const validated = validateAgentProviderAdapter(
+        operationCapabilities,
+        adapter((input) => {
+          const opened = session({
+            operations: {
+              kind: "supported",
+              listOperations: async () => ({
+                revision: 1,
+                operations: [{
+                  operationId,
+                  revision: 1,
+                  kind: "session_control",
+                  title: "Compact context",
+                  context: "session",
+                  timing: "idle_session",
+                  executionMode: "immediate",
+                  fields: [],
+                  confirmation: "required",
+                  idempotency: "required",
+                  resultKind: "none",
+                }],
+              }),
+              invokeOperation: async (operationInput) => {
+                operationInput.onProviderExecutionStarted?.();
+                await operationInput.onOutput?.(createAgentEventOutput({
+                  protocolVersion: 10,
+                  type: "item.completed",
+                  sessionId,
+                  turnId: operationInput.observationTurnId,
+                  occurredAt: "2026-08-04T00:00:00.000Z",
+                  payload: {
+                    itemId: parseAgentItemId("operation-compaction:item"),
+                    itemKind: "context_compaction",
+                    status: "completed",
+                    details: { trigger: "manual" },
+                  },
+                }));
+                if (retryFromOperation) {
+                  await operationInput.onOutput?.(retryingOutput(
+                    operationInput.observationTurnId,
+                    parseAgentIsoDateTime("2026-10-11T00:00:00.000Z"),
+                  ));
+                }
+                return {
+                  invocationId: operationInput.invocation.invocationId,
+                  status: "completed",
+                };
+              },
+            },
+          });
+          input.onBindingCreated(opened.binding);
+          return opened;
+        }),
+      );
+      const opened = await validated.createSession({
+        sessionId,
+        workingDirectory: "/host/session",
+        configuration,
+        onBindingCreated: () => undefined,
+      });
+      assert.equal(opened.operations.kind, "supported");
+      if (opened.operations.kind !== "supported") return;
 
-  const operation = Promise.resolve(opened.operations.invokeOperation({
-    invocation: {
-      invocationId,
-      operationId,
-      expectedRevision: 1,
-      values: [],
-    },
-    observationTurnId,
-    onOutput: async (output) => {
-      assert.equal(output.kind, "event");
-      if (output.kind === "event") {
-        assert.equal(output.event.turnId, observationTurnId);
-        assert.equal(output.event.type, "item.completed");
+      const operation = Promise.resolve(opened.operations.invokeOperation({
+        invocation: {
+          invocationId,
+          operationId,
+          expectedRevision: 1,
+          values: [],
+        },
+        observationTurnId,
+        onOutput: async (output) => {
+          deliveredOutputs += 1;
+          assert.equal(output.kind, "event");
+          if (output.kind === "event") {
+            assert.equal(output.event.turnId, observationTurnId);
+            assert.equal(output.event.type, "item.completed");
+          }
+          outputEntered.resolve();
+          await releaseOutput.promise;
+        },
+      }));
+      await outputEntered.promise;
+      assert.equal(
+        await Promise.race([
+          operation.then(() => "settled"),
+          new Promise<"backpressured">((resolve) =>
+            setImmediate(() => resolve("backpressured"))
+          ),
+        ]),
+        "backpressured",
+      );
+      releaseOutput.resolve();
+      if (retryFromOperation) {
+        await assert.rejects(operation, (error: unknown) =>
+          error instanceof AgentProviderDelegatedOperationError
+          && error.operation === "invoke_operation"
+          && error.providerExecution === "started"
+          && error.cause instanceof AgentProviderContractError
+          && error.cause.code === "invalid_turn_sequence"
+          && error.cause.message === "Provider emitted turn-owned output from a session operation.");
+      } else {
+        assert.deepEqual(await operation, {
+          invocationId,
+          status: "completed",
+        });
       }
-      outputEntered.resolve();
-      await releaseOutput.promise;
-    },
-  }));
-  await outputEntered.promise;
-  assert.equal(
-    await Promise.race([
-      operation.then(() => "settled"),
-      new Promise<"backpressured">((resolve) =>
-        setImmediate(() => resolve("backpressured"))
-      ),
-    ]),
-    "backpressured",
-  );
-  releaseOutput.resolve();
-  assert.deepEqual(await operation, {
-    invocationId,
-    status: "completed",
-  });
-  await opened.close({ reason: "idle" });
+      assert.equal(deliveredOutputs, 1);
+      await opened.close({ reason: "idle" });
+    });
+  }
 });
 
 test("collaboration spawn validates every immutable identity field after delegation", async () => {
@@ -2292,6 +2324,27 @@ test("final_diff enforces one terminal materialization while structured diffs re
       ],
     },
     {
+      name: "provider retry before final diff",
+      capabilities: finalDiffCapabilities,
+      accepted: true,
+      outputs: (turnId) => [
+        retryingOutput(turnId, occurredAt),
+        contentOutput(turnId),
+        diffOutput(turnId),
+        completedOutput(turnId),
+      ],
+    },
+    {
+      name: "provider retry after final diff",
+      capabilities: finalDiffCapabilities,
+      accepted: false,
+      outputs: (turnId) => [
+        diffOutput(turnId),
+        retryingOutput(turnId, occurredAt),
+        completedOutput(turnId),
+      ],
+    },
+    {
       name: "repeated final diff",
       capabilities: finalDiffCapabilities,
       accepted: false,
@@ -2357,14 +2410,17 @@ test("final_diff enforces one terminal materialization while structured diffs re
         scenario.capabilities,
         adapter((input) => {
           const opened = session({
-            runTurn: async function* () {
+            startTurn: fixtureTurn(async function* () {
               yield createAgentEventOutput({
                 ...eventBase(turnId, occurredAt),
                 type: "turn.started",
                 payload: {},
               });
               yield* scenario.outputs(turnId);
-            },
+              if (scenario.name === "structured diff at request-waiting boundary") {
+                yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.completed", payload: { outcome: "canceled" } });
+              }
+            }),
           });
           input.onBindingCreated(opened.binding);
           return opened;
@@ -2377,11 +2433,11 @@ test("final_diff enforces one terminal materialization while structured diffs re
         onBindingCreated: () => undefined,
       });
       const operation = collectOutputs(
-        opened.runTurn({
+        opened.startTurn({
           turnId,
           interactionMode: "default",
           parts: [{ type: "text", text: "Exercise diff sequencing." }],
-        }),
+        }).outputs,
       );
       if (scenario.accepted) {
         await operation;
@@ -2470,7 +2526,7 @@ test("elicitation capability admits only declared bounded field kinds", async ()
       declaredCapabilities,
       adapter((input) => {
         const opened = session({
-          runTurn: async function* (turnInput) {
+          startTurn: fixtureTurn(async function* (turnInput) {
             yield createAgentEventOutput({
               ...eventBase(turnInput.turnId, occurredAt),
               type: "turn.started",
@@ -2483,7 +2539,8 @@ test("elicitation capability admits only declared bounded field kinds", async ()
             })) {
               yield output;
             }
-          },
+            yield createAgentEventOutput({ ...eventBase(turnInput.turnId, occurredAt), type: "turn.completed", payload: { outcome: "canceled" } });
+          }),
         });
         input.onBindingCreated(opened.binding);
         return opened;
@@ -2503,13 +2560,13 @@ test("elicitation capability admits only declared bounded field kinds", async ()
   ] as const) {
     const opened = await openElicitationSession(declaredCapabilities, request);
     const outputs = await collectOutputs(
-      opened.runTurn({
+      opened.startTurn({
         turnId: parseAgentTurnId(`contract-${turnName}`),
         interactionMode: "default",
         parts: [{ type: "text", text: "Exercise elicitation." }],
-      }),
+      }).outputs,
     );
-    assert.equal(outputs.length, 3);
+    assert.equal(outputs.length, 4);
     await opened.close({ reason: "idle" });
   }
 
@@ -2518,13 +2575,13 @@ test("elicitation capability admits only declared bounded field kinds", async ()
     structuredRequest,
   );
   await assert.rejects(
-    collectOutputs(
-      rejected.runTurn({
+    async () => (collectOutputs(
+      rejected.startTurn({
         turnId: parseAgentTurnId("contract-structured-rejected"),
         interactionMode: "default",
         parts: [{ type: "text", text: "Exercise elicitation rejection." }],
-      }),
-    ),
+      }).outputs,
+    )),
     (error: unknown) =>
       error instanceof AgentProviderContractError &&
       error.code === "output_capability_mismatch",
@@ -2567,16 +2624,16 @@ test("validated sessions reject cross-session output and malformed turn ordering
     capabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* (turnInput) {
+        startTurn: fixtureTurn(async function* (turnInput) {
           yield createAgentEventOutput({
-            protocolVersion: 9,
+            protocolVersion: 10,
             type: "turn.started",
             sessionId: "another-session",
             turnId: turnInput.turnId,
             occurredAt: "2026-08-04T00:00:00.000Z",
             payload: {},
           });
-        },
+        }),
       });
       input.onBindingCreated(opened.binding);
       return opened;
@@ -2590,11 +2647,11 @@ test("validated sessions reject cross-session output and malformed turn ordering
   });
   await assert.rejects(
     async () => {
-      for await (const _output of opened.runTurn({
+      for await (const _output of opened.startTurn({
         turnId: parseAgentTurnId("contract-turn"),
         interactionMode: "default",
         parts: [{ type: "text", text: "Run." }],
-      })) {
+      }).outputs) {
         // Consume the validated stream.
       }
     },
@@ -2604,13 +2661,192 @@ test("validated sessions reject cross-session output and malformed turn ordering
   );
 });
 
+test("provider retry preserves turn ownership and output backpressure until one successful completion", async () => {
+  const turnId = parseAgentTurnId("contract-provider-retry-success");
+  const occurredAt = parseAgentIsoDateTime("2026-10-11T00:00:00.000Z");
+  let providerRuns = 0;
+  let producedOutputs = 0;
+  const validated = validateAgentProviderAdapter(
+    capabilities,
+    adapter((input) => {
+      const opened = session({
+        startTurn: fixtureTurn(async function* () {
+          providerRuns += 1;
+          for (const output of [
+            createAgentEventOutput({
+              ...eventBase(turnId, occurredAt),
+              type: "turn.started",
+              payload: {},
+            }),
+            retryingOutput(turnId, occurredAt),
+            createAgentEventOutput({
+              ...eventBase(turnId, occurredAt),
+              type: "turn.completed",
+              payload: { outcome: "completed" },
+            }),
+          ]) {
+            producedOutputs += 1;
+            yield output;
+          }
+        }),
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  const iterator = opened.startTurn({
+    turnId,
+    interactionMode: "default",
+    parts: [{ type: "text", text: "Exercise a provider-managed retry." }],
+  }).outputs[Symbol.asyncIterator]();
+  const outputs = [(await iterator.next()).value, (await iterator.next()).value];
+  assert.deepEqual(outputs.map((output) => output.kind === "event" ? output.event.type : output.kind), [
+    "turn.started",
+    "runtime.retrying",
+  ]);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(producedOutputs, 2, "The provider cannot advance beyond an unconsumed retry output.");
+  await assert.rejects(
+    async () => (collectOutputs(opened.startTurn({
+      turnId: parseAgentTurnId("contract-concurrent-provider-retry"),
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Do not start while the provider is retrying." }],
+    }).outputs)),
+    (error: unknown) => error instanceof AgentProviderContractError && error.code === "concurrent_turn",
+  );
+  const completion = await iterator.next();
+  assert.equal(completion.done, false);
+  assert.equal(completion.value?.kind, "event");
+  if (completion.value?.kind === "event") {
+    assert.equal(completion.value.event.type, "turn.completed");
+    if (completion.value.event.type === "turn.completed") {
+      assert.equal(completion.value.event.payload.outcome, "completed");
+    }
+  }
+  assert.equal((await iterator.next()).done, true);
+  assert.equal(producedOutputs, 3);
+  assert.equal(providerRuns, 1, "Provider-owned retry must never redelegate the turn.");
+  await opened.close({ reason: "idle" });
+});
+
+test("provider retry does not clear a pending request or prevent its continuation", async () => {
+  const turnId = parseAgentTurnId("contract-retry-pending-request");
+  const occurredAt = parseAgentIsoDateTime("2026-10-11T00:00:00.000Z");
+  const request = approvalRequest({ requestId: parseAgentRequestId("request:retry-pending") });
+  let providerRuns = 0;
+  const resolutions: string[] = [];
+  const validated = validateAgentProviderAdapter(
+    requestCapabilities,
+    adapter((input) => {
+      const opened = session({
+        startTurn: fixtureTurn(async function* () {
+          providerRuns += 1;
+          yield createAgentEventOutput({
+            ...eventBase(turnId, occurredAt),
+            type: "turn.started",
+            payload: {},
+          });
+          yield* waitingForRequestOutputs({ turnId, request, occurredAt });
+          yield retryingOutput(turnId, occurredAt);
+        }, async function* ({ resolution }) {
+          resolutions.push(resolution.requestId);
+          yield createAgentEventOutput({
+            ...eventBase(turnId, occurredAt),
+            type: "turn.state_changed",
+            payload: { state: "running" },
+          });
+          yield retryingOutput(turnId, occurredAt);
+          yield createAgentEventOutput({
+            ...eventBase(turnId, occurredAt),
+            type: "turn.completed",
+            payload: { outcome: "completed" },
+          });
+        }),
+
+      });
+      input.onBindingCreated(opened.binding);
+      return opened;
+    }),
+  );
+  const opened = await validated.createSession({
+    sessionId,
+    workingDirectory: "/host/session",
+    configuration,
+    onBindingCreated: () => undefined,
+  });
+  const execution = opened.startTurn({
+    turnId,
+    interactionMode: "default",
+    parts: [{ type: "text", text: "Open a request and report provider retry." }],
+  });
+const outputs = await collectToRequest(execution);
+  const lastOutput = outputs.at(-1);
+  assert.equal(lastOutput?.kind === "event" ? lastOutput.event.type : null, "turn.state_changed");
+  await assert.rejects(
+    async () => (collectOutputs(opened.startTurn({
+      turnId: parseAgentTurnId("contract-after-retry-pending"),
+      interactionMode: "default",
+      parts: [{ type: "text", text: "The existing request still needs resolution." }],
+    }).outputs)),
+    (error: unknown) => error instanceof AgentProviderContractError && error.code === "concurrent_turn",
+  );
+  const continued = await resolveAndCollectTurn(execution, { resolution: allowOnceResolution(request.requestId) });
+  assert.deepEqual(continued.map((output) => output.kind === "event" ? output.event.type : output.kind), [
+    "runtime.retrying",
+    "turn.state_changed",
+    "runtime.retrying",
+    "turn.completed",
+  ]);
+  assert.deepEqual(resolutions, [request.requestId]);
+  assert.equal(providerRuns, 1);
+  await opened.close({ reason: "idle" });
+});
+
+test("provider retries before turn start or after completion retire the validated session", async (context) => {
+  const occurredAt = parseAgentIsoDateTime("2026-10-11T00:00:00.000Z");
+  for (const placement of ["before_start", "after_completion"] as const) {
+    await context.test(placement, async () => {
+      const turnId = parseAgentTurnId(`contract-retry-${placement}`);
+      let providerRuns = 0;
+      const validated = validateAgentProviderAdapter(capabilities, adapter((input) => {
+        const opened = session({
+          startTurn: fixtureTurn(async function* () {
+            providerRuns += 1;
+            if (placement === "after_completion") {
+              yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.started", payload: {} });
+              yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.completed", payload: { outcome: "completed" } });
+            }
+            yield retryingOutput(turnId, occurredAt);
+          }),
+        });
+        input.onBindingCreated(opened.binding);
+        return opened;
+      }));
+      const opened = await validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated: () => undefined });
+      const run = async () => collectOutputs(opened.startTurn({ turnId, interactionMode: "default", parts: [{ type: "text", text: "Reject retry outside an active turn." }] }).outputs);
+      await assert.rejects(run, (error: unknown) =>
+        error instanceof AgentProviderContractError && error.code === "invalid_turn_sequence"
+        && error.message === (placement === "before_start" ? "Provider emitted turn data before turn.started." : "Provider emitted an event after turn completion."));
+      await assert.rejects(run, (error: unknown) => error instanceof AgentProviderContractError && error.code === "session_unusable");
+      assert.equal(providerRuns, 1);
+      await opened.close({ reason: "contract_rejected" });
+    });
+  }
+});
+
 test("run delegation observation follows validated prechecks and precedes the candidate port", async () => {
   const boundaries: string[] = [];
   const validated = validateAgentProviderAdapter(
     capabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* (turnInput) {
+        startTurn: fixtureTurn(async function* (turnInput) {
           boundaries.push("candidate");
           assert.equal(turnInput.onProviderExecutionStarted, undefined);
           assert.equal(turnInput.interactionMode, "default");
@@ -2630,7 +2866,7 @@ test("run delegation observation follows validated prechecks and precedes the ca
             type: "turn.completed",
             payload: { outcome: "completed" },
           });
-        },
+        }),
       });
       input.onBindingCreated(opened.binding);
       return opened;
@@ -2646,34 +2882,34 @@ test("run delegation observation follows validated prechecks and precedes the ca
   aborted.abort(new DOMException("Turn aborted.", "AbortError"));
 
   await assert.rejects(
-    collectOutputs(opened.runTurn({
+    async () => (collectOutputs(opened.startTurn({
       turnId: parseAgentTurnId("contract-pre-delegation-abort"),
       interactionMode: "default",
       parts: [{ type: "text", text: "Do not delegate this turn." }],
       signal: aborted.signal,
       onProviderExecutionStarted: () => boundaries.push("delegated"),
-    })),
+    }).outputs)),
     (error: unknown) => error instanceof Error && error.name === "AbortError",
   );
   assert.equal(boundaries.length, 0);
 
   await assert.rejects(
-    collectOutputs(opened.runTurn({
+    async () => (collectOutputs(opened.startTurn({
       turnId: parseAgentTurnId("contract-missing-interaction-mode"),
       parts: [{ type: "text", text: "Reject missing mode." }],
       onProviderExecutionStarted: () => boundaries.push("delegated"),
-    } as unknown as Parameters<typeof opened.runTurn>[0])),
+    } as unknown as Parameters<typeof opened.startTurn>[0]).outputs)),
     TypeError,
   );
   assert.equal(boundaries.length, 0);
 
   await assert.rejects(
-    collectOutputs(opened.runTurn({
+    async () => (collectOutputs(opened.startTurn({
       turnId: parseAgentTurnId("contract-unsupported-interaction-mode"),
       interactionMode: "plan",
       parts: [{ type: "text", text: "Reject unsupported mode." }],
       onProviderExecutionStarted: () => boundaries.push("delegated"),
-    })),
+    }).outputs)),
     (error: unknown) =>
       error instanceof AgentProviderContractError &&
       error.code === "input_capability_mismatch" &&
@@ -2681,12 +2917,12 @@ test("run delegation observation follows validated prechecks and precedes the ca
   );
   assert.equal(boundaries.length, 0);
 
-  await collectOutputs(opened.runTurn({
+  await collectOutputs(opened.startTurn({
     turnId: parseAgentTurnId("contract-delegated-turn"),
     interactionMode: "default",
     parts: [{ type: "text", text: "Delegate this turn." }],
     onProviderExecutionStarted: () => boundaries.push("delegated"),
-  }));
+  }).outputs);
   assert.deepEqual(boundaries, ["delegated", "candidate"]);
   await opened.close({ reason: "idle" });
 });
@@ -2702,7 +2938,7 @@ test("an incomplete provider stream makes its validated session unusable", async
     requestCapabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield createAgentEventOutput({
             ...eventBase(
               turnId,
@@ -2734,7 +2970,7 @@ test("an incomplete provider stream makes its validated session unusable", async
             payload: { request },
           });
           throw new Error("provider stream failed");
-        },
+        }),
         close: async () => {
           closeCount += 1;
         },
@@ -2751,21 +2987,21 @@ test("an incomplete provider stream makes its validated session unusable", async
   });
 
   await assert.rejects(async () => {
-    for await (const _output of opened.runTurn({
+    for await (const _output of opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Run." }],
-    })) {
+    }).outputs) {
       // Consume through the provider failure.
     }
   }, /provider stream failed/u);
   await assert.rejects(
     async () => {
-      for await (const _output of opened.runTurn({
+      for await (const _output of opened.startTurn({
         turnId: parseAgentTurnId("contract-after-failed-stream"),
         interactionMode: "default",
         parts: [{ type: "text", text: "Run again." }],
-      })) {
+      }).outputs) {
         // The unusable session must reject before delegation.
       }
     },
@@ -2784,9 +3020,9 @@ test("a failed close quarantines the session while close remains retryable", asy
     capabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           runCount += 1;
-        },
+        }),
         close: () => {
           closeCount += 1;
           if (closeCount === 1) throw new Error("provider close failed");
@@ -2809,11 +3045,11 @@ test("a failed close quarantines the session while close remains retryable", asy
   );
   await assert.rejects(
     async () => {
-      for await (const _output of opened.runTurn({
+      for await (const _output of opened.startTurn({
         turnId: parseAgentTurnId("contract-after-failed-close"),
         interactionMode: "default",
         parts: [{ type: "text", text: "Run after failed close." }],
-      })) {
+      }).outputs) {
         // The unusable session must reject before provider delegation.
       }
     },
@@ -2855,10 +3091,10 @@ test("run input enforces every structured image capability before provider deleg
     imageCapabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* (turnInput) {
+        startTurn: fixtureTurn(async function* (turnInput) {
           delegated += 1;
-          yield* baseSession.runTurn(turnInput);
-        },
+          yield* baseSession.startTurn(turnInput).outputs;
+        }),
       });
       input.onBindingCreated(opened.binding);
       return opened;
@@ -2949,14 +3185,14 @@ test("run input enforces every structured image capability before provider deleg
 
   for (const [index, invalidInput] of invalidInputs.entries()) {
     await assert.rejects(
-      collectOutputs(opened.runTurn({
+      async () => (collectOutputs(opened.startTurn({
         turnId: parseAgentTurnId(`image-invalid:${index}`),
         interactionMode: "default",
         parts: invalidInput.parts,
         onProviderExecutionStarted: () => {
           observedStarted += 1;
         },
-      })),
+      }).outputs)),
       (error: unknown) =>
         error instanceof AgentProviderContractError &&
         error.code === "input_capability_mismatch",
@@ -2965,14 +3201,14 @@ test("run input enforces every structured image capability before provider deleg
   assert.equal(delegated, 0);
   assert.equal(observedStarted, 0);
 
-  const outputs = await collectOutputs(opened.runTurn({
+  const outputs = await collectOutputs(opened.startTurn({
     turnId: parseAgentTurnId("image-valid"),
     interactionMode: "default",
     parts: [{ type: "text", text: "Inspect." }, localImage],
     onProviderExecutionStarted: () => {
       observedStarted += 1;
     },
-  }));
+  }).outputs);
   assert.equal(outputs.length, 2);
   assert.equal(delegated, 1);
   assert.equal(observedStarted, 1);
@@ -3007,27 +3243,27 @@ test("steering validates canonical content, capabilities, aborts, and active-tur
   if (steering.kind !== "supported") return;
   const turnId = parseAgentTurnId("contract-steering-turn");
   const iterator = opened
-    .runTurn({
+    .startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Run." }],
-    })
+    }).outputs
     [Symbol.asyncIterator]();
   await iterator.next();
 
   await assert.rejects(
-    Promise.resolve(
+    async () => (Promise.resolve(
       steering.steerTurn({
         turnId,
         parts: [],
       }),
-    ),
+    )),
     TypeError,
   );
   assert.equal(delegated, null);
 
   await assert.rejects(
-    Promise.resolve(
+    async () => (Promise.resolve(
       steering.steerTurn({
         turnId,
         parts: [
@@ -3044,7 +3280,7 @@ test("steering validates canonical content, capabilities, aborts, and active-tur
           },
         ],
       }),
-    ),
+    )),
     (error: unknown) =>
       error instanceof AgentProviderContractError &&
       error.code === "input_capability_mismatch",
@@ -3108,17 +3344,19 @@ test("steering preserves definitive rejection and delivery uncertainty exactly",
     {
       status: "rejected",
       error: {
+        category: "unknown",
         code: "provider_rejected",
         message: "The active turn no longer accepts input.",
-        retryable: false,
+        recovery: { kind: "unknown" },
       },
     },
     {
       status: "delivery_uncertain",
       error: {
+        category: "transport",
         code: "receipt_lost",
         message: "The provider receipt was lost after dispatch.",
-        retryable: false,
+        recovery: { kind: "unknown" },
       },
     },
   ];
@@ -3147,11 +3385,11 @@ test("steering preserves definitive rejection and delivery uncertainty exactly",
     assert.equal(steering.kind, "supported");
     if (steering.kind !== "supported") continue;
     const turnId = parseAgentTurnId(`contract-${expected.status}`);
-    const iterator = opened.runTurn({
+    const iterator = opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Run." }],
-    })[Symbol.asyncIterator]();
+    }).outputs[Symbol.asyncIterator]();
     await iterator.next();
     assert.deepEqual(
       await steering.steerTurn({
@@ -3162,15 +3400,26 @@ test("steering preserves definitive rejection and delivery uncertainty exactly",
     );
     await iterator.next();
     await iterator.next();
+    const next = async () => collectOutputs(opened.startTurn({
+      turnId: parseAgentTurnId(`after-${expected.status}`),
+      interactionMode: "default",
+      parts: [{ type: "text", text: "Another turn." }],
+    }).outputs);
+    if (expected.status === "delivery_uncertain") {
+      await assert.rejects(next, (error: unknown) =>
+        error instanceof AgentProviderContractError && error.code === "session_unusable");
+    } else {
+      assert.equal((await next()).length, 2);
+    }
   }
 });
 
 test("steering rejects malformed receipts and provider-owned outputs", async () => {
   const malformedResults = [
     { status: "delivered", outputs: [] },
-    { status: "delivered", error: { code: "x", message: "x", retryable: false } },
+    { status: "delivered", error: { category: "unknown", code: "x", message: "x", recovery: { kind: "unknown" } } },
     { status: "rejected" },
-    { status: "delivery_uncertain", error: { code: "", message: "x", retryable: false } },
+    { status: "delivery_uncertain", error: { category: "unknown", code: "", message: "x", recovery: { kind: "unknown" } } },
     { status: "completed" },
   ] as const;
 
@@ -3198,11 +3447,11 @@ test("steering rejects malformed receipts and provider-owned outputs", async () 
     assert.equal(steering.kind, "supported");
     if (steering.kind !== "supported") continue;
     const turnId = parseAgentTurnId(`contract-malformed-steering-${index}`);
-    const iterator = opened.runTurn({
+    const iterator = opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Run." }],
-    })[Symbol.asyncIterator]();
+    }).outputs[Symbol.asyncIterator]();
     await iterator.next();
     await assert.rejects(
       async () => steering.steerTurn({
@@ -3218,43 +3467,6 @@ test("steering rejects malformed receipts and provider-owned outputs", async () 
     );
     await iterator.return?.();
   }
-});
-
-test("validated sessions never delegate a resolution for an unknown request", async () => {
-  let delegated = false;
-  const validated = validateAgentProviderAdapter(
-    capabilities,
-    adapter((input) => {
-      const opened = session({
-        resolveRequest: async function* () {
-          delegated = true;
-        },
-      });
-      input.onBindingCreated(opened.binding);
-      return opened;
-    }),
-  );
-  const opened = await validated.createSession({
-    sessionId,
-    workingDirectory: "/host/session",
-    configuration,
-    onBindingCreated: () => undefined,
-  });
-
-  await assert.rejects(
-    async () =>
-      collectOutputs(
-        opened.resolveRequest({
-          resolution: allowOnceResolution(
-            parseAgentRequestId("request:not-opened"),
-          ),
-        }),
-      ),
-    (error: unknown) =>
-      error instanceof AgentProviderContractError &&
-      error.code === "request_resolution_mismatch",
-  );
-  assert.equal(delegated, false);
 });
 
 test("validated sessions track sequential requests from one turn", async () => {
@@ -3277,7 +3489,7 @@ test("validated sessions track sequential requests from one turn", async () => {
     requestCapabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield createAgentEventOutput({
             ...eventBase(turnId, startedAt),
             type: "turn.started",
@@ -3288,8 +3500,7 @@ test("validated sessions track sequential requests from one turn", async () => {
             request: firstRequest,
             occurredAt: startedAt,
           });
-        },
-        resolveRequest: async function* ({ resolution }) {
+        }, async function* ({ resolution }) {
           if (resolution.requestId === firstRequestId) {
             yield* waitingForRequestOutputs({
               turnId,
@@ -3300,7 +3511,8 @@ test("validated sessions track sequential requests from one turn", async () => {
           }
           delegatedSecondResolution = true;
           yield* completedTurnOutputs(turnId, completedAt);
-        },
+        }),
+
       });
       input.onBindingCreated(opened.binding);
       return opened;
@@ -3312,30 +3524,22 @@ test("validated sessions track sequential requests from one turn", async () => {
     configuration,
     onBindingCreated: () => undefined,
   });
-  for await (const _output of opened.runTurn({
-    turnId,
-    interactionMode: "default",
-    parts: [{ type: "text", text: "Run sequential operations." }],
-  })) {
-    // Consume the validated stream.
-  }
+  const execution = opened.startTurn({ turnId, interactionMode: "default",
+    parts: [{ type: "text", text: "Run sequential operations." }] });
+  await collectToRequest(execution);
 
-  const firstOutputs = await collectOutputs(
-    opened.resolveRequest({
+  const firstOutputs = await resolveAndCollectTurn(execution, {
       resolution: allowOnceResolution(firstRequestId),
-    }),
-  );
+    });
   const firstFinalOutput = firstOutputs.at(-1);
   assert.equal(
     firstFinalOutput?.kind === "event" ? firstFinalOutput.event.type : null,
     "turn.state_changed",
   );
 
-  const secondOutputs = await collectOutputs(
-    opened.resolveRequest({
+  const secondOutputs = await resolveAndCollectTurn(execution, {
       resolution: allowOnceResolution(secondRequestId),
-    }),
-  );
+    });
   const secondFinalOutput = secondOutputs.at(-1);
   assert.equal(
     secondFinalOutput?.kind === "event" ? secondFinalOutput.event.type : null,
@@ -3379,15 +3583,14 @@ test("steering remains active while a request continuation executes", async () =
     }),
     adapter((input) => {
       const opened = session({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.started",
             payload: {},
           });
           yield* waitingForRequestOutputs({ turnId, request, occurredAt });
-        },
-        resolveRequest: async function* () {
+        }, async function* () {
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.state_changed",
@@ -3400,7 +3603,8 @@ test("steering remains active while a request continuation executes", async () =
             type: "turn.completed",
             payload: { outcome: "completed" },
           });
-        },
+        }),
+
         steering: {
           kind: "supported",
           steerTurn: async (steeringInput) => {
@@ -3420,20 +3624,17 @@ test("steering remains active while a request continuation executes", async () =
     configuration,
     onBindingCreated: () => undefined,
   });
-  await collectOutputs(
-    opened.runTurn({
+  const execution = opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Open a request." }],
-    }),
-  );
+    });
+await collectToRequest(execution);
 
   let continuationSettled = false;
-  const continuation = collectOutputs(
-    opened.resolveRequest({
+  const continuation = resolveAndCollectTurn(execution, {
       resolution: allowOnceResolution(request.requestId),
-    }),
-  ).then((outputs) => {
+    }).then((outputs) => {
     continuationSettled = true;
     return outputs;
   });
@@ -3469,17 +3670,17 @@ test("validated sessions reject request IDs reused after resolution", async () =
     requestCapabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* ({ turnId }) {
+        startTurn: fixtureTurn(async function* ({ turnId }) {
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.started",
             payload: {},
           });
           yield* waitingForRequestOutputs({ turnId, request, occurredAt });
-        },
-        resolveRequest: async function* () {
+        }, async function* () {
           yield* completedTurnOutputs(firstTurnId, occurredAt);
-        },
+        }),
+
       });
       input.onBindingCreated(opened.binding);
       return opened;
@@ -3492,27 +3693,24 @@ test("validated sessions reject request IDs reused after resolution", async () =
     onBindingCreated: () => undefined,
   });
 
-  await collectOutputs(
-    opened.runTurn({
+  const execution = opened.startTurn({
       turnId: firstTurnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Run the first operation." }],
-    }),
-  );
-  await collectOutputs(
-    opened.resolveRequest({
+    });
+await collectToRequest(execution);
+  await resolveAndCollectTurn(execution, {
       resolution: allowOnceResolution(request.requestId),
-    }),
-  );
+    });
 
   await assert.rejects(
-    collectOutputs(
-      opened.runTurn({
+    async () => (collectOutputs(
+      opened.startTurn({
         turnId: secondTurnId,
         interactionMode: "default",
         parts: [{ type: "text", text: "Run the second operation." }],
-      }),
-    ),
+      }).outputs,
+    )),
     (error: unknown) =>
       error instanceof AgentProviderContractError &&
       error.code === "invalid_turn_sequence",
@@ -3531,17 +3729,17 @@ test("an incomplete request continuation makes its session unusable", async () =
     requestCapabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.started",
             payload: {},
           });
           yield* waitingForRequestOutputs({ turnId, request, occurredAt });
-        },
-        resolveRequest: async function* () {
+        }, async function* () {
           resolutionCount += 1;
-        },
+        }),
+
       });
       input.onBindingCreated(opened.binding);
       return opened;
@@ -3553,269 +3751,27 @@ test("an incomplete request continuation makes its session unusable", async () =
     configuration,
     onBindingCreated: () => undefined,
   });
-  await collectOutputs(
-    opened.runTurn({
+  const execution = opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Open a request." }],
-    }),
-  );
+    });
+await collectToRequest(execution);
   const resolution = allowOnceResolution(request.requestId);
 
   await assert.rejects(
-    collectOutputs(opened.resolveRequest({ resolution })),
+    async () => (resolveAndCollectTurn(execution, { resolution })),
     (error: unknown) =>
       error instanceof AgentProviderContractError &&
       error.code === "invalid_turn_sequence",
   );
   await assert.rejects(
-    collectOutputs(opened.resolveRequest({ resolution })),
+    async () => (resolveAndCollectTurn(execution, { resolution })),
     (error: unknown) =>
       error instanceof AgentProviderContractError &&
       error.code === "session_unusable",
   );
   assert.equal(resolutionCount, 1);
-});
-
-test("terminal interruptions stabilize the active turn stream", async (context) => {
-  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const scenarios: readonly Readonly<{
-    name: string;
-    result: (turnId: AgentTurnId) => AgentProviderOperationResult;
-  }>[] = [
-    {
-      name: "terminal operation status",
-      result: () => ({ status: "canceled" }),
-    },
-    {
-      name: "terminal operation output",
-      result: (turnId) => ({
-        status: "accepted",
-        outputs: [
-          createAgentEventOutput({
-            ...eventBase(turnId, occurredAt),
-            type: "turn.completed",
-            payload: { outcome: "canceled" },
-          }),
-        ],
-      }),
-    },
-  ];
-
-  for (const [index, scenario] of scenarios.entries()) {
-    await context.test(scenario.name, async () => {
-      const interruptedTurnId = parseAgentTurnId(
-        `contract-active-interruption-${index}`,
-      );
-      const nextTurnId = parseAgentTurnId(
-        `contract-after-active-interruption-${index}`,
-      );
-      let markStreamStarted!: () => void;
-      const streamStarted = new Promise<void>((resolve) => {
-        markStreamStarted = resolve;
-      });
-      let releaseStream!: () => void;
-      const streamReleased = new Promise<void>((resolve) => {
-        releaseStream = resolve;
-      });
-      let markStreamClosed!: () => void;
-      const streamClosed = new Promise<void>((resolve) => {
-        markStreamClosed = resolve;
-      });
-      let releaseInterruptionResult!: () => void;
-      const interruptionResultReleased = new Promise<void>((resolve) => {
-        releaseInterruptionResult = resolve;
-      });
-      const validated = validateAgentProviderAdapter(
-        interruptibleRequestCapabilities,
-        adapter((input) => {
-          const opened = session({
-            runTurn: async function* ({ turnId }) {
-              yield createAgentEventOutput({
-                ...eventBase(turnId, occurredAt),
-                type: "turn.started",
-                payload: {},
-              });
-              if (turnId === interruptedTurnId) {
-                markStreamStarted();
-                try {
-                  await streamReleased;
-                } finally {
-                  markStreamClosed();
-                }
-                return;
-              }
-              yield createAgentEventOutput({
-                ...eventBase(turnId, occurredAt),
-                type: "turn.completed",
-                payload: { outcome: "completed" },
-              });
-            },
-            interruption: {
-              kind: "supported",
-              interruptTurn: async ({ turnId }) => {
-                releaseStream();
-                await interruptionResultReleased;
-                return scenario.result(turnId);
-              },
-            },
-          });
-          input.onBindingCreated(opened.binding);
-          return opened;
-        }),
-      );
-      const opened = await validated.createSession({
-        sessionId,
-        workingDirectory: "/host/session",
-        configuration,
-        onBindingCreated: () => undefined,
-      });
-      const activeOutputsPromise = collectOutputs(
-        opened.runTurn({
-          turnId: interruptedTurnId,
-          interactionMode: "default",
-          parts: [{ type: "text", text: "Interrupt this active turn." }],
-        }),
-      );
-      await streamStarted;
-      assert.equal(opened.interruption.kind, "supported");
-      if (opened.interruption.kind !== "supported") return;
-
-      const interruptionResultPromise = opened.interruption.interruptTurn({
-        turnId: interruptedTurnId,
-        reason: "user_requested",
-      });
-      await streamClosed;
-      releaseInterruptionResult();
-      const interruptionResult = await interruptionResultPromise;
-      assert.equal(
-        interruptionResult.status === "canceled" ||
-          interruptionResult.outputs?.some(
-            (output) =>
-              output.kind === "event" && output.event.type === "turn.completed",
-          ),
-        true,
-      );
-      assert.equal((await activeOutputsPromise).length, 1);
-
-      await collectOutputs(
-        opened.runTurn({
-          turnId: nextTurnId,
-          interactionMode: "default",
-          parts: [{ type: "text", text: "Continue in the same session." }],
-        }),
-      );
-    });
-  }
-});
-
-test("active interruptions reject outputs emitted after turn completion", async () => {
-  const activeTurnId = parseAgentTurnId(
-    "contract-active-interruption-output-order",
-  );
-  const nextTurnId = parseAgentTurnId(
-    "contract-after-invalid-interruption-output-order",
-  );
-  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  let markStreamStarted!: () => void;
-  const streamStarted = new Promise<void>((resolve) => {
-    markStreamStarted = resolve;
-  });
-  let releaseStream!: () => void;
-  const streamReleased = new Promise<void>((resolve) => {
-    releaseStream = resolve;
-  });
-  const validated = validateAgentProviderAdapter(
-    interruptibleRequestCapabilities,
-    adapter((input) => {
-      const opened = session({
-        runTurn: async function* ({ turnId }) {
-          yield createAgentEventOutput({
-            ...eventBase(turnId, occurredAt),
-            type: "turn.started",
-            payload: {},
-          });
-          if (turnId === activeTurnId) {
-            markStreamStarted();
-            await streamReleased;
-            return;
-          }
-          yield createAgentEventOutput({
-            ...eventBase(turnId, occurredAt),
-            type: "turn.completed",
-            payload: { outcome: "completed" },
-          });
-        },
-        interruption: {
-          kind: "supported",
-          interruptTurn: async ({ turnId }) => {
-            releaseStream();
-            return {
-              status: "accepted",
-              outputs: [
-                createAgentEventOutput({
-                  ...eventBase(turnId, occurredAt),
-                  type: "turn.completed",
-                  payload: { outcome: "canceled" },
-                }),
-                createAgentEventOutput({
-                  ...eventBase(turnId, occurredAt),
-                  type: "runtime.warning",
-                  payload: {
-                    code: "late_warning",
-                    message: "This warning followed turn completion.",
-                  },
-                }),
-              ],
-            };
-          },
-        },
-      });
-      input.onBindingCreated(opened.binding);
-      return opened;
-    }),
-  );
-  const opened = await validated.createSession({
-    sessionId,
-    workingDirectory: "/host/session",
-    configuration,
-    onBindingCreated: () => undefined,
-  });
-  const activeOutputsPromise = collectOutputs(
-    opened.runTurn({
-      turnId: activeTurnId,
-      interactionMode: "default",
-      parts: [{ type: "text", text: "Interrupt this active turn." }],
-    }),
-  );
-  await streamStarted;
-  const interruption = opened.interruption;
-  assert.equal(interruption.kind, "supported");
-  if (interruption.kind !== "supported") return;
-
-  await assert.rejects(
-    async () =>
-      interruption.interruptTurn({
-        turnId: activeTurnId,
-        reason: "user_requested",
-      }),
-    (error: unknown) =>
-      error instanceof AgentProviderContractError &&
-      error.code === "invalid_turn_sequence",
-  );
-  assert.equal((await activeOutputsPromise).length, 1);
-  await assert.rejects(
-    collectOutputs(
-      opened.runTurn({
-        turnId: nextTurnId,
-        interactionMode: "default",
-        parts: [{ type: "text", text: "Do not reuse the invalid session." }],
-      }),
-    ),
-    (error: unknown) =>
-      error instanceof AgentProviderContractError &&
-      error.code === "session_unusable",
-  );
 });
 
 test("concurrent steering settles before the original run closes and owns no outputs", async () => {
@@ -3843,7 +3799,7 @@ test("concurrent steering settles before the original run closes and owns no out
     steeringCapabilities,
     adapter((input) => {
       const opened = session({
-        runTurn: async function* ({ turnId }) {
+        startTurn: fixtureTurn(async function* ({ turnId }) {
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.started",
@@ -3865,7 +3821,7 @@ test("concurrent steering settles before the original run closes and owns no out
             type: "turn.completed",
             payload: { outcome: "completed" },
           });
-        },
+        }),
         steering: {
           kind: "supported",
           steerTurn: async () => {
@@ -3888,11 +3844,11 @@ test("concurrent steering settles before the original run closes and owns no out
     onBindingCreated: () => undefined,
   });
   const activeOutputsPromise = collectOutputs(
-    opened.runTurn({
+    opened.startTurn({
       turnId: activeTurnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Keep this turn active." }],
-    }),
+    }).outputs,
   );
   let runSettled = false;
   void activeOutputsPromise.then(() => {
@@ -3926,324 +3882,12 @@ test("concurrent steering settles before the original run closes and owns no out
   assert.equal(steeringCallCount, 1);
 
   await collectOutputs(
-    opened.runTurn({
+    opened.startTurn({
       turnId: nextTurnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Continue in the same session." }],
-    }),
+    }).outputs,
   );
-});
-
-test("interrupting a waiting turn releases its pending request state", async () => {
-  const waitingTurnId = parseAgentTurnId("contract-interrupted-turn");
-  const nextTurnId = parseAgentTurnId("contract-next-turn");
-  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const request = approvalRequest({
-    requestId: parseAgentRequestId("request:interrupted"),
-    title: "Interrupted operation",
-  });
-  let runCount = 0;
-  const validated = validateAgentProviderAdapter(
-    interruptibleRequestCapabilities,
-    adapter((input) => {
-      const opened = session({
-        runTurn: async function* (turnInput) {
-          runCount += 1;
-          yield createAgentEventOutput({
-            ...eventBase(turnInput.turnId, occurredAt),
-            type: "turn.started",
-            payload: {},
-          });
-          if (turnInput.turnId === waitingTurnId) {
-            yield* waitingForRequestOutputs({
-              turnId: waitingTurnId,
-              request,
-              occurredAt,
-            });
-            return;
-          }
-          yield createAgentEventOutput({
-            ...eventBase(nextTurnId, occurredAt),
-            type: "turn.completed",
-            payload: { outcome: "completed" },
-          });
-        },
-        interruption: {
-          kind: "supported",
-          interruptTurn: async ({ turnId }) => ({
-            status: "accepted",
-            outputs: [
-              createAgentEventOutput({
-                ...eventBase(turnId, occurredAt),
-                type: "turn.completed",
-                payload: { outcome: "canceled" },
-              }),
-            ],
-          }),
-        },
-      });
-      input.onBindingCreated(opened.binding);
-      return opened;
-    }),
-  );
-  const opened = await validated.createSession({
-    sessionId,
-    workingDirectory: "/host/session",
-    configuration,
-    onBindingCreated: () => undefined,
-  });
-
-  for await (const _output of opened.runTurn({
-    turnId: waitingTurnId,
-    interactionMode: "default",
-    parts: [{ type: "text", text: "Wait for approval." }],
-  })) {
-    // Consume the validated stream.
-  }
-  assert.equal(opened.interruption.kind, "supported");
-  if (opened.interruption.kind !== "supported") return;
-  assert.equal(
-    (
-      await opened.interruption.interruptTurn({
-        turnId: waitingTurnId,
-        reason: "user_requested",
-      })
-    ).status,
-    "accepted",
-  );
-  for await (const _output of opened.runTurn({
-    turnId: nextTurnId,
-    interactionMode: "default",
-    parts: [{ type: "text", text: "Continue." }],
-  })) {
-    // Consume the validated stream.
-  }
-  assert.equal(runCount, 2);
-});
-
-test("waiting-turn interruptions reject invalid terminal output sequences", async (context) => {
-  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const scenarios: readonly Readonly<{
-    name: string;
-    result: (turnId: AgentTurnId) => AgentProviderOperationResult;
-  }>[] = [
-    {
-      name: "event after completion",
-      result: (turnId) => ({
-        status: "accepted",
-        outputs: [
-          createAgentEventOutput({
-            ...eventBase(turnId, occurredAt),
-            type: "turn.completed",
-            payload: { outcome: "canceled" },
-          }),
-          createAgentEventOutput({
-            ...eventBase(turnId, occurredAt),
-            type: "runtime.warning",
-            payload: {
-              code: "late_waiting_warning",
-              message: "This warning followed waiting-turn completion.",
-            },
-          }),
-        ],
-      }),
-    },
-    {
-      name: "request opened by terminal status",
-      result: (turnId) => ({
-        status: "canceled",
-        outputs: [
-          createAgentEventOutput({
-            ...eventBase(turnId, occurredAt),
-            type: "request.opened",
-            payload: {
-              request: approvalRequest({
-                requestId: parseAgentRequestId(
-                  "request:terminal-interruption-output",
-                ),
-                title: "Terminal interruption request",
-              }),
-            },
-          }),
-        ],
-      }),
-    },
-  ];
-
-  for (const [index, scenario] of scenarios.entries()) {
-    await context.test(scenario.name, async () => {
-      const waitingTurnId = parseAgentTurnId(
-        `contract-waiting-interruption-invalid-${index}`,
-      );
-      const nextTurnId = parseAgentTurnId(
-        `contract-after-invalid-waiting-interruption-${index}`,
-      );
-      const request = approvalRequest({
-        requestId: parseAgentRequestId(`request:waiting-interruption-${index}`),
-        title: "Waiting interruption",
-      });
-      let runCount = 0;
-      const validated = validateAgentProviderAdapter(
-        interruptibleRequestCapabilities,
-        adapter((input) => {
-          const opened = session({
-            runTurn: async function* ({ turnId }) {
-              runCount += 1;
-              yield createAgentEventOutput({
-                ...eventBase(turnId, occurredAt),
-                type: "turn.started",
-                payload: {},
-              });
-              yield* waitingForRequestOutputs({
-                turnId,
-                request,
-                occurredAt,
-              });
-            },
-            interruption: {
-              kind: "supported",
-              interruptTurn: async ({ turnId }) => scenario.result(turnId),
-            },
-          });
-          input.onBindingCreated(opened.binding);
-          return opened;
-        }),
-      );
-      const opened = await validated.createSession({
-        sessionId,
-        workingDirectory: "/host/session",
-        configuration,
-        onBindingCreated: () => undefined,
-      });
-      await collectOutputs(
-        opened.runTurn({
-          turnId: waitingTurnId,
-          interactionMode: "default",
-          parts: [{ type: "text", text: "Wait for approval." }],
-        }),
-      );
-      const interruption = opened.interruption;
-      assert.equal(interruption.kind, "supported");
-      if (interruption.kind !== "supported") return;
-
-      await assert.rejects(
-        async () =>
-          interruption.interruptTurn({
-            turnId: waitingTurnId,
-            reason: "user_requested",
-          }),
-        (error: unknown) =>
-          error instanceof AgentProviderContractError &&
-          error.code === "invalid_turn_sequence",
-      );
-      await assert.rejects(
-        collectOutputs(
-          opened.runTurn({
-            turnId: nextTurnId,
-            interactionMode: "default",
-            parts: [
-              { type: "text", text: "Do not reuse the invalid session." },
-            ],
-          }),
-        ),
-        (error: unknown) =>
-          error instanceof AgentProviderContractError &&
-          error.code === "session_unusable",
-      );
-      assert.equal(runCount, 1);
-    });
-  }
-});
-
-test("an accepted waiting-turn interruption without a terminal makes the session unusable", async () => {
-  const waitingTurnId = parseAgentTurnId("contract-accepted-interruption-turn");
-  const nextTurnId = parseAgentTurnId("contract-after-accepted-interruption");
-  const occurredAt = parseAgentIsoDateTime("2026-08-04T00:00:00.000Z");
-  const request = approvalRequest({
-    requestId: parseAgentRequestId("request:accepted-interruption"),
-    title: "Accepted interruption",
-  });
-  let runCount = 0;
-  let closeCount = 0;
-  const validated = validateAgentProviderAdapter(
-    interruptibleRequestCapabilities,
-    adapter((input) => {
-      const opened = session({
-        runTurn: async function* () {
-          runCount += 1;
-          yield createAgentEventOutput({
-            ...eventBase(waitingTurnId, occurredAt),
-            type: "turn.started",
-            payload: {},
-          });
-          yield* waitingForRequestOutputs({
-            turnId: waitingTurnId,
-            request,
-            occurredAt,
-          });
-        },
-        interruption: {
-          kind: "supported",
-          interruptTurn: async () => ({ status: "accepted" }),
-        },
-        close: async () => {
-          closeCount += 1;
-        },
-      });
-      input.onBindingCreated(opened.binding);
-      return opened;
-    }),
-  );
-  const opened = await validated.createSession({
-    sessionId,
-    workingDirectory: "/host/session",
-    configuration,
-    onBindingCreated: () => undefined,
-  });
-  await collectOutputs(
-    opened.runTurn({
-      turnId: waitingTurnId,
-      interactionMode: "default",
-      parts: [{ type: "text", text: "Wait for approval." }],
-    }),
-  );
-  assert.equal(opened.interruption.kind, "supported");
-  if (opened.interruption.kind !== "supported") return;
-
-  assert.equal(
-    (
-      await opened.interruption.interruptTurn({
-        turnId: waitingTurnId,
-        reason: "user_requested",
-      })
-    ).status,
-    "accepted",
-  );
-  await assert.rejects(
-    collectOutputs(
-      opened.resolveRequest({
-        resolution: allowOnceResolution(request.requestId),
-      }),
-    ),
-    (error: unknown) =>
-      error instanceof AgentProviderContractError &&
-      error.code === "session_unusable",
-  );
-  await assert.rejects(
-    collectOutputs(
-      opened.runTurn({
-        turnId: nextTurnId,
-        interactionMode: "default",
-        parts: [{ type: "text", text: "Do not overlap the prior turn." }],
-      }),
-    ),
-    (error: unknown) =>
-      error instanceof AgentProviderContractError &&
-      error.code === "session_unusable",
-  );
-  assert.equal(runCount, 1);
-  await opened.close({ reason: "other" });
-  assert.equal(closeCount, 1);
 });
 
 test("authentication validates the declared flow and opaque attempt inputs before provider delegation", async () => {
@@ -4384,8 +4028,9 @@ test("environment read failures preserve a healthy session's turn execution", as
   }));
   const opened = await validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated: () => undefined });
   if (opened.environment.kind !== "read") throw new Error("Expected environment read port.");
-  await assert.rejects(opened.environment.readEnvironment({ environmentId: parseAgentEnvironmentId("healthy-session-environment"), signal: new AbortController().signal }), (error) => error === nativeFailure);
-  const output = await collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("after-metadata-failure"), interactionMode: "default", parts: [{ type: "text", text: "Continue." }] }));
+  const environment = opened.environment;
+  await assert.rejects(async () => (environment.readEnvironment({ environmentId: parseAgentEnvironmentId("healthy-session-environment"), signal: new AbortController().signal })), (error) => error === nativeFailure);
+  const output = await collectOutputs(opened.startTurn({ turnId: parseAgentTurnId("after-metadata-failure"), interactionMode: "default", parts: [{ type: "text", text: "Continue." }] }).outputs);
   assert.equal(output.length, 2);
   await opened.close({ reason: "shutdown" });
 });
@@ -4397,21 +4042,21 @@ test("content reference capability is checked before provider delegation and pre
     const selected = parseAgentCapabilities({ ...capabilities, input: { ...capabilities.input, contentReferences: supported ? { kind: "supported", maxReferences: 1, arguments: false, textFormats: { prompt: "unrestricted", arguments: "unrestricted" } } : { kind: "unsupported" } } });
     const validated = validateAgentProviderAdapter(selected, adapter((input) => {
       const base = session();
-      const opened = session({ runTurn: async function* (turn) {
+      const opened = session({ startTurn: fixtureTurn(async function* (turn) {
         received = turn.parts;
-        yield* base.runTurn(turn);
-      } });
+        yield* base.startTurn(turn).outputs;
+      }) });
       input.onBindingCreated(opened.binding);
       return opened;
     }));
     const opened = await validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated: () => undefined });
     const turn = { turnId: parseAgentTurnId("reference-capability"), interactionMode: "default" as const, parts: [part] };
     if (supported) {
-      await collectOutputs(opened.runTurn(turn));
+      await collectOutputs(opened.startTurn(turn).outputs);
       assert.deepEqual(received, [part]);
-      await assert.rejects(collectOutputs(opened.runTurn({ ...turn, turnId: parseAgentTurnId("reference-arguments"), parts: [{ ...part, arguments: "unqualified" }] })), (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
+      await assert.rejects(async () => (collectOutputs(opened.startTurn({ ...turn, turnId: parseAgentTurnId("reference-arguments"), parts: [{ ...part, arguments: "unqualified" }] }).outputs)), (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
     } else {
-      await assert.rejects(collectOutputs(opened.runTurn(turn)), (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
+      await assert.rejects(async () => (collectOutputs(opened.startTurn(turn).outputs)), (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
       assert.equal(received, undefined);
     }
     await opened.close({ reason: "shutdown" });
@@ -4427,7 +4072,7 @@ test("skill text restrictions reject before delegation and leave the session usa
   } });
   const validated = validateAgentProviderAdapter(selected, adapter((input) => {
     const base = session();
-    const opened = session({ runTurn: async function* (turn) { calls += 1; yield* base.runTurn(turn); } });
+    const opened = session({ startTurn: fixtureTurn(async function* (turn) { calls += 1; yield* base.startTurn(turn).outputs; }) });
     input.onBindingCreated(opened.binding);
     return opened;
   }));
@@ -4437,17 +4082,17 @@ test("skill text restrictions reject before delegation and leave the session usa
     [reference, { type: "text" as const, text: "Explain @agenai imports." }],
     [{ ...reference, arguments: "private\nargument" }],
   ]) {
-    await assert.rejects(collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("text-rejected"), interactionMode: "default", parts })),
+    await assert.rejects(async () => (collectOutputs(opened.startTurn({ turnId: parseAgentTurnId("text-rejected"), interactionMode: "default", parts }).outputs)),
       (error) => error instanceof AgentProviderContractError && error.code === "input_capability_mismatch");
   }
   assert.equal(calls, 0);
-  await collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("text-corrected"), interactionMode: "default",
+  await collectOutputs(opened.startTurn({ turnId: parseAgentTurnId("text-corrected"), interactionMode: "default",
     parts: [{ ...reference, arguments: "@allowed-in-single-line" }, { type: "text", text: "Review authentication." }],
-  }));
+  }).outputs);
   assert.equal(calls, 1);
-  await collectOutputs(opened.runTurn({ turnId: parseAgentTurnId("ordinary-text"), interactionMode: "default",
+  await collectOutputs(opened.startTurn({ turnId: parseAgentTurnId("ordinary-text"), interactionMode: "default",
     parts: [{ type: "text", text: "Without a skill:\nExplain @agenai imports." }],
-  }));
+  }).outputs);
   assert.equal(calls, 2);
   await opened.close({ reason: "shutdown" });
 });

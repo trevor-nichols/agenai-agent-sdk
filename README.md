@@ -2,7 +2,8 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Status: `0.3.1` with Agent Protocol V9. The npm `latest` and `beta` tags both select this release.
+> Version `0.4.0` coordinates all seven SDK packages and implements Agent Protocol V10.
+> See [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) before upgrading from `0.3.1`.
 
 ## Why this exists
 
@@ -15,8 +16,8 @@ The AgenAI Agent SDK gives those providers one process-local interface to implem
 materializes an instance, the instance exposes an adapter, and the adapter opens sessions. The host
 works with the same validated session contract regardless of the native API behind it.
 
-Provider-specific protocols, credentials, process management, native session identifiers, and
-provider adapters stay with the adapter owner. They are not shipped in these public packages.
+Credentials, process management, native session identifiers, and provider adapters stay with the
+adapter owner. The optional ACP transport exposes bounded ACP wire mechanics for adapter authors.
 Product concerns such as users, workspaces, authorization, billing, persistence, and scheduling
 stay in the host.
 
@@ -32,8 +33,17 @@ Write the host once. Adapt each agent once.
 | Package | Purpose |
 | --- | --- |
 | `@agen-ai/validation` | Validator-neutral issue data with an optional Zod 4 adapter. |
-| `@agen-ai/agent-protocol` | Sessions, turns, requests, capabilities, events, artifacts, environment catalogs, parsers, and schemas. |
+| `@agen-ai/agent-protocol` | Sessions, turns, requests, capabilities, classified failures, provider retry events, artifacts, environment catalogs, parsers, and schemas. |
 | `@agen-ai/agent-runtime` | Drivers, instances, adapters, sessions, environment lifecycle validation, registry mechanics, and conformance tools. |
+| `@agen-ai/agent-orchestration` | Optional certified target policy, scoped managed tasks and tools, completion inbox delivery, and bounded storage contracts. |
+| `@agen-ai/acp-transport` | Optional Node.js ACP JSON-RPC transport with explicitly selected pinned schemas, bounded framing, correlation, and standard session operations. |
+| `@agen-ai/provider-acp` | Optional ACP driver with explicit connection ownership, a Node process launcher, and bounded session/permission lifecycles. |
+| `@agen-ai/acp-registry` | Optional bounded catalog validation, deterministic search and exact plans, with explicit Node fetching, verified installation and retained launch. |
+
+All seven packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
+MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
+schema assets. All seven source versions are `0.4.0`; the four optional packages have no published
+version yet.
 
 The dependency chain is intentionally narrow:
 
@@ -42,26 +52,373 @@ The dependency chain is intentionally narrow:
   -> @agen-ai/agent-protocol
        -> @agen-ai/validation
        -> zod
+
+@agen-ai/agent-orchestration
+  -> @agen-ai/agent-runtime
+  -> @agen-ai/agent-protocol
+  -> @agen-ai/validation
+  -> zod
+  -> @modelcontextprotocol/sdk@1.29.0 (explicit /mcp transport graph only)
+
+@agen-ai/acp-transport
+  -> ajv@8.17.1
+
+@agen-ai/provider-acp
+  -> @agen-ai/acp-transport
+  -> @agen-ai/agent-runtime
+  -> @agen-ai/agent-protocol
+
+@agen-ai/acp-registry
+  -> @agen-ai/validation
+  -> zod
+  -> pinned archive readers (Node installation graph only)
 ```
+
+The optional transport has no dependency on the core packages, and the core packages do not
+depend on it. It accepts host-owned streams and adds no process launcher, provider credentials,
+registry installer, or authorization policy. Native ACP data stays at that explicit boundary.
+The optional provider composes the transport with the runtime's existing driver/session API.
+Its `/node` entrypoint adds explicit POSIX process-group launch and cleanup; the caller owns
+confinement and credentials. Windows hosts supply an owned connection through the root provider API;
+the built-in launcher rejects Windows before spawning.
+The optional registry validates and searches inert catalog metadata and creates exact install plans.
+Fetching and verified binary/npm/uv installation live under `/node`, with explicit origin policy,
+caller-selected toolchains and an owned installation store. Retained launch verifies the complete
+payload and requires an active reference. Catalog parsing and planning do not perform network,
+filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the coordinated `0.3.1` release directly or through npm's `latest` channel:
+Install the coordinated `0.4.0` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.3.1
+pnpm add @agen-ai/agent-runtime@0.4.0
 ```
 
-The `beta` tag also selects `0.3.1` for repositories that use the prerelease channel. The protocol
-and validation packages are installed automatically. Install them directly when you need their
-public APIs without the runtime:
+The protocol and validation packages are installed automatically. Install them directly when you
+need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.3.1 @agen-ai/agent-protocol@0.3.1
+pnpm add @agen-ai/validation@0.4.0 @agen-ai/agent-protocol@0.4.0
 ```
 
-All three packages must use the same version. Agent Protocol V9 is a direct replacement for V8 at
-the live boundary; the parser does not provide a V8 compatibility mode.
+Keep every SDK package you install at the same coordinated version, including optional packages.
+Agent Protocol V10 directly replaces V9 at the live boundary; the parser has no V9 compatibility mode.
+
+## Handle operational failures
+
+V10 `AgentError` separates a neutral `category`, stable `code`, safe `message` and tagged `recovery`,
+with bounded optional context. Categories distinguish rate limiting, account allowance, turn budget,
+execution/context limits, authentication, permission, invalid input, overload, transport and other
+provider failures. Recovery hints describe possible next steps; a retry hint or quota reset never
+authorizes replay or schedules another turn.
+
+`runtime.retrying` observes a retry already owned by the provider. Keep the same turn and output
+consumer active; optional attempt/maximum counts exclude the original attempt and remain absent when
+unknown. A `runtime.error` diagnostic alone is not a terminal boundary. Present a failed turn from its
+authoritative `turn.completed` result, preserving uncertainty when dispatch or native settlement cannot
+be confirmed. A failed tool item does not by itself fail the turn.
+
+Contract errors and retained cleanup handles keep their existing meaning. Cancellation acceptance
+does not prove producers stopped, and successful cleanup does not make an unresolved operation safe
+to repeat. The [consumer-handling example](MIGRATING-TO-0.4.md#consumer-handling) shows a small event
+handler and the required cancellation, session-retirement and cleanup rules. The
+[protocol README](packages/agent-protocol/README.md#errors-and-trust) defines exact categories,
+recovery alternatives, quotas and bounds.
+
+## Read output while a request waits
+
+[`examples/live-request-output.ts`](examples/live-request-output.ts) is the smallest runtime
+walkthrough. From this public source checkout, run:
+
+```sh
+pnpm build
+pnpm examples:live-request-output
+```
+
+It uses a deterministic provider with no native process, account or network. One execution and one
+output reader observe an opened request and unrelated progress before the host supplies the exact
+answer. A separately owned handler waits for that progress, receives a delivery receipt, and joins
+cleanup after later output and the original turn's terminal event. The packed consumer runs this
+same source against the seven matching tarballs.
+
+`startTurn` validates and reserves synchronously; native work starts on the first output pull.
+Keep one consumer and one outstanding pull, and run human decisions independently of that reader.
+`delivered` confirms provider-owned acceptance of the exact canonical answer or step. A rejected
+receipt requires `requestState: 'pending' | 'unavailable'`; only pending can preserve that request
+for a fresh valid answer. Local validation errors remain errors, and uncertain delivery forbids
+replay. A receipt or waiting observation never completes the turn. See the
+[before/after migration example](MIGRATING-TO-0.4.md#continuous-turn-output-and-independent-answers)
+for cancellation, terminal fencing and abort-before-join cleanup.
+
+## Run an ACP agent
+
+The source checkout includes two credentialless, executable examples. They use a synthetic ACP
+peer, require no account or network access, and exercise the ordinary runtime session and
+once-only permission APIs. Build the packages before running them:
+
+```sh
+pnpm build
+pnpm examples:local
+pnpm examples:registry
+```
+
+The local example works with the supported Node platforms. The registry example's raw synthetic
+executable uses a POSIX shebang, so it requires Linux or macOS on x64/arm64 and a Node executable
+path without whitespace. Neither example requires npm/Python/uv installation tools. On failure,
+they retain their temporary workspace; the registry example also persists its exact installation
+reference. Establish native-process quiescence before releasing retained resources.
+
+[`examples/local-command.ts`](examples/local-command.ts) starts a caller-selected absolute
+executable with literal arguments, an explicit working directory and an explicit environment.
+It constructs `createNodeAcpProviderDriver` from `@agen-ai/provider-acp/node`, registers that driver
+with `createAgentProviderRegistry`, and runs a validated session. This path needs no registry or
+installation store. For an agent you already manage, replace the fixture command with your approved
+launch recipe; the launcher never inherits `process.env`, selects credentials or creates a sandbox.
+The root provider entrypoint also accepts exclusively leased streams when the host owns acquisition.
+
+[`examples/registry-install-run.ts`](examples/registry-install-run.ts) demonstrates the explicit
+discovery and installation path with local fixture bytes:
+
+1. Parse an approved catalog with `parseAcpRegistrySnapshot`, search it, and select an exact entry
+   and target with independently retained snapshot and entry pins.
+2. Create an immutable `createAcpInstallPlan` with explicit integrity, network, scripts and
+   reproducibility policy. Package distributions also need exact resolution and toolchain evidence.
+3. Open an owned installation store through `@agen-ai/acp-registry/node` and deliberately install
+   the plan against its retained expected digest. Installation produces a separate verified receipt.
+4. Acquire an exact installation reference and call `resolveLaunch`. Compose the returned recipe
+   with the host's approved environment and working directory, then create the normal ACP driver.
+5. Start one execution, consume `execution.outputs` through terminality, answer through
+   `execution.resolveRequest` independently, close sessions and dispose the
+   provider, then release the installation reference. Removal is a separate explicit operation.
+
+The fixture computes pins from its own known synthetic bytes to keep the example self-contained;
+a production host must obtain its expectations from an independently trusted source. The example
+deletes its original artifact and reopens the store before launch, demonstrating that
+retained launch uses the verified installation rather than downloading or resolving an agent again.
+The shared [`examples/run-session.ts`](examples/run-session.ts) shows a pending once-only approval
+continuing the same prompt with independently owned, signal-aware human handling. Its
+`ExampleSessionCleanupError` is an example-host error with a `retryCleanup()` closure that retains
+the session or exact SDK opening-cleanup receipt and registry. A failed cleanup keeps the workspace
+and any installation reference retained; retry the owned cleanup before disposing those resources.
+This helper error is not an SDK export or a serializable recovery handle.
+These examples demonstrate API behavior; they do not qualify a native
+agent, an authenticated account, inference, or production containment.
+
+## Managed delegation
+
+`@agen-ai/agent-orchestration` adds managed child tasks above the validated runtime. Its ordinary
+entrypoint is inert: importing it opens no sessions, listeners, databases or processes. Native harness
+subagents keep their own behavior and policy. Construct a coordinator explicitly when your host wants
+the SDK to manage separate child sessions.
+
+Delegation has three independent choices: the developer excludes targets, the user enables and
+selects permitted targets, and the main agent chooses from the resulting catalog. Developer exclusions
+default empty and user policy defaults disabled. With delegation enabled and selection omitted, all
+currently available, host-certified standard targets are eligible, including future catalog additions.
+An explicit empty selection stays empty. Fast execution requires explicit opt-in; certified `max`,
+`xhigh`, `ultra` and other provider reasoning identities have no SDK ceiling. Unknown execution
+semantics require explicit selection and a visible host limitation. User selection cannot override a
+developer exclusion, and descendants cannot expand their ancestor's exact target ceiling.
+
+The host certifies complete target combinations and their exact configuration mappings. It owns
+current policy, source/account/loading authority, result and control access, execution leases, and
+authorized child resources. The coordinator applies the selected child configuration before its first
+prompt and checks current authority at dispatch. Native option names alone do not certify standard or
+fast execution. Catalog and source changes invalidate stale references even if their labels stay the
+same. No configuration change is applied to the parent or a shared session.
+
+`createDelegationHostBinding({ client })` closes over a trusted scoped client and returns no binding
+while delegation is disabled. Enabled policy with no permitted targets still exposes a bounded empty
+catalog explanation. The tools are `delegation_targets`, `delegate_task`, `task_status`, `task_send`
+and `task_cancel`; mutation calls carry durable UUID operation IDs for honest retries. Cached tools still
+check current authority. Disabling delegation prevents new execution while authorized status, result
+and cancellation access can remain available. Status supports bounded waits and paginated history;
+tool projections fit within 24 KiB and the runtime's 32 KiB result envelope. Parent identity, policy,
+executable authority and approval handles never come from model arguments. Approval resolution stays
+host-only, and tool failures expose bounded neutral errors rather than native diagnostics.
+
+The SDK generates guidance internally from the effective capabilities. A host does not need to expose
+prompt text in its user interface or ask users to write a delegation template. Guidance uses the
+adapter's declared instruction placement; tool context is not a trusted system or developer message.
+It cannot grant authority or enforce policy. Host-certified native tool names may appear in guidance,
+and installing managed tools preserves native tools. Releasing a binding drains its calls without
+disposing the coordinator or canceling admitted children. Close the coordinator before its runtime
+registry, retaining leases and resources until their producers have quiesced.
+
+Completion defaults to `collect`, where the caller reads the task result without requiring an inbox.
+`next_turn` and `automatic` require an explicitly compatible `DelegationParentDeliveryPort`. Any inbox
+configured for durable task storage must be durable. The SDK submits deduplicated completion envelopes
+to that host inbox and does not
+dispatch the parent model. Inbox acceptance, authorized parent dispatch and child outcome are separate
+facts. A lost acknowledgment is inspected before another acceptance attempt. Revocation, expiry or
+inbox dismissal preserves the child result. Recovery never replays uncertain child execution or an
+uncertain parent dispatch. The host consumes `next_turn` completions at an explicit turn boundary and
+may dispatch `automatic` completions only at an authorized idle boundary, sharing its normal parent-turn exclusion.
+A child can outlive the parent turn that delegated it.
+
+Pending delivery retries use backoff of one to 30 seconds until notification expiry. Shutdown stops new
+inbox deliveries and quiesces entered callbacks; a timeout does not release an owner while its callback
+can still commit. Draining children does not mean their parent consumed the completion.
+
+Run the credentialless direct and ACP workflows after building the source checkout:
+
+```sh
+pnpm build
+pnpm examples:delegation
+pnpm examples:delegation:acp
+```
+
+The direct workflow demonstrates configuration before prompting, selection, progress, steering,
+queued turns, cancellation and host approval. The ACP workflow uses a deterministic peer that actually
+discovers and invokes managed MCP tools, then ends its parent turn while a child remains waiting.
+Neither workflow needs credentials or inference. The ACP process example uses the provider's POSIX
+launcher; hosts on other platforms supply their own owned connections.
+
+The [durable walkthrough](examples/delegation/README.md#durable-command-line-walkthrough) adds a local
+SQLite store and parent inbox with explicit setup, inspect, restart and cleanup commands. That reference
+qualifies Linux, Node `24.18.0`, SQLite `3.53.1` from `node:sqlite`, and a local filesystem of Linux type
+`0xEF53`; it rejects other tuples. SDK support for Node 22 or newer does not qualify this reference on
+every supported Node version. In the exact qualified environment, use the root printed by setup:
+
+```sh
+pnpm examples:delegation:durable setup --scenario normal
+pnpm examples:delegation:durable inspect --root /absolute/generated/root
+pnpm examples:delegation:durable restart --root /absolute/generated/root
+pnpm examples:delegation:durable cleanup --root /absolute/generated/root
+```
+
+Run its separate crash/recovery qualification lane in that same environment:
+
+```sh
+pnpm build
+pnpm typecheck:examples
+pnpm test:examples:durable
+```
+
+The connected [failure-handling example](examples/delegation/README.md#handle-retries-classified-failures-and-uncertainty)
+is available as `pnpm examples:delegation:failures` on that qualified tuple. It demonstrates a
+provider-owned retry ending successfully, a classified child failure collected after reopening
+SQLite, and uncertain execution that remains `recovery_required` despite a retry hint. The durable
+qualification lane and the opted-in packed consumer execute it using only public package entrypoints.
+
+Retained format-1 task stores require the explicit
+[offline migration](MIGRATING-TO-0.4.md#optional-managed-delegation) before format-3 open. The optional
+inbox migrates atomically in the same database, while owner-lock format remains 1. Stop and resolve
+old execution/delivery owners first; the migration retains a synchronized backup and refuses
+unresolved or oversized transformations. Rollback requires that backup and the matched old
+implementation in a separately owned directory. The public reference's qualification is independent
+of private Hostd's Node 22.23.2/SQLite 3.51.3 durable runtime.
+
+See the [orchestration README](packages/agent-orchestration/README.md) for bounded tools, storage,
+authority and cleanup contracts. This release supplies SDK building blocks and executable host
+compositions. Product settings, preference persistence, account-aware catalogs, production provider
+registration and user experience remain application follow-up work.
+
+## ACP support
+
+The transport validates the selected wire schema. The provider separately maps the semantics it
+can faithfully express through Agent Protocol V10. Initialization fixes one capability envelope per
+instance, and later connections must match it.
+
+`createAcpProviderDriver` and `createNodeAcpProviderDriver` default
+`unknownExtensionPolicy` to `'standard'`: an unrecognized `_...` notification is
+discarded, and an unrecognized `_...` request receives a correlated `-32601`
+response. Neither invokes a host callback. Direct `createAcpClient` construction
+defaults to `'reject'`. Select `'reject'` explicitly on a provider to retain strict
+extension rejection, then create a fresh provider/session; changing policy never
+replays an uncertain operation. Both choices preserve schema, framing, rate,
+correlation and cleanup limits. Known or registered methods still use their exact
+validators. A vendor feature that needs an extension requires an explicit mapping
+and separate behavior evidence.
+
+| Surface | Provider support in `0.4.0` |
+| --- | --- |
+| Sessions and turns | Create, default text turns, streamed text/reasoning/tool progress, and settlement-backed interruption. Exact resume requires advertised `session/resume` or `session/load`; load replay is bounded and suppressed. |
+| Permissions | Once-only, exact-action choices; one native prompt survives each canonical request continuation. Persistent grants are unsupported. |
+| Configuration | Managed by default; explicitly selected boolean/select catalogs with offered revision checks. ACP has no remote compare-and-set guarantee. |
+| Session-local MCP tools | Explicit `sessionMcpBinding` factory after the requested HTTP/SSE transport is negotiated. Instructions use tool context; setup alone does not certify native tool discovery or invocation. |
+| Forms | Boolean, single-select and multi-select forms within V10 bounds, preserving accept/decline/cancel. Broader forms need an explicit host facility; unsupported constraints fail before presentation. |
+| Images | Advertised inline PNG/JPEG/WebP input within fixed image and turn budgets. No implicit file reads, URL fetching or media output. |
+| Observations | Plans, partial structured file changes, and session command catalogs. Missing metadata stays unknown. These observations do not establish a final workspace Review. |
+| Host facilities | Explicit authentication, URL/form, filesystem and complete terminal callbacks. Paths, commands and method labels do not authorize an effect. |
+| Unsupported semantics | Branching, same-turn steering, enforced plan mode, context usage/compaction, account quota, effective skill/rule inventory, collaboration, generated resources and artifact publication. |
+
+The provider has no portable list/delete/logout/import administration API. Hosts can use the
+transport directly for separately authorized native administration. See the
+[provider capability matrix](packages/provider-acp/README.md#capability-matrix) for exact mapping
+requirements, form constraints, operational bounds and failure behavior.
+
+For managed tools, configure `sessionMcpBinding: { transport: 'http', create }` on the provider and
+have the factory construct `startDelegationMcpBridge` from `@agen-ai/agent-orchestration/mcp` using its
+validated session binding. The factory returns exact MCP server entries and an owned release callback;
+each create or resume receives fresh resources. Static native MCP servers remain available. Without
+the configured factory and negotiated transport, host binding support is unsupported. The bridge
+starts only when explicitly constructed, binds loopback with fresh bearer credentials, and carries
+generated instructions through MCP tool/server context. Qualify discovery and invocation for each
+actual native harness version separately from ordinary runtime opening.
+
+On successful close, the provider quiesces its native connection before releasing the MCP bridge;
+the runtime then drains and releases the original host binding. A rejected opening with incomplete
+cleanup can retain an `AgentProviderSessionCleanupError`. Check its ownership with
+`isAgentProviderSessionCleanupErrorFor(error, originalOpeningInput)` and keep `retryCleanup()` and
+its resources until cleanup succeeds. The binding-specific subclass remains available. Cleanup
+handles and native diagnostics belong to the trusted host, not model-visible tool results.
+
+The separately invoked [native qualification example](examples/delegation/native/README.md)
+performs discovery, bounded authenticated execution and offline evidence checks.
+Earlier repository qualification exercised Grok `1.0.50` on Linux x86_64 through an explicit
+API-key route with `grok-4.3`, Low reasoning and the observed default service-tier
+request mapping. Both direct launch and verified retained-binary launch completed
+actual managed tool calls, once-only approvals, child-result delivery and cancellation,
+with owned resources closed. Retained launch reopened the installation in a fresh
+process. The retained version-1 reports describe the prior continuation API. Current version-2
+execution reports require fresh installed qualification; deterministic packed runs do not qualify
+this changed output lifetime. That exact pairing used a volatile completion inbox; the durable
+reference has its own qualification. Native smoke is opt-in and is never scheduled by ordinary
+tests. Other native versions, account routes, platforms and production hosts require
+their own evidence.
+
+## Pinned inputs and verification
+
+| Input | Accepted identity |
+| --- | --- |
+| Legacy transport schema | `v0.11.4`, commit `e931357254ff44573294d5cee214a269e0cd6c54`; stable is the transport default, unstable is explicitly selectable. |
+| Modern provider schema | Stable `schema-v1.23.0`, commit `6d08f412a7a1370d3cc9a124e3be3d6acf92641e`; the provider selects it explicitly. |
+| Registry metadata | `published-v1`, based on registry commit `7f9be29696108572a2bca70e0563af528073a0c3`; complete `version: '1.0.0'` catalogs with only the documented empty `extensions` exception. |
+
+Both schema profiles use ACP wire version 1. That number selects neither a schema profile nor
+optional capabilities. Modern unstable definitions and ACP v2 are unsupported. The transport
+ships exact schema bytes, hashes, licenses and provenance in its
+[profile directories](packages/acp-transport/schema); the registry documents its
+[accepted format and upstream inputs](packages/acp-registry/README.md#identity-and-the-accepted-profile).
+Stable and preview catalogs are distinct caller-selected sources, with no automatic overlay or
+latest-version resolution.
+
+Verification evidence has several separate meanings:
+
+| Evidence | What it establishes |
+| --- | --- |
+| Source, snapshot, entry and plan digests | Identity of the selected inputs. The caller must retain expected pins independently; a self-computed digest does not establish publisher trust. |
+| Expected artifact checksum | A byte expectation approved before installation. A later measurement cannot supply a missing expectation retroactively. |
+| Installation receipt | Verification of the actual artifacts, complete payload, launch recipe and declared obligations. Launch checks current payload and retained toolchain entry bytes again. |
+| Exact package version and dependency lock | A fixed top-level resolution and, when supplied, declared dependency closure. Installation also checks actual manifests and closure; a version alone is incomplete. |
+| npm package provenance | Evidence about the SDK package build/publication. It does not authenticate agents selected from a catalog or authorize their execution. |
+
+Strict plans require expected integrity, disabled package scripts and complete package inputs.
+Permissive plans retain missing-checksum or missing-original-lock gaps after installation. Native
+shared libraries, operating systems and complete external Node/Python toolchain trees remain host
+dependencies. Installers support checked binary archives/raw executables and offline npm/uv
+installation from approved artifacts; package lifecycle scripts, Python source builds, unsupported
+dependency metadata and download-on-demand `npx`/`uvx` launch are rejected.
+
+The host owns trusted source selection, execution permission, credentials, process/network/filesystem
+containment, user interaction, durable output and recovery. Keep a turn-lifetime signal valid across
+pending requests; canceling that signal cancels the retained native prompt. Keep every installation
+reference until all processes using it have stopped, including failed startup and cleanup. An
+uncertain dispatch or cancellation must remain uncertain; close the unusable session and establish
+cleanup before rematerializing, without replaying the original action. Neither installation success
+nor the six recognized target identifiers establishes native or production qualification.
 
 ## Runtime shape
 
@@ -86,7 +443,7 @@ provider mechanics inside the adapter.
 
 ## Environment and effective content
 
-Agent Protocol V9 separates content a host manages from content a selected native harness actually
+Agent Protocol V10 separates content a host manages from content a selected native harness actually
 reports:
 
 - `managedContent` is the caller-managed inventory used for distribution and product workflows.
@@ -151,15 +508,70 @@ pnpm install
 pnpm check
 ```
 
-`pnpm check` validates repository metadata, checks generated protocol surfaces, builds and
-typechecks all three packages, runs their tests, packs each package, and installs the tarballs into a
-temporary project. Nothing is published by that command.
+`pnpm check` validates repository/release metadata, checks generated protocol surfaces, builds and
+typechecks all seven packages and the examples, executes the local, registry, direct-delegation and
+ACP-delegation workflows, hermetic native-runner tests and package tests, then packs
+each package for a separately installed consumer proof. The packed consumer also
+executes those hermetic runner tests and verifies default and strict extension
+policies through installed providers. Nothing is published by that command.
+Durable reference qualification is a separate `pnpm test:examples:durable` lane with the exact
+environment described above. Set `AGENT_SDK_DURABLE_TEST_ROOT` to a qualified absolute directory
+to include that lane in the packed external-consumer proof.
+Registry installation tests require Python and uv as well as Node/npm; see the
+[installation test prerequisites](packages/acp-registry/README.md#real-installation-test-prerequisites).
+The synthetic Linux test lane does not establish native macOS/Windows, account, inference or fleet
+qualification. Qualify each actual agent version, target, toolchain and host policy separately.
 
 Package-specific API and lifecycle notes live in each package README:
 
 - [`@agen-ai/validation`](packages/validation/README.md)
 - [`@agen-ai/agent-protocol`](packages/agent-protocol/README.md)
 - [`@agen-ai/agent-runtime`](packages/agent-runtime/README.md)
+- [`@agen-ai/agent-orchestration`](packages/agent-orchestration/README.md)
+- [`@agen-ai/acp-transport`](packages/acp-transport/README.md)
+- [`@agen-ai/provider-acp`](packages/provider-acp/README.md)
+- [`@agen-ai/acp-registry`](packages/acp-registry/README.md)
+
+## Prepared changes in 0.4.0
+
+This coordinated release advances Agent Protocol to V10 and preserves the explicit core entrypoints.
+`AgentError` now requires category and recovery evidence alongside code and message, and removes
+`retryable`. The turn-scoped `runtime.retrying` event observes retries owned by the provider without
+authorizing host replay. Unknown facts stay unknown; quota references reuse bounded observed quota
+facts. See the [migration guide](MIGRATING-TO-0.4.md#failures-and-provider-retry-observations) for the
+breaking contract changes and historical V9 decoding requirement.
+
+It also carries forward the runtime correction first prepared in the unpublished `0.3.2` source. When a
+provider returns `delivery_uncertain` from steering, the validated session now becomes unusable
+for further mutation. The active output stream can settle; the host then closes and rematerializes
+the session before continuing. A definitive rejection remains reusable. No automatic resend or
+follow-up turn is introduced.
+
+The source also adds optional `@agen-ai/acp-transport` at `0.4.0`. Its pinned ACP v0.11.4 stable and
+unstable schemas and legacy defaults remain unchanged. Hosts may explicitly select the separate
+modern stable `schema-v1.23.0` profile; modern unstable methods and ACP v2 are not included. Both
+profiles use wire protocol version 1, which does not select a schema profile. Schema generation
+uses package-owned inputs and works in a standalone checkout. The optional provider maps that
+modern stable profile into the existing runtime API through injected
+connections or an explicit Node launcher. The optional registry adds bounded catalog validation,
+deterministic target selection, immutable plans, verified binary/npm/uv installation and reference-safe
+retained launch with explicit resolution and integrity policy.
+The optional `@agen-ai/agent-orchestration` package adds certified target policy and explicitly
+constructed managed execution over the runtime registry, with a bounded volatile store, host-injected
+completion delivery and a shared `/store-adapter` transition contract. The optional
+[durable reference](examples/delegation/README.md) demonstrates SQLite ownership and parent-inbox
+recovery in its qualified environment. Managed delegation defaults off; developer exclusions default empty,
+users control remaining selections, fast starts unselected, and no SDK reasoning ceiling is imposed.
+Native harness subagents remain independent. `createDelegationHostBinding` adds scoped agent tools
+and generated instructions only when enabled; the explicit `/mcp` entrypoint starts an individually
+owned loopback bridge for a supporting host. The ordinary import graph remains free of MCP transport
+initialization. The provider's optional negotiated `sessionMcpBinding` factory composes those tools
+with ACP sessions. See [managed delegation](#managed-delegation) for completion modes, executable
+workflows and host ownership.
+All seven package versions advance together under the coordinated release policy. Deploying a host
+or using real accounts and inference requires its own authorization
+and qualification. Package semver does not track a native vendor version. See
+[MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) for the host lifecycle and coordinated upgrade checklist.
 
 ## What changed in 0.3.1
 
@@ -201,4 +613,6 @@ reporting.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The ACP schema assets retain their upstream Apache-2.0 license and
+provenance in each profile directory under
+[`packages/acp-transport/schema`](packages/acp-transport/schema).

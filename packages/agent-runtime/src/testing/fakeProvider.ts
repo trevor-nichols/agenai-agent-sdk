@@ -50,7 +50,7 @@ import { createAgentProviderReadiness } from "../readiness.js";
 import type {
   AgentProviderAdapter,
   AgentProviderOperationResult,
-  AgentProviderRunTurnInput,
+  AgentProviderStartTurnInput,
   AgentProviderSession,
   AgentProviderSessionContext,
   AgentProviderSteerTurnInput,
@@ -142,7 +142,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 9,
+    protocolVersion: 10,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
@@ -272,7 +272,7 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 9 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 10 as const, sessionId, turnId, occurredAt };
 }
 
 function fakeEnvironmentSnapshot(
@@ -415,7 +415,7 @@ function fakeSession(input: {
 }): AgentProviderSession {
   const pendingRequests = new Map<
     string,
-    { request: AgentRequest; turnId: AgentTurnId }
+    { request: AgentRequest; turnId: AgentTurnId; release: () => void }
   >();
   const collaborationNodes = new Map<string, {
     readonly collaborationId: AgentCollaborationId;
@@ -446,7 +446,8 @@ function fakeSession(input: {
   };
   let closed = false;
 
-  const runTurn = async function* (turnInput: AgentProviderRunTurnInput) {
+  const interruptedTurns = new Set<AgentTurnId>();
+  const outputTurn = async function* (turnInput: AgentProviderStartTurnInput) {
     throwIfAgentOperationAborted(turnInput.signal);
     input.state.turnIds.push(turnInput.turnId);
     const occurredAt = input.now();
@@ -455,6 +456,11 @@ function fakeSession(input: {
       type: "turn.started",
       payload: { message: "Fake provider turn started." },
     });
+    if (interruptedTurns.has(turnInput.turnId)) {
+      yield createAgentEventOutput({ ...eventBase(input.context.sessionId, turnInput.turnId, input.now()),
+        type: "turn.completed", payload: { outcome: "canceled", reason: "Fake provider interrupted." } });
+      return;
+    }
     yield createAgentEventOutput({
       ...eventBase(input.context.sessionId, turnInput.turnId, occurredAt),
       type: "item.started",
@@ -478,10 +484,11 @@ function fakeSession(input: {
 
     if (input.capabilities.requests.approval.kind === "supported") {
       const request = requestForTurn(turnInput.turnId);
-      pendingRequests.set(request.requestId, {
-        request,
-        turnId: turnInput.turnId,
-      });
+      let release!: () => void;
+      const answered = new Promise<void>((resolve) => { release = resolve; });
+      pendingRequests.set(request.requestId, { request, turnId: turnInput.turnId, release });
+      const aborted = () => release();
+      turnInput.signal?.addEventListener("abort", aborted, { once: true });
       yield createAgentEventOutput({
         ...eventBase(input.context.sessionId, turnInput.turnId, occurredAt),
         type: "request.opened",
@@ -492,19 +499,29 @@ function fakeSession(input: {
         type: "turn.state_changed",
         payload: { state: "waiting_for_request", requestId: request.requestId },
       });
-      return;
+      try {
+        if (!turnInput.signal?.aborted) await answered;
+        throwIfAgentOperationAborted(turnInput.signal);
+        if (closed) return;
+      } finally {
+        turnInput.signal?.removeEventListener("abort", aborted);
+        pendingRequests.delete(request.requestId);
+      }
+      yield createAgentEventOutput({ ...eventBase(input.context.sessionId, turnInput.turnId, input.now()),
+        type: "turn.state_changed", payload: { state: "running" } });
     }
 
     yield createAgentEventOutput({
       ...eventBase(input.context.sessionId, turnInput.turnId, occurredAt),
       type: "turn.completed",
-      payload: { outcome: "completed", reason: "Fake provider completed." },
+      payload: { outcome: interruptedTurns.has(turnInput.turnId) ? "canceled" : "completed", reason: "Fake provider completed." },
     });
   };
 
   const close = async (): Promise<void> => {
     if (closed) return;
     closed = true;
+    for (const pending of pendingRequests.values()) pending.release();
     input.state.closeCounts.set(
       input.context.sessionId,
       (input.state.closeCounts.get(input.context.sessionId) ?? 0) + 1,
@@ -513,29 +530,21 @@ function fakeSession(input: {
 
   return {
     binding: input.binding,
-    runTurn,
-    resolveRequest: async function* (requestInput) {
-      throwIfAgentOperationAborted(requestInput.signal);
-      const pending = pendingRequests.get(requestInput.resolution.requestId);
-      if (!pending)
-        throw new TypeError("Fake provider has no matching pending request.");
-      const resolution = parseAgentRequestResolutionFor(
-        pending.request,
-        requestInput.resolution,
-      );
-      input.state.resolutions.push(resolution);
-      pendingRequests.delete(resolution.requestId);
-      const occurredAt = input.now();
-      yield createAgentEventOutput({
-        ...eventBase(input.context.sessionId, pending.turnId, occurredAt),
-        type: "turn.state_changed",
-        payload: { state: "running" },
-      });
-      yield createAgentEventOutput({
-        ...eventBase(input.context.sessionId, pending.turnId, occurredAt),
-        type: "turn.completed",
-        payload: { outcome: "completed", reason: "Fake request resolved." },
-      });
+    startTurn(turnInput) {
+      return {
+        turnId: turnInput.turnId,
+        outputs: outputTurn(turnInput),
+        async resolveRequest(requestInput) {
+          throwIfAgentOperationAborted(requestInput.signal);
+          const pending = pendingRequests.get(requestInput.resolution.requestId);
+          if (!pending || pending.turnId !== turnInput.turnId) throw new TypeError("Fake provider has no matching pending request.");
+          const resolution = parseAgentRequestResolutionFor(pending.request, requestInput.resolution);
+          input.state.resolutions.push(resolution);
+          pendingRequests.delete(resolution.requestId);
+          pending.release();
+          return { status: "delivered" };
+        },
+      };
     },
     interruption: input.capabilities.turns.interrupt
       ? {
@@ -543,20 +552,14 @@ function fakeSession(input: {
           interruptTurn: async (interruptionInput) => {
             throwIfAgentOperationAborted(interruptionInput.signal);
             input.state.interruptedTurnIds.push(interruptionInput.turnId);
-            return completedResult([
-              createAgentEventOutput({
-                ...eventBase(
-                  input.context.sessionId,
-                  interruptionInput.turnId,
-                  input.now(),
-                ),
-                type: "turn.completed",
-                payload: {
-                  outcome: "canceled",
-                  reason: interruptionInput.reason,
-                },
-              }),
-            ]);
+            interruptedTurns.add(interruptionInput.turnId);
+            for (const [requestId, pending] of pendingRequests) {
+              if (pending.turnId === interruptionInput.turnId) {
+                pendingRequests.delete(requestId);
+                pending.release();
+              }
+            }
+            return { status: "accepted" };
           },
         }
       : { kind: "unsupported" },

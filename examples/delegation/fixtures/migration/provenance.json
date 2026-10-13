@@ -1,0 +1,37 @@
+{
+  "sourceHead": "21e972faae5f16038e64d423c840def150dfdebb",
+  "sourceTaskFormat": 1,
+  "sourceStorePortContract": 1,
+  "ownerFormat": 1,
+  "runtime": {
+    "node": "v24.18.0",
+    "sqlite": "3.53.1",
+    "platform": "linux",
+    "filesystem": "0xef53"
+  },
+  "productionMethod": "The frozen matched old public entrypoints and unchanged SQLite/inbox examples committed admit, prepare/turn intents and receipts, failed/recovery_required settlements, inbox acceptance, and child notification claim/accepted receipts. No provider or parent dispatch ran.",
+  "fixtureEncoding": "Original SQLite values are retained; nonempty fixed blobs omit only trailing space padding, empty fixed blobs omit zero bytes. Each blob records its original byte length and SHA256. materialize.ts verifies reconstruction. SQL/header inventory was read from the same real producer database.",
+  "fixtureSha256": "a9b19e003dc209c7813b9e83d08e52167222f7db8fc747b8a37cc419a6c884c0",
+  "originalProducerSha256": "9fac9385f3b138849b90a6a048e6c0659387820e69b81269de16ed6b968823ad",
+  "reproducibleProducerSha256": "bcce84a6d4af8566d6dc30cbf54d0471b7f2feeb610206689b536499e45a4afb",
+  "frozenFileInventorySha256": "b107e03e4e811998185238a0608b812afec38244be957d02d06de5cf18ae5637",
+  "frozenFileCount": 792,
+  "sourceHashes": {
+    "packages/ai/agent-orchestration/src/tasks/schemas.ts": "98cd03eb12acae165c3960d4fffbb5e0e4fa2d2ad9e9b36fefcb0bd2420dc40b",
+    "packages/ai/agent-orchestration/src/shared/bounds.ts": "1dd218ee34bded5355fa8312a4e0844153fc538216b2beeedd5803cc78aca7f6",
+    "packages/ai/agent-orchestration/src/shared/identity.ts": "ac22613ff2bd2ccc551f6042e8fd7862257a9317df35bfe925c2fce294ff8e41",
+    "packages/ai/agent-orchestration/src/shared/limits.ts": "8ad54c0272fc65cd10391c2bbc5318814f629430d1fd7b24df311a0bf3638119",
+    "packages/ai/agent-orchestration/src/shared/schemas.ts": "099db11c3a46aa7c1686fb27b09dad14df4ec4e5c951f299244cf52c9de783ef",
+    "packages/ai/agent-protocol/src/zod/turns.ts": "b066ac2a387f49a0d0cc7a15f304fa894c393e85751779854c0f3d667bc206ef",
+    "packages/ai/agent-protocol/src/zod/foundation.ts": "fd518bd8edc75eaeb0b4121add665b102fea69358e19c5d07ec55b007dfa44a6",
+    "packages/ai/agent-protocol/src/foundation/types.ts": "c8c4aa73aee6907ec226c5e09a46f5bb6fedb8ac2e22c012f19a5dff6d574fa5",
+    "packages/ai/agent-protocol/src/turns/types.ts": "0fc6f97a5f80d519d1aadf8e5225b5eb8b17fe990bcd83c7b52a00ee1e18a6a9"
+  },
+  "legacyDecoderHashes": {
+    "data.ts": "ac106d1eef133f64467e33e579f24ac0330122fc4d79fbf5743298c03dd0dbaa",
+    "input.ts": "08060c428d4cf9494b53e8fa40ab61fbe92035585d0b034a7efc21554672c9ec",
+    "limits.ts": "b152cc9c381503cf20fa2a3197c2bc334b241228373d4febfe46c1c95b5f8bc3",
+    "records.ts": "70ccbf02c3c7d1a32da3ed225c24ed5c03fc68c12213d39dbab638022fcca094",
+    "schemas.ts": "1961654cecab4a1068353ee9a69ab3eb37bd27ef42d9ff0de45660f1ce1ce021"
+  }
+}

@@ -27,6 +27,7 @@ import {
   AgentConfigurationSelectionInputSchema,
 } from '../src/zod/configuration.ts';
 import { AgentEventPortableSchema } from '../src/zod/events.ts';
+import { AgentErrorSchema } from '../src/zod/failures.ts';
 import { AgentIntegrationCatalogPortableSchema } from '../src/zod/integrations.ts';
 import { AgentManagedContentCatalogPortableSchema } from '../src/zod/managedContent.ts';
 import {
@@ -58,8 +59,20 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = resolve(packageRoot, 'src/jsonSchema/generated.ts');
 const checkOnly = process.argv.includes('--check');
 const dialect = 'https://json-schema.org/draft/2020-12/schema';
+const failureParserInvariants = [
+  'failure_quota_category',
+  'quota_reset_observation_ordering',
+  'serialized_failure_bytes',
+];
 
 const definitions = [
+  {
+    exportName: 'AGENT_ERROR_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.error',
+    direction: 'output',
+    schema: AgentErrorSchema,
+    parserInvariants: failureParserInvariants,
+  },
   {
     exportName: 'AGENT_EFFECTIVE_CONTENT_CATALOG_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.effective-content-catalog',
@@ -184,6 +197,7 @@ const definitions = [
     direction: 'output',
     schema: AgentOperationResultPortableSchema,
     parserInvariants: [
+      ...failureParserInvariants,
       'operation_invocation_correlation',
       'operation_result_error_consistency',
       'operation_result_kind_consistency',
@@ -242,6 +256,7 @@ const definitions = [
     direction: 'output',
     schema: AgentCollaborationNodePortableSchema,
     parserInvariants: [
+      ...failureParserInvariants,
       'collaboration_parent_consistency',
       'collaboration_result_consistency',
       'collaboration_terminal_error_consistency',
@@ -268,6 +283,7 @@ const definitions = [
     direction: 'output',
     schema: AgentGeneratedResourceDescriptorPortableSchema,
     parserInvariants: [
+      ...failureParserInvariants,
       'generated_resource_artifact_consistency',
       'generated_resource_digest_consistency',
       'generated_resource_error_consistency',
@@ -316,12 +332,14 @@ const definitions = [
     direction: 'output',
     schema: AgentEventPortableSchema,
     parserInvariants: [
+      ...failureParserInvariants,
       'event_state_correlation',
       'context_usage_bounds',
       'file_change_path_ordering_and_uniqueness',
       'item_detail_identification',
       'non_empty_provider_refs',
       'request_semantics',
+      'retry_counter_ordering',
       'serialized_bytes',
       'terminal_error_consistency',
     ],

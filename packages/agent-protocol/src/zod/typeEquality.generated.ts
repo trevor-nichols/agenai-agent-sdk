@@ -6,7 +6,7 @@
 
 import type { z } from 'zod/v4';
 
-import type { AgentAccountQuotaSnapshot, AgentAccountQuotaWindow } from '../accountQuota/types.js';
+import type { AgentAccountQuotaReset, AgentAccountQuotaSnapshot, AgentAccountQuotaWindow } from '../accountQuota/types.js';
 import type { AgentArtifactDescriptor } from '../artifacts/types.js';
 import type { AgentCapabilities } from '../capabilities/types.js';
 import type { AgentCollaborationControlInput, AgentCollaborationNode, AgentCollaborationSpawnInput } from '../collaboration/types.js';
@@ -16,7 +16,8 @@ import type { AgentEffectiveContentCatalog, AgentEffectiveContentDescriptor } fr
 import type { AgentEnvironmentCapability, AgentEnvironmentInvalidation, AgentEnvironmentSnapshot } from '../environment/types.js';
 import type { AgentEvent } from '../events/types.js';
 import type { AgentExtensionCatalog, AgentExtensionDescriptor } from '../extensions/types.js';
-import type { AgentError, AgentJsonValue, AgentProviderRefs } from '../foundation/types.js';
+import type { AgentError, AgentErrorContext, AgentFailureCategory, AgentFailureQuotaReference, AgentRecoveryHint } from '../failures/types.js';
+import type { AgentJsonValue, AgentProviderRefs } from '../foundation/types.js';
 import type { AgentIntegrationCatalog, AgentIntegrationDescriptor, AgentMcpIntegrationDescriptor } from '../integrations/types.js';
 import type { AgentManagedContentCatalog, AgentManagedContentDescriptor } from '../managedContent/types.js';
 import type { AgentOperationCatalog, AgentOperationDescriptor, AgentOperationInvocation, AgentOperationResult } from '../operations/types.js';
@@ -24,7 +25,7 @@ import type { AgentRequest, AgentRequestResolution } from '../requests/types.js'
 import type { AgentGeneratedResourceDescriptor } from '../resources/types.js';
 import type { AgentSessionBinding, AgentSessionConfiguration, AgentSessionOpenInput } from '../sessions/types.js';
 import type { AgentContentReferenceInputPart, AgentItemSnapshot, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
-import { AgentAccountQuotaSnapshotSchema, AgentAccountQuotaWindowSchema } from './accountQuota.js';
+import { AgentAccountQuotaResetSchema, AgentAccountQuotaSnapshotSchema, AgentAccountQuotaWindowSchema } from './accountQuota.js';
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
 import { AgentCapabilitiesSchema } from './capabilities.js';
 import { AgentCollaborationControlInputSchema, AgentCollaborationNodeSchema, AgentCollaborationSpawnInputSchema } from './collaboration.js';
@@ -34,7 +35,8 @@ import { AgentEffectiveContentCatalogSchema, AgentEffectiveContentDescriptorSche
 import { AgentEnvironmentCapabilitySchema, AgentEnvironmentInvalidationSchema, AgentEnvironmentSnapshotSchema } from './environment.js';
 import { AgentEventSchema } from './events.js';
 import { AgentExtensionCatalogSchema, AgentExtensionDescriptorSchema } from './extensions.js';
-import { AgentErrorSchema, AgentJsonValueSchema, AgentProviderRefsSchema } from './foundation.js';
+import { AgentErrorContextSchema, AgentErrorSchema, AgentFailureCategorySchema, AgentFailureQuotaReferenceSchema, AgentRecoveryHintSchema } from './failures.js';
+import { AgentJsonValueSchema, AgentProviderRefsSchema } from './foundation.js';
 import { AgentIntegrationCatalogSchema, AgentIntegrationDescriptorSchema, AgentMcpIntegrationDescriptorSchema } from './integrations.js';
 import { AgentManagedContentCatalogSchema, AgentManagedContentDescriptorSchema } from './managedContent.js';
 import { AgentOperationCatalogSchema, AgentOperationDescriptorSchema, AgentOperationInvocationSchema, AgentOperationResultSchema } from './operations.js';
@@ -71,12 +73,22 @@ export type AgentProtocolSchemaTypeAssertions = readonly [
   Assert<Extends<AgentAccountQuotaSnapshot, z.output<typeof AgentAccountQuotaSnapshotSchema>>>,
   Assert<Extends<z.output<typeof AgentAccountQuotaWindowSchema>, AgentAccountQuotaWindow>>,
   Assert<Extends<AgentAccountQuotaWindow, z.output<typeof AgentAccountQuotaWindowSchema>>>,
+  Assert<Extends<z.output<typeof AgentAccountQuotaResetSchema>, AgentAccountQuotaReset>>,
+  Assert<Extends<AgentAccountQuotaReset, z.output<typeof AgentAccountQuotaResetSchema>>>,
   Assert<Extends<z.output<typeof AgentJsonValueSchema>, AgentJsonValue>>,
   Assert<Extends<AgentJsonValue, z.output<typeof AgentJsonValueSchema>>>,
   Assert<Extends<z.output<typeof AgentProviderRefsSchema>, AgentProviderRefs>>,
   Assert<Extends<AgentProviderRefs, z.output<typeof AgentProviderRefsSchema>>>,
   Assert<Extends<z.output<typeof AgentErrorSchema>, AgentError>>,
   Assert<Extends<AgentError, z.output<typeof AgentErrorSchema>>>,
+  Assert<Extends<z.output<typeof AgentErrorContextSchema>, AgentErrorContext>>,
+  Assert<Extends<AgentErrorContext, z.output<typeof AgentErrorContextSchema>>>,
+  Assert<Extends<z.output<typeof AgentFailureCategorySchema>, AgentFailureCategory>>,
+  Assert<Extends<AgentFailureCategory, z.output<typeof AgentFailureCategorySchema>>>,
+  Assert<Extends<z.output<typeof AgentFailureQuotaReferenceSchema>, AgentFailureQuotaReference>>,
+  Assert<Extends<AgentFailureQuotaReference, z.output<typeof AgentFailureQuotaReferenceSchema>>>,
+  Assert<Extends<z.output<typeof AgentRecoveryHintSchema>, AgentRecoveryHint>>,
+  Assert<Extends<AgentRecoveryHint, z.output<typeof AgentRecoveryHintSchema>>>,
   Assert<Extends<z.output<typeof AgentSessionBindingSchema>, AgentSessionBinding>>,
   Assert<Extends<AgentSessionBinding, z.output<typeof AgentSessionBindingSchema>>>,
   Assert<Extends<z.output<typeof AgentSessionConfigurationSchema>, AgentSessionConfiguration>>,

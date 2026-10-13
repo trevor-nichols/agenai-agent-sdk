@@ -1,0 +1,555 @@
+{
+  "sourceHead": "21e972faae5f16038e64d423c840def150dfdebb",
+  "runtime": {
+    "node": "v24.18.0",
+    "sqlite": "3.53.1",
+    "platform": "linux"
+  },
+  "ids": [
+    {
+      "taskId": "60749f5e-63f3-4f4e-81d4-2534a91bf9b2",
+      "runId": "e62135a6-7608-4d79-80f8-e49c36008be2",
+      "notificationId": "538b777c-f162-45e7-a8ba-00a607005a05",
+      "inboxId": "bd0f97b4-f20d-4036-8312-ffbd3fe583e6"
+    },
+    {
+      "taskId": "44ee8547-a150-4681-a90f-71e94eb25af7",
+      "runId": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+      "notificationId": "7b7ee28f-632a-4a15-a664-1a6f4e60fbc6",
+      "inboxId": "13392b87-c471-45aa-b9b6-31a5ad27256c"
+    }
+  ],
+  "tables": [
+    {
+      "name": "delegation_ceiling_targets",
+      "sql": "CREATE TABLE delegation_ceiling_targets (ceiling_id TEXT NOT NULL REFERENCES delegation_ceilings(ceiling_id), target_key TEXT NOT NULL, data_json TEXT NOT NULL, PRIMARY KEY(ceiling_id,target_key)) STRICT",
+      "rows": [
+        {
+          "ceiling_id": "e27fbae9fe7dd6cf39b47a8b6c9aa153420b6bc1b28b67314250c7c761a4c090",
+          "target_key": "76aa9cee563eec352153a5be3c1466f687cdf5ede1cc2bfc4a06f73431909318",
+          "data_json": "{\"catalogId\":\"catalog\",\"catalogRevision\":1,\"sourceId\":\"source\",\"sourceRevision\":1,\"targetId\":\"standard\",\"targetRevision\":1}"
+        }
+      ]
+    },
+    {
+      "name": "delegation_ceilings",
+      "sql": "CREATE TABLE delegation_ceilings (ceiling_id TEXT PRIMARY KEY, origin_json TEXT NOT NULL, data_json TEXT NOT NULL) STRICT",
+      "rows": [
+        {
+          "ceiling_id": "e27fbae9fe7dd6cf39b47a8b6c9aa153420b6bc1b28b67314250c7c761a4c090",
+          "origin_json": "{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"}",
+          "data_json": "{\"ceilingId\":\"e27fbae9fe7dd6cf39b47a8b6c9aa153420b6bc1b28b67314250c7c761a4c090\",\"origin\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"targets\":[{\"catalogId\":\"catalog\",\"catalogRevision\":1,\"sourceId\":\"source\",\"sourceRevision\":1,\"targetId\":\"standard\",\"targetRevision\":1}]}"
+        }
+      ]
+    },
+    {
+      "name": "delegation_critical",
+      "sql": "CREATE TABLE delegation_critical (run_id TEXT NOT NULL REFERENCES delegation_runs(run_id), kind TEXT NOT NULL, parent_id TEXT NOT NULL, scope_id TEXT NOT NULL, operation_id TEXT, PRIMARY KEY(run_id,kind), UNIQUE(parent_id,scope_id,operation_id)) STRICT",
+      "rows": [
+        {
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "kind": "cancel",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        },
+        {
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "kind": "interrupt",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        },
+        {
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "kind": "session_close",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        },
+        {
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "kind": "binding_cleanup",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        },
+        {
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "kind": "cancel",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        },
+        {
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "kind": "interrupt",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        },
+        {
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "kind": "session_close",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        },
+        {
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "kind": "binding_cleanup",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": null
+        }
+      ]
+    },
+    {
+      "name": "delegation_inputs",
+      "sql": "CREATE TABLE delegation_inputs (run_id TEXT PRIMARY KEY REFERENCES delegation_runs(run_id), input_json TEXT NOT NULL) STRICT",
+      "rows": [
+        {
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "input_json": "{\"parts\":[{\"text\":\"Perform the delegated task.\",\"type\":\"text\"}]}"
+        },
+        {
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "input_json": "{\"parts\":[{\"text\":\"Perform the delegated task.\",\"type\":\"text\"}]}"
+        }
+      ]
+    },
+    {
+      "name": "delegation_notifications",
+      "sql": "CREATE TABLE delegation_notifications (notification_id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES delegation_runs(run_id), state TEXT NOT NULL, owner_epoch INTEGER, retry_at TEXT, expires_at TEXT, candidate INTEGER NOT NULL) STRICT",
+      "rows": [
+        {
+          "notification_id": "538b777c-f162-45e7-a8ba-00a607005a05",
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "state": "accepted",
+          "owner_epoch": null,
+          "retry_at": null,
+          "expires_at": "2026-10-12T20:28:35.883Z",
+          "candidate": 0
+        },
+        {
+          "notification_id": "7b7ee28f-632a-4a15-a664-1a6f4e60fbc6",
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "state": "accepted",
+          "owner_epoch": null,
+          "retry_at": null,
+          "expires_at": "2026-10-12T20:28:36.019Z",
+          "candidate": 0
+        }
+      ]
+    },
+    {
+      "name": "delegation_observations",
+      "sql": "CREATE TABLE delegation_observations (run_id TEXT NOT NULL REFERENCES delegation_runs(run_id), observation_index INTEGER NOT NULL, data_json TEXT NOT NULL, PRIMARY KEY(run_id,observation_index)) STRICT",
+      "rows": []
+    },
+    {
+      "name": "delegation_operations",
+      "sql": "CREATE TABLE delegation_operations (parent_id TEXT NOT NULL, scope_id TEXT NOT NULL, operation_id TEXT NOT NULL, run_id TEXT NOT NULL REFERENCES delegation_runs(run_id), data_blob BLOB NOT NULL CHECK(length(data_blob)=2048), PRIMARY KEY(parent_id,scope_id,operation_id)) STRICT",
+      "rows": [
+        {
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": "5fc6065b-5842-4afc-92b3-4e20d0f1d30e",
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "data_blob": {
+            "blob": "{\"at\":\"2026-10-11T20:28:35.802Z\",\"attempts\":1,\"disposition\":\"completed\",\"inputDigest\":\"a9bf7c3a25bf053f958f4145477ab65c1410e5e9f8490d96a17b3b211764d4a2\",\"kind\":\"admit\",\"operationId\":\"5fc6065b-5842-4afc-92b3-4e20d0f1d30e\",\"ownerEpoch\":1,\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"receipt\":{\"duplicate\":false,\"operationId\":\"5fc6065b-5842-4afc-92b3-4e20d0f1d30e\",\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"runRevision\":1,\"status\":\"queued\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\",\"taskRevision\":1},\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\"}",
+            "sha256": "7181f3e1faa58f1cd484812a348eb50f31f88e230107978f3f16193ae1a215ce",
+            "bytes": 2048,
+            "empty": false
+          }
+        },
+        {
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": "6f31dea1-f4ff-4aea-9644-d33a68a8cf36",
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "data_blob": {
+            "blob": "{\"at\":\"2026-10-11T20:28:35.840Z\",\"attempts\":1,\"disposition\":\"completed\",\"inputDigest\":\"22894d68ead9c973ebf4006c50910f536780f6422e21d89bad2f8925ba0e9d5d\",\"kind\":\"prepare\",\"operationId\":\"6f31dea1-f4ff-4aea-9644-d33a68a8cf36\",\"ownerEpoch\":1,\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"receipt\":{\"duplicate\":false,\"operationId\":\"6f31dea1-f4ff-4aea-9644-d33a68a8cf36\",\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"runRevision\":3,\"status\":\"recorded\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\",\"taskRevision\":3},\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\"}",
+            "sha256": "c8baf7e7008bbf9dcbb7a943e0a95caea8005e80ce6c27181d47c7b14584e9f8",
+            "bytes": 2048,
+            "empty": false
+          }
+        },
+        {
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": "7c58d9d8-5154-44de-a183-37ac8ff9e415",
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "data_blob": {
+            "blob": "{\"at\":\"2026-10-11T20:28:35.868Z\",\"attempts\":1,\"disposition\":\"delegated\",\"inputDigest\":\"12f9c8a8c2e0f4ee4d1df286412b6e229cf221ee63950a2adef51f9b98d1382f\",\"kind\":\"turn\",\"operationId\":\"7c58d9d8-5154-44de-a183-37ac8ff9e415\",\"ownerEpoch\":1,\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"receipt\":{\"duplicate\":false,\"operationId\":\"7c58d9d8-5154-44de-a183-37ac8ff9e415\",\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"runRevision\":5,\"status\":\"recorded\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\",\"taskRevision\":5},\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\"}",
+            "sha256": "4dc5aa8319f286695e0bce047ff079be720f2c49e9a90e7299be0d1b80a5aff4",
+            "bytes": 2048,
+            "empty": false
+          }
+        },
+        {
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": "0762d19f-c4e7-4668-9d6e-e9be7bbdaf09",
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "data_blob": {
+            "blob": "{\"at\":\"2026-10-11T20:28:35.948Z\",\"attempts\":1,\"disposition\":\"completed\",\"inputDigest\":\"96e226de5710e232f4630ffd4627676324ad287914446cd71ccaca9a2ee51df3\",\"kind\":\"admit\",\"operationId\":\"0762d19f-c4e7-4668-9d6e-e9be7bbdaf09\",\"ownerEpoch\":1,\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"receipt\":{\"duplicate\":false,\"operationId\":\"0762d19f-c4e7-4668-9d6e-e9be7bbdaf09\",\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"runRevision\":1,\"status\":\"queued\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\",\"taskRevision\":1},\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\"}",
+            "sha256": "ba882e4848c722ea1c5eaa40d0b145b5b403401e629518e0fd2f36a6c26a907f",
+            "bytes": 2048,
+            "empty": false
+          }
+        },
+        {
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": "1d69b9ef-af3a-4219-9156-fd7fa472e0af",
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "data_blob": {
+            "blob": "{\"at\":\"2026-10-11T20:28:35.980Z\",\"attempts\":1,\"disposition\":\"completed\",\"inputDigest\":\"658e56367343289e5e092fb9b804655c45318a69a891ad436b074ccdbe523417\",\"kind\":\"prepare\",\"operationId\":\"1d69b9ef-af3a-4219-9156-fd7fa472e0af\",\"ownerEpoch\":1,\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"receipt\":{\"duplicate\":false,\"operationId\":\"1d69b9ef-af3a-4219-9156-fd7fa472e0af\",\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"runRevision\":3,\"status\":\"recorded\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\",\"taskRevision\":3},\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\"}",
+            "sha256": "f5097c03707a8f35b10e64f2a920e7df8cd87f5dbf743a02dfad94bd0337d928",
+            "bytes": 2048,
+            "empty": false
+          }
+        },
+        {
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "operation_id": "c1d4564f-8f03-4e7f-a2fe-34ddeecc631a",
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "data_blob": {
+            "blob": "{\"at\":\"2026-10-11T20:28:36.006Z\",\"attempts\":1,\"disposition\":\"delegated\",\"inputDigest\":\"2307dfa7440561275655c211f64f5cb59f3397dbc725418fe3d947423b2370f3\",\"kind\":\"turn\",\"operationId\":\"c1d4564f-8f03-4e7f-a2fe-34ddeecc631a\",\"ownerEpoch\":1,\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"receipt\":{\"duplicate\":false,\"operationId\":\"c1d4564f-8f03-4e7f-a2fe-34ddeecc631a\",\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"runRevision\":5,\"status\":\"recorded\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\",\"taskRevision\":5},\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\"}",
+            "sha256": "06ca5ede45509b6523a3c5278e53255f7a3592687850b2fd94741c088ebbb3ed",
+            "bytes": 2048,
+            "empty": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "delegation_parent_inbox",
+      "sql": "CREATE TABLE delegation_parent_inbox (\n  store_id TEXT NOT NULL,\n  notification_id TEXT NOT NULL,\n  parent_key TEXT NOT NULL,\n  parent_revision INTEGER NOT NULL CHECK (parent_revision > 0),\n  policy TEXT NOT NULL CHECK (policy IN ('next_turn','automatic')),\n  envelope_digest TEXT NOT NULL,\n  envelope TEXT NOT NULL CHECK (length(CAST(envelope AS BLOB)) <= 12288),\n  inbox_id TEXT NOT NULL UNIQUE,\n  accepted_at TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending','dispatch_intended','acknowledged','recovery_required','dismissed')),\n  dispatch_id TEXT,\n  dispatched_at TEXT,\n  settled_at TEXT,\n  reason TEXT CHECK (reason IS NULL OR length(CAST(reason AS BLOB)) <= 256),\n  PRIMARY KEY (store_id, notification_id)\n) STRICT",
+      "rows": [
+        {
+          "store_id": "10dda02f-f7ce-4d11-a6ab-cad0e50520af",
+          "notification_id": "538b777c-f162-45e7-a8ba-00a607005a05",
+          "parent_key": "[\"parent\",\"qualification\"]",
+          "parent_revision": 1,
+          "policy": "automatic",
+          "envelope_digest": "224ba008c1bcaa4890609e2c7f5b6d148dad1a55d13b628e77ccc88e533a6e4a",
+          "envelope": "{\"expiresAt\":\"2026-10-12T20:28:35.883Z\",\"notificationId\":\"538b777c-f162-45e7-a8ba-00a607005a05\",\"outcome\":{\"error\":{\"code\":\"legacy_child_failed\",\"message\":\"Legacy terminal failure retained verbatim.\"},\"kind\":\"failed\"},\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"policy\":\"automatic\",\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"settledAt\":\"2026-10-11T20:28:35.883Z\",\"storeId\":\"10dda02f-f7ce-4d11-a6ab-cad0e50520af\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\"}",
+          "inbox_id": "bd0f97b4-f20d-4036-8312-ffbd3fe583e6",
+          "accepted_at": "2026-10-11T20:28:35.901Z",
+          "state": "pending",
+          "dispatch_id": null,
+          "dispatched_at": null,
+          "settled_at": null,
+          "reason": null
+        },
+        {
+          "store_id": "10dda02f-f7ce-4d11-a6ab-cad0e50520af",
+          "notification_id": "7b7ee28f-632a-4a15-a664-1a6f4e60fbc6",
+          "parent_key": "[\"parent\",\"qualification\"]",
+          "parent_revision": 1,
+          "policy": "automatic",
+          "envelope_digest": "16442deb6aa16c02c3b19c3501560918b189ef7a5dcfd3b721d612afb56c32b5",
+          "envelope": "{\"expiresAt\":\"2026-10-12T20:28:36.019Z\",\"notificationId\":\"7b7ee28f-632a-4a15-a664-1a6f4e60fbc6\",\"outcome\":{\"kind\":\"recovery_required\",\"reason\":\"dispatch_uncertain\"},\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"policy\":\"automatic\",\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"settledAt\":\"2026-10-11T20:28:36.019Z\",\"storeId\":\"10dda02f-f7ce-4d11-a6ab-cad0e50520af\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\"}",
+          "inbox_id": "13392b87-c471-45aa-b9b6-31a5ad27256c",
+          "accepted_at": "2026-10-11T20:28:36.032Z",
+          "state": "pending",
+          "dispatch_id": null,
+          "dispatched_at": null,
+          "settled_at": null,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "delegation_runs",
+      "sql": "CREATE TABLE delegation_runs (run_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES delegation_tasks(task_id) DEFERRABLE INITIALLY DEFERRED, ordinal INTEGER NOT NULL, created_at TEXT NOT NULL, phase TEXT NOT NULL, owner_epoch INTEGER NOT NULL, unsettled INTEGER NOT NULL, final_blob BLOB NOT NULL CHECK(length(final_blob)=32768), cancel_blob BLOB NOT NULL CHECK(length(cancel_blob)=2048), interrupt_blob BLOB NOT NULL CHECK(length(interrupt_blob)=2048), session_close_blob BLOB NOT NULL CHECK(length(session_close_blob)=2048), binding_cleanup_blob BLOB NOT NULL CHECK(length(binding_cleanup_blob)=2048), UNIQUE(task_id,ordinal)) STRICT",
+      "rows": [
+        {
+          "run_id": "e62135a6-7608-4d79-80f8-e49c36008be2",
+          "task_id": "60749f5e-63f3-4f4e-81d4-2534a91bf9b2",
+          "ordinal": 1,
+          "created_at": "2026-10-11T20:28:35.802Z",
+          "phase": "settled",
+          "owner_epoch": 1,
+          "unsettled": 0,
+          "final_blob": {
+            "blob": "{\"notification\":{\"acceptedAt\":\"2026-10-11T20:28:35.901Z\",\"attempts\":1,\"delivery\":{\"claim\":{\"attempt\":1,\"attemptId\":\"daa940cf-6484-4095-a4c0-06564d8cb2a6\",\"commandDigest\":\"ccd049b5a1947fd42cf9270f09c1ea3277080068b1bb249f1f51547754e5b7df\",\"inputDigest\":\"e5a2de8d861883055fc47e2f7257acc5c222f58770f3e64d5b0c6466fb3c7b29\",\"operationId\":\"99f3a08a-7f05-4ad7-a4bf-5c80fc41784b\",\"ownerEpoch\":1,\"receipt\":{\"duplicate\":false,\"notificationId\":\"538b777c-f162-45e7-a8ba-00a607005a05\",\"operationId\":\"99f3a08a-7f05-4ad7-a4bf-5c80fc41784b\",\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"runRevision\":7,\"status\":\"recorded\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\",\"taskRevision\":7}},\"receipt\":{\"attempt\":1,\"attemptId\":\"daa940cf-6484-4095-a4c0-06564d8cb2a6\",\"commandDigest\":\"e68d485fed30cefc62063dcabe37547c2c8be42823495fb341d25c9fef2c1e99\",\"inputDigest\":\"ae6faf03762c1f9701736802076e23bd2d92f6543e8023049c2aacb1318c85d4\",\"operationId\":\"d8fdda1a-0d46-415f-adb0-cf78d4e2930f\",\"ownerEpoch\":1,\"receipt\":{\"duplicate\":false,\"notificationId\":\"538b777c-f162-45e7-a8ba-00a607005a05\",\"operationId\":\"d8fdda1a-0d46-415f-adb0-cf78d4e2930f\",\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"runRevision\":8,\"status\":\"recorded\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\",\"taskRevision\":8}}},\"envelope\":{\"expiresAt\":\"2026-10-12T20:28:35.883Z\",\"notificationId\":\"538b777c-f162-45e7-a8ba-00a607005a05\",\"outcome\":{\"error\":{\"code\":\"legacy_child_failed\",\"message\":\"Legacy terminal failure retained verbatim.\"},\"kind\":\"failed\"},\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"policy\":\"automatic\",\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"settledAt\":\"2026-10-11T20:28:35.883Z\",\"storeId\":\"10dda02f-f7ce-4d11-a6ab-cad0e50520af\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\"},\"inboxId\":\"bd0f97b4-f20d-4036-8312-ffbd3fe583e6\",\"revision\":3,\"state\":\"accepted\"},\"run\":{\"admissionOperationId\":\"5fc6065b-5842-4afc-92b3-4e20d0f1d30e\",\"admittedOriginPolicyRevision\":1,\"admittedPolicyRevision\":1,\"admittedTarget\":{\"catalogId\":\"catalog\",\"catalogRevision\":1,\"sourceId\":\"source\",\"sourceRevision\":1,\"targetId\":\"standard\",\"targetRevision\":1},\"appliedTarget\":{\"catalogId\":\"catalog\",\"catalogRevision\":1,\"sourceId\":\"source\",\"sourceRevision\":1,\"targetId\":\"standard\",\"targetRevision\":1},\"cancelRequested\":false,\"createdAt\":\"2026-10-11T20:28:35.802Z\",\"deadlineAt\":\"2026-10-11T20:29:35.805Z\",\"dispatch\":\"delegated\",\"finalization\":{\"inputDigest\":\"18e6938c1af317953c7e7530757265cf5791fd6035e607c4d574b2810c5f678d\",\"operationId\":\"e8c8f487-d707-490d-8524-66a8a63787f5\",\"runRevision\":6,\"taskRevision\":6},\"observationBytes\":0,\"observationCount\":0,\"observationIndex\":0,\"omittedObservations\":0,\"ordinal\":1,\"ordinaryOperationCount\":3,\"outcome\":{\"error\":{\"code\":\"legacy_child_failed\",\"message\":\"Legacy terminal failure retained verbatim.\"},\"kind\":\"failed\"},\"ownerEpoch\":1,\"phase\":\"settled\",\"preparation\":\"completed\",\"queuedStartDeadlineAt\":\"2026-10-11T20:29:05.805Z\",\"revision\":8,\"runId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"settledAt\":\"2026-10-11T20:28:35.883Z\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\"},\"task\":{\"completionPolicy\":\"automatic\",\"createdAt\":\"2026-10-11T20:28:35.802Z\",\"depth\":1,\"latestRunId\":\"e62135a6-7608-4d79-80f8-e49c36008be2\",\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"policyCeilingRef\":\"e27fbae9fe7dd6cf39b47a8b6c9aa153420b6bc1b28b67314250c7c761a4c090\",\"revision\":8,\"runCount\":1,\"state\":\"settled\",\"storeId\":\"10dda02f-f7ce-4d11-a6ab-cad0e50520af\",\"taskId\":\"60749f5e-63f3-4f4e-81d4-2534a91bf9b2\"}}",
+            "sha256": "02e2221e8e80809acd570ab7721df2cf95b1b772e0332779790a272e908646c5",
+            "bytes": 32768,
+            "empty": false
+          },
+          "cancel_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          },
+          "interrupt_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          },
+          "session_close_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          },
+          "binding_cleanup_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          }
+        },
+        {
+          "run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74",
+          "task_id": "44ee8547-a150-4681-a90f-71e94eb25af7",
+          "ordinal": 1,
+          "created_at": "2026-10-11T20:28:35.948Z",
+          "phase": "settled",
+          "owner_epoch": 1,
+          "unsettled": 0,
+          "final_blob": {
+            "blob": "{\"notification\":{\"acceptedAt\":\"2026-10-11T20:28:36.032Z\",\"attempts\":1,\"delivery\":{\"claim\":{\"attempt\":1,\"attemptId\":\"9a51b4e1-7861-46d1-a073-70906b0b8f79\",\"commandDigest\":\"9b340c8ab168e223ac5b8bbdacd6bdf78c5e9b2f56e3798bb5c9b16ef9631015\",\"inputDigest\":\"c7b9cfc68c5e268fe0a6fd6e5e6f7a3c70bcb58a32934b52c7ced11060eae295\",\"operationId\":\"b2767959-80c9-4f38-a266-21b7e4cde654\",\"ownerEpoch\":1,\"receipt\":{\"duplicate\":false,\"notificationId\":\"7b7ee28f-632a-4a15-a664-1a6f4e60fbc6\",\"operationId\":\"b2767959-80c9-4f38-a266-21b7e4cde654\",\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"runRevision\":7,\"status\":\"recorded\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\",\"taskRevision\":7}},\"receipt\":{\"attempt\":1,\"attemptId\":\"9a51b4e1-7861-46d1-a073-70906b0b8f79\",\"commandDigest\":\"90747fc4be15e900768fa8a8f78fedd3d6b025c17a9155027256a7ed2ffe528e\",\"inputDigest\":\"3173bdb974c15513668c8899db87c0720b4f84310dc9b2a30260482d23284730\",\"operationId\":\"00ee15a2-4479-4e74-a568-320e19b8e1d2\",\"ownerEpoch\":1,\"receipt\":{\"duplicate\":false,\"notificationId\":\"7b7ee28f-632a-4a15-a664-1a6f4e60fbc6\",\"operationId\":\"00ee15a2-4479-4e74-a568-320e19b8e1d2\",\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"runRevision\":8,\"status\":\"recorded\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\",\"taskRevision\":8}}},\"envelope\":{\"expiresAt\":\"2026-10-12T20:28:36.019Z\",\"notificationId\":\"7b7ee28f-632a-4a15-a664-1a6f4e60fbc6\",\"outcome\":{\"kind\":\"recovery_required\",\"reason\":\"dispatch_uncertain\"},\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"policy\":\"automatic\",\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"settledAt\":\"2026-10-11T20:28:36.019Z\",\"storeId\":\"10dda02f-f7ce-4d11-a6ab-cad0e50520af\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\"},\"inboxId\":\"13392b87-c471-45aa-b9b6-31a5ad27256c\",\"revision\":3,\"state\":\"accepted\"},\"run\":{\"admissionOperationId\":\"0762d19f-c4e7-4668-9d6e-e9be7bbdaf09\",\"admittedOriginPolicyRevision\":1,\"admittedPolicyRevision\":1,\"admittedTarget\":{\"catalogId\":\"catalog\",\"catalogRevision\":1,\"sourceId\":\"source\",\"sourceRevision\":1,\"targetId\":\"standard\",\"targetRevision\":1},\"appliedTarget\":{\"catalogId\":\"catalog\",\"catalogRevision\":1,\"sourceId\":\"source\",\"sourceRevision\":1,\"targetId\":\"standard\",\"targetRevision\":1},\"cancelRequested\":false,\"createdAt\":\"2026-10-11T20:28:35.948Z\",\"deadlineAt\":\"2026-10-11T20:29:35.949Z\",\"dispatch\":\"delegated\",\"finalization\":{\"inputDigest\":\"3437908012af73b93c4fe32d3a6375d0aef2c9453be398ee1b6a367f8bf83d2c\",\"operationId\":\"3c664a86-e007-428d-8c7d-8cb38c4e5939\",\"runRevision\":6,\"taskRevision\":6},\"observationBytes\":0,\"observationCount\":0,\"observationIndex\":0,\"omittedObservations\":0,\"ordinal\":1,\"ordinaryOperationCount\":3,\"outcome\":{\"kind\":\"recovery_required\",\"reason\":\"dispatch_uncertain\"},\"ownerEpoch\":1,\"phase\":\"settled\",\"preparation\":\"completed\",\"queuedStartDeadlineAt\":\"2026-10-11T20:29:05.949Z\",\"revision\":8,\"runId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"settledAt\":\"2026-10-11T20:28:36.019Z\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\"},\"task\":{\"completionPolicy\":\"automatic\",\"createdAt\":\"2026-10-11T20:28:35.948Z\",\"depth\":1,\"latestRunId\":\"c57ccbb2-50a7-4900-b4b1-b018bf0e4e74\",\"parent\":{\"parentId\":\"parent\",\"revision\":1,\"scopeId\":\"qualification\"},\"policyCeilingRef\":\"e27fbae9fe7dd6cf39b47a8b6c9aa153420b6bc1b28b67314250c7c761a4c090\",\"revision\":8,\"runCount\":1,\"state\":\"recovery_required\",\"storeId\":\"10dda02f-f7ce-4d11-a6ab-cad0e50520af\",\"taskId\":\"44ee8547-a150-4681-a90f-71e94eb25af7\"}}",
+            "sha256": "7e6a2a4a9941807d14f819acecc8d35acf29d03180b7a7de9c55949eaa46ab66",
+            "bytes": 32768,
+            "empty": false
+          },
+          "cancel_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          },
+          "interrupt_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          },
+          "session_close_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          },
+          "binding_cleanup_blob": {
+            "blob": "",
+            "sha256": "e5a00aa9991ac8a5ee3109844d84a55583bd20572ad3ffcd42792f3c36b183ad",
+            "bytes": 2048,
+            "empty": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "delegation_state",
+      "sql": "CREATE TABLE delegation_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), store_id TEXT NOT NULL, owner_epoch INTEGER NOT NULL, owner_nonce TEXT, limits_json TEXT NOT NULL, capacity_json TEXT NOT NULL) STRICT",
+      "rows": [
+        {
+          "singleton": 1,
+          "store_id": "10dda02f-f7ce-4d11-a6ab-cad0e50520af",
+          "owner_epoch": 1,
+          "owner_nonce": "ab082d80-8c5d-4571-a4c3-8728a172227c",
+          "limits_json": "{\"controlTimeoutMs\":10000,\"maxActiveRuns\":4,\"maxDepth\":2,\"maxInputBytes\":24576,\"maxInputTextCharacters\":16000,\"maxObservationBytes\":8192,\"maxOrdinaryOperations\":8192,\"maxOrdinaryOperationsPerRun\":32,\"maxPageBytes\":65536,\"maxPageRecords\":100,\"maxQueuedRuns\":32,\"maxRetainedInputBytes\":16777216,\"maxRetainedObservationBytes\":33554432,\"maxRunObservationBytes\":1048576,\"maxRunObservations\":2048,\"maxRuns\":1024,\"maxRunsPerTask\":8,\"maxTasks\":256,\"maxWaitMs\":30000,\"notificationTtlMs\":86400000,\"queuedStartTimeoutMs\":300000,\"runTimeoutMs\":1800000}",
+          "capacity_json": "{\"activeRuns\":0,\"criticalSlots\":8,\"observationBytes\":0,\"ordinaryOperations\":6,\"queuedRuns\":0,\"reservedBytes\":81920,\"retainedInputBytes\":414,\"runs\":2,\"tasks\":2}"
+        }
+      ]
+    },
+    {
+      "name": "delegation_tasks",
+      "sql": "CREATE TABLE delegation_tasks (task_id TEXT PRIMARY KEY, parent_id TEXT NOT NULL, scope_id TEXT NOT NULL, head_run_id TEXT NOT NULL REFERENCES delegation_runs(run_id) DEFERRABLE INITIALLY DEFERRED) STRICT",
+      "rows": [
+        {
+          "task_id": "60749f5e-63f3-4f4e-81d4-2534a91bf9b2",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "head_run_id": "e62135a6-7608-4d79-80f8-e49c36008be2"
+        },
+        {
+          "task_id": "44ee8547-a150-4681-a90f-71e94eb25af7",
+          "parent_id": "parent",
+          "scope_id": "qualification",
+          "head_run_id": "c57ccbb2-50a7-4900-b4b1-b018bf0e4e74"
+        }
+      ]
+    }
+  ],
+  "taskSchema": [
+    {
+      "type": "index",
+      "name": "delegation_notification_candidates",
+      "sql": "CREATE INDEX delegation_notification_candidates ON delegation_notifications(candidate,notification_id,owner_epoch)"
+    },
+    {
+      "type": "index",
+      "name": "delegation_operation_run",
+      "sql": "CREATE INDEX delegation_operation_run ON delegation_operations(run_id,operation_id)"
+    },
+    {
+      "type": "index",
+      "name": "delegation_parent_inbox_parent",
+      "sql": "CREATE INDEX delegation_parent_inbox_parent ON delegation_parent_inbox(parent_key,state,policy,accepted_at,inbox_id)"
+    },
+    {
+      "type": "index",
+      "name": "delegation_parent_inbox_state",
+      "sql": "CREATE INDEX delegation_parent_inbox_state ON delegation_parent_inbox(state,inbox_id)"
+    },
+    {
+      "type": "index",
+      "name": "delegation_run_queue",
+      "sql": "CREATE INDEX delegation_run_queue ON delegation_runs(phase,created_at,run_id)"
+    },
+    {
+      "type": "index",
+      "name": "delegation_run_recovery",
+      "sql": "CREATE INDEX delegation_run_recovery ON delegation_runs(unsettled,created_at,run_id,owner_epoch)"
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_ceiling_targets_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_ceilings_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_critical_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_critical_2",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_inputs_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_notifications_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_notifications_2",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_observations_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_operations_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_parent_inbox_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_parent_inbox_2",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_runs_1",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_runs_2",
+      "sql": null
+    },
+    {
+      "type": "index",
+      "name": "sqlite_autoindex_delegation_tasks_1",
+      "sql": null
+    },
+    {
+      "type": "table",
+      "name": "delegation_ceiling_targets",
+      "sql": "CREATE TABLE delegation_ceiling_targets (ceiling_id TEXT NOT NULL REFERENCES delegation_ceilings(ceiling_id), target_key TEXT NOT NULL, data_json TEXT NOT NULL, PRIMARY KEY(ceiling_id,target_key)) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_ceilings",
+      "sql": "CREATE TABLE delegation_ceilings (ceiling_id TEXT PRIMARY KEY, origin_json TEXT NOT NULL, data_json TEXT NOT NULL) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_critical",
+      "sql": "CREATE TABLE delegation_critical (run_id TEXT NOT NULL REFERENCES delegation_runs(run_id), kind TEXT NOT NULL, parent_id TEXT NOT NULL, scope_id TEXT NOT NULL, operation_id TEXT, PRIMARY KEY(run_id,kind), UNIQUE(parent_id,scope_id,operation_id)) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_inputs",
+      "sql": "CREATE TABLE delegation_inputs (run_id TEXT PRIMARY KEY REFERENCES delegation_runs(run_id), input_json TEXT NOT NULL) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_notifications",
+      "sql": "CREATE TABLE delegation_notifications (notification_id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES delegation_runs(run_id), state TEXT NOT NULL, owner_epoch INTEGER, retry_at TEXT, expires_at TEXT, candidate INTEGER NOT NULL) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_observations",
+      "sql": "CREATE TABLE delegation_observations (run_id TEXT NOT NULL REFERENCES delegation_runs(run_id), observation_index INTEGER NOT NULL, data_json TEXT NOT NULL, PRIMARY KEY(run_id,observation_index)) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_operations",
+      "sql": "CREATE TABLE delegation_operations (parent_id TEXT NOT NULL, scope_id TEXT NOT NULL, operation_id TEXT NOT NULL, run_id TEXT NOT NULL REFERENCES delegation_runs(run_id), data_blob BLOB NOT NULL CHECK(length(data_blob)=2048), PRIMARY KEY(parent_id,scope_id,operation_id)) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_parent_inbox",
+      "sql": "CREATE TABLE delegation_parent_inbox (\n  store_id TEXT NOT NULL,\n  notification_id TEXT NOT NULL,\n  parent_key TEXT NOT NULL,\n  parent_revision INTEGER NOT NULL CHECK (parent_revision > 0),\n  policy TEXT NOT NULL CHECK (policy IN ('next_turn','automatic')),\n  envelope_digest TEXT NOT NULL,\n  envelope TEXT NOT NULL CHECK (length(CAST(envelope AS BLOB)) <= 12288),\n  inbox_id TEXT NOT NULL UNIQUE,\n  accepted_at TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending','dispatch_intended','acknowledged','recovery_required','dismissed')),\n  dispatch_id TEXT,\n  dispatched_at TEXT,\n  settled_at TEXT,\n  reason TEXT CHECK (reason IS NULL OR length(CAST(reason AS BLOB)) <= 256),\n  PRIMARY KEY (store_id, notification_id)\n) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_runs",
+      "sql": "CREATE TABLE delegation_runs (run_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES delegation_tasks(task_id) DEFERRABLE INITIALLY DEFERRED, ordinal INTEGER NOT NULL, created_at TEXT NOT NULL, phase TEXT NOT NULL, owner_epoch INTEGER NOT NULL, unsettled INTEGER NOT NULL, final_blob BLOB NOT NULL CHECK(length(final_blob)=32768), cancel_blob BLOB NOT NULL CHECK(length(cancel_blob)=2048), interrupt_blob BLOB NOT NULL CHECK(length(interrupt_blob)=2048), session_close_blob BLOB NOT NULL CHECK(length(session_close_blob)=2048), binding_cleanup_blob BLOB NOT NULL CHECK(length(binding_cleanup_blob)=2048), UNIQUE(task_id,ordinal)) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_state",
+      "sql": "CREATE TABLE delegation_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), store_id TEXT NOT NULL, owner_epoch INTEGER NOT NULL, owner_nonce TEXT, limits_json TEXT NOT NULL, capacity_json TEXT NOT NULL) STRICT"
+    },
+    {
+      "type": "table",
+      "name": "delegation_tasks",
+      "sql": "CREATE TABLE delegation_tasks (task_id TEXT PRIMARY KEY, parent_id TEXT NOT NULL, scope_id TEXT NOT NULL, head_run_id TEXT NOT NULL REFERENCES delegation_runs(run_id) DEFERRABLE INITIALLY DEFERRED) STRICT"
+    }
+  ],
+  "taskHeader": {
+    "applicationId": 1095189588,
+    "userVersion": 1
+  },
+  "ownerSchema": [
+    {
+      "type": "table",
+      "name": "owner_lock",
+      "sql": "CREATE TABLE owner_lock (singleton INTEGER PRIMARY KEY CHECK(singleton=1))"
+    }
+  ],
+  "ownerHeader": {
+    "applicationId": 1095189583,
+    "userVersion": 1
+  }
+}

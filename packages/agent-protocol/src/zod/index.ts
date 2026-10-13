@@ -7,8 +7,6 @@ export {
   AgentArtifactIdSchema,
   AgentCollaborationIdSchema,
   AgentConfigurationRevisionIdSchema,
-  AgentErrorContextSchema,
-  AgentErrorSchema,
   AgentInstanceIdSchema,
   AgentIntegrationIdSchema,
   AgentIntegrationResourceIdSchema,
@@ -37,6 +35,13 @@ export {
   AgentGeneratedResourceIdSchema,
   AgentTurnIdSchema,
 } from './foundation.js';
+export {
+  AgentErrorContextSchema,
+  AgentErrorSchema,
+  AgentFailureCategorySchema,
+  AgentFailureQuotaReferenceSchema,
+  AgentRecoveryHintSchema,
+} from './failures.js';
 export {
   AgentSessionBindingSchema,
   AgentSessionBranchSourceSchema,

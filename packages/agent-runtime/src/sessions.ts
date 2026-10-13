@@ -29,6 +29,7 @@ import type {
 } from "@agen-ai/agent-protocol";
 
 import type { MaybePromise } from "./foundation.js";
+import type { AgentSessionHostBinding, AgentSessionHostBindingSupport } from "./hostBindings/types.js";
 import type { AgentProviderOutput } from "./outputs.js";
 import type { AgentArtifactCandidate } from "./artifacts.js";
 import type {
@@ -44,6 +45,7 @@ export interface AgentProviderSessionContext {
   readonly workingDirectory: string;
   readonly configuration: AgentSessionConfiguration;
   readonly signal?: AbortSignal;
+  readonly hostBinding?: AgentSessionHostBinding;
 }
 
 export type AgentSessionBindingCreatedObserver = (
@@ -76,7 +78,7 @@ export type AgentProviderOutputObserver = (
   output: AgentProviderOutput,
 ) => MaybePromise<void>;
 
-export interface AgentProviderRunTurnInput {
+export interface AgentProviderStartTurnInput {
   readonly turnId: AgentTurnId;
   readonly interactionMode: AgentTurnInteractionMode;
   readonly parts: readonly AgentTurnInputPart[];
@@ -89,6 +91,19 @@ export interface AgentProviderRunTurnInput {
 export interface AgentProviderResolveRequestInput {
   readonly resolution: AgentRequestResolution;
   readonly signal?: AbortSignal;
+  readonly onProviderExecutionStarted?: AgentProviderExecutionStartedObserver;
+}
+
+/** Acceptance of the canonical answer or step, not model consumption or turn completion. */
+export type AgentRequestResolutionResult =
+  | Readonly<{ status: "delivered" }>
+  | Readonly<{ status: "rejected"; requestState: "pending" | "unavailable"; error: AgentError }>
+  | Readonly<{ status: "delivery_uncertain"; error: AgentError }>;
+
+export interface AgentProviderTurnExecution {
+  readonly turnId: AgentTurnId;
+  readonly outputs: AsyncIterable<AgentProviderOutput>;
+  readonly resolveRequest: (input: AgentProviderResolveRequestInput) => Promise<AgentRequestResolutionResult>;
 }
 
 export interface AgentProviderInterruptTurnInput {
@@ -169,6 +184,12 @@ export interface AgentProviderOperationResult {
   readonly error?: AgentError;
 }
 
+export interface AgentProviderTurnInterruptionResult {
+  readonly status: AgentProviderOperationStatus;
+  readonly error?: AgentError;
+  readonly outputs?: never;
+}
+
 export type AgentTurnSteeringResult =
   | Readonly<{ status: "delivered" }>
   | Readonly<{ status: "rejected"; error: AgentError }>
@@ -184,7 +205,7 @@ export type AgentTurnInterruption =
       kind: "supported";
       interruptTurn: (
         input: AgentProviderInterruptTurnInput,
-      ) => MaybePromise<AgentProviderOperationResult>;
+      ) => MaybePromise<AgentProviderTurnInterruptionResult>;
     }>;
 
 export type AgentTurnSteering =
@@ -252,12 +273,9 @@ export type AgentGeneratedResourceAccess =
 
 export interface AgentProviderSession {
   readonly binding: AgentSessionBinding;
-  readonly runTurn: (
-    input: AgentProviderRunTurnInput,
-  ) => AsyncIterable<AgentProviderOutput>;
-  readonly resolveRequest: (
-    input: AgentProviderResolveRequestInput,
-  ) => AsyncIterable<AgentProviderOutput>;
+  readonly startTurn: (
+    input: AgentProviderStartTurnInput,
+  ) => AgentProviderTurnExecution;
   readonly interruption: AgentTurnInterruption;
   readonly steering: AgentTurnSteering;
   readonly configuration: AgentSessionConfigurationControl;
@@ -318,6 +336,7 @@ export type AgentProviderAuthentication =
     }>;
 
 export interface AgentProviderAdapter {
+  readonly hostBinding?: AgentSessionHostBindingSupport;
   readonly createSession: (
     input: AgentProviderCreateSessionInput,
   ) => MaybePromise<AgentProviderSession>;

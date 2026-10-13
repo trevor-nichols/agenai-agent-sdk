@@ -2,6 +2,8 @@
 //                approvalContextValidation.test.ts - Stateful refusal and context proofs
 // ------------------------------------------------------------------------------------------------
 
+import { fixtureTurn, collectToRequest, resolveAndCollectTurn } from "./fixtures/turnExecution.js";
+
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -48,7 +50,7 @@ const configuration = {
 
 const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 9,
+  protocolVersion: 10,
   providerKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -162,7 +164,7 @@ function event<TType extends AgentEvent["type"]>(
   payload: Extract<AgentEvent, { readonly type: TType }>["payload"],
 ) {
   return createAgentEventOutput({
-    protocolVersion: 9,
+    protocolVersion: 10,
     sessionId,
     turnId,
     occurredAt,
@@ -176,11 +178,11 @@ function candidateSession(
 ): AgentProviderSession {
   return {
     binding: { conversationId: "v8-session-validation" as never },
-    runTurn: async function* ({ turnId }) {
+    startTurn: fixtureTurn(async function* ({ turnId }) {
       yield event(turnId, "turn.started", {});
       yield event(turnId, "turn.completed", { outcome: "completed" });
-    },
-    resolveRequest: async function* () {},
+    }, async function* () {}),
+
     interruption: { kind: "unsupported" },
     steering: { kind: "unsupported" },
     configuration: { kind: "managed" },
@@ -272,22 +274,23 @@ test("refuses unoffered and expired approval choices before provider delegation"
     const opened = await openSession(
       approvalCapabilities,
       candidateSession({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield* waitingApprovalOutputs(turnId, request);
-        },
-        resolveRequest: async function* () {
+        }, async function* () {
           delegatedResolutions += 1;
-        },
+        }),
+
       }),
     );
-    await collect(opened.runTurn({
+    const execution = opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Request approval." }],
-    }));
+    });
+await collectToRequest(execution);
 
     await assert.rejects(
-      collect(opened.resolveRequest({
+      async () => (resolveAndCollectTurn(execution, {
         resolution: {
           requestKind: "approval",
           requestId: request.requestId,
@@ -313,10 +316,9 @@ test("admits only neutral cancellation after approval expiry", async () => {
   const opened = await openSession(
     approvalCapabilities,
     candidateSession({
-      runTurn: async function* () {
+      startTurn: fixtureTurn(async function* () {
         yield* waitingApprovalOutputs(turnId, request);
-      },
-      resolveRequest: async function* ({ resolution }) {
+      }, async function* ({ resolution }) {
         delegatedResolutions += 1;
         assert.deepEqual(resolution, {
           requestKind: "approval",
@@ -324,22 +326,24 @@ test("admits only neutral cancellation after approval expiry", async () => {
           disposition: "canceled",
         });
         yield event(turnId, "turn.completed", { outcome: "canceled" });
-      },
+      }),
+
     }),
   );
-  await collect(opened.runTurn({
+  const execution = opened.startTurn({
     turnId,
     interactionMode: "default",
     parts: [{ type: "text", text: "Request approval." }],
-  }));
+  });
+await collectToRequest(execution);
 
-  await collect(opened.resolveRequest({
+  await resolveAndCollectTurn(execution, {
     resolution: {
       requestKind: "approval",
       requestId: request.requestId,
       disposition: "canceled",
     },
-  }));
+  });
   assert.equal(delegatedResolutions, 1);
 });
 
@@ -351,20 +355,20 @@ test("refuses uncorrelated approvals and unadvertised approval modes", async () 
   const uncorrelated = await openSession(
     approvalCapabilities,
     candidateSession({
-      runTurn: async function* () {
+      startTurn: fixtureTurn(async function* () {
         yield event(uncorrelatedTurnId, "turn.started", {});
         yield event(uncorrelatedTurnId, "request.opened", {
           request: uncorrelatedRequest,
         });
-      },
+      }),
     }),
   );
   await assert.rejects(
-    collect(uncorrelated.runTurn({
+    async () => (collect(uncorrelated.startTurn({
       turnId: uncorrelatedTurnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Reject missing correlation." }],
-    })),
+    }).outputs)),
     (error: unknown) =>
       error instanceof AgentProviderContractError
       && error.code === "invalid_turn_sequence",
@@ -384,17 +388,17 @@ test("refuses uncorrelated approvals and unadvertised approval modes", async () 
     const opened = await openSession(
       approvalCapabilities,
       candidateSession({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield* waitingApprovalOutputs(turnId, request);
-        },
+        }),
       }),
     );
     await assert.rejects(
-      collect(opened.runTurn({
+      async () => (collect(opened.startTurn({
         turnId,
         interactionMode: "default",
         parts: [{ type: "text", text: "Reject an unadvertised mode." }],
-      })),
+      }).outputs)),
       (error: unknown) =>
         error instanceof AgentProviderContractError
         && error.code === "output_capability_mismatch",
@@ -420,7 +424,7 @@ test("rejects a pending plan approval when its correlation is replaced", async (
   const opened = await openSession(
     planApprovalCapabilities,
     candidateSession({
-      runTurn: async function* () {
+      startTurn: fixtureTurn(async function* () {
         yield event(turnId, "turn.started", {});
         yield event(turnId, "turn.plan.proposed", {
           artifactId,
@@ -435,19 +439,19 @@ test("rejects a pending plan approval when its correlation is replaced", async (
           state: "waiting_for_request",
           requestId: request.requestId,
         });
-      },
-      resolveRequest: async function* () {
+      }, async function* () {
         delegatedResolutions += 1;
-      },
+      }),
+
     }),
   );
 
   await assert.rejects(
-    collect(opened.runTurn({
+    async () => (collect(opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Reject stale plan approval authority." }],
-    })),
+    }).outputs)),
     (error: unknown) =>
       error instanceof AgentProviderContractError
       && error.code === "invalid_turn_sequence"
@@ -486,7 +490,7 @@ test("rejects terminal item revival before approval visibility", async () => {
     const opened = await openSession(
       approvalCapabilities,
       candidateSession({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield event(turnId, "turn.started", {});
           yield event(turnId, scenario.terminalEventType, {
             itemId,
@@ -503,19 +507,19 @@ test("rejects terminal item revival before approval visibility", async () => {
             state: "waiting_for_request",
             requestId: request.requestId,
           });
-        },
-        resolveRequest: async function* () {
+        }, async function* () {
           delegatedResolutions += 1;
-        },
+        }),
+
       }),
     );
 
     await assert.rejects(
-      collect(opened.runTurn({
+      async () => (collect(opened.startTurn({
         turnId,
         interactionMode: "default",
         parts: [{ type: "text", text: "Reject terminal item revival." }],
-      })),
+      }).outputs)),
       (error: unknown) =>
         error instanceof AgentProviderContractError
         && error.code === "invalid_turn_sequence",
@@ -537,7 +541,7 @@ test("rejects approvals opened after completion with a live status", async () =>
   const opened = await openSession(
     approvalCapabilities,
     candidateSession({
-      runTurn: async function* () {
+      startTurn: fixtureTurn(async function* () {
         yield event(turnId, "turn.started", {});
         yield event(turnId, "item.completed", {
           itemId,
@@ -549,16 +553,16 @@ test("rejects approvals opened after completion with a live status", async () =>
           state: "waiting_for_request",
           requestId: request.requestId,
         });
-      },
+      }),
     }),
   );
 
   await assert.rejects(
-    collect(opened.runTurn({
+    async () => (collect(opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Reject a terminal approval subject." }],
-    })),
+    }).outputs)),
     (error: unknown) =>
       error instanceof AgentProviderContractError
       && error.code === "invalid_turn_sequence",
@@ -600,7 +604,7 @@ test("rejects a pending approval when its subject becomes terminal", async () =>
     const opened = await openSession(
       approvalCapabilities,
       candidateSession({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield event(turnId, "turn.started", {});
           yield event(turnId, "item.started", {
             itemId,
@@ -617,19 +621,19 @@ test("rejects a pending approval when its subject becomes terminal", async () =>
             state: "waiting_for_request",
             requestId: request.requestId,
           });
-        },
-        resolveRequest: async function* () {
+        }, async function* () {
           delegatedResolutions += 1;
-        },
+        }),
+
       }),
     );
 
     await assert.rejects(
-      collect(opened.runTurn({
+      async () => (collect(opened.startTurn({
         turnId,
         interactionMode: "default",
         parts: [{ type: "text", text: "Reject terminal approval subjects." }],
-      })),
+      }).outputs)),
       (error: unknown) =>
         error instanceof AgentProviderContractError
         && error.code === "invalid_turn_sequence",
@@ -653,7 +657,7 @@ test("preserves a pending approval across an unknown item update", async () => {
   const opened = await openSession(
     approvalCapabilities,
     candidateSession({
-      runTurn: async function* () {
+      startTurn: fixtureTurn(async function* () {
         yield event(turnId, "turn.started", {});
         yield event(turnId, "item.started", {
           itemId,
@@ -670,15 +674,18 @@ test("preserves a pending approval across an unknown item update", async () => {
           state: "waiting_for_request",
           requestId: request.requestId,
         });
-      },
+      }),
     }),
   );
 
-  await collect(opened.runTurn({
+  const outputs = await collectToRequest(opened.startTurn({
     turnId,
     interactionMode: "default",
     parts: [{ type: "text", text: "Keep the live approval correlated." }],
   }));
+  const last = outputs.at(-1);
+  assert.equal(last?.kind === "event" ? last.event.type : null, "turn.state_changed");
+  await opened.close({ reason: "idle" });
 });
 
 test("preserves terminal item authority across request continuations", async () => {
@@ -703,7 +710,7 @@ test("preserves terminal item authority across request continuations", async () 
   const opened = await openSession(
     approvalCapabilities,
     candidateSession({
-      runTurn: async function* () {
+      startTurn: fixtureTurn(async function* () {
         yield event(turnId, "turn.started", {});
         yield event(turnId, "item.completed", {
           itemId: revivedItemId,
@@ -720,8 +727,7 @@ test("preserves terminal item authority across request continuations", async () 
           state: "waiting_for_request",
           requestId: firstRequest.requestId,
         });
-      },
-      resolveRequest: async function* () {
+      }, async function* () {
         delegatedResolutions += 1;
         yield event(turnId, "item.updated", {
           itemId: revivedItemId,
@@ -733,17 +739,19 @@ test("preserves terminal item authority across request continuations", async () 
           state: "waiting_for_request",
           requestId: revivedRequest.requestId,
         });
-      },
+      }),
+
     }),
   );
 
-  await collect(opened.runTurn({
+  const execution = opened.startTurn({
     turnId,
     interactionMode: "default",
     parts: [{ type: "text", text: "Preserve item authority while waiting." }],
-  }));
+  });
+await collectToRequest(execution);
   await assert.rejects(
-    collect(opened.resolveRequest({
+    async () => (resolveAndCollectTurn(execution, {
       resolution: {
         requestKind: "approval",
         requestId: firstRequest.requestId,
@@ -764,7 +772,7 @@ test("preserves the in-progress watermark through unknown item updates", async (
   const opened = await openSession(
     baseCapabilities,
     candidateSession({
-      runTurn: async function* () {
+      startTurn: fixtureTurn(async function* () {
         yield event(turnId, "turn.started", {});
         yield event(turnId, "item.started", {
           itemId,
@@ -782,16 +790,16 @@ test("preserves the in-progress watermark through unknown item updates", async (
           status: "pending",
         });
         yield event(turnId, "turn.completed", { outcome: "completed" });
-      },
+      }),
     }),
   );
 
   await assert.rejects(
-    collect(opened.runTurn({
+    async () => (collect(opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Reject an indirect lifecycle regression." }],
-    })),
+    }).outputs)),
     (error: unknown) =>
       error instanceof AgentProviderContractError
       && error.code === "invalid_turn_sequence",
@@ -831,7 +839,7 @@ test("accepts monotonic usage and one post-compaction occupancy decrease", async
   const opened = await openSession(
     contextCapabilities,
     candidateSession({
-      runTurn: async function* ({ turnId: activeTurnId }) {
+      startTurn: fixtureTurn(async function* ({ turnId: activeTurnId }) {
         runs += 1;
         yield event(activeTurnId, "turn.started", {});
         if (activeTurnId === turnId) {
@@ -853,20 +861,20 @@ test("accepts monotonic usage and one post-compaction occupancy decrease", async
           yield contextUsage(activeTurnId, 50, 120, 2);
         }
         yield event(activeTurnId, "turn.completed", { outcome: "completed" });
-      },
+      }),
     }),
   );
 
-  await collect(opened.runTurn({
+  await collect(opened.startTurn({
     turnId,
     interactionMode: "default",
     parts: [{ type: "text", text: "Compact this context." }],
-  }));
-  await collect(opened.runTurn({
+  }).outputs);
+  await collect(opened.startTurn({
     turnId: nextTurnId,
     interactionMode: "default",
     parts: [{ type: "text", text: "Continue the same materialization." }],
-  }));
+  }).outputs);
   assert.equal(runs, 2);
 });
 
@@ -879,7 +887,7 @@ test("resets only materialization usage at an observed process boundary", async 
     const opened = await openSession(
       contextCapabilities,
       candidateSession({
-        runTurn: async function* ({ turnId }) {
+        startTurn: fixtureTurn(async function* ({ turnId }) {
           yield processStarted();
           yield event(turnId, "turn.started", {});
           const firstMaterialization = turnId === firstTurnId;
@@ -893,20 +901,20 @@ test("resets only materialization usage at an observed process boundary", async 
             },
           });
           yield event(turnId, "turn.completed", { outcome: "completed" });
-        },
+        }),
       }),
     );
 
-    await collect(opened.runTurn({
+    await collect(opened.startTurn({
       turnId: firstTurnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Record the first process usage." }],
-    }));
-    const secondTurn = collect(opened.runTurn({
+    }).outputs);
+    const secondTurn = collect(opened.startTurn({
       turnId: secondTurnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Start a replacement process." }],
-    }));
+    }).outputs);
     if (measurementScope === "materialization") {
       await secondTurn;
       return;
@@ -943,7 +951,7 @@ test("accepts unknown compaction only as a supported-provider fallback", async (
     const opened = await openSession(
       capabilities,
       candidateSession({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield event(turnId, "turn.started", {});
           yield event(turnId, "item.completed", {
             itemId: parseAgentItemId(`item:v8-${trigger}-compaction`),
@@ -952,25 +960,25 @@ test("accepts unknown compaction only as a supported-provider fallback", async (
             details: { trigger },
           });
           yield event(turnId, "turn.completed", { outcome: "completed" });
-        },
+        }),
       }),
     );
-    await collect(opened.runTurn({
+    await collect(opened.startTurn({
       turnId,
       interactionMode: "default",
       parts: [{ type: "text", text: "Observe provider compaction." }],
-    }));
+    }).outputs);
   };
 
   await runCompaction(manualOnlyCapabilities, "unknown");
   await assert.rejects(
-    runCompaction(manualOnlyCapabilities, "automatic"),
+    async () => (runCompaction(manualOnlyCapabilities, "automatic")),
     (error: unknown) =>
       error instanceof AgentProviderContractError
       && error.code === "output_capability_mismatch",
   );
   await assert.rejects(
-    runCompaction(baseCapabilities, "unknown"),
+    async () => (runCompaction(baseCapabilities, "unknown")),
     (error: unknown) =>
       error instanceof AgentProviderContractError
       && error.code === "output_capability_mismatch",
@@ -1040,18 +1048,18 @@ test("rejects duplicate, regressing, and post-terminal context samples", async (
     const opened = await openSession(
       contextCapabilities,
       candidateSession({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield event(turnId, "turn.started", {});
           yield* scenario.outputs(turnId);
-        },
+        }),
       }),
     );
     await assert.rejects(
-      collect(opened.runTurn({
+      async () => (collect(opened.startTurn({
         turnId,
         interactionMode: "default",
         parts: [{ type: "text", text: "Reject invalid usage state." }],
-      })),
+      }).outputs)),
       (error: unknown) =>
         error instanceof AgentProviderContractError
         && error.code === "invalid_turn_sequence",
@@ -1100,18 +1108,18 @@ test("refuses context facts outside the advertised capability", async () => {
     const opened = await openSession(
       limitedCapabilities,
       candidateSession({
-        runTurn: async function* () {
+        startTurn: fixtureTurn(async function* () {
           yield event(turnId, "turn.started", {});
           yield output;
-        },
+        }),
       }),
     );
     await assert.rejects(
-      collect(opened.runTurn({
+      async () => (collect(opened.startTurn({
         turnId,
         interactionMode: "default",
         parts: [{ type: "text", text: "Reject unsupported context facts." }],
-      })),
+      }).outputs)),
       (error: unknown) =>
         error instanceof AgentProviderContractError
         && error.code === "output_capability_mismatch",

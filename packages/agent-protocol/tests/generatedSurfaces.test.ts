@@ -23,6 +23,7 @@ import {
   safeParseAgentConfigurationCatalog,
   safeParseAgentConfigurationSelectionInput,
   safeParseAgentEvent,
+  safeParseAgentError,
   safeParseAgentGeneratedResourceDescriptor,
   safeParseAgentIntegrationCatalog,
   safeParseAgentManagedContentCatalog,
@@ -91,12 +92,12 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 26);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 27);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 9);
+    assert.equal(artifact.protocolVersion, 10);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -124,6 +125,17 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
     },
   } as const;
   const fixtures = [
+    {
+      contractId: 'agenai.agent-protocol.error',
+      parser: safeParseAgentError,
+      accepted: {
+        category: 'authentication',
+        code: 'authentication_required',
+        message: 'Authentication is required.',
+        recovery: { kind: 'user_action', action: 'authenticate' },
+      },
+      rejected: { code: 'authentication_required', message: 'Authentication is required.', retryable: false },
+    },
     {
       contractId: 'agenai.agent-protocol.account-quota-snapshot',
       parser: safeParseAgentAccountQuotaSnapshot,
@@ -256,7 +268,13 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
       parser: safeParseAgentOperationResult,
       accepted: {
         invocationId: 'operation-invocation:1',
-        status: 'completed',
+        status: 'failed',
+        error: {
+          category: 'permission',
+          code: 'access_denied',
+          message: 'Access was denied.',
+          recovery: { kind: 'user_action', action: 'review_access' },
+        },
       },
       rejected: {
         invocationId: 'operation-invocation:1',
@@ -325,11 +343,21 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
         rootCollaborationId: 'collaboration:1',
         role: 'delegate',
         title: 'Implementation inspection',
-        status: 'queued',
+        status: 'failed',
         objective: 'Inspect the implementation.',
         usage: { kind: 'unavailable' },
+        outcome: {
+          kind: 'failed',
+          error: {
+            category: 'execution_limit',
+            code: 'max_turns',
+            message: 'The maximum number of turns was reached.',
+            recovery: { kind: 'none' },
+          },
+        },
         createdAt: protocolTimestamp,
         updatedAt: protocolTimestamp,
+        terminalAt: protocolTimestamp,
       },
       rejected: {
         collaborationId: 'collaboration:1',
@@ -373,10 +401,16 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
       accepted: {
         resourceId: 'resource:1',
         kind: 'image',
-        status: 'pending',
+        status: 'unavailable',
         displayName: 'Generated preview',
         producer: { kind: 'session', sessionId: 'session:1' },
         createdAt: protocolTimestamp,
+        error: {
+          category: 'provider',
+          code: 'generation_failed',
+          message: 'Resource generation failed.',
+          recovery: { kind: 'unknown' },
+        },
       },
       rejected: {
         resourceId: 'resource:1',
@@ -406,7 +440,7 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
     {
       contractId: 'agenai.agent-protocol.event',
       parser: safeParseAgentEvent,
-      accepted: eventFixtureCorpus[6],
+      accepted: eventFixtureCorpus.find((event) => event.type === 'runtime.retrying'),
       rejected: {
         protocolVersion: 3,
         sessionId: 'session:1',
@@ -434,11 +468,9 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
     assert.ok(artifact, fixture.contractId);
     const validate = ajv.compile(artifact.schema);
     assert.equal(validate(fixture.accepted), true, fixture.contractId);
-    assert.equal(
-      fixture.parser(fixture.accepted).success,
-      true,
-      fixture.contractId,
-    );
+    const parsed = fixture.parser(fixture.accepted);
+    assert.equal(parsed.success, true, fixture.contractId);
+    if (parsed.success) assert.deepEqual(parsed.data, fixture.accepted, fixture.contractId);
     assert.equal(validate(fixture.rejected), false, fixture.contractId);
     assert.equal(
       fixture.parser(fixture.rejected).success,
@@ -648,18 +680,22 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
   }
 });
 
-test('event JSON Schema declares residual V8 semantic parser invariants', () => {
+test('event JSON Schema declares residual semantic parser invariants', () => {
   const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find(
     (candidate) => candidate.contractId === 'agenai.agent-protocol.event',
   );
   assert.ok(artifact);
   assert.deepEqual(artifact.parserInvariants, [
+    'failure_quota_category',
+    'quota_reset_observation_ordering',
+    'serialized_failure_bytes',
     'event_state_correlation',
     'context_usage_bounds',
     'file_change_path_ordering_and_uniqueness',
     'item_detail_identification',
     'non_empty_provider_refs',
     'request_semantics',
+    'retry_counter_ordering',
     'serialized_bytes',
     'terminal_error_consistency',
   ]);
@@ -670,7 +706,7 @@ test('event JSON Schema declares residual V8 semantic parser invariants', () => 
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 9,
+    protocolVersion: 10,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -731,4 +767,49 @@ test('event JSON Schema declares residual V8 semantic parser invariants', () => 
     assert.equal(validate(parserOnlyInvalid), true);
     assert.equal(safeParseAgentEvent(parserOnlyInvalid).success, false);
   }
+
+  const retry = eventFixtureCorpus.find((event) => event.type === 'runtime.retrying');
+  assert.ok(retry);
+  assert.equal(validate(retry), true);
+  const invalidCounters = { ...retry, payload: { ...retry.payload, attempt: 2, maxAttempts: 1 } };
+  assert.equal(validate(invalidCounters), true);
+  assert.equal(safeParseAgentEvent(invalidCounters).success, false);
+  const invalidOwner = { ...retry, payload: { ...retry.payload, owner: 'host' } };
+  assert.equal(validate(invalidOwner), false);
+  assert.equal(safeParseAgentEvent(invalidOwner).success, false);
+});
+
+test('failure JSON Schema declares evidence refinements while enforcing the closed recovery shape', () => {
+  const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find(
+    (candidate) => candidate.contractId === 'agenai.agent-protocol.error',
+  );
+  assert.ok(artifact);
+  assert.deepEqual(artifact.parserInvariants, [
+    'failure_quota_category',
+    'quota_reset_observation_ordering',
+    'serialized_failure_bytes',
+  ]);
+  const validate = new Ajv2020({ allErrors: true, strict: true, validateFormats: false }).compile(artifact.schema);
+  const failure = {
+    category: 'quota_exhausted',
+    code: 'allowance_exhausted',
+    message: 'The included allowance was exhausted.',
+    recovery: {
+      kind: 'wait_for_quota',
+      quota: {
+        sourceId: 'source:funding',
+        poolId: 'pool:included',
+        windowId: 'window:weekly',
+        observedAt: protocolTimestamp,
+      },
+    },
+  } as const;
+  assert.equal(validate(failure), true);
+  assert.equal(safeParseAgentError(failure).success, true);
+  const invalidShape = { ...failure, recovery: { ...failure.recovery, notBefore: protocolTimestamp } };
+  assert.equal(validate(invalidShape), false);
+  assert.equal(safeParseAgentError(invalidShape).success, false);
+  const invalidApplicability = { ...failure, category: 'budget_exhausted' };
+  assert.equal(validate(invalidApplicability), true);
+  assert.equal(safeParseAgentError(invalidApplicability).success, false);
 });

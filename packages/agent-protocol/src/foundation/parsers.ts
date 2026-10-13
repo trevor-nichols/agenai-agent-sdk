@@ -9,7 +9,6 @@ import {
   AgentCollaborationIdSchema,
   AgentConfigurationRevisionIdSchema,
   AgentGeneratedResourceIdSchema,
-  AgentErrorSchema,
   AgentInstanceIdSchema,
   AgentIntegrationIdSchema,
   AgentIntegrationResourceIdSchema,
@@ -42,7 +41,6 @@ import type {
   AgentApprovalOptionId,
   AgentCollaborationId,
   AgentConfigurationRevisionId,
-  AgentError,
   AgentGeneratedResourceId,
   AgentInstanceId,
   AgentIntegrationId,
@@ -72,6 +70,8 @@ import type {
   AgentTurnId,
 } from './types.js';
 import type { AgentProtocolParseResult } from './validation.js';
+
+export { parseAgentError, safeParseAgentError } from '../failures/parsers.js';
 
 // ------------------------------------------------------------------------------------------------
 //                ID Parsers
@@ -234,16 +234,6 @@ export function safeParseAgentProviderRefs(
   input: unknown,
 ): AgentProtocolParseResult<AgentProviderRefs> {
   return safeParseWithSchema(AgentProviderRefsSchema, input);
-}
-
-export function parseAgentError(input: unknown): AgentError {
-  return parseWithSchema(AgentErrorSchema, input);
-}
-
-export function safeParseAgentError(
-  input: unknown,
-): AgentProtocolParseResult<AgentError> {
-  return safeParseWithSchema(AgentErrorSchema, input);
 }
 
 const environmentIdParser = idParser<AgentEnvironmentId>(AgentEnvironmentIdSchema);

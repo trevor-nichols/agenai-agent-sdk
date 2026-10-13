@@ -8,11 +8,63 @@ import test from 'node:test';
 import {
   AGENT_EVENT_TYPES,
   AGENT_PROTOCOL_EVENT_BYTES_LIMIT,
+  AGENT_PROTOCOL_VERSION,
   agentProtocolSerializedJsonBytes,
   parseAgentEvent,
   safeParseAgentEvent,
 } from '../src/public/index.js';
 import { eventFixtureCorpus, protocolTimestamp } from './fixtures.js';
+
+test('provider retry observations preserve absent counters and validate reported retry ordinals', () => {
+  const event = {
+    protocolVersion: AGENT_PROTOCOL_VERSION,
+    sessionId: 'session:retry',
+    turnId: 'turn:retry',
+    occurredAt: protocolTimestamp,
+    type: 'runtime.retrying',
+    payload: {
+      owner: 'provider',
+      error: {
+        category: 'overloaded',
+        code: 'provider_busy',
+        message: 'The provider is retrying its request.',
+        recovery: { kind: 'retry' },
+      },
+    },
+  } as const;
+  assert.deepEqual(parseAgentEvent(event), event);
+  for (const counters of [
+    { attempt: 1 },
+    { maxAttempts: 2 },
+    { attempt: 2, maxAttempts: 2, delayMs: 0 },
+    { attempt: Number.MAX_SAFE_INTEGER, maxAttempts: Number.MAX_SAFE_INTEGER, delayMs: Number.MAX_SAFE_INTEGER },
+  ]) {
+    const input = { ...event, payload: { ...event.payload, ...counters } };
+    assert.deepEqual(parseAgentEvent(input), input);
+  }
+  for (const counters of [
+    { attempt: 0 },
+    { attempt: -1 },
+    { attempt: 1.5 },
+    { attempt: Number.MAX_SAFE_INTEGER + 1 },
+    { maxAttempts: -1 },
+    { maxAttempts: 0 },
+    { maxAttempts: 1.5 },
+    { maxAttempts: Number.MAX_SAFE_INTEGER + 1 },
+    { attempt: 1, maxAttempts: 0 },
+    { attempt: 3, maxAttempts: 2 },
+    { delayMs: -1 },
+    { delayMs: 0.5 },
+    { delayMs: Number.POSITIVE_INFINITY },
+    { delayMs: Number.MAX_SAFE_INTEGER + 1 },
+    { owner: 'host' },
+    { requestId: 'native-request' },
+  ]) {
+    assert.equal(safeParseAgentEvent({ ...event, payload: { ...event.payload, ...counters } }).success, false);
+  }
+  const { turnId: _turnId, ...sessionOnly } = event;
+  assert.equal(safeParseAgentEvent(sessionOnly).success, false);
+});
 
 test('the fixture corpus covers every provider-observed event discriminant', () => {
   assert.deepEqual(
@@ -30,6 +82,7 @@ test('the fixture corpus covers every provider-observed event discriminant', () 
 test('events reject unsupported versions, unknown fields, and product coordinates', () => {
   const base = eventFixtureCorpus[0];
   for (const invalid of [
+    { ...base, protocolVersion: 9 },
     { ...base, protocolVersion: 8 },
     { ...base, protocolVersion: 2 },
     { ...base, protocolVersion: 1 },
@@ -40,6 +93,12 @@ test('events reject unsupported versions, unknown fields, and product coordinate
     { ...base, providerInstanceId: 4 },
     { ...base, visibility: 'member' },
     { ...base, sequence: 1 },
+    { ...base, type: 'runtime.warning', payload: { code: 'warning', message: 'Warning.', retryable: true } },
+    {
+      ...base,
+      type: 'runtime.error',
+      payload: { error: { code: 'turn_failed', message: 'Failed.', retryable: false } },
+    },
   ]) {
     assert.equal(safeParseAgentEvent(invalid).success, false);
   }
@@ -47,7 +106,7 @@ test('events reject unsupported versions, unknown fields, and product coordinate
 
 test('events enforce reference, state, terminal, progress, and byte invariants', () => {
   const base = {
-    protocolVersion: 9,
+    protocolVersion: 10,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -94,9 +153,35 @@ test('events enforce reference, state, terminal, progress, and byte invariants',
   );
 });
 
+test('retry, runtime-error, and failed-turn events preserve shared failure refinements', () => {
+  const error = {
+    category: 'quota_exhausted',
+    code: 'allowance_exhausted',
+    message: 'The included allowance was exhausted.',
+    recovery: {
+      kind: 'wait_for_quota',
+      quota: { sourceId: 'source:1', poolId: 'pool:1', windowId: 'window:1', observedAt: protocolTimestamp },
+    },
+  } as const;
+  for (const [type, payload] of [
+    ['runtime.retrying', { owner: 'provider', error }],
+    ['runtime.error', { error }],
+    ['turn.completed', { outcome: 'failed', error }],
+  ] as const) {
+    const event = {
+      protocolVersion: 10, sessionId: 'session:1', turnId: 'turn:1',
+      occurredAt: protocolTimestamp, type, payload,
+    };
+    assert.deepEqual(parseAgentEvent(event), event);
+    assert.equal(safeParseAgentEvent({
+      ...event, payload: { ...payload, error: { ...error, category: 'execution_limit' } },
+    }).success, false, type);
+  }
+});
+
 test('events reject noncanonical identifiers and diagnostic strings', () => {
   const base = {
-    protocolVersion: 9,
+    protocolVersion: 10,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -147,7 +232,8 @@ test('events reject noncanonical identifiers and diagnostic strings', () => {
         error: {
           code: 'turn_failed',
           message: 'Turn failed.',
-          retryable: false,
+          category: 'unknown',
+          recovery: { kind: 'unknown' },
           context: { operation: ' execute ' },
         },
       },
@@ -166,7 +252,7 @@ test('events reject noncanonical identifiers and diagnostic strings', () => {
 
 test('plan snapshots preserve canceled status and optional canonical priority', () => {
   const base = {
-    protocolVersion: 9,
+    protocolVersion: 10,
     sessionId: 'session:plan-semantics',
     turnId: 'turn:plan-semantics',
     occurredAt: protocolTimestamp,

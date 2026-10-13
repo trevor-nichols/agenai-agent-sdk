@@ -4,6 +4,8 @@
 
 import { z } from 'zod/v4';
 
+import { AgentErrorSchema } from './failures.js';
+
 import { compareStringsByUnicodeCodePoint } from '../foundation/ordering.js';
 import {
   AGENT_COLLABORATION_OBJECTIVE_MAX_LENGTH,
@@ -21,7 +23,6 @@ import {
 import {
   AgentArtifactIdSchema,
   AgentCollaborationIdSchema,
-  AgentErrorSchema,
   AgentGeneratedResourceIdSchema,
   AgentIsoDateTimeSchema,
   createAgentCanonicalNonBlankStringSchema,

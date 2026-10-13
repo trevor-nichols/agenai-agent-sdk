@@ -13,8 +13,6 @@ import {
   parseAgentGeneratedResourceId,
   parseAgentOperationInvocation,
   parseAgentOperationInvocationFor,
-  parseAgentRequestResolution,
-  parseAgentRequestResolutionFor,
   parseAgentSessionBinding,
   parseAgentTurnId,
   parseAgentTurnInputContent,
@@ -55,9 +53,13 @@ import {
 } from "./interactionValidation.js";
 import {
   AgentProviderDelegatedOperationError,
+  AgentProviderSessionCleanupError,
   throwAgentProviderContractError,
   type AgentProviderDelegatedOperation,
 } from "./contractErrors.js";
+import { createAgentHostBindingCleanupError, type AgentHostBindingLease } from "./hostBindings/lifetime.js";
+import { associateAgentSessionCleanupError } from "./sessionCleanup.js";
+import { hasExactOwnKeys } from "./internal/objectShape.js";
 import {
   throwIfAgentOperationAborted,
   type MaybePromise,
@@ -76,8 +78,8 @@ import type {
   AgentProviderInterruptTurnInput,
   AgentProviderInvokeOperationInput,
   AgentProviderOperationResult,
-  AgentProviderResolveRequestInput,
-  AgentProviderRunTurnInput,
+  AgentProviderStartTurnInput,
+  AgentProviderTurnInterruptionResult,
   AgentProviderSession,
   AgentProviderSpawnCollaborationInput,
   AgentGeneratedResourceInspection,
@@ -85,21 +87,12 @@ import type {
   AgentTurnSteeringResult,
 } from "./sessions.js";
 import { validateAgentTurnSteeringResult } from "./steeringValidation.js";
+import { createValidatedAgentTurnExecution, type ValidatedAgentTurnExecution } from "./turnExecution/execution.js";
+import { validateAgentProviderTurnInterruptionResult } from "./turnExecution/receipts.js";
+import type { PendingAgentRequest } from "./turnExecution/requests.js";
 
 //                Session Validation
 // ------------------------------------------------------------------------------------------------
-
-function hasExactOwnKeys(
-  candidate: object,
-  expectedKeys: readonly string[],
-): boolean {
-  const ownKeys = Reflect.ownKeys(candidate);
-  if (ownKeys.some((key) => typeof key !== "string")) return false;
-  const actualKeys = (ownKeys as string[]).sort();
-  const canonicalExpectedKeys = [...expectedKeys].sort();
-  return actualKeys.length === canonicalExpectedKeys.length
-    && actualKeys.every((key, index) => key === canonicalExpectedKeys[index]);
-}
 
 function validateSessionPorts(
   capabilities: AgentCapabilities,
@@ -108,8 +101,7 @@ function validateSessionPorts(
   if (
     !hasExactOwnKeys(session, [
       "binding",
-      "runTurn",
-      "resolveRequest",
+      "startTurn",
       "interruption",
       "steering",
       "configuration",
@@ -120,8 +112,7 @@ function validateSessionPorts(
       "generatedResources",
       "close",
     ]) ||
-    typeof session.runTurn !== "function" ||
-    typeof session.resolveRequest !== "function" ||
+    typeof session.startTurn !== "function" ||
     typeof session.close !== "function" ||
     session.interruption === null ||
     typeof session.interruption !== "object" ||
@@ -249,11 +240,6 @@ function validateSessionPorts(
   }
 }
 
-interface PendingAgentRequest {
-  readonly request: AgentRequest;
-  readonly turnId: AgentTurnId;
-}
-
 interface ObservedAgentItem {
   readonly itemKind: AgentItemKind;
   readonly status: AgentItemStatus;
@@ -268,7 +254,6 @@ interface AgentTurnSequenceState {
   readonly generatedResourceIds: Set<string>;
   started: boolean;
   terminal: boolean;
-  waiting: boolean;
   finalDiffObserved: boolean;
 }
 
@@ -430,6 +415,7 @@ interface ActiveAgentTurn {
   readonly pendingRequests: Map<string, PendingAgentRequest>;
   readonly state: AgentTurnSequenceState;
   readonly inFlightOperations: Set<Promise<void>>;
+  readonly owner: ValidatedAgentTurnExecution;
 }
 
 function invalidTurnSequence(
@@ -455,7 +441,6 @@ function completeTurnSequence(input: {
     );
   }
   input.state.terminal = true;
-  input.state.waiting = false;
 }
 
 const FINAL_DIFF_TRAILING_EVENT_TYPES: readonly AgentEvent["type"][] = [
@@ -652,12 +637,14 @@ function observeTurnEvent(input: {
   readonly state: AgentTurnSequenceState;
   readonly pendingRequests: Map<string, PendingAgentRequest>;
   readonly openedRequestIds: Set<string>;
+  readonly turnRequestIds: Set<string>;
   readonly contextUsageState: AgentContextUsageSequenceState;
 }): void {
   const {
     contextUsageState,
     event,
     openedRequestIds,
+    turnRequestIds,
     pendingRequests,
     providerKey,
     state,
@@ -763,16 +750,17 @@ function observeTurnEvent(input: {
       state,
     });
     openedRequestIds.add(requestId);
+    turnRequestIds.add(requestId);
     pendingRequests.set(requestId, {
       request: event.payload.request,
       turnId: event.turnId,
     });
   }
   if (event.type === "turn.state_changed") {
-    state.waiting = event.payload.state === "waiting_for_request";
+    const waiting = event.payload.state === "waiting_for_request";
     if (
-      state.waiting &&
-      !pendingRequests.has(event.payload.requestId as string)
+      waiting &&
+      !turnRequestIds.has(event.payload.requestId as string)
     ) {
       invalidTurnSequence(
         providerKey,
@@ -781,6 +769,7 @@ function observeTurnEvent(input: {
     }
   }
   if (event.type === "turn.completed") {
+    if (event.payload.outcome !== "completed") pendingRequests.clear();
     completeTurnSequence({ providerKey, state, pendingRequests });
   }
 }
@@ -792,6 +781,7 @@ function observeTurnOutput(input: {
   readonly state: AgentTurnSequenceState;
   readonly pendingRequests: Map<string, PendingAgentRequest>;
   readonly openedRequestIds: Set<string>;
+  readonly turnRequestIds: Set<string>;
   readonly contextUsageState: AgentContextUsageSequenceState;
   readonly interactionState: AgentInteractionSequenceState;
 }): void {
@@ -894,6 +884,7 @@ function observeTurnOutput(input: {
     state: input.state,
     pendingRequests: input.pendingRequests,
     openedRequestIds: input.openedRequestIds,
+    turnRequestIds: input.turnRequestIds,
     contextUsageState: input.contextUsageState,
   });
 }
@@ -948,34 +939,10 @@ function observeSessionOperationOutput(input: {
     state: input.state,
     pendingRequests: new Map(),
     openedRequestIds: new Set(),
+    turnRequestIds: new Set(),
     contextUsageState: input.contextUsageState,
     interactionState: input.interactionState,
   });
-}
-
-function assertStableTurnBoundary(input: {
-  readonly providerKey: AgentProviderKey;
-  readonly state: AgentTurnSequenceState;
-  readonly pendingRequests: ReadonlyMap<string, PendingAgentRequest>;
-}): void {
-  const terminal = input.state.terminal && !input.state.waiting;
-  const waiting =
-    !input.state.terminal &&
-    input.state.waiting &&
-    input.pendingRequests.size === 1;
-  if ((terminal && input.pendingRequests.size === 0) || waiting) return;
-  invalidTurnSequence(
-    input.providerKey,
-    "Provider turn must finish with completion or exactly one pending request.",
-  );
-}
-
-function replacePendingRequests(
-  target: Map<string, PendingAgentRequest>,
-  source: ReadonlyMap<string, PendingAgentRequest>,
-): void {
-  target.clear();
-  for (const [requestId, pending] of source) target.set(requestId, pending);
 }
 
 function trackActiveTurnOperation(
@@ -993,79 +960,9 @@ function trackActiveTurnOperation(
   };
 }
 
-function interruptionTerminalizesTurn(input: {
-  readonly turnId: AgentTurnId;
-  readonly result: AgentProviderOperationResult;
-}): boolean {
-  if (["completed", "canceled"].includes(input.result.status)) {
-    return true;
-  }
-  return (input.result.outputs ?? []).some(
-    (output) =>
-      output.kind === "event" &&
-      output.event.turnId === input.turnId &&
-      output.event.type === "turn.completed",
-  );
-}
-
-function observeTurnOperationOutputs(input: {
-  readonly capabilities: AgentCapabilities;
-  readonly providerKey: AgentProviderKey;
-  readonly outputs: readonly AgentProviderOutput[] | undefined;
-  readonly state: AgentTurnSequenceState;
-  readonly pendingRequests: Map<string, PendingAgentRequest>;
-  readonly openedRequestIds: Set<string>;
-  readonly contextUsageState: AgentContextUsageSequenceState;
-  readonly interactionState: AgentInteractionSequenceState;
-}): void {
-  for (const output of input.outputs ?? []) {
-    observeTurnOutput({
-      providerKey: input.providerKey,
-      output,
-      state: input.state,
-      pendingRequests: input.pendingRequests,
-      openedRequestIds: input.openedRequestIds,
-      contextUsageState: input.contextUsageState,
-      capabilities: input.capabilities,
-      interactionState: input.interactionState,
-    });
-  }
-}
-
-function reconstructWaitingTurn(input: {
-  readonly pendingRequests: ReadonlyMap<string, PendingAgentRequest>;
-  readonly turnId: AgentTurnId;
-  readonly state: AgentTurnSequenceState | undefined;
-}): Pick<ActiveAgentTurn, "state" | "pendingRequests"> | null {
-  const targetedPendingRequests = new Map(
-    [...input.pendingRequests].filter(
-      ([, pending]) => pending.turnId === input.turnId,
-    ),
-  );
-  if (
-    targetedPendingRequests.size === 0
-    || input.state === undefined
-    || input.state.terminal
-    || !input.state.waiting
-  ) return null;
-  return {
-    state: input.state,
-    pendingRequests: targetedPendingRequests,
-  };
-}
-
-function clearPendingRequestsForTurn(
-  pendingRequests: Map<string, PendingAgentRequest>,
-  turnId: AgentTurnId,
-): void {
-  for (const [requestId, pending] of pendingRequests) {
-    if (pending.turnId === turnId) pendingRequests.delete(requestId);
-  }
-}
-
 function assertAgentTurnInputCapability(input: {
   readonly capability: AgentOperationInputCapability;
-  readonly parts: AgentProviderRunTurnInput["parts"];
+  readonly parts: AgentProviderStartTurnInput["parts"];
   readonly providerKey: AgentProviderKey;
 }): void {
   const imageParts = input.parts.filter((part) => part.type === "image");
@@ -1163,6 +1060,7 @@ export function validateAgentProviderSession(input: {
   readonly candidate: AgentProviderSession;
   readonly expectedBinding?: AgentSessionBinding;
   readonly sourceBinding?: AgentSessionBinding;
+  readonly hostBindingLease?: AgentHostBindingLease;
 }): AgentProviderSession {
   const { capabilities, sessionId } = input;
   const providerKey = capabilities.providerKey;
@@ -1214,8 +1112,6 @@ export function validateAgentProviderSession(input: {
     signal: sessionLifetime.signal,
   });
 
-  const pendingRequests = new Map<string, PendingAgentRequest>();
-  const waitingTurnStates = new Map<AgentTurnId, AgentTurnSequenceState>();
   const openedRequestIds = new Set<string>();
   const contextUsageState: AgentContextUsageSequenceState = {
     latestByScope: new Map<AgentContextMeasurementScope, AgentContextUsage>(),
@@ -1238,6 +1134,7 @@ export function validateAgentProviderSession(input: {
   let activeTurn: ActiveAgentTurn | null = null;
   let closePromise: Promise<void> | null = null;
   let closed = false;
+  let providerClosed = false;
   let unusable = false;
 
   const requireOpen = (): void => {
@@ -1266,20 +1163,6 @@ export function validateAgentProviderSession(input: {
     sessionId,
     ...(turnId === undefined ? {} : { turnId }),
   });
-  const delegateOperation = async (
-    operation: () => MaybePromise<AgentProviderOperationResult>,
-    turnId?: AgentTurnId,
-  ): Promise<AgentProviderOperationResult> => {
-    try {
-      return validateAgentProviderOperationResult(
-        await operation(),
-        outputContext(turnId),
-      );
-    } catch (error) {
-      unusable = true;
-      throw error;
-    }
-  };
   const delegateProviderMutation = async <Result>(input: {
     readonly operation: AgentProviderDelegatedOperation;
     readonly observer?: () => void;
@@ -1333,220 +1216,61 @@ export function validateAgentProviderSession(input: {
     }
   };
 
-  const runTurn = async function* (
-    turnInput: AgentProviderRunTurnInput,
-  ): AsyncIterable<AgentProviderOutput> {
+  const startTurn = (turnInput: AgentProviderStartTurnInput) => {
     requireUsable();
     throwIfAgentOperationAborted(turnInput.signal);
     const parsedInput = parseAgentTurnRunInput({
       turnId: turnInput.turnId,
       interactionMode: turnInput.interactionMode,
       parts: turnInput.parts,
-      ...(turnInput.summary === undefined
-        ? {}
-        : { summary: turnInput.summary }),
-      ...(turnInput.deadlineAt === undefined
-        ? {}
-        : { deadlineAt: turnInput.deadlineAt }),
+      ...(turnInput.summary === undefined ? {} : { summary: turnInput.summary }),
+      ...(turnInput.deadlineAt === undefined ? {} : { deadlineAt: turnInput.deadlineAt }),
     });
-    assertAgentTurnInputCapability({
-      capability: capabilities.input,
-      parts: parsedInput.parts,
-      providerKey,
-    });
+    assertAgentTurnInputCapability({ capability: capabilities.input, parts: parsedInput.parts, providerKey });
     if (!capabilities.turns.interactionModes.includes(parsedInput.interactionMode)) {
-      throwAgentProviderContractError(
-        providerKey,
-        "input_capability_mismatch",
-        `Provider ${providerKey} does not support ${parsedInput.interactionMode} turn interaction mode.`,
-      );
-    }
-    if (pendingRequests.size > 0) {
-      throwAgentProviderContractError(
-        providerKey,
-        "request_pending",
-        "Provider session cannot start another turn while a request is pending.",
-      );
+      throwAgentProviderContractError(providerKey, "input_capability_mismatch",
+        `Provider ${providerKey} does not support ${parsedInput.interactionMode} turn interaction mode.`);
     }
     if (activeTurn !== null) {
-      throwAgentProviderContractError(
-        providerKey,
-        "concurrent_turn",
-        "Provider session already has an active turn.",
-      );
+      throwAgentProviderContractError(providerKey, "concurrent_turn", "Provider session already has an active turn.");
     }
-    let reachedStableBoundary = false;
-    const currentTurn: ActiveAgentTurn = {
-      turnId: parsedInput.turnId,
-      pendingRequests: new Map<string, PendingAgentRequest>(),
-      state: {
-        fileChangeMode: capabilities.output.fileChanges,
-        observedItems: new Map<string, ObservedAgentItem>(),
-        proposedPlans: new Map<string, string>(),
-        generatedResourceIds: new Set<string>(),
-        started: false,
-        terminal: false,
-        waiting: false,
-        finalDiffObserved: false,
-      },
-      inFlightOperations: new Set<Promise<void>>(),
+    const pendingRequests = new Map<string, PendingAgentRequest>();
+    const turnRequestIds = new Set<string>();
+    const state: AgentTurnSequenceState = {
+      fileChangeMode: capabilities.output.fileChanges,
+      observedItems: new Map<string, ObservedAgentItem>(),
+      proposedPlans: new Map<string, string>(),
+      generatedResourceIds: new Set<string>(),
+      started: false, terminal: false, finalDiffObserved: false,
     };
-    activeTurn = currentTurn;
-    try {
-      turnInput.onProviderExecutionStarted?.();
-      for await (const candidate of input.candidate.runTurn({
-        ...parsedInput,
+    const inFlightOperations = new Set<Promise<void>>();
+    const owner = createValidatedAgentTurnExecution({
+      providerKey,
+      turnInput: { ...parsedInput,
         ...(turnInput.signal === undefined ? {} : { signal: turnInput.signal }),
-      })) {
-        const output = validateAgentProviderOutputForContext(
-          candidate,
-          outputContext(parsedInput.turnId),
-        );
-        observeTurnOutput({
-          capabilities,
-          providerKey,
-          output,
-          state: currentTurn.state,
-          pendingRequests: currentTurn.pendingRequests,
-          openedRequestIds,
-          contextUsageState,
-          interactionState,
-        });
-        yield output;
-      }
-      while (currentTurn.inFlightOperations.size > 0) {
-        await Promise.all(currentTurn.inFlightOperations);
-      }
-      if (!currentTurn.state.started) {
-        invalidTurnSequence(
-          providerKey,
-          "Provider turn must emit turn.started before reaching a stable boundary.",
-        );
-      }
-      assertStableTurnBoundary({
-        providerKey,
-        state: currentTurn.state,
-        pendingRequests: currentTurn.pendingRequests,
-      });
-      if (currentTurn.state.waiting) {
-        replacePendingRequests(pendingRequests, currentTurn.pendingRequests);
-        waitingTurnStates.set(currentTurn.turnId, currentTurn.state);
-      } else {
-        waitingTurnStates.delete(currentTurn.turnId);
-      }
-      reachedStableBoundary = true;
-    } finally {
-      if (!reachedStableBoundary) unusable = true;
-      if (activeTurn === currentTurn) activeTurn = null;
-    }
-  };
-
-  const resolveRequest = async function* (
-    requestInput: AgentProviderResolveRequestInput,
-  ): AsyncIterable<AgentProviderOutput> {
-    requireUsable();
-    throwIfAgentOperationAborted(requestInput.signal);
-    const resolution = parseAgentRequestResolution(requestInput.resolution);
-    const pending = pendingRequests.get(resolution.requestId);
-    if (!pending) {
-      throwAgentProviderContractError(
-        providerKey,
-        "request_resolution_mismatch",
-        "Provider request resolution does not identify a pending request.",
-      );
-    }
-    try {
-      parseAgentRequestResolutionFor(pending.request, resolution);
-    } catch {
-      throwAgentProviderContractError(
-        providerKey,
-        "request_resolution_mismatch",
-        "Provider request resolution does not match the opened request.",
-      );
-    }
-    if (
-      pending.request.expiresAt !== undefined
-      && Date.parse(pending.request.expiresAt) <= Date.now()
-      && resolution.disposition !== "canceled"
-    ) {
-      throwAgentProviderContractError(
-        providerKey,
-        "request_resolution_mismatch",
-        "Provider request resolution identifies an expired request.",
-      );
-    }
-    const nextPendingRequests = new Map(pendingRequests);
-    nextPendingRequests.delete(resolution.requestId);
-    if (activeTurn !== null) {
-      throwAgentProviderContractError(
-        providerKey,
-        "concurrent_turn",
-        "Provider session already has an active turn.",
-      );
-    }
-    const waitingTurnState = waitingTurnStates.get(pending.turnId);
-    if (
-      waitingTurnState === undefined
-      || waitingTurnState.terminal
-      || !waitingTurnState.waiting
-    ) {
-      throwAgentProviderContractError(
-        providerKey,
-        "request_resolution_mismatch",
-        "Provider request resolution does not identify a waiting turn.",
-      );
-    }
-    waitingTurnState.waiting = false;
-    const currentTurn: ActiveAgentTurn = {
-      turnId: pending.turnId,
-      pendingRequests: nextPendingRequests,
-      state: waitingTurnState,
-      inFlightOperations: new Set<Promise<void>>(),
-    };
-    let reachedStableBoundary = false;
-    activeTurn = currentTurn;
-    try {
-      for await (const candidate of input.candidate.resolveRequest({
-        resolution,
-        ...(requestInput.signal === undefined
-          ? {}
-          : { signal: requestInput.signal }),
-      })) {
-        const output = validateAgentProviderOutputForContext(
-          candidate,
-          outputContext(pending.turnId),
-        );
-        observeTurnOutput({
-          capabilities,
-          providerKey,
-          output,
-          state: currentTurn.state,
-          pendingRequests: currentTurn.pendingRequests,
-          openedRequestIds,
-          contextUsageState,
-          interactionState,
-        });
-        yield output;
-      }
-      while (currentTurn.inFlightOperations.size > 0) {
-        await Promise.all(currentTurn.inFlightOperations);
-      }
-      assertStableTurnBoundary({
-        providerKey,
-        state: currentTurn.state,
-        pendingRequests: currentTurn.pendingRequests,
-      });
-      replacePendingRequests(pendingRequests, currentTurn.pendingRequests);
-      if (currentTurn.state.waiting) {
-        waitingTurnStates.set(currentTurn.turnId, currentTurn.state);
-      } else {
-        waitingTurnStates.delete(currentTurn.turnId);
-      }
-      reachedStableBoundary = true;
-    } finally {
-      if (!reachedStableBoundary) unusable = true;
-      if (activeTurn === currentTurn) activeTurn = null;
-    }
+        ...(turnInput.onProviderExecutionStarted === undefined ? {} : { onProviderExecutionStarted: turnInput.onProviderExecutionStarted }),
+      },
+      pendingRequests, inFlightOperations,
+      start: (inputTurn) => input.candidate.startTurn(inputTurn),
+      requireUsable,
+      isTerminal: () => state.terminal,
+      observe(candidate) {
+        const output = validateAgentProviderOutputForContext(candidate, outputContext(parsedInput.turnId));
+        observeTurnOutput({ capabilities, providerKey, output, state, pendingRequests, openedRequestIds,
+          turnRequestIds, contextUsageState, interactionState });
+        return output;
+      },
+      assertCompleted() {
+        if (!state.started || !state.terminal || pendingRequests.size > 0) {
+          invalidTurnSequence(providerKey, "Provider turn output must remain open until actual terminal completion.");
+        }
+      },
+      release() { if (activeTurn?.owner === owner) activeTurn = null; },
+      retire() { unusable = true; },
+      abandon: () => close({ reason: "other" }),
+    });
+    activeTurn = { turnId: parsedInput.turnId, pendingRequests, state, inFlightOperations, owner };
+    return owner.execution;
   };
 
   const declaredInterruption = input.candidate.interruption;
@@ -1557,7 +1281,7 @@ export function validateAgentProviderSession(input: {
           kind: "supported" as const,
           interruptTurn: async (
             interruptionInput: AgentProviderInterruptTurnInput,
-          ): Promise<AgentProviderOperationResult> => {
+          ): Promise<AgentProviderTurnInterruptionResult> => {
             requireUsable();
             throwIfAgentOperationAborted(interruptionInput.signal);
             const parsed = parseAgentTurnInterruptionInput({
@@ -1569,77 +1293,36 @@ export function validateAgentProviderSession(input: {
             });
             const targetedActiveTurn =
               activeTurn?.turnId === parsed.turnId ? activeTurn : null;
-            const targetedWaitingTurn = targetedActiveTurn === null
-              ? reconstructWaitingTurn({
-                  pendingRequests,
-                  turnId: parsed.turnId,
-                  state: waitingTurnStates.get(parsed.turnId),
-                })
-              : null;
-            const targetedTurn = targetedActiveTurn ?? targetedWaitingTurn;
-            if (targetedTurn === null) {
-              throwAgentProviderContractError(
-                providerKey,
-                "active_turn_mismatch",
-                "Provider interruption does not identify an active or waiting turn.",
-              );
+            const targetedTurn = targetedActiveTurn;
+            if (targetedTurn === null || targetedTurn.state.terminal || !targetedTurn.owner.hasEntered()) {
+              throwAgentProviderContractError(providerKey, "active_turn_mismatch",
+                "Provider interruption does not identify an active turn.");
             }
             const settleActiveInterruption = trackActiveTurnOperation(
               targetedActiveTurn,
             );
             try {
-              const result = await delegateOperation(
-                () =>
-                  declaredInterruption.interruptTurn({
+              const suspendedRequests = targetedTurn.owner.suspendRequests();
+              let result: AgentProviderTurnInterruptionResult;
+              try {
+                result = validateAgentProviderTurnInterruptionResult(
+                  await declaredInterruption.interruptTurn({
                     ...parsed,
                     ...(interruptionInput.signal === undefined
                       ? {}
                       : { signal: interruptionInput.signal }),
                   }),
-                parsed.turnId,
-              );
-              const terminalized = interruptionTerminalizesTurn({
-                turnId: parsed.turnId,
-                result,
-              });
-              if (terminalized || result.status === "accepted") {
-                clearPendingRequestsForTurn(pendingRequests, parsed.turnId);
-                clearPendingRequestsForTurn(
-                  targetedTurn.pendingRequests,
-                  parsed.turnId,
+                  outputContext(parsed.turnId),
                 );
-                targetedTurn.state.waiting = false;
-                waitingTurnStates.delete(parsed.turnId);
-              }
-              try {
-                observeTurnOperationOutputs({
-                  capabilities,
-                  providerKey,
-                  outputs: result.outputs,
-                  state: targetedTurn.state,
-                  pendingRequests: targetedTurn.pendingRequests,
-                  openedRequestIds,
-                  contextUsageState,
-                  interactionState,
-                });
-                if (terminalized && !targetedTurn.state.terminal) {
-                  completeTurnSequence({
-                    providerKey,
-                    state: targetedTurn.state,
-                    pendingRequests: targetedTurn.pendingRequests,
-                  });
-                }
               } catch (error) {
+                suspendedRequests.withdraw();
                 unusable = true;
                 throw error;
               }
-              if (
-                result.status === "accepted" &&
-                targetedWaitingTurn !== null &&
-                !terminalized
-              ) {
-                unusable = true;
-              }
+              if (result.status === "failed") {
+                suspendedRequests.restore();
+              } else suspendedRequests.withdraw();
+              // Dispatch acceptance does not retire the live stream or synthesize native completion.
               return result;
             } finally {
               settleActiveInterruption?.();
@@ -1661,8 +1344,9 @@ export function validateAgentProviderSession(input: {
             const turnId = parseAgentTurnId(steeringInput.turnId);
             if (
               activeTurn?.turnId !== turnId ||
+              !activeTurn.owner.hasEntered() ||
               activeTurn.state.terminal ||
-              activeTurn.state.waiting
+              activeTurn.pendingRequests.size > 0
             ) {
               throwAgentProviderContractError(
                 providerKey,
@@ -1688,7 +1372,7 @@ export function validateAgentProviderSession(input: {
             const settleSteering = trackActiveTurnOperation(targetedActiveTurn);
             try {
               try {
-                return validateAgentTurnSteeringResult(
+                const result = validateAgentTurnSteeringResult(
                   await declaredSteering.steerTurn({
                     turnId,
                     ...content,
@@ -1698,6 +1382,8 @@ export function validateAgentProviderSession(input: {
                   }),
                   providerKey,
                 );
+                if (result.status === "delivery_uncertain") unusable = true;
+                return result;
               } catch (error) {
                 unusable = true;
                 throw new AgentProviderDelegatedOperationError(
@@ -1876,7 +1562,6 @@ export function validateAgentProviderSession(input: {
               generatedResourceIds: new Set(),
               started: true,
               terminal: false,
-              waiting: false,
               finalDiffObserved: false,
             };
             interactionState.operationInvocations.set(
@@ -2303,8 +1988,18 @@ export function validateAgentProviderSession(input: {
     }
     unusable = true;
     sessionLifetime.abort(new DOMException("The provider session was closed.", "AbortError"));
+    input.hostBindingLease?.stop();
+    const closingTurn = activeTurn;
+    closingTurn?.owner.stop(new DOMException("The provider session was closed.", "AbortError"));
     closePromise = Promise.resolve()
-      .then(() => input.candidate.close(closeInput))
+      .then(async () => {
+        if (!providerClosed) {
+          await input.candidate.close(closeInput);
+          providerClosed = true;
+        }
+        await closingTurn?.owner.join();
+        await input.hostBindingLease?.release();
+      })
       .then(() => {
         closed = true;
       })
@@ -2316,8 +2011,7 @@ export function validateAgentProviderSession(input: {
 
   return Object.freeze({
     binding,
-    runTurn,
-    resolveRequest,
+    startTurn,
     interruption,
     steering,
     configuration,
@@ -2333,11 +2027,37 @@ export function validateAgentProviderSession(input: {
 export async function closeRejectedAgentProviderSession(
   session: AgentProviderSession | null,
   error: unknown,
+  hostBinding?: Readonly<{ providerKey: AgentProviderKey; lease: AgentHostBindingLease }>,
+  opening?: Readonly<{ providerKey: AgentProviderKey; input: object }>,
 ): Promise<never> {
-  if (!session || typeof session.close !== "function") throw error;
+  if (!session) throw error;
+  hostBinding?.lease.stop();
+  let providerClosed = false;
+  const cleanup = async (): Promise<void> => {
+    if (!providerClosed) {
+      if (typeof session.close !== "function") {
+        throw new TypeError("Rejected provider session has no callable close port.");
+      }
+      await session.close({ reason: "contract_rejected" });
+      providerClosed = true;
+    }
+    await hostBinding?.lease.release();
+  };
   try {
-    await session.close({ reason: "contract_rejected" });
+    await cleanup();
   } catch (cleanupError) {
+    if (hostBinding) {
+      const retained = createAgentHostBindingCleanupError({
+        providerKey: hostBinding.providerKey,
+        lease: hostBinding.lease,
+        errors: [error, cleanupError],
+        retryCleanup: cleanup,
+      });
+      throw opening ? associateAgentSessionCleanupError(retained, opening.input) : retained;
+    }
+    if (opening) throw associateAgentSessionCleanupError(new AgentProviderSessionCleanupError({
+      providerKey: opening.providerKey, errors: [error, cleanupError], retryCleanup: cleanup,
+    }), opening.input);
     throw new AggregateError(
       [error, cleanupError],
       "Provider returned an invalid session and cleanup failed.",
@@ -2413,6 +2133,8 @@ export async function openIdentityCreatingAgentProviderSession(input: {
   readonly sessionId: AgentSessionId;
   readonly observer: AgentSessionBindingCreatedObserver;
   readonly sourceBinding?: AgentSessionBinding;
+  readonly hostBindingLease?: AgentHostBindingLease;
+  readonly openingInput?: object;
   readonly open: (
     observer: AgentSessionBindingCreatedObserver,
   ) => MaybePromise<AgentProviderSession>;
@@ -2431,6 +2153,7 @@ export async function openIdentityCreatingAgentProviderSession(input: {
       capabilities: input.capabilities,
       sessionId: input.sessionId,
       candidate,
+      ...(input.hostBindingLease === undefined ? {} : { hostBindingLease: input.hostBindingLease }),
       ...(input.sourceBinding === undefined
         ? {}
         : { sourceBinding: input.sourceBinding }),
@@ -2438,7 +2161,10 @@ export async function openIdentityCreatingAgentProviderSession(input: {
     tracker.requireMatch(session.binding);
     return session;
   } catch (error) {
-    return closeRejectedAgentProviderSession(candidate, error);
+    return closeRejectedAgentProviderSession(candidate, error,
+      input.hostBindingLease === undefined ? undefined : {
+        providerKey: input.capabilities.providerKey, lease: input.hostBindingLease,
+      }, input.openingInput === undefined ? undefined : { providerKey: input.capabilities.providerKey, input: input.openingInput });
   }
 }
 

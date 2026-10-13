@@ -4,11 +4,15 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
+  copyFile,
+  cp,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -43,9 +47,18 @@ const FORBIDDEN_ARTIFACT_PATTERNS = [
 ];
 const FORBIDDEN_DECLARATION_FIELD_PATTERN =
   /\b(?:teamId|workspaceId|assignedUserId|providerInstanceId|requestedByUserId|resolvedByUserId|visibility|sequence|storageBackend|objectLocator|metadata)\s*[?:]/u;
+const FORBIDDEN_TRANSPORT_DECLARATION_FIELD_PATTERN =
+  /\b(?:teamId|workspaceId|assignedUserId|providerInstanceId|requestedByUserId|resolvedByUserId|visibility|sequence|storageBackend|objectLocator)\s*[?:]/u;
+const ACP_SCHEMA_ASSETS = [
+  ...["LICENSE", "meta.json", "meta.unstable.json", "provenance.json", "schema.json", "schema.unstable.json", "protocol.generated.json"]
+    .map((file) => `schema/v0.11.4/${file}`),
+  ...["LICENSE", "meta.json", "schema.json", "provenance.json", "protocol.generated.json"]
+    .map((file) => `schema/schema-v1.23.0/${file}`),
+];
 const PUBLIC_REPOSITORY_URL = "git+https://github.com/trevor-nichols/agenai-agent-sdk.git";
 const PUBLIC_HOMEPAGE_URL = "https://github.com/trevor-nichols/agenai-agent-sdk#readme";
 const PUBLIC_BUGS_URL = "https://github.com/trevor-nichols/agenai-agent-sdk/issues";
+const PUBLIC_EXAMPLES_ROOT = "examples";
 const PACKAGES = [
   {
     name: "@agen-ai/validation",
@@ -57,13 +70,60 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.3.1", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.0", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.3.1" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.0" },
+  },
+  {
+    name: "@agen-ai/agent-orchestration",
+    root: "packages/agent-orchestration",
+    directory: "packages/agent-orchestration",
+    dependencies: {
+      "@agen-ai/agent-runtime": "^0.4.0",
+      "@agen-ai/agent-protocol": "^0.4.0",
+      "@agen-ai/validation": "^0.4.0",
+      zod: "4.4.3",
+      "@modelcontextprotocol/sdk": "1.29.0",
+    },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./store-adapter": { types: "./dist/store-adapter/index.d.ts", import: "./dist/store-adapter/index.js" },
+      "./mcp": { types: "./dist/mcp/index.d.ts", import: "./dist/mcp/index.js" },
+      "./package.json": "./package.json",
+    },
+  },
+  {
+    name: "@agen-ai/acp-transport",
+    root: "packages/acp-transport",
+    directory: "packages/acp-transport",
+    dependencies: { ajv: "8.17.1" },
+    assets: ACP_SCHEMA_ASSETS,
+  },
+  {
+    name: "@agen-ai/provider-acp",
+    root: "packages/provider-acp",
+    directory: "packages/provider-acp",
+    dependencies: {
+      "@agen-ai/acp-transport": "^0.4.0",
+      "@agen-ai/agent-runtime": "^0.4.0",
+      "@agen-ai/agent-protocol": "^0.4.0",
+    },
+  },
+  {
+    name: "@agen-ai/acp-registry",
+    root: "packages/acp-registry",
+    directory: "packages/acp-registry",
+    dependencies: { "@agen-ai/validation": "^0.4.0", zod: "4.4.3",
+      "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
+      "./package.json": "./package.json",
+    },
   },
 ];
 
@@ -73,11 +133,29 @@ const PACKAGES = [
 
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
+    const ownsProcessGroup = options.timeoutMs !== undefined && process.platform !== "win32";
     const child = spawn(command, args, {
       cwd: options.cwd ?? REPO_ROOT,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
+      detached: ownsProcessGroup,
     });
+    const terminate = (signal) => {
+      if (!child.pid) return;
+      try {
+        if (ownsProcessGroup) process.kill(-child.pid, signal);
+        else child.kill(signal);
+      } catch (error) {
+        if (error?.code !== "ESRCH") throw error;
+      }
+    };
+    let timedOut = false;
+    let escalation;
+    const deadline = options.timeoutMs === undefined ? undefined : setTimeout(() => {
+      timedOut = true;
+      terminate("SIGTERM");
+      escalation = setTimeout(() => terminate("SIGKILL"), 1_000);
+    }, options.timeoutMs);
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8");
@@ -90,6 +168,15 @@ function run(command, args, options = {}) {
     });
     child.on("error", reject);
     child.on("close", (code, signal) => {
+      if (deadline) clearTimeout(deadline);
+      if (escalation) {
+        terminate("SIGKILL");
+        clearTimeout(escalation);
+      }
+      if (timedOut) {
+        reject(new Error(`${command} ${args.join(" ")} exceeded ${options.timeoutMs}ms; its owned process group was terminated.`));
+        return;
+      }
       if (code === 0) {
         resolve({ stdout, stderr });
         return;
@@ -152,7 +239,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.3.1");
+  assert.equal(manifest.version, "0.4.0");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -168,6 +255,7 @@ function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.homepage, PUBLIC_HOMEPAGE_URL);
   assert.equal(manifest.bugs?.url, PUBLIC_BUGS_URL);
   assert.deepEqual(manifest.dependencies ?? {}, definition.dependencies);
+  if (definition.exports) assert.deepEqual(manifest.exports, definition.exports);
 
   const serializedManifest = JSON.stringify(manifest);
   assert.doesNotMatch(serializedManifest, /(?:workspace|link|catalog):/u);
@@ -206,6 +294,12 @@ async function inspectTarball(definition, tarballPath, extractedRoot) {
   assert.ok(archiveFiles.has("package/LICENSE"));
   assert.ok([...archiveFiles].some((entry) => entry.endsWith(".js")));
   assert.ok([...archiveFiles].some((entry) => entry.endsWith(".d.ts")));
+  for (const asset of definition.assets ?? []) {
+    assert.ok(archiveFiles.has(`package/${asset}`), `${definition.name} tarball is missing pinned asset ${asset}`);
+  }
+  const schemaFiles = [...archiveFiles].filter((entry) => entry.startsWith("package/schema/"));
+  assert.deepEqual(schemaFiles.sort(), (definition.assets ?? []).map((asset) => `package/${asset}`).sort(),
+    `${definition.name} must ship only its approved protocol assets`);
 
   for (const entry of entries) {
     assert.ok(entry.startsWith("package/"), `unsafe archive entry: ${entry}`);
@@ -257,7 +351,9 @@ async function inspectTarball(definition, tarballPath, extractedRoot) {
       );
       assert.doesNotMatch(
         source,
-        FORBIDDEN_DECLARATION_FIELD_PATTERN,
+        definition.name === "@agen-ai/acp-transport"
+          ? FORBIDDEN_TRANSPORT_DECLARATION_FIELD_PATTERN
+          : FORBIDDEN_DECLARATION_FIELD_PATTERN,
         `${definition.name}/${relativeFile} contains product/control fields`,
       );
     }
@@ -272,6 +368,19 @@ async function inspectTarball(definition, tarballPath, extractedRoot) {
 
 const CONSUMER_SOURCE = `import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { PassThrough, Writable } from "node:stream";
+import { runAcpProviderConsumer } from "./provider.js";
+
+import {
+  ACP_TRANSPORT_PACKAGE_NAME,
+  ACP_SCHEMA_RELEASE,
+  ACP_V1_23_0_SCHEMA_RELEASE,
+  createAcpClient,
+  createAcpSchemaValidator,
+  type AcpJsonValue,
+  type AcpUnknownExtensionPolicy,
+} from "@agen-ai/acp-transport";
+import { createAcpStandardSessionOperations, type AcpUnknownExtensionPolicy as ClientUnknownExtensionPolicy } from "@agen-ai/acp-transport/client";
 
 import { normalizeValidationIssues } from "@agen-ai/validation";
 import { normalizeZodValidationError } from "@agen-ai/validation/zod";
@@ -279,6 +388,7 @@ import {
   parseAgentCollaborationId,
   parseAgentConfigurationRevisionId,
   parseAgentEnvironmentId,
+  parseAgentError,
   parseAgentGeneratedResourceId,
   parseAgentInstanceId,
   parseAgentIsoDateTime,
@@ -289,7 +399,10 @@ import {
   parseAgentProviderKey,
   parseAgentSessionId,
   parseAgentTurnId,
+  safeParseAgentError,
+  type AgentError,
   type AgentItemSnapshot,
+  type AgentRuntimeRetryingEvent,
 } from "@agen-ai/agent-protocol";
 import { parseAgentAccountQuotaSnapshot, type AgentAccountQuotaSnapshot } from "@agen-ai/agent-protocol/account-quota";
 import { parseAgentSessionBinding } from "@agen-ai/agent-protocol/sessions";
@@ -309,16 +422,19 @@ import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
 import { parseAgentEvent } from "@agen-ai/agent-protocol/events";
 import { parseAgentCapabilities } from "@agen-ai/agent-protocol/capabilities";
 import { parseAgentArtifactDescriptor } from "@agen-ai/agent-protocol/artifacts";
-import { AgentEventSchema } from "@agen-ai/agent-protocol/zod";
-import { AGENT_EVENT_JSON_SCHEMA } from "@agen-ai/agent-protocol/json-schema";
+import { AgentErrorSchema, AgentEventSchema } from "@agen-ai/agent-protocol/zod";
+import { AGENT_ERROR_JSON_SCHEMA, AGENT_EVENT_JSON_SCHEMA } from "@agen-ai/agent-protocol/json-schema";
 import {
   AGENT_PROVIDER_CONTRACT_ERROR_CODES,
   createAgentEventOutput,
   createAgentProviderReadiness,
   defineAgentProviderDriver,
   validateAgentAccountQuotaPort,
+  validateAgentProviderAdapter,
   type AgentAccountQuotaPort,
+  type AgentSessionHostBinding,
   type AgentProviderSession,
+  type AgentTurnSteeringResult,
 } from "@agen-ai/agent-runtime";
 import {
   createFakeAgentProvider,
@@ -328,7 +444,29 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.3.1");
+assert.equal(protocolManifest.version, "0.4.0");
+
+const packedFailure: AgentError = {
+  category: "quota_exhausted", code: "allowance_unavailable", message: "The observed allowance is exhausted.",
+  recovery: { kind: "wait_for_quota", quota: {
+    sourceId: "packed-source", poolId: "packed-pool", windowId: "packed-window",
+    observedAt: parseAgentIsoDateTime("2026-10-11T12:00:00.000Z"),
+    reset: { at: parseAgentIsoDateTime("2026-10-11T13:00:00.000Z"), precision: "reported",
+      observedAt: parseAgentIsoDateTime("2026-10-11T12:00:00.000Z") },
+  } },
+};
+assert.deepEqual(parseAgentError(JSON.parse(JSON.stringify(packedFailure))), packedFailure);
+assert.deepEqual(AgentErrorSchema.parse(packedFailure), packedFailure);
+assert.equal(safeParseAgentError({ code: "legacy", message: "Legacy failure.", retryable: false }).success, false);
+assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 10);
+const packedRetry: AgentRuntimeRetryingEvent = {
+  protocolVersion: 10, sessionId: parseAgentSessionId("packed-retry-session"),
+  turnId: parseAgentTurnId("packed-retry-turn"), occurredAt: parseAgentIsoDateTime("2026-10-11T12:00:00.000Z"),
+  type: "runtime.retrying", payload: { owner: "provider", error: packedFailure, attempt: 1, maxAttempts: 2, delayMs: 0 },
+};
+assert.deepEqual(parseAgentEvent(JSON.parse(JSON.stringify(packedRetry))), packedRetry);
+assert.deepEqual(AgentEventSchema.parse(packedRetry), packedRetry);
+assert.throws(() => parseAgentEvent({ ...packedRetry, protocolVersion: 9 }));
 
 const quotaSnapshot: AgentAccountQuotaSnapshot = parseAgentAccountQuotaSnapshot({
   schemaVersion: 1, sourceId: "packed-source", observedAt: "2026-09-07T12:00:00.000Z",
@@ -626,7 +764,7 @@ assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 9);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 10);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -672,7 +810,7 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 9,
+  protocolVersion: 10,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -708,35 +846,41 @@ const steeringCapabilities = parseAgentCapabilities({
   authentication: { kind: "unsupported" },
   versionReporting: true,
 });
+let packedSteeringResult: AgentTurnSteeringResult = { status: "delivered" };
+let packedRunCount = 0;
 const packedSession = (sessionId = parseAgentSessionId("packed-steering-session")): AgentProviderSession => ({
   binding: {
     conversationId: parseAgentProviderConversationId("packed-steering-conversation"),
   },
-  runTurn: async function* (input) {
-    yield createAgentEventOutput({
-      protocolVersion: 9,
-      type: "turn.started",
-      sessionId,
-      turnId: input.turnId,
-      occurredAt: "2026-08-04T00:00:00.000Z",
-      payload: {},
-    });
-    yield createAgentEventOutput({
-      protocolVersion: 9,
-      type: "turn.completed",
-      sessionId,
-      turnId: input.turnId,
-      occurredAt: "2026-08-04T00:00:01.000Z",
-      payload: { outcome: "completed" },
-    });
-  },
-  resolveRequest: async function* () {},
+  startTurn: (input) => ({
+    turnId: input.turnId,
+    outputs: (async function* () {
+      packedRunCount += 1;
+      yield createAgentEventOutput({
+        protocolVersion: 10,
+        type: "turn.started",
+        sessionId,
+        turnId: input.turnId,
+        occurredAt: "2026-08-04T00:00:00.000Z",
+        payload: {},
+      });
+      yield createAgentEventOutput({
+        protocolVersion: 10,
+        type: "turn.completed",
+        sessionId,
+        turnId: input.turnId,
+        occurredAt: "2026-08-04T00:00:01.000Z",
+        payload: { outcome: "completed" },
+      });
+    })(),
+    resolveRequest: async () => { throw new Error("The steering fixture has no pending request."); },
+  }),
   interruption: { kind: "unsupported" },
   steering: {
     kind: "supported",
     steerTurn: async (input) => {
       assert.ok(input.parts.length > 0);
-      return { status: "delivered" };
+      return packedSteeringResult;
     },
   },
   configuration: { kind: "managed" },
@@ -779,34 +923,107 @@ const steeringInstance = await steeringDriver.materialize({
   instanceId: parseAgentInstanceId("packed-steering-instance"),
   driverConfiguration: {},
 });
-const steeringSession = await steeringInstance.adapter.createSession({
-  sessionId: parseAgentSessionId("packed-steering-session"),
-  workingDirectory: "/tmp/external-agent-sdk-steering-provider",
-  configuration: {
-    kind: "managed",
-    revision: parseAgentConfigurationRevisionId("packed-steering-configuration"),
-  },
-  onBindingCreated: () => undefined,
-});
-assert.equal(steeringSession.steering.kind, "supported");
-if (steeringSession.steering.kind === "supported") {
-  const steeringTurnId = parseAgentTurnId("packed-steering-turn");
-  const steeringIterator = steeringSession.runTurn({
+const steeringAdapter = validateAgentProviderAdapter(steeringCapabilities, steeringInstance.adapter);
+const packedSteeringCases: readonly AgentTurnSteeringResult[] = [
+  { status: "delivered" },
+  { status: "rejected", error: { category: "unknown", code: "not_accepted", message: "Input was rejected.", recovery: { kind: "unknown" } } },
+  { status: "delivery_uncertain", error: { category: "unknown", code: "receipt_lost", message: "Delivery is unknown.", recovery: { kind: "unknown" } } },
+];
+for (const expected of packedSteeringCases) {
+  packedSteeringResult = expected;
+  const steeringSession = await steeringAdapter.createSession({
+    sessionId: parseAgentSessionId("packed-steering-session-" + expected.status),
+    workingDirectory: "/tmp/external-agent-sdk-steering-provider",
+    configuration: {
+      kind: "managed",
+      revision: parseAgentConfigurationRevisionId("packed-steering-configuration"),
+    },
+    onBindingCreated: () => undefined,
+  });
+  assert.equal(steeringSession.steering.kind, "supported");
+  if (steeringSession.steering.kind !== "supported") throw new Error("Steering must be supported.");
+  const steeringTurnId = parseAgentTurnId("packed-steering-turn-" + expected.status);
+  const steeringIterator = steeringSession.startTurn({
     turnId: steeringTurnId,
     interactionMode: "default",
     parts: [{ type: "text", text: "Start the packed provider." }],
-  })[Symbol.asyncIterator]();
+  }).outputs[Symbol.asyncIterator]();
   assert.equal((await steeringIterator.next()).done, false);
   const result = await steeringSession.steering.steerTurn({
     turnId: steeringTurnId,
     parts: [{ type: "text", text: "Use Postgres." }],
   });
-  assert.equal(result.status, "delivered");
+  assert.deepEqual(result, expected);
   assert.equal((await steeringIterator.next()).done, false);
   assert.equal((await steeringIterator.next()).done, true);
+  const runsBeforeNextTurn = packedRunCount;
+  const nextTurnInput = {
+    turnId: parseAgentTurnId("packed-after-steering-" + expected.status),
+    interactionMode: "default" as const,
+    parts: [{ type: "text" as const, text: "Another turn." }],
+  };
+  if (expected.status === "delivery_uncertain") {
+    assert.throws(() => steeringSession.startTurn(nextTurnInput), { code: "session_unusable" });
+    assert.equal(packedRunCount, runsBeforeNextTurn);
+  } else {
+    const nextTurn = steeringSession.startTurn(nextTurnInput).outputs[Symbol.asyncIterator]();
+    assert.equal((await nextTurn.next()).done, false);
+    assert.equal((await nextTurn.next()).done, false);
+    assert.equal((await nextTurn.next()).done, true);
+    assert.equal(packedRunCount, runsBeforeNextTurn + 1);
+  }
+  await steeringSession.close({ reason: "idle" });
 }
-await steeringSession.close({ reason: "idle" });
 await steeringInstance.dispose();
+
+// Exercise the published binding declarations and callback graph from packed JS.
+const packedBindingCalls: string[] = [];
+const packedHostBinding: AgentSessionHostBinding = {
+  bindingId: "packed-host-binding",
+  tools: [{
+    name: "read_task",
+    description: "Inspect a task authorized by this session.",
+    inputSchema: {
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      type: "object",
+      properties: { task: { type: "string", maxLength: 128 } },
+      required: ["task"],
+      additionalProperties: false,
+    },
+  }],
+  instructions: { placement: "tool_context", text: "Use read_task to inspect managed tasks." },
+  invoke(input) {
+    packedBindingCalls.push("invoke:" + input.arguments.task);
+    return { kind: "success", value: { state: "settled" } };
+  },
+  release() { packedBindingCalls.push("release"); },
+};
+let forwardedPackedBinding: AgentSessionHostBinding | undefined;
+const bindingAdapter = validateAgentProviderAdapter(steeringCapabilities, {
+  hostBinding: { kind: "supported", toolTransport: "callback", instructionPlacements: ["tool_context"] },
+  createSession(input) {
+    forwardedPackedBinding = input.hostBinding;
+    const session = packedSession(input.sessionId);
+    input.onBindingCreated(session.binding);
+    return { ...session, close() { packedBindingCalls.push("close"); } };
+  },
+  resumption: { kind: "unsupported" },
+  branching: { kind: "unsupported" },
+  authentication: { kind: "unsupported" },
+});
+const bindingSession = await bindingAdapter.createSession({
+  sessionId: parseAgentSessionId("packed-bound-session"),
+  workingDirectory: "/tmp/external-agent-sdk-binding",
+  configuration: { kind: "managed", revision: parseAgentConfigurationRevisionId("packed-binding-config") },
+  hostBinding: packedHostBinding,
+  onBindingCreated: () => undefined,
+});
+assert.ok(forwardedPackedBinding);
+assert.deepEqual(await forwardedPackedBinding.invoke({
+  invocationId: "packed-invocation", toolName: "read_task", arguments: { task: "child-1" },
+}), { kind: "success", value: { state: "settled" } });
+await bindingSession.close({ reason: "shutdown" });
+assert.deepEqual(packedBindingCalls, ["invoke:child-1", "close", "release"]);
 
 const fake = createFakeAgentProvider();
 const report = await runAgentProviderConformance({
@@ -883,7 +1100,7 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 9,
+    protocolVersion: 10,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
@@ -947,7 +1164,7 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 9,
+  protocolVersion: 10,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -969,7 +1186,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 9,
+  protocolVersion: 10,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -990,14 +1207,631 @@ assert.throws(
   TypeError,
 );
 
+assert.equal(ACP_TRANSPORT_PACKAGE_NAME, "@agen-ai/acp-transport");
+assert.equal(ACP_SCHEMA_RELEASE, "v0.11.4");
+assert.equal(ACP_V1_23_0_SCHEMA_RELEASE, "schema-v1.23.0");
+const unknownExtensionPolicy: AcpUnknownExtensionPolicy = "standard" satisfies ClientUnknownExtensionPolicy;
+const modernValidator = createAcpSchemaValidator("stable", "schema-v1.23.0");
+assert.equal(modernValidator.profile, "schema-v1.23.0");
+assert.equal(modernValidator.protocolVersion, 1);
+assert.throws(() => Reflect.apply(createAcpSchemaValidator, undefined, ["stable", "unknown-profile"]),
+  { reasonCode: "acp_schema_profile_unsupported" });
+assert.throws(() => createAcpSchemaValidator("unstable", "schema-v1.23.0"),
+  { reasonCode: "acp_schema_channel_unsupported" });
+const invalidProfileStdout = new PassThrough();
+const invalidProfileStdin = new PassThrough();
+try {
+  for (const { profile, channel, reasonCode } of [
+    { profile: "unknown-profile", channel: "stable", reasonCode: "acp_schema_profile_unsupported" },
+    { profile: "schema-v1.23.0", channel: "unstable", reasonCode: "acp_schema_channel_unsupported" },
+  ]) {
+    assert.throws(() => Reflect.apply(createAcpClient, undefined, [{
+      stdout: invalidProfileStdout, stdin: invalidProfileStdin, schemaProfile: profile, schemaChannel: channel,
+    }]), { reasonCode });
+  }
+} finally {
+  invalidProfileStdout.destroy();
+  invalidProfileStdin.destroy();
+}
+assert.throws(() => createAcpSchemaValidator("stable").validate("agent", "session/delete", "request",
+  { sessionId: "packed-native-session" }), { reasonCode: "acp_method_not_in_pinned_schema" });
+modernValidator.validate("client", "elicitation/create", "request", {
+  mode: "form", message: "Choose", sessionId: "packed-native-session",
+  requestedSchema: { type: "object", properties: { name: { type: "string", minLength: 1 } }, required: ["name"] },
+});
+assert.throws(() => modernValidator.validate("client", "elicitation/create", "request", {
+  mode: "form", message: "Choose", sessionId: "packed-native-session",
+  requestedSchema: { type: "object", properties: { name: { type: "string", minLength: "bad" } }, required: ["name"] },
+}), { reasonCode: "acp_method_payload_invalid" });
+for (const { channel, profile } of [
+  { channel: "stable", profile: "v0.11.4" },
+  { channel: "unstable", profile: "v0.11.4" },
+  { channel: "stable", profile: "schema-v1.23.0" },
+] as const) {
+  const validator = createAcpSchemaValidator(channel, profile);
+  validator.validate("agent", "initialize", "request", { protocolVersion: 1 });
+  assert.throws(() => validator.validate("agent", "initialize", "request", { protocolVersion: "1" }),
+    { reasonCode: "acp_method_payload_invalid" });
+  const stdout = new PassThrough();
+  const methods: string[] = [];
+  const stdin = new Writable({
+    write(chunk: Buffer, _encoding, callback) {
+      try {
+        assert.ok(chunk.byteLength <= 4097);
+        const frame = JSON.parse(chunk.toString("utf8")) as { jsonrpc: string; id: string; method: string; params: AcpJsonValue };
+        assert.equal(frame.jsonrpc, "2.0");
+        assert.ok(frame.id.startsWith("packed-"));
+        methods.push(frame.method);
+        let result: AcpJsonValue;
+        switch (frame.method) {
+          case "initialize":
+            assert.deepEqual(frame.params, { protocolVersion: 1 });
+            result = { protocolVersion: 1, agentCapabilities: { loadSession: true }, authMethods: [] };
+            break;
+          case "session/new":
+            assert.deepEqual(frame.params, { cwd: "/tmp/packed-acp-session", mcpServers: [] });
+            result = { sessionId: "packed-native-session" };
+            break;
+          case "session/prompt":
+            assert.deepEqual(frame.params, { sessionId: "packed-native-session", prompt: [{ type: "text", text: "Hello" }] });
+            result = { stopReason: "end_turn" };
+            break;
+          case "session/delete":
+            assert.equal(profile, "schema-v1.23.0");
+            assert.deepEqual(frame.params, { sessionId: "packed-native-session" });
+            result = {};
+            break;
+          default:
+            throw new Error("Unexpected packed ACP method: " + frame.method);
+        }
+        const response = Buffer.from(JSON.stringify({ jsonrpc: "2.0", id: frame.id, result }) + "\\n");
+        stdout.write(response.subarray(0, 7));
+        stdout.write(response.subarray(7));
+        callback();
+      } catch (error) {
+        callback(error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+  });
+  const client = createAcpClient({
+    stdout, stdin, schemaChannel: channel, outboundRequestIdPrefix: "packed-",
+    unknownExtensionPolicy,
+    ...(profile === "schema-v1.23.0" ? { schemaProfile: profile } : {}),
+    limits: { maxInboundFrameBytes: 4096, maxOutboundFrameBytes: 4096, maxOutboundBufferedBytes: 4097,
+      maxOutstandingRequests: 1, defaultRequestTimeoutMs: 1000, maxRequestTimeoutMs: 1000 },
+  });
+  try {
+    const operations = createAcpStandardSessionOperations(client);
+    if (profile === "schema-v1.23.0") {
+      await assert.rejects(client.request("initialize", { protocolVersion: 2 }),
+        { reasonCode: "acp_protocol_version_unsupported" });
+    } else {
+      await assert.rejects(client.request("session/delete", { sessionId: "packed-native-session" }),
+        { reasonCode: "acp_outbound_method_not_registered" });
+    }
+    assert.deepEqual(methods, []);
+    assert.deepEqual(await operations.initialize({ protocolVersion: 1 }),
+      { protocolVersion: 1, agentCapabilities: { loadSession: true }, authMethods: [] });
+    assert.deepEqual(await operations.newSession({ cwd: "/tmp/packed-acp-session", mcpServers: [] }),
+      { sessionId: "packed-native-session" });
+    assert.deepEqual(await operations.prompt({ sessionId: "packed-native-session", prompt: [{ type: "text", text: "Hello" }] }),
+      { stopReason: "end_turn" });
+    const expectedMethods = ["initialize", "session/new", "session/prompt"];
+    if (profile === "schema-v1.23.0") {
+      assert.deepEqual(await client.request("session/delete", { sessionId: "packed-native-session" }), {});
+      expectedMethods.push("session/delete");
+    }
+    assert.deepEqual(methods, expectedMethods);
+  } finally {
+    await client.dispose();
+    stdout.destroy();
+    stdin.destroy();
+  }
+  assert.equal((await client.closed).kind, "disposed");
+}
+
+await runAcpProviderConsumer();
 process.stdout.write("External packed agent SDK consumer passed.\\n");
+`;
+
+const ACP_PROVIDER_CONSUMER_SOURCE = `import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { PassThrough, Writable } from "node:stream";
+import { fileURLToPath } from "node:url";
+import {
+  parseAgentConfigurationRevisionId,
+  parseAgentInstanceId,
+  parseAgentSessionId,
+  parseAgentTurnId,
+  type AgentEvent,
+} from "@agen-ai/agent-protocol";
+import {
+  validateAgentProviderAdapter,
+  type AgentProviderDriver,
+  type AgentProviderOutput,
+  type AgentProviderSession,
+} from "@agen-ai/agent-runtime";
+import { createAcpProviderDriver, type AcpHostFacilities } from "@agen-ai/provider-acp";
+import { createNodeAcpProviderDriver } from "@agen-ai/provider-acp/node";
+
+async function collectEvents(iterator: AsyncIterator<AgentProviderOutput>, untilRequest = false): Promise<AgentEvent[]> {
+  const events: AgentEvent[] = [];
+  let count = 0;
+  for (;;) {
+    const next = await iterator.next();
+    if (next.done) break;
+    assert.ok(++count <= 64, "The fixture must produce a bounded output stream.");
+    if (next.value.kind === "event") {
+      events.push(next.value.event);
+      if (untilRequest && next.value.event.type === "request.opened") break;
+    }
+  }
+  return events;
+}
+
+async function openSession(driver: AgentProviderDriver, name: string) {
+  const instance = await driver.materialize({
+    providerKey: driver.providerKey,
+    instanceId: parseAgentInstanceId(name + "-instance"),
+    driverConfiguration: {},
+  });
+  try {
+    const sessionId = parseAgentSessionId(name + "-session");
+    let bindingCount = 0;
+    let createdBinding: AgentProviderSession["binding"] | undefined;
+    const session = await validateAgentProviderAdapter(instance.capabilities, instance.adapter).createSession({
+      sessionId,
+      workingDirectory: fileURLToPath(new URL("../", import.meta.url)),
+      configuration: { kind: "managed", revision: parseAgentConfigurationRevisionId("packed-acp-configuration") },
+      onBindingCreated(binding) {
+        bindingCount += 1;
+        createdBinding = binding;
+      },
+    });
+    assert.equal(bindingCount, 1);
+    assert.deepEqual(createdBinding, session.binding);
+    return { instance, session };
+  } catch (error) {
+    await instance.dispose();
+    throw error;
+  }
+}
+
+function startTextTurn(session: AgentProviderSession, name: string) {
+  return session.startTurn({
+    turnId: parseAgentTurnId(name + "-turn"), interactionMode: "default",
+    parts: [{ type: "text", text: "Exercise retained offline ACP" }],
+    signal: AbortSignal.timeout(5_000),
+  });
+}
+
+function runTextTurn(session: AgentProviderSession, name: string) {
+  return collectEvents(startTextTurn(session, name).outputs[Symbol.asyncIterator]());
+}
+
+export async function runAcpProviderConsumer(): Promise<void> {
+  const stdout = new PassThrough();
+  const methods: string[] = [];
+  const stdin = new Writable({
+    write(chunk: Buffer, _encoding, callback) {
+      try {
+        assert.ok(chunk.byteLength <= 16_384);
+        const frame = JSON.parse(chunk.toString("utf8")) as {
+          id: string; method: string; params: { protocolVersion?: number; sessionId?: string };
+        };
+        methods.push(frame.method);
+        let result: unknown;
+        if (frame.method === "initialize") {
+          assert.equal(frame.params.protocolVersion, 1);
+          result = { protocolVersion: 1, agentCapabilities: {}, authMethods: [], agentInfo: { name: "packed-peer", version: "1.0.0" } };
+        } else if (frame.method === "session/new") {
+          stdout.write(JSON.stringify({ jsonrpc: "2.0", method: "_packed/optional_observation", params: {} }) + "\\n");
+          result = { sessionId: "borrowed-native-session" };
+        } else if (frame.method === "session/prompt") {
+          assert.equal(frame.params.sessionId, "borrowed-native-session");
+          stdout.write(JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: {
+            sessionId: "borrowed-native-session", update: {
+              sessionUpdate: "agent_message_chunk", content: { type: "text", text: "Borrowed stream response" },
+            },
+          } }) + "\\n");
+          result = { stopReason: "end_turn" };
+        } else {
+          throw new Error("Unexpected injected ACP method: " + frame.method);
+        }
+        stdout.write(JSON.stringify({ jsonrpc: "2.0", id: frame.id, result }) + "\\n");
+        callback();
+      } catch (error) {
+        callback(error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+  });
+  try {
+    const borrowed = await openSession(createAcpProviderDriver({
+      providerKey: "packed-acp-borrowed",
+      createConnection: () => ({ stdout, stdin, ownership: "borrowed" }),
+      limits: { initializationTimeoutMs: 5_000, cancellationTimeoutMs: 1_000 },
+    }), "packed-borrowed");
+    try {
+      const events = await runTextTurn(borrowed.session, "packed-borrowed");
+      assert.equal(events.filter((event) => event.type === "turn.completed").length, 1);
+      assert.ok(events.some((event) => event.type === "content.delta" && event.payload.delta === "Borrowed stream response"));
+      assert.ok(events.some((event) => event.type === "item.completed" && event.payload.itemKind === "assistant_message"));
+      assert.deepEqual(methods, ["initialize", "session/new", "session/prompt"]);
+    } finally {
+      try { await borrowed.session.close({ reason: "shutdown" }); }
+      finally { await borrowed.instance.dispose(); }
+    }
+    assert.equal(stdout.destroyed, false);
+    assert.equal(stdin.destroyed, false);
+    assert.equal(stdin.writableEnded, false);
+  } finally {
+    stdout.destroy();
+    stdin.destroy();
+  }
+
+  const reportPath = fileURLToPath(new URL("../acp-peer-report.json", import.meta.url));
+  const owned = await openSession(createNodeAcpProviderDriver({
+    providerKey: "packed-acp-node",
+    unknownExtensionPolicy: "standard",
+    limits: { initializationTimeoutMs: 5_000, cancellationTimeoutMs: 1_000 },
+    launch: {
+      executable: process.execPath,
+      args: [fileURLToPath(new URL("../acp-peer.mjs", import.meta.url)), reportPath, "permission"],
+      cwd: fileURLToPath(new URL("../", import.meta.url)),
+      shutdownTimeoutMs: 1_000,
+    },
+  }), "packed-node");
+  try {
+    const execution = startTextTurn(owned.session, "packed-node");
+    const iterator = execution.outputs[Symbol.asyncIterator]();
+    const initial = await collectEvents(iterator, true);
+    const waiting = await iterator.next();
+    assert.ok(!waiting.done && waiting.value.kind === "event" && waiting.value.event.type === "turn.state_changed");
+    initial.push(waiting.value.event);
+    const requests = initial.filter((event) => event.type === "request.opened");
+    assert.equal(requests.length, 1);
+    const request = requests[0]?.payload.request;
+    assert.ok(request && request.requestKind === "approval");
+    assert.equal(request.subject.kind, "tool");
+    if (request.subject.kind !== "tool") throw new Error("Expected a correlated tool approval.");
+    const approved = request.options.find((option) => option.decision === "approved");
+    assert.ok(approved);
+    assert.equal(approved.persistence, "once");
+    assert.deepEqual(approved.scope, { kind: "exact_action" });
+    assert.equal(initial.some((event) => event.type === "turn.completed"), false);
+    assert.ok(initial.some((event) => event.type === "turn.state_changed" && event.payload.state === "waiting_for_request"));
+    assert.deepEqual(await execution.resolveRequest({ resolution: {
+      requestKind: "approval", requestId: request.requestId, disposition: "selected", optionId: approved.optionId,
+    }, signal: AbortSignal.timeout(5_000) }), { status: "delivered" });
+    const resumed = await collectEvents(iterator);
+    const tool = resumed.find((event) => event.type === "item.completed" && event.payload.itemKind === "dynamic_tool_call");
+    assert.ok(tool && tool.type === "item.completed");
+    assert.equal(tool.payload.itemId, request.subject.itemId);
+    assert.equal(tool.payload.status, "completed");
+    assert.equal(resumed.filter((event) => event.type === "turn.completed").length, 1);
+    assert.ok(resumed.some((event) => event.type === "content.delta" && event.payload.delta === "Retained offline result"));
+    assert.ok(resumed.some((event) => event.type === "item.completed" && event.payload.itemKind === "assistant_message"));
+  } finally {
+    try { await owned.session.close({ reason: "shutdown" }); }
+    finally { await owned.instance.dispose(); }
+  }
+  const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+    pid: number; methods: string[]; permissionResponses: unknown[]; exited: boolean;
+  };
+  assert.deepEqual(report.methods, ["initialize", "session/new", "session/prompt"]);
+  assert.deepEqual(report.permissionResponses, [{ id: "permission-1", result: { outcome: { outcome: "selected", optionId: "allow" } } }]);
+  assert.equal(report.exited, true);
+  assert.throws(() => process.kill(report.pid, 0), { code: "ESRCH" });
+  await runAdvancedAcpProviderConsumer();
+}
+
+async function runAdvancedAcpProviderConsumer(): Promise<void> {
+  const workingDirectory = fileURLToPath(new URL("../", import.meta.url));
+  const resumedSessionId = parseAgentSessionId("packed-advanced-resumed");
+  const connections: { stdout: PassThrough; stdin: Writable }[] = [];
+  const methods: string[] = [];
+  const formReplies: unknown[] = [];
+  let model = "balanced";
+  let hostReads = 0;
+  const configOptions = () => [{
+    id: "native-model", name: "Model", type: "select", currentValue: model,
+    options: [{ value: "balanced", name: "Balanced" }, { value: "quality", name: "Quality" }],
+  }];
+  const host: AcpHostFacilities = {
+    readTextFile(input) {
+      assert.equal(input.sessionId, resumedSessionId);
+      assert.equal(input.workingDirectory, workingDirectory);
+      assert.equal(input.path, workingDirectory + "README.md");
+      assert.equal(input.signal.aborted, false);
+      hostReads += 1;
+      return "Host-approved fixture text";
+    },
+  };
+  const driver = createAcpProviderDriver({
+    providerKey: "packed-acp-advanced", configuration: "selectable", host,
+    limits: { initializationTimeoutMs: 5_000, cancellationTimeoutMs: 1_000 },
+    createConnection() {
+      const stdout = new PassThrough();
+      let pendingPrompt: string | number | undefined;
+      const send = (frame: unknown) => { stdout.write(JSON.stringify(frame) + "\\n"); };
+      const update = (text: string) => ({ jsonrpc: "2.0", method: "session/update", params: {
+        sessionId: "advanced-native", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } },
+      } });
+      const stdin = new Writable({
+        write(chunk: Buffer, _encoding, callback) {
+          try {
+            assert.ok(chunk.byteLength <= 16_384);
+            const frame = JSON.parse(chunk.toString("utf8")) as {
+              id: string | number; method?: string; params?: Record<string, unknown>; result?: unknown;
+            };
+            if (frame.method) {
+              methods.push(frame.method);
+              assert.ok(methods.length <= 16, "The advanced peer must receive bounded native operations.");
+              if (frame.method === "initialize") {
+                const capabilities = frame.params?.clientCapabilities as {
+                  session?: { configOptions?: { boolean?: object } }; elicitation?: { form?: object }; fs?: { readTextFile?: boolean };
+                };
+                assert.deepEqual(capabilities.session?.configOptions?.boolean, {});
+                assert.deepEqual(capabilities.elicitation?.form, {});
+                assert.equal(capabilities.fs?.readTextFile, true);
+                send({ jsonrpc: "2.0", id: frame.id, result: {
+                  protocolVersion: 1, agentCapabilities: { loadSession: true }, authMethods: [],
+                  agentInfo: { name: "packed-advanced-peer", version: "1.0.0" },
+                } });
+              } else if (frame.method === "session/new") {
+                send({ jsonrpc: "2.0", id: frame.id, result: { sessionId: "advanced-native", configOptions: configOptions() } });
+              } else if (frame.method === "session/set_config_option") {
+                assert.equal(frame.params?.sessionId, "advanced-native");
+                assert.equal(frame.params?.configId, "native-model");
+                assert.equal(frame.params?.value, "quality");
+                model = "quality";
+                send({ jsonrpc: "2.0", id: frame.id, result: { configOptions: configOptions() } });
+              } else if (frame.method === "session/load") {
+                assert.equal(frame.params?.sessionId, "advanced-native");
+                assert.equal(frame.params?.cwd, workingDirectory);
+                stdout.write([
+                  update("HISTORICAL CONTENT MUST REMAIN HIDDEN"),
+                  { jsonrpc: "2.0", id: frame.id, result: { configOptions: configOptions() } },
+                ].map((message) => JSON.stringify(message)).join("\\n") + "\\n");
+              } else if (frame.method === "session/prompt") {
+                assert.equal(frame.params?.sessionId, "advanced-native");
+                assert.equal(pendingPrompt, undefined);
+                pendingPrompt = frame.id;
+                send({ jsonrpc: "2.0", id: "packed-read", method: "fs/read_text_file", params: {
+                  sessionId: "advanced-native", path: workingDirectory + "README.md", line: 1, limit: 1,
+                } });
+              } else throw new Error("Unexpected advanced ACP method: " + frame.method);
+            } else if (frame.id === "packed-read") {
+              assert.deepEqual(frame.result, { content: "Host-approved fixture text" });
+              send({ jsonrpc: "2.0", id: "packed-form", method: "elicitation/create", params: {
+                mode: "form", sessionId: "advanced-native", message: "Continue this fixture?",
+                requestedSchema: { type: "object", properties: { proceed: { type: "boolean", title: "Continue?" } }, required: ["proceed"] },
+              } });
+            } else {
+              assert.equal(frame.id, "packed-form");
+              assert.ok(pendingPrompt !== undefined);
+              assert.equal(formReplies.length, 0);
+              formReplies.push(frame.result);
+              assert.deepEqual(frame.result, { action: "accept", content: { proceed: false } });
+              stdout.write([
+                update("LIVE AFTER LOAD"),
+                { jsonrpc: "2.0", id: pendingPrompt, result: { stopReason: "end_turn" } },
+              ].map((message) => JSON.stringify(message)).join("\\n") + "\\n");
+              pendingPrompt = undefined;
+            }
+            callback();
+          } catch (error) {
+            callback(error instanceof Error ? error : new Error(String(error)));
+          }
+        },
+      });
+      connections.push({ stdout, stdin });
+      return { stdout, stdin, ownership: "borrowed" };
+    },
+  });
+  const instance = await driver.materialize({
+    providerKey: driver.providerKey, instanceId: parseAgentInstanceId("packed-advanced-instance"), driverConfiguration: {},
+  });
+  const adapter = validateAgentProviderAdapter(instance.capabilities, instance.adapter);
+  const configuration = {
+    kind: "selected" as const, revision: parseAgentConfigurationRevisionId("packed-advanced-configuration"), catalogRevision: 1, selections: [],
+  };
+  try {
+    const initial = await adapter.createSession({
+      sessionId: parseAgentSessionId("packed-advanced-created"), workingDirectory, configuration, onBindingCreated() {},
+      signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(initial.configuration.kind, "selectable");
+    if (initial.configuration.kind !== "selectable") throw new Error("Expected installed selectable configuration.");
+    const catalog = await initial.configuration.listConfiguration();
+    const field = catalog.fields.find((candidate) => candidate.label === "Model");
+    assert.ok(field?.fieldKind === "single_select");
+    const option = field.options.find((candidate) => candidate.label === "Quality");
+    assert.ok(option);
+    const selected = {
+      key: field.key, expectedCatalogRevision: catalog.revision, expectedFieldRevision: field.revision,
+      value: { fieldKind: "single_select" as const, optionId: option.optionId },
+    };
+    let configurationStarted = 0;
+    assert.equal((await initial.configuration.applyConfigurationSelection({
+      selection: selected, onProviderExecutionStarted() { configurationStarted += 1; }, signal: AbortSignal.timeout(5_000),
+    })).status, "completed");
+    assert.equal(configurationStarted, 1);
+    await assert.rejects(async () => initial.configuration.kind === "selectable"
+      ? initial.configuration.applyConfigurationSelection({ selection: selected }) : Promise.reject(new Error("Lost configuration port")));
+    assert.equal(methods.filter((method) => method === "session/set_config_option").length, 1);
+    const binding = initial.binding;
+    await initial.close({ reason: "idle" });
+    assert.equal(adapter.resumption.kind, "supported");
+    if (adapter.resumption.kind !== "supported") throw new Error("Expected installed load-based resumption.");
+    const resumed = await adapter.resumption.resumeSession({
+      sessionId: resumedSessionId, workingDirectory, configuration, binding, signal: AbortSignal.timeout(5_000),
+    });
+    try {
+      assert.deepEqual(resumed.binding, binding);
+      const execution = startTextTurn(resumed, "packed-advanced");
+      const iterator = execution.outputs[Symbol.asyncIterator]();
+      const first = await collectEvents(iterator, true);
+      const intentEvent = first.find((event) => event.type === "request.opened");
+      assert.ok(intentEvent?.type === "request.opened" && intentEvent.payload.request.requestKind === "elicitation");
+      const intent = intentEvent.payload.request;
+      const intentField = intent.fields[0];
+      assert.ok(intentField?.kind === "single_select");
+      const provideAnswers = intentField.options.find((candidate) => candidate.label === "Provide answers");
+      assert.ok(provideAnswers);
+      assert.deepEqual(formReplies, []);
+      assert.deepEqual(await execution.resolveRequest({ resolution: {
+        requestKind: "elicitation", requestId: intent.requestId, disposition: "answered",
+        answers: [{ fieldId: intentField.fieldId, kind: "single_select", value: provideAnswers.value }],
+      }, signal: AbortSignal.timeout(5_000) }), { status: "delivered" });
+      assert.deepEqual(formReplies, []);
+      const second = await collectEvents(iterator, true);
+      const fieldsEvent = second.find((event) => event.type === "request.opened");
+      assert.ok(fieldsEvent?.type === "request.opened" && fieldsEvent.payload.request.requestKind === "elicitation");
+      const fields = fieldsEvent.payload.request;
+      const boolean = fields.fields[0];
+      assert.ok(boolean?.kind === "boolean");
+      assert.notEqual(fields.requestId, intent.requestId);
+      assert.deepEqual(formReplies, []);
+      assert.deepEqual(await execution.resolveRequest({ resolution: {
+        requestKind: "elicitation", requestId: fields.requestId, disposition: "answered",
+        answers: [{ fieldId: boolean.fieldId, kind: "boolean", value: false }],
+      }, signal: AbortSignal.timeout(5_000) }), { status: "delivered" });
+      const final = await collectEvents(iterator);
+      const events = [...first, ...second, ...final];
+      assert.equal(events.filter((event) => event.type === "turn.started").length, 1);
+      assert.equal(events.filter((event) => event.type === "turn.completed").length, 1);
+      assert.equal(events.filter((event) => event.type === "request.opened").length, 2);
+      assert.equal(events.filter((event) => event.type === "content.delta").map((event) => event.payload.delta).join(""), "LIVE AFTER LOAD");
+      assert.deepEqual(formReplies, [{ action: "accept", content: { proceed: false } }]);
+      assert.equal(hostReads, 1);
+      assert.deepEqual(methods, ["initialize", "session/new", "session/set_config_option", "initialize", "session/load", "session/prompt"]);
+    } finally { await resumed.close({ reason: "shutdown" }); }
+  } finally {
+    try { await instance.dispose(); }
+    finally { for (const connection of connections) { connection.stdout.destroy(); connection.stdin.destroy(); } }
+  }
+}
+`;
+
+const ACP_REGISTRY_CONSUMER_SOURCE = String.raw`import assert from "node:assert/strict";
+import childProcess from "node:child_process";
+import dgram from "node:dgram";
+import http from "node:http";
+import https from "node:https";
+import net from "node:net";
+import tls from "node:tls";
+import workerThreads from "node:worker_threads";
+import { createHash } from "node:crypto";
+import { syncBuiltinESMExports } from "node:module";
+import type { AcpInstallPolicy, CreateAcpInstallPlanInput, AcpRegistrySource } from "@agen-ai/acp-registry";
+import type { FetchAcpRegistrySnapshotInput, FetchedAcpRegistrySnapshot } from "@agen-ai/acp-registry/node";
+
+const stdout = process.stdout;
+void process.stderr;
+let effectAttempts = 0;
+const denyEffect = () => {
+  effectAttempts += 1;
+  throw new Error("Registry metadata operations attempted process or network execution.");
+};
+for (const [facility, methods] of [
+  [childProcess, ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"]],
+  [http, ["request", "get"]], [https, ["request", "get"]],
+  [net, ["connect", "createConnection", "Socket"]], [tls, ["connect", "TLSSocket"]],
+  [dgram, ["createSocket"]], [workerThreads, ["Worker"]],
+] as const) {
+  for (const method of methods) assert.equal(Reflect.set(facility, method, denyEffect), true);
+}
+assert.equal(Reflect.set(globalThis, "fetch", denyEffect), true);
+assert.equal(Reflect.set(globalThis, "WebSocket", denyEffect), true);
+syncBuiltinESMExports();
+
+const {
+  AcpRegistryValidationError, parseAcpRegistrySnapshot, searchAcpRegistry,
+  selectAcpRegistryDistribution, createAcpInstallPlan,
+} = await import("@agen-ai/acp-registry");
+const nodeRegistry = await import("@agen-ai/acp-registry/node");
+const boundedFetch: (input: FetchAcpRegistrySnapshotInput) => Promise<FetchedAcpRegistrySnapshot> = nodeRegistry.fetchAcpRegistrySnapshot;
+assert.equal(typeof boundedFetch, "function");
+
+const source: AcpRegistrySource = {
+  namespace: "packed-fixture", kind: "local", channel: "stable",
+  location: "fixture:registry/catalog.json", profile: "published-v1",
+};
+const literalArgs = ["--label", "literal;$(never-executed)"];
+const content = JSON.stringify({
+  version: "1.0.0", extensions: [], agents: [
+    {
+      id: "fixture-binary", name: "Fixture binary", version: "1.2.3",
+      description: "Fixture assistant for deterministic installs",
+      license: "MIT", license_url: "https://fixtures.example.test/LICENSE",
+      distribution: {
+        binary: { "linux-x86_64": {
+          archive: "https://fixtures.example.test/agent-1.2.3.tar.gz",
+          cmd: "./bin/agent", sha256: "ab".repeat(32), args: literalArgs,
+        } },
+        npx: { package: "@fixture/metadata-adapter" },
+      },
+    },
+    {
+      id: "fixture-notes", name: "Notes helper", version: "2.0.0",
+      description: "Metadata notes editor", license_url: "https://fixtures.example.test/notes/LICENSE",
+      distribution: { uvx: { package: "notes-helper==2.0.0" } },
+    },
+  ],
+});
+const snapshot = parseAcpRegistrySnapshot({ source, content: new TextEncoder().encode(content) });
+assert.equal(snapshot.rawDigest, "sha256:" + createHash("sha256").update(content).digest("hex"));
+assert.equal(parseAcpRegistrySnapshot({ source, content }).digest, snapshot.digest);
+assert.notEqual(parseAcpRegistrySnapshot({ source, content: content + "\n" }).digest, snapshot.digest);
+const matches = searchAcpRegistry(snapshot, {
+  query: "fixture assistant", distributionKinds: ["binary"], target: "linux-x86_64",
+});
+assert.deepEqual(matches.map((entry) => entry.id), ["fixture-binary"]);
+const entry = matches[0]!;
+assert.equal(selectAcpRegistryDistribution(entry, { target: "linux-x86_64", preference: ["npx", "binary"] }).kind, "npx");
+assert.throws(() => selectAcpRegistryDistribution(entry, { target: "darwin-aarch64", preference: ["binary"] }),
+  (error: unknown) => error instanceof AcpRegistryValidationError && error.issues.some((issue) => issue.code === "acp_registry_distribution_not_found"));
+const policy: AcpInstallPolicy = {
+  network: "allow", allowedOrigins: ["https://fixtures.example.test"], allowInsecureHttp: false,
+  packageScripts: "deny", integrity: "require-expected-sha256", reproducibility: "require-complete",
+  allowedEnvironmentKeys: [],
+};
+const input: CreateAcpInstallPlanInput = {
+  entryIdentity: entry.identity, expectedSnapshotDigest: snapshot.digest, expectedEntryDigest: entry.digest,
+  target: "linux-x86_64", distributionPreference: ["binary"], policy,
+};
+const plan = createAcpInstallPlan(snapshot, input);
+assert.equal(plan.digest, createAcpInstallPlan(snapshot, input).digest);
+assert.equal(plan.rawSnapshotDigest, snapshot.rawDigest);
+assert.equal(plan.launch.executable, "bin/agent");
+assert.deepEqual(plan.launch.args, literalArgs);
+assert.deepEqual(plan.launch.env, {});
+assert.equal(plan.launch.shell, false);
+assert.deepEqual(plan.reproducibility, { classification: "pinned-binary", gaps: [], verified: false });
+assert.ok(Object.isFrozen(snapshot.entries));
+assert.ok(Object.isFrozen(plan));
+assert.ok(Object.isFrozen(plan.launch.args));
+assert.ok(Object.isFrozen(plan.policy.allowedOrigins));
+assert.throws(() => (plan.launch.args as string[]).push("mutated"), TypeError);
+assert.throws(() => createAcpInstallPlan(snapshot, { ...input, expectedEntryDigest: "sha256:" + "00".repeat(32) }), AcpRegistryValidationError);
+assert.throws(() => createAcpInstallPlan(snapshot, {
+  ...input, distributionPreference: ["npx"],
+  toolchains: [
+    { kind: "node", version: "22.23.2", sha256: "sha256:" + "cd".repeat(32) },
+    { kind: "npm", version: "11.7.0", sha256: "sha256:" + "ef".repeat(32) },
+  ],
+}),
+  (error: unknown) => error instanceof AcpRegistryValidationError && error.issues.some((issue) => issue.code === "acp_registry_package_resolution_required"));
+assert.equal(effectAttempts, 0);
+stdout.write("External packed ACP registry metadata consumer passed with zero process/network execution.\n");
 `;
 
 const INTENTIONALLY_INVALID_CONSUMER_SOURCE = `import type {
   AgentCapabilities,
 } from "@agen-ai/agent-protocol";
 
-const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 6;
+const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 9;
 void retiredProtocolVersion;
 `;
 
@@ -1019,9 +1853,13 @@ async function runConsumer(tempRoot, artifacts) {
       "@agen-ai/validation": fileDependency("@agen-ai/validation"),
       "@agen-ai/agent-protocol": fileDependency("@agen-ai/agent-protocol"),
       "@agen-ai/agent-runtime": fileDependency("@agen-ai/agent-runtime"),
+      "@agen-ai/agent-orchestration": fileDependency("@agen-ai/agent-orchestration"),
+      "@agen-ai/acp-transport": fileDependency("@agen-ai/acp-transport"),
+      "@agen-ai/provider-acp": fileDependency("@agen-ai/provider-acp"),
+      "@agen-ai/acp-registry": fileDependency("@agen-ai/acp-registry"),
       zod: "4.4.3",
     },
-    devDependencies: { "@types/node": "24.10.1", typescript: "5.9.3" },
+    devDependencies: { "@types/node": "24.10.1", typescript: "5.9.3", tsx: "4.19.3" },
   };
   const tsconfig = {
     compilerOptions: {
@@ -1036,7 +1874,7 @@ async function runConsumer(tempRoot, artifacts) {
       skipLibCheck: false,
       types: ["node"],
     },
-    include: ["src/scenario.ts"],
+    include: ["src/scenario.ts", "src/registry.ts", "src/registry-provider/*.ts", "src/orchestration/*.ts"],
   };
   await writeFile(
     path.join(consumerRoot, "package.json"),
@@ -1047,6 +1885,34 @@ async function runConsumer(tempRoot, artifacts) {
     `${JSON.stringify(tsconfig, null, 2)}\n`,
   );
   await writeFile(path.join(sourceRoot, "scenario.ts"), CONSUMER_SOURCE);
+  await writeFile(path.join(sourceRoot, "provider.ts"), ACP_PROVIDER_CONSUMER_SOURCE);
+  await writeFile(path.join(sourceRoot, "registry.ts"), ACP_REGISTRY_CONSUMER_SOURCE);
+  await mkdir(path.join(sourceRoot, "orchestration"));
+  for (const file of ["policy.ts", "execution.ts", "acp.ts", "acp-host.ts", "acp-ownership.ts", "acp-failures.ts"]) {
+    await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/orchestration", file),
+      path.join(sourceRoot, "orchestration", file));
+  }
+  const integratedFixtureRoot = path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/registry-provider");
+  await mkdir(path.join(sourceRoot, "registry-provider"));
+  await mkdir(path.join(consumerRoot, "registry-provider-fixtures"));
+  for (const file of ["consumer.ts", "installation.ts"]) {
+    await copyFile(path.join(integratedFixtureRoot, file), path.join(sourceRoot, "registry-provider", file));
+  }
+  for (const file of ["peer.mjs", "peer.py", "generate.py"]) {
+    await copyFile(path.join(integratedFixtureRoot, file), path.join(consumerRoot, "registry-provider-fixtures", file));
+  }
+  await mkdir(path.join(consumerRoot, "orchestration-fixtures"));
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/orchestration/acp-peer.mjs"),
+    path.join(consumerRoot, "orchestration-fixtures/peer.mjs"));
+  for (const file of ["peer.py", "generate.py"]) {
+    await copyFile(path.join(integratedFixtureRoot, file), path.join(consumerRoot, "orchestration-fixtures", file));
+  }
+  await copyFile(path.join(integratedFixtureRoot, "peer.mjs"), path.join(consumerRoot, "acp-peer.mjs"));
+  await cp(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT), path.join(consumerRoot, "examples"), { recursive: true });
+  const liveExampleSha256 = createHash("sha256")
+    .update(await readFile(path.join(consumerRoot, "examples/live-request-output.ts"))).digest("hex");
+  await writeFile(path.join(consumerRoot, "examples-offline-guard.mjs"),
+    'globalThis.fetch = async () => { throw new Error("Public examples must execute without network access."); };\n');
   await writeFile(
     path.join(sourceRoot, "intentionally-invalid.ts"),
     INTENTIONALLY_INVALID_CONSUMER_SOURCE,
@@ -1065,6 +1931,10 @@ async function runConsumer(tempRoot, artifacts) {
       "@agen-ai/validation": fileDependency("@agen-ai/validation"),
       "@agen-ai/agent-protocol": fileDependency("@agen-ai/agent-protocol"),
       "@agen-ai/agent-runtime": fileDependency("@agen-ai/agent-runtime"),
+      "@agen-ai/agent-orchestration": fileDependency("@agen-ai/agent-orchestration"),
+      "@agen-ai/acp-transport": fileDependency("@agen-ai/acp-transport"),
+      "@agen-ai/provider-acp": fileDependency("@agen-ai/provider-acp"),
+      "@agen-ai/acp-registry": fileDependency("@agen-ai/acp-registry"),
     })};\nmodule.exports = { hooks: { readPackage(pkg) {\n  for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {\n    if (!pkg[section]) continue;\n    for (const [name, tarball] of Object.entries(packedDependencies)) {\n      if (Object.hasOwn(pkg[section], name)) pkg[section][name] = tarball;\n    }\n  }\n  return pkg;\n} } };\n`,
   );
   await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], {
@@ -1073,12 +1943,124 @@ async function runConsumer(tempRoot, artifacts) {
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], {
     cwd: consumerRoot,
   });
+  await run("pnpm", ["exec", "tsc", "--project", "examples/tsconfig.json", "--noEmit"], { cwd: consumerRoot });
+  const liveExample = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/live-request-output.ts"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  const liveSummaries = liveExample.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+  assert.deepEqual(liveSummaries, [{
+    example: "live-request-output", evidence: "synthetic",
+    transcript: [
+      "turn.started",
+      "request.opened:live-request:destination",
+      "turn.waiting_for_request",
+      "output:Independent work completed while the request remained open.",
+      "answer.submitted:live-request:destination",
+      "provider.accepted:live-request:destination:destination=Archive",
+      "answer.delivered:live-request:destination",
+      "output:Continuing with Archive.",
+      "turn.completed:completed",
+      "session.closed",
+      "handler.joined",
+    ],
+    starts: 1, outputReaders: 1, acceptedAnswers: 1, closes: 1,
+    producerJoined: true, handlerJoined: true, cleanup: "joined",
+  }], "The packed example must show live progress before answering and complete through its original reader.");
+  process.stdout.write(liveExample.stdout);
+  const nativeTests = (await readdir(path.join(consumerRoot, "examples/delegation/native/tests")))
+    .filter((file) => file.endsWith(".test.ts")).sort();
+  assert.ok(nativeTests.length > 0, "Native qualification requires executable hermetic public tests.");
+  const native = await run(process.execPath, ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "--test",
+    ...nativeTests.map((file) => `examples/delegation/native/tests/${file}`)], { cwd: consumerRoot, timeoutMs: 180_000 });
+  process.stdout.write(native.stdout);
+  process.stdout.write("Native qualification hermetic tests passed offline against packed public packages.\n");
+  if (process.env.AGENT_SDK_DURABLE_TEST_ROOT) {
+    assert.ok(path.isAbsolute(process.env.AGENT_SDK_DURABLE_TEST_ROOT), "The durable qualification root must be absolute.");
+    const durableTests = (await readdir(path.join(consumerRoot, "examples/delegation/tests")))
+      .filter((file) => file.endsWith(".test.ts")).sort();
+    assert.ok(durableTests.length > 0, "Durable qualification requires executable public tests.");
+    const durable = await run(process.execPath, ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "--test",
+      ...durableTests.map((file) => `examples/delegation/tests/${file}`)], { cwd: consumerRoot, timeoutMs: 180_000 });
+    process.stdout.write(durable.stdout);
+    process.stdout.write("Durable delegation reference passed against packed public packages.\n");
+    const failures = await run(process.execPath, ["--import", "./examples-offline-guard.mjs", "--import", "tsx",
+      "examples/delegation/failures.ts"], { cwd: consumerRoot, timeoutMs: 30_000 });
+    const failureSummaries = failures.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+    assert.deepEqual(failureSummaries, [{
+      example: "delegation-failures", evidence: "synthetic",
+      retry: { observations: 1, terminalCount: 1, outcome: "completed", providerInvocations: 1 },
+      collected: { reopened: true, outcome: { kind: "failed", error: {
+        category: "quota_exhausted", code: "allowance_exhausted", message: "The child allowance is exhausted.", recovery: { kind: "wait_for_quota" },
+      } } },
+      uncertain: { recoveryHint: "retry", outcome: { kind: "recovery_required", reason: "dispatch_uncertain" },
+        rejectedModes: ["follow_up", "next_turn"], providerInvocationsAfterReopen: 0 },
+      providerInvocations: 3, cleanup: "closed",
+    }]);
+    process.stdout.write(failures.stdout);
+    process.stdout.write("Public failure handling example passed offline against packed packages.\n");
+  }
+  for (const example of ["local-command", "registry-install-run"]) {
+    const execution = await run(process.execPath, ["--import", "./examples-offline-guard.mjs", "--import", "tsx", `examples/${example}.ts`],
+      { cwd: consumerRoot, timeoutMs: 30_000 });
+    const outputs = execution.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+    const events = outputs.filter((output) => output.kind === "event").map((output) => output.event);
+    for (const type of ["turn.started", "request.opened", "turn.completed"]) {
+      assert.equal(events.filter((event) => event.type === type).length, 1, `${example}: exactly one ${type}`);
+    }
+    assert.equal(events.at(-1)?.type, "turn.completed");
+    assert.equal(events.at(-1)?.payload.outcome, "completed");
+    assert.equal(events.filter((event) => event.type === "content.delta").map((event) => event.payload.delta).join(""),
+      "Completed the original native prompt.");
+  }
+  process.stdout.write("Documented public local-command and registry-install-run examples passed against packed packages.\n");
+  const cleanupExample = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/fixtures/session-cleanup.ts"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  const cleanupSummaries = cleanupExample.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line))
+    .filter((entry) => entry.example === "session-cleanup");
+  assert.deepEqual(cleanupSummaries, [{ example: "session-cleanup", openingRetry: true, closeRetry: true, cleanup: "closed" }]);
+  process.stdout.write(`${JSON.stringify(cleanupSummaries[0])}\n`);
+  const acpCleanup = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/fixtures/acp-session-cleanup.ts"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  const acpCleanupSummaries = acpCleanup.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+  assert.deepEqual(acpCleanupSummaries, [{ example: "acp-session-cleanup", bootstrapOpeningRetry: true,
+    bootstrapCloseRetry: true, parentOpeningRetry: true, cleanup: "closed" }]);
+  process.stdout.write(acpCleanup.stdout);
+  const directDelegation = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/delegation/workflow.ts"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  const directSummaries = directDelegation.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line))
+    .filter((entry) => entry.example === "delegation-direct");
+  assert.equal(directSummaries.length, 1);
+  assert.deepEqual(directSummaries[0], {
+    example: "delegation-direct", disabledInvocations: 0, standardApplied: true, maxApplied: true,
+    fastApplied: true, exclusion: "developer_excluded", sourceChange: "stale_target",
+    progress: "Configured child is working.", steering: "delivered", nextTurnRuns: 2,
+    cancellation: "canceled", approval: "resolved", nativeInvocations: 6, cleanup: "closed",
+    steeringMessages: 1, resumedSessions: 1, interruptions: 1, resolvedRequests: 1,
+  });
+  process.stdout.write(directDelegation.stdout);
+  const acpDelegation = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/delegation/acp.ts"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  const acpSummaries = acpDelegation.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line))
+    .filter((entry) => entry.example === "delegation-acp");
+  assert.equal(acpSummaries.length, 1);
+  assert.deepEqual(acpSummaries[0], {
+    example: "delegation-acp", toolsInvoked: ["delegation_targets", "delegate_task", "task_status"],
+    parentEndedBeforeChildCompletion: true, childOutcome: "succeeded", approval: "resolved",
+    appliedModel: "Example model", appliedSpeed: "Standard", appliedReasoning: "Max",
+    completionDelivered: true, nativeSteering: "unsupported", bridgeAcquired: 1,
+    bridgeReleased: 1, cleanup: "closed",
+  });
+  process.stdout.write(acpDelegation.stdout);
   await assert.rejects(
     run("pnpm", ["exec", "tsc", "--project", "tsconfig.invalid.json"], {
       cwd: consumerRoot,
     }),
     (error) => error instanceof Error && /TS2322/u.test(error.message),
-    "The retired V6 discriminator must fail in an independent TypeScript consumer.",
+    "The retired V9 discriminator must fail in an independent TypeScript consumer.",
   );
   const execution = await run("node", ["dist/scenario.js"], {
     cwd: consumerRoot,
@@ -1087,16 +2069,72 @@ async function runConsumer(tempRoot, artifacts) {
     execution.stdout,
     /External packed agent SDK consumer passed\./u,
   );
+  const registryExecution = await run("node", ["dist/registry.js"], { cwd: consumerRoot });
+  assert.match(registryExecution.stdout, /External packed ACP registry metadata consumer passed with zero process\/network execution\./u);
+  const orchestrationExecution = await run(process.execPath, ["dist/orchestration/policy.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.equal(orchestrationExecution.stdout.trim(),
+    "External packed orchestration policy consumer passed with zero process/network execution.");
+  process.stdout.write(orchestrationExecution.stdout);
+  const managedExecution = await run(process.execPath, ["dist/orchestration/execution.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.equal(managedExecution.stdout.trim(), "External packed managed delegation execution consumer passed.");
+  process.stdout.write(managedExecution.stdout);
+  const managedAcpExecution = await run(process.execPath, ["dist/orchestration/acp.js", REPO_ROOT],
+    { cwd: consumerRoot, timeoutMs: 90_000 });
+  assert.match(managedAcpExecution.stdout, /External packed ACP managed delegation qualification passed\./u);
+  process.stdout.write(managedAcpExecution.stdout);
+  const installationExecution = await run("node", ["dist/registry-provider/consumer.js", REPO_ROOT], { cwd: consumerRoot });
+  assert.match(installationExecution.stdout, /External packed registry→binary\/npm\/uv→offline provider proof passed/u);
+  process.stdout.write(installationExecution.stdout);
+  for (const profile of ["v0.11.4", "schema-v1.23.0"]) {
+    const schemaPath = path.join(consumerRoot, `node_modules/@agen-ai/acp-transport/schema/${profile}/schema.json`);
+    const schemaBytes = await readFile(schemaPath);
+    const checkSchemaFailure = (expected) => run("node", ["--input-type=module", "--eval",
+    `import assert from "node:assert/strict";
+import { createAcpSchemaValidator } from "@agen-ai/acp-transport";
+assert.throws(() => createAcpSchemaValidator("stable", ${JSON.stringify(profile)}), ${JSON.stringify(expected)});`], { cwd: consumerRoot });
+    try {
+      await rm(schemaPath);
+      await checkSchemaFailure({ code: "ENOENT" });
+      await writeFile(schemaPath, Buffer.concat([schemaBytes, Buffer.from("\n")]));
+      await checkSchemaFailure({ reasonCode: "acp_schema_identity_mismatch" });
+    } finally {
+      await writeFile(schemaPath, schemaBytes);
+    }
+  }
+  return { liveExampleSha256 };
 }
 
 // ------------------------------------------------------------------------------------------------
 //                Proof Orchestration
 // ------------------------------------------------------------------------------------------------
 
-async function main() {
-  const tempRoot = await mkdtemp(
-    path.join(tmpdir(), "agenai-agent-sdk-consumer-"),
+function parseArguments(argv) {
+  if (argv.length === 0) return undefined;
+  assert.ok(
+    argv.length === 2 && argv[0] === "--output" && path.isAbsolute(argv[1]),
+    "Usage: test:agent-sdk-external-consumer [--output <new-absolute-directory>]",
   );
+  return path.resolve(argv[1]);
+}
+
+async function main() {
+  const outputRoot = parseArguments(process.argv.slice(2));
+  let tempRoot;
+  if (outputRoot === undefined) {
+    tempRoot = await mkdtemp(path.join(tmpdir(), "agenai-agent-sdk-consumer-"));
+  } else {
+    const parent = path.dirname(outputRoot);
+    assert.equal(await realpath(parent), parent, "output parent must be an existing physical directory");
+    assert.ok(
+      outputRoot !== REPO_ROOT && !outputRoot.startsWith(`${REPO_ROOT}${path.sep}`),
+      "consumer must live outside the workspace",
+    );
+    await mkdir(outputRoot);
+    tempRoot = outputRoot;
+  }
+  let passed = false;
   try {
     assert.ok(
       !tempRoot.startsWith(`${REPO_ROOT}${path.sep}`),
@@ -1114,12 +2152,29 @@ async function main() {
         await inspectTarball(definition, tarballPath, extractedRoot),
       );
     }
-    await runConsumer(tempRoot, artifacts);
+    const { liveExampleSha256 } = await runConsumer(tempRoot, artifacts);
+    process.stdout.write(`${JSON.stringify({
+      proof: "agent-sdk-packed-artifact-identities",
+      example: {
+        path: "examples/live-request-output.ts",
+        sha256: liveExampleSha256,
+      },
+      packages: await Promise.all(artifacts.map(async ({ manifest, tarballPath }) => ({
+        name: manifest.name, version: manifest.version,
+        sha256: createHash("sha256").update(await readFile(tarballPath)).digest("hex"),
+      }))),
+    })}\n`);
     process.stdout.write(
       "Agent SDK tarballs, manifests, declarations, and external consumer passed.\n",
     );
+    passed = true;
+    if (outputRoot !== undefined) {
+      process.stdout.write(`Agent SDK external consumer retained at ${outputRoot}.\n`);
+    }
   } finally {
-    await rm(tempRoot, { recursive: true, force: true });
+    if (outputRoot === undefined || !passed) {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   }
 }
 

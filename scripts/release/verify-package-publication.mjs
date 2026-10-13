@@ -188,7 +188,7 @@ function assertProvenanceStatement(statement, expected) {
   }
 }
 
-async function readTarballManifest(tarballPath) {
+export async function readTarballManifest(tarballPath) {
   const { stdout } = await execFileAsync(
     "tar",
     ["-xOf", tarballPath, "package/package.json"],

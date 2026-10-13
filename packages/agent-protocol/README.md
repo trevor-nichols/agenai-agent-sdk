@@ -3,7 +3,7 @@
 `@agen-ai/agent-protocol` is the provider-neutral data contract for coding-agent runtimes. It
 defines opaque identifiers, sessions, turns, approval and elicitation requests, technical
 capabilities, typed operations, safe configuration and managed-content inventories, integration
-observations, effective harness content and package catalogs, environment observations, account-quota observations, collaboration lifecycles, generated resources, portable
+observations, effective harness content and package catalogs, environment observations, account-quota observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
 
@@ -50,7 +50,7 @@ import {
 } from '@agen-ai/agent-protocol';
 
 const event: AgentEvent = parseAgentEvent({
-  protocolVersion: 9,
+  protocolVersion: 10,
   type: 'content.delta',
   sessionId: parseAgentSessionId('external-session:42'),
   turnId: parseAgentTurnId('external-turn:9'),
@@ -65,7 +65,7 @@ const event: AgentEvent = parseAgentEvent({
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 ```
 
-Serialized values carry `protocolVersion: 9`; TypeScript API names remain unsuffixed. Unknown
+Serialized values carry `protocolVersion: 10`; TypeScript API names remain unsuffixed. Unknown
 fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
@@ -78,7 +78,7 @@ attribute bag; source evidence belongs outside the portable event. File-change p
 `compareStringsByUnicodeCodePoint` to emit the canonical path ordering required by the protocol
 across both BMP and supplementary Unicode characters.
 
-V9 approval requests correlate to one live item or exact proposed-plan artifact and provide a
+Approval requests correlate to one live item or exact proposed-plan artifact and provide a
 bounded list of typed options. Every option declares its decision, persistence, and neutral scope;
 resolutions select one offered `optionId` or explicitly cancel. Approval capabilities advertise
 the exact persistence/scope combinations an adapter can emit. `context.usage.updated` reports
@@ -97,6 +97,49 @@ which uses integer minor units with an explicit scale. None of these domains has
 extension or metadata bag.
 
 ## Errors and trust
+
+`AgentError` contains required `category`, stable `code`, safe `message`, tagged `recovery`, and
+optional bounded `context`. The categories distinguish rate limiting, exhausted account quota,
+turn budget, execution/context limits, authentication, permission, invalid input, provider overload,
+transport, provider, protocol, internal, and unknown failures. Adapters classify from native evidence;
+an HTTP 429 alone establishes rate limiting and does not establish exhausted account quota.
+
+Recovery is one of `unknown`, `none`, `retry`, `wait_for_quota`, or `user_action`. `retry` may carry
+an exactly reported `notBefore` timestamp. `user_action` names `authenticate`, `review_access`,
+`change_configuration`, or `review_allowance`. `none` offers no applicable recovery for this operation.
+These hints describe possible next steps; the application must assess execution certainty and effect
+replay independently before starting more work. The protocol does not retry, schedule continuation,
+switch accounts, or switch providers.
+
+An operational failure is separate from terminal authority. `turn.completed` with outcome `failed`
+requires an error; other terminal outcomes cannot carry one. A `runtime.error` observation does not
+itself complete a turn, and a failed tool item does not by itself fail the turn. Contract violations,
+uncertain dispatch and cleanup ownership retain their runtime semantics regardless of failure category.
+
+`wait_for_quota` may carry an immutable `AgentFailureQuotaReference` identifying an existing source,
+pool, window, and observation timestamp. Its optional `reset` uses the same `AgentAccountQuotaReset`
+shape and preserves reported versus estimated precision. Reset evidence cannot be newer than the
+referenced observation. Only `rate_limited` and `quota_exhausted` failures may carry a quota reference;
+turn budget and execution limits do not acquire account-quota identity. Omitted quota or reset evidence
+remains absent. The host must establish reference visibility and applicability to the selected binding;
+historical references grant no eligibility after account or credential changes.
+
+`runtime.retrying` reports provider-owned retry activity within an active turn. It requires
+`owner: 'provider'`, the turn identity, and an `AgentError`. Its optional `attempt` is a positive,
+one-based retry ordinal; `maxAttempts` is the positive maximum number of retries. Both exclude the
+original attempt. When both are reported, `attempt` cannot exceed `maxAttempts`. Optional `delayMs`
+is a nonnegative safe integer. Counters may repeat or restart across the provider's request/stream
+retry domains within one turn, and missing native facts remain absent. A retry observation neither
+completes a turn nor resolves a pending request; a later authoritative success completes the same turn.
+
+V10 removes `AgentError.retryable` and `runtime.warning.payload.retryable`. Warnings retain only
+bounded code, message, and optional context. Existing `AgentError`, `parseAgentError`, and
+`safeParseAgentError` root imports remain available. Failure messages are bounded at 4,000 characters,
+codes at 120 characters, context fields at 160 characters, and serialized failures at 32 KiB.
+Context contains only optional `operation`, `component` and `status`; it cannot carry native payloads,
+credentials or arbitrary attributes.
+The `/json-schema` error artifact publishes structural constraints and names the residual semantic
+invariants enforced by the ordinary parser, including quota applicability and reset observation order.
 
 Throwing parsers raise `AgentProtocolValidationError`, a `TypeError` with stable, JSON-safe
 `issues`. Each corresponding `safeParse...` function returns either parsed data or the same issue
@@ -147,12 +190,13 @@ before delegation; a composer can use the same pure functions to preserve and ex
 
 ## Versioning and release
 
-Agent Protocol V9 defines the coordinated SDK `0.3.1` contract shared by this package,
+Agent Protocol V10 defines the coordinated SDK `0.4.0` contract shared by this package,
 `@agen-ai/validation`, and `@agen-ai/agent-runtime`. Registry publication and dist-tag state are
-release metadata outside this contract. The earlier public `0.3.0` release implemented the same
-protocol and remains historical. All three SDK packages must be released together. Protocol V9 is
+release metadata outside this contract. The earlier public `0.3.0` and `0.3.1` releases remain historical.
+The complete seven-package public release inventory must use one coordinated source version. Protocol V10 is
 independent of private transport and product
-persistence versions and directly replaces V8 at live boundaries. There is one current parser. The
+persistence versions and directly replaces V9 at live boundaries. There is one current parser. V9
+serialized data requires the historical owner's frozen decoder and is rejected by the live V10 parser. The
 environment and account-quota namespaces each use their own schema version 1.
 
 The repository release proof builds and packs `@agen-ai/validation`, this package, and

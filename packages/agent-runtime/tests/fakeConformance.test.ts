@@ -21,6 +21,7 @@ import {
 } from "@agen-ai/agent-protocol";
 
 import {
+  createAgentEventOutput,
   validateAgentProviderAdapter,
   type AgentProviderDriver,
 } from "../src/index.js";
@@ -88,10 +89,57 @@ test('conformance accepts idle environment watches and closes both subscriptions
   assert.equal(closed, 2);
 });
 
-test("the deterministic fake passes the reusable provider conformance suite", async () => {
+test("the deterministic fake passes conformance with a provider retry after request waiting", async () => {
   const fake = createFakeAgentProvider();
+  let observedRetries = 0;
+  const driver: AgentProviderDriver = {
+    ...fake.driver,
+    async materialize(definition) {
+      const instance = await fake.driver.materialize(definition);
+      return {
+        ...instance,
+        adapter: {
+          ...instance.adapter,
+          async createSession(input) {
+            const opened = await instance.adapter.createSession(input);
+            return {
+              ...opened,
+              startTurn(turnInput) {
+                const execution = opened.startTurn(turnInput);
+                return { ...execution, outputs: (async function* () {
+                for await (const output of execution.outputs) {
+                  yield output;
+                  if (output.kind === "event" && output.event.type === "turn.state_changed"
+                    && output.event.payload.state === "waiting_for_request") {
+                    observedRetries += 1;
+                    yield createAgentEventOutput({
+                      protocolVersion: 10,
+                      sessionId: input.sessionId,
+                      turnId: turnInput.turnId,
+                      occurredAt: "2026-10-11T00:00:00.000Z",
+                      type: "runtime.retrying",
+                      payload: {
+                        owner: "provider",
+                        error: {
+                          category: "overloaded",
+                          code: "provider_overloaded",
+                          message: "The provider is temporarily overloaded.",
+                          recovery: { kind: "retry" },
+                        },
+                      },
+                    });
+                  }
+                }
+              })() };
+              },
+            };
+          },
+        },
+      };
+    },
+  };
   const report = await runAgentProviderConformance({
-    driver: fake.driver,
+    driver,
     definition: fake.definition,
     workingDirectory: "/host/workspaces/external-session",
     configuration,
@@ -159,6 +207,7 @@ test("the deterministic fake passes the reusable provider conformance suite", as
   });
 
   assert.equal(report.providerKey, "fake-provider");
+  assert.equal(observedRetries, 1);
   assert.deepEqual(report.checks, [
     "duplicate_instance",
     "instance_identity",
@@ -269,7 +318,7 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
       environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-      protocolVersion: 9,
+      protocolVersion: 10,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {
@@ -342,9 +391,10 @@ test("conformance rejects a definitive steering rejection on a live turn", async
     steeringResult: {
       status: "rejected",
       error: {
+        category: "unknown",
         code: "fake_steering_rejected",
         message: "The fake provider rejected steering.",
-        retryable: false,
+        recovery: { kind: "unknown" },
       },
     },
   });

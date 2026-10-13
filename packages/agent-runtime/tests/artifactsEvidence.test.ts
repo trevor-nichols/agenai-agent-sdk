@@ -477,10 +477,11 @@ test("provider evidence and readiness carry bounded technical data only", () => 
   const readyWithReason = {
     ...readiness,
     reason: {
+      category: "unknown",
       code: "unexpected_warning",
       message: "Ready state cannot carry a failure reason.",
-      retryable: false,
-    },
+      recovery: { kind: "unknown" },
+    } as const,
   };
   assert.throws(
     () => createAgentProviderReadiness(readyWithReason),
@@ -542,7 +543,7 @@ test("provider source evidence is atomic with its event and standalone evidence 
   });
   const eventOutput = createAgentEventOutput(
     {
-      protocolVersion: 9,
+      protocolVersion: 10,
       type: "turn.started",
       sessionId: "session:external",
       turnId: "turn:external",
@@ -555,7 +556,7 @@ test("provider source evidence is atomic with its event and standalone evidence 
 
   const requestOutput = createAgentEventOutput(
     {
-      protocolVersion: 9,
+      protocolVersion: 10,
       type: "request.opened",
       sessionId: "session:external",
       turnId: "turn:external",
@@ -655,7 +656,7 @@ test("provider source evidence is atomic with its event and standalone evidence 
 
 test("event outputs reject Agent V4 and malformed V5 item variants before yielding", () => {
   const eventBase = {
-    protocolVersion: 9,
+    protocolVersion: 10,
     type: "item.completed",
     sessionId: "session:external",
     turnId: "turn:external",

@@ -73,6 +73,12 @@ export const AgentAccountQuotaMeasurementSchema = z.discriminatedUnion('kind', [
   }).strict().readonly(),
 ]);
 
+export const AgentAccountQuotaResetSchema = z.object({
+  at: AgentIsoDateTimeSchema,
+  precision: z.enum(['reported', 'estimated']),
+  observedAt: AgentIsoDateTimeSchema,
+}).strict().readonly();
+
 export const AgentAccountQuotaWindowPortableSchema = z.object({
   poolId: AgentCanonicalIdValueSchema,
   windowId: AgentCanonicalIdValueSchema,
@@ -83,11 +89,7 @@ export const AgentAccountQuotaWindowPortableSchema = z.object({
   measurement: AgentAccountQuotaMeasurementSchema,
   observedAt: AgentIsoDateTimeSchema,
   startsAt: AgentIsoDateTimeSchema.optional(),
-  reset: z.object({
-    at: AgentIsoDateTimeSchema,
-    precision: z.enum(['reported', 'estimated']),
-    observedAt: AgentIsoDateTimeSchema,
-  }).strict().readonly().optional(),
+  reset: AgentAccountQuotaResetSchema.optional(),
 }).strict().readonly();
 
 function validateWindow(

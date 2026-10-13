@@ -58,7 +58,7 @@ const onceApprovalRequest = {
 function capabilitiesWithApproval(approval: unknown): unknown {
   return {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 9,
+    protocolVersion: 10,
     providerKey: 'v8-contract-provider',
     sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
     turns: {
@@ -140,7 +140,7 @@ test('approval capability and request freeze exact bounded once semantics', () =
 
 test('context usage and compaction examples retain only bounded neutral facts', () => {
   const usage = {
-    protocolVersion: 9,
+    protocolVersion: 10,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -316,7 +316,7 @@ test('capability freeze rejects duplicate and noncanonical modes/scopes', () => 
 
 test('context freeze rejects impossible usage and compaction measurements', () => {
   const usageBase = {
-    protocolVersion: 9,
+    protocolVersion: 10,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',

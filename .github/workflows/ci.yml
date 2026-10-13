@@ -31,5 +31,38 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Set up Python for offline registry installation fixtures
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.14.4'
+      - name: Set up uv for offline registry installation fixtures
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.11.28'
+          enable-cache: false
+      - name: Verify registry fixture prerequisites
+        run: |
+          python3 --version
+          uv --version
       - name: Check SDK
         run: pnpm check
+
+  durable-reference:
+    name: Qualified local SQLite reference
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+      - name: Set up qualified Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.18.0'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build public packages
+        run: pnpm build
+      - name: Prove SQLite ownership, inbox and process recovery
+        run: pnpm test:examples:durable

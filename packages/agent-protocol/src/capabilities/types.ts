@@ -203,7 +203,7 @@ export type AgentTurnSteeringCapability =
     }>;
 
 export interface AgentCapabilities {
-  readonly protocolVersion: 9;
+  readonly protocolVersion: 10;
   readonly providerKey: AgentProviderKey;
   readonly sessions: Readonly<{
     create: true;

@@ -3,6 +3,7 @@
 // ------------------------------------------------------------------------------------------------
 
 import type { AgentProviderKey } from "@agen-ai/agent-protocol";
+import type { MaybePromise } from "./foundation.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Contract Error Taxonomy
@@ -39,12 +40,21 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "configuration_key_unsupported",
   "configuration_value_unsupported",
   "request_pending",
+  "invalid_host_binding",
+  "host_binding_unsupported",
+  "host_binding_reused",
+  "host_binding_closed",
+  "host_tool_name_conflict",
+  "host_tool_input_invalid",
+  "host_tool_result_invalid",
+  "host_tool_capacity_exhausted",
 ] as const;
 
 export type AgentProviderContractErrorCode =
   (typeof AGENT_PROVIDER_CONTRACT_ERROR_CODES)[number];
 
 export type AgentProviderDelegatedOperation =
+  | "resolve_request"
   | "steer_turn"
   | "invoke_operation"
   | "apply_configuration"
@@ -59,6 +69,39 @@ export class AgentProviderContractError extends Error {
   ) {
     super(message);
     this.name = "AgentProviderContractError";
+  }
+}
+
+export class AgentProviderSessionCleanupError extends AggregateError {
+  readonly providerKey: AgentProviderKey;
+  readonly retryCleanup: () => Promise<void>;
+
+  constructor(input: Readonly<{
+    providerKey: AgentProviderKey;
+    errors: readonly unknown[];
+    retryCleanup: () => MaybePromise<void>;
+  }>) {
+    super(input.errors, "Provider session cleanup remains incomplete.");
+    this.name = "AgentProviderSessionCleanupError";
+    this.providerKey = input.providerKey;
+    let completed = false;
+    let pending: Promise<void> | null = null;
+    this.retryCleanup = () => {
+      if (completed) return Promise.resolve();
+      if (pending) return pending;
+      pending = Promise.resolve().then(() => input.retryCleanup()).then(() => {
+        completed = true;
+      }).finally(() => { pending = null; });
+      return pending;
+    };
+  }
+}
+
+export class AgentProviderHostBindingCleanupError extends AgentProviderSessionCleanupError {
+  constructor(input: ConstructorParameters<typeof AgentProviderSessionCleanupError>[0]) {
+    super(input);
+    this.name = "AgentProviderHostBindingCleanupError";
+    this.message = "Provider session host binding cleanup remains incomplete.";
   }
 }
 

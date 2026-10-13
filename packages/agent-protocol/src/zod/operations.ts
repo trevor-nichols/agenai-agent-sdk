@@ -4,6 +4,8 @@
 
 import { z } from 'zod/v4';
 
+import { AgentErrorSchema } from './failures.js';
+
 import { compareStringsByUnicodeCodePoint } from '../foundation/ordering.js';
 import {
   AGENT_OPERATION_CATALOG_MAX_LENGTH,
@@ -28,7 +30,6 @@ import {
 import {
   AgentArtifactIdSchema,
   AgentCanonicalIdValueSchema,
-  AgentErrorSchema,
   AgentGeneratedResourceIdSchema,
   AgentOperationIdSchema,
   AgentOperationInvocationIdSchema,

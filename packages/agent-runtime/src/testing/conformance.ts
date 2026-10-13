@@ -11,6 +11,7 @@ import {
   type AgentConfigurationSelectionInput,
   type AgentEnvironmentId,
   type AgentEnvironmentInvalidation,
+  type AgentEvent,
   type AgentGeneratedResourceId,
   type AgentOperationInvocation,
   type AgentRequest,
@@ -35,8 +36,9 @@ import type {
 import type { AgentProviderOutput } from "../outputs.js";
 import type {
   AgentProviderOperationResult,
-  AgentProviderRunTurnInput,
+  AgentProviderStartTurnInput,
   AgentProviderSession,
+  AgentProviderTurnExecution,
 } from "../sessions.js";
 
 // ------------------------------------------------------------------------------------------------
@@ -58,8 +60,8 @@ export interface AgentProviderConformanceScenario {
   readonly branchSessionId?: AgentSessionId;
   readonly abortedSessionId: AgentSessionId;
   readonly interruptionSessionId: AgentSessionId;
-  readonly turn: AgentProviderRunTurnInput;
-  readonly interruptionTurn: AgentProviderRunTurnInput;
+  readonly turn: AgentProviderStartTurnInput;
+  readonly interruptionTurn: AgentProviderStartTurnInput;
   readonly resolutionFor: (request: AgentRequest) => AgentRequestResolution;
   readonly branchSource?: (
     binding: AgentSessionBinding,
@@ -118,15 +120,17 @@ async function checkEnvironmentWatch(input: {
 }
 
 interface StartedAgentProviderTurn {
+  readonly execution: AgentProviderTurnExecution;
   readonly iterator: AsyncIterator<AgentProviderOutput>;
   readonly outputs: AgentProviderOutput[];
 }
 
 async function advanceToStartedTurn(
   session: AgentProviderSession,
-  input: AgentProviderRunTurnInput,
+  input: AgentProviderStartTurnInput,
 ): Promise<StartedAgentProviderTurn> {
-  const iterator = session.runTurn(input)[Symbol.asyncIterator]();
+  const execution = session.startTurn(input);
+  const iterator = execution.outputs[Symbol.asyncIterator]();
   const outputs: AgentProviderOutput[] = [];
   try {
     for (;;) {
@@ -141,7 +145,7 @@ async function advanceToStartedTurn(
         next.value.kind === "event" &&
         next.value.event.type === "turn.started"
       ) {
-        return { iterator, outputs };
+        return { execution, iterator, outputs };
       }
     }
   } catch (error) {
@@ -152,20 +156,18 @@ async function advanceToStartedTurn(
 
 async function collectRemainingOutputs(
   started: StartedAgentProviderTurn,
+  resolutionFor?: (request: AgentRequest) => AgentRequestResolution,
 ): Promise<readonly AgentProviderOutput[]> {
   for (;;) {
     const next = await started.iterator.next();
     if (next.done) return started.outputs;
     started.outputs.push(next.value);
+    if (next.value.kind === "event" && next.value.event.type === "request.opened" && resolutionFor) {
+      const request = next.value.event.payload.request;
+      const receipt = await started.execution.resolveRequest({ resolution: parseAgentRequestResolutionFor(request, resolutionFor(request)) });
+      requireCheck(receipt.status === "delivered", "request_resolution", "Matching request answer was not accepted by the provider handler.");
+    }
   }
-}
-
-async function collectOutputs(
-  outputs: AsyncIterable<AgentProviderOutput>,
-): Promise<readonly AgentProviderOutput[]> {
-  const collected: AgentProviderOutput[] = [];
-  for await (const output of outputs) collected.push(output);
-  return collected;
 }
 
 function requireOperationStatus(
@@ -181,6 +183,15 @@ function semanticEvents(outputs: readonly AgentProviderOutput[]) {
   return outputs.flatMap((output) =>
     output.kind === "event" ? [output.event] : [],
   );
+}
+
+function hasStableTurnBoundary(events: readonly AgentEvent[]): boolean {
+  const boundary = events.findLast((event) =>
+    event.type === "turn.completed" || event.type === "turn.state_changed",
+  );
+  return boundary?.type === "turn.completed"
+    || (boundary?.type === "turn.state_changed"
+      && boundary.payload.state === "waiting_for_request");
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -424,7 +435,7 @@ export async function runAgentProviderConformance(
           "Unsupported steering exposed a handler.",
         );
       }
-      turnOutputs = await collectRemainingOutputs(startedTurn);
+      turnOutputs = await collectRemainingOutputs(startedTurn, scenario.resolutionFor);
     } catch (error) {
       await startedTurn.iterator.return?.();
       await created.close({ reason: "contract_rejected" });
@@ -436,37 +447,14 @@ export async function runAgentProviderConformance(
       "turn_order",
       "Turn did not start first.",
     );
-    const lastEvent = events.at(-1);
     requireCheck(
-      lastEvent?.type === "turn.completed" ||
-        (lastEvent?.type === "turn.state_changed" &&
-          lastEvent.payload.state === "waiting_for_request"),
+      hasStableTurnBoundary(events),
       "turn_order",
       "Turn did not terminate or enter a waiting state.",
     );
     checks.push("turn_order");
 
-    const openedRequest = events.find(
-      (event) => event.type === "request.opened",
-    );
-    if (openedRequest?.type === "request.opened") {
-      const resolution = parseAgentRequestResolutionFor(
-        openedRequest.payload.request,
-        scenario.resolutionFor(openedRequest.payload.request),
-      );
-      const resolutionOutputs = await collectOutputs(
-        created.resolveRequest({ resolution }),
-      );
-      const resolutionBoundary = semanticEvents(resolutionOutputs).at(-1);
-      requireCheck(
-        resolutionBoundary?.type === "turn.completed" ||
-          (resolutionBoundary?.type === "turn.state_changed" &&
-            resolutionBoundary.payload.state === "waiting_for_request"),
-        "request_resolution",
-        "Matching request resolution did not reach a stable turn boundary.",
-      );
-      checks.push("request_resolution");
-    }
+    if (events.some((event) => event.type === "request.opened")) checks.push("request_resolution");
 
     checks.push("steering");
 
@@ -508,6 +496,9 @@ export async function runAgentProviderConformance(
           "interruption",
           "Live turn interruption did not succeed.",
         );
+        const outputs = await collectRemainingOutputs(liveTurn);
+        requireCheck(semanticEvents(outputs).some((event) => event.type === "turn.completed"),
+          "interruption", "Interrupted turn did not produce native terminal output.");
       } finally {
         await liveTurn?.iterator.return?.();
         await interrupted.close({ reason: "other" });

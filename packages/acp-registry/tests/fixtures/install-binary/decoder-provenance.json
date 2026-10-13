@@ -1,0 +1,65 @@
+{
+  "purpose": "Pinned archive decoder dependency evidence; no native-agent qualification.",
+  "entries": [
+    {
+      "name": "tar-stream",
+      "version": "3.2.2",
+      "license": "MIT",
+      "metadataUrl": "https://registry.npmjs.org/tar-stream/3.2.2",
+      "tarballUrl": "https://registry.npmjs.org/tar-stream/-/tar-stream-3.2.2.tgz",
+      "tarballSha256": "sha256:6adbf26440b42fb6dfcd8c837c5bd16331a64de325da11df751ced9a2c76ddf6",
+      "integrity": "sha512-+8NeqHRjQWH9nYlwo2gamAMImZCVzI4UoEgDpWorBt9OEfppiZn+uSkskzQKPWIZyji/C8fpWO7u69G0DX0tbg==",
+      "source": {
+        "url": "git+https://github.com/mafintosh/tar-stream.git",
+        "type": "git"
+      },
+      "gitHead": "d49f05b495b432d57042d461bd91036b58439c6a",
+      "licenseUrl": "https://github.com/mafintosh/tar-stream/blob/v3.2.2/LICENSE"
+    },
+    {
+      "name": "yauzl",
+      "version": "3.4.0",
+      "license": "MIT",
+      "metadataUrl": "https://registry.npmjs.org/yauzl/3.4.0",
+      "tarballUrl": "https://registry.npmjs.org/yauzl/-/yauzl-3.4.0.tgz",
+      "tarballSha256": "sha256:ec962fa3205d4be5849f0fc3bebd0492b0abe8acf402656fd80490531fa8ba88",
+      "integrity": "sha512-jIH9yLR9wqr0wOS0TpBvo/g/2UgZH5qePVbjgRliiF0BYvOZyaBknKsF+x9Iht0O6sqgnB93rCICdOZFecJuDw==",
+      "source": {
+        "url": "git+https://github.com/thejoshwolfe/yauzl.git",
+        "type": "git"
+      },
+      "gitHead": "f5798e15204ffbb9a428b00217e4659684a41b0f",
+      "licenseUrl": "https://github.com/thejoshwolfe/yauzl/blob/3.4.0/LICENSE"
+    },
+    {
+      "name": "buffer-crc32",
+      "version": "1.0.0",
+      "license": "MIT",
+      "metadataUrl": "https://registry.npmjs.org/buffer-crc32/1.0.0",
+      "tarballUrl": "https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-1.0.0.tgz",
+      "tarballSha256": "sha256:bbedaab7c94b9d392ea85da0a77c18c3a0bce3d47a1ca1685af11a747b2883ee",
+      "integrity": "sha512-Db1SbgBS/fg/392AblrMJk97KggmvYhr4pB5ZIMTWtaivCPMWLkmb7m21cJvpvgK+J3nsU2CmmixNBZx4vFj/w==",
+      "source": {
+        "url": "git://github.com/brianloveswords/buffer-crc32.git",
+        "type": "git"
+      },
+      "gitHead": "fc79b0d9e490dee637d02107b93b88dc9c26dc69",
+      "licenseUrl": "https://github.com/brianloveswords/buffer-crc32/blob/master/LICENSE"
+    },
+    {
+      "name": "@openpgp/unbzip2-stream",
+      "version": "2.1.0",
+      "license": "MIT",
+      "metadataUrl": "https://registry.npmjs.org/@openpgp/unbzip2-stream/2.1.0",
+      "tarballUrl": "https://registry.npmjs.org/@openpgp/unbzip2-stream/-/unbzip2-stream-2.1.0.tgz",
+      "tarballSha256": "sha256:ff209dcf1f1170feafc4d976baa8322e7b989189e9c2ba4a8682886a97fdebe7",
+      "integrity": "sha512-LU/0tGMM5B2rszFsgl3mD5Vb0TAg+dOTYOvgXz95RWCtlItF9yoA5fkJVcjkMd9Q0Jx0m6Gs1hZv6XXdQxVKkQ==",
+      "source": {
+        "url": "git+https://github.com/openpgpjs/unbzip2-stream.git",
+        "type": "git"
+      },
+      "gitHead": "f2a85783bcc1c29b00c1e69c33df2b952b40942b",
+      "licenseUrl": "https://github.com/openpgpjs/unbzip2-stream/blob/main/LICENSE"
+    }
+  ]
+}

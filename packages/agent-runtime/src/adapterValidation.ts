@@ -20,6 +20,9 @@ import {
   throwIfAgentOperationAborted,
 } from "./foundation.js";
 import { containsAgentControlCharacter } from "./internal/controlCharacters.js";
+import { withAgentSessionHostBinding } from "./hostBindings/lifetime.js";
+import { invokeAgentSessionOpening } from "./hostBindings/opening.js";
+import { validateAgentSessionHostBindingSupport } from "./hostBindings/validation.js";
 import {
   validateAgentProviderOperationResult,
   validateAgentProviderOutputForContext,
@@ -38,6 +41,8 @@ import type {
 
 //                Adapter Validation
 // ------------------------------------------------------------------------------------------------
+
+const validatedAdapters = new WeakMap<AgentProviderAdapter, AgentProviderAdapter>();
 
 function parseWorkingDirectory(value: string): string {
   if (
@@ -70,9 +75,10 @@ function assertAuthenticationOutputKind(
 
 export function validateAgentProviderAdapter(
   capabilityInput: AgentCapabilities,
-  adapter: AgentProviderAdapter,
+  adapterInput: AgentProviderAdapter,
 ): AgentProviderAdapter {
   const capabilities = parseAgentCapabilities(capabilityInput);
+  const adapter = validatedAdapters.get(adapterInput) ?? adapterInput;
   if (
     adapter === null ||
     typeof adapter !== "object" ||
@@ -114,6 +120,16 @@ export function validateAgentProviderAdapter(
   }
 
   const declaredResumption = adapter.resumption;
+  let hostBinding: ReturnType<typeof validateAgentSessionHostBindingSupport>;
+  try {
+    hostBinding = validateAgentSessionHostBindingSupport(adapter.hostBinding);
+  } catch {
+    return throwAgentProviderContractError(
+      capabilities.providerKey,
+      "invalid_adapter",
+      "Provider declared invalid session host binding support.",
+    );
+  }
   const resumption =
     declaredResumption.kind === "unsupported"
       ? Object.freeze({ kind: "unsupported" as const })
@@ -121,45 +137,59 @@ export function validateAgentProviderAdapter(
           kind: "supported" as const,
           resumeSession: async (
             resumeInput: AgentProviderResumeSessionInput,
-          ) => {
-            throwIfAgentOperationAborted(resumeInput.signal);
-            const parsed = parseAgentSessionOpenInput({
-              operation: "resume",
-              sessionId: resumeInput.sessionId,
-              binding: resumeInput.binding,
-              configuration: resumeInput.configuration,
-            });
-            if (parsed.operation !== "resume") {
-              throw new TypeError("Expected a resume session input.");
-            }
-            assertAgentSessionConfigurationSupported(
-              capabilities,
-              parsed.configuration,
-            );
-            const workingDirectory = parseWorkingDirectory(
-              resumeInput.workingDirectory,
-            );
-            const binding = parsed.binding;
-            const candidate = await declaredResumption.resumeSession({
-              sessionId: parsed.sessionId,
-              workingDirectory,
-              binding,
-              configuration: parsed.configuration,
-              ...(resumeInput.signal === undefined
-                ? {}
-                : { signal: resumeInput.signal }),
-            });
-            try {
-              return validateAgentProviderSession({
-                capabilities,
-                sessionId: parsed.sessionId,
-                candidate,
-                expectedBinding: binding,
+          ) => withAgentSessionHostBinding({
+            providerKey: capabilities.providerKey,
+            binding: resumeInput.hostBinding,
+            openingInput: resumeInput,
+            support: hostBinding,
+            open: async (lease) => {
+              throwIfAgentOperationAborted(resumeInput.signal);
+              const parsed = parseAgentSessionOpenInput({
+                operation: "resume",
+                sessionId: resumeInput.sessionId,
+                binding: resumeInput.binding,
+                configuration: resumeInput.configuration,
               });
-            } catch (error) {
-              return closeRejectedAgentProviderSession(candidate, error);
-            }
-          },
+              if (parsed.operation !== "resume") {
+                throw new TypeError("Expected a resume session input.");
+              }
+              assertAgentSessionConfigurationSupported(
+                capabilities,
+                parsed.configuration,
+              );
+              const workingDirectory = parseWorkingDirectory(
+                resumeInput.workingDirectory,
+              );
+              const binding = parsed.binding;
+              const candidate = await invokeAgentSessionOpening({
+                providerKey: capabilities.providerKey, openingInput: resumeInput, lease,
+                open: (context) => declaredResumption.resumeSession(context),
+                candidateInput: {
+                  sessionId: parsed.sessionId,
+                  workingDirectory,
+                  binding,
+                  configuration: parsed.configuration,
+                  ...(lease === undefined ? {} : { hostBinding: lease.binding }),
+                  ...(resumeInput.signal === undefined
+                    ? {}
+                    : { signal: resumeInput.signal }),
+                },
+              });
+              try {
+                return validateAgentProviderSession({
+                  capabilities,
+                  sessionId: parsed.sessionId,
+                  candidate,
+                  expectedBinding: binding,
+                  ...(lease === undefined ? {} : { hostBindingLease: lease }),
+                });
+              } catch (error) {
+                return closeRejectedAgentProviderSession(candidate, error,
+                  lease === undefined ? undefined : { providerKey: capabilities.providerKey, lease },
+                  { providerKey: capabilities.providerKey, input: resumeInput });
+              }
+            },
+          }),
         });
 
   const declaredBranching = adapter.branching;
@@ -170,43 +200,56 @@ export function validateAgentProviderAdapter(
           kind: "through_turn" as const,
           branchSession: async (
             branchInput: AgentProviderBranchSessionInput,
-          ) => {
-            throwIfAgentOperationAborted(branchInput.signal);
-            const parsed = parseAgentSessionOpenInput({
-              operation: "branch",
-              sessionId: branchInput.sessionId,
-              source: branchInput.source,
-              configuration: branchInput.configuration,
-            });
-            if (parsed.operation !== "branch") {
-              throw new TypeError("Expected a branch session input.");
-            }
-            assertAgentSessionConfigurationSupported(
-              capabilities,
-              parsed.configuration,
-            );
-            const workingDirectory = parseWorkingDirectory(
-              branchInput.workingDirectory,
-            );
-            const sourceBinding = parsed.source.binding;
-            return openIdentityCreatingAgentProviderSession({
-              capabilities,
-              sessionId: parsed.sessionId,
-              observer: branchInput.onBindingCreated,
-              sourceBinding,
-              open: (observer) =>
-                declaredBranching.branchSession({
-                  sessionId: parsed.sessionId,
-                  workingDirectory,
-                  source: parsed.source,
-                  configuration: parsed.configuration,
-                  onBindingCreated: observer,
-                  ...(branchInput.signal === undefined
-                    ? {}
-                    : { signal: branchInput.signal }),
-                }),
-            });
-          },
+          ) => withAgentSessionHostBinding({
+            providerKey: capabilities.providerKey,
+            binding: branchInput.hostBinding,
+            openingInput: branchInput,
+            support: hostBinding,
+            open: async (lease) => {
+              throwIfAgentOperationAborted(branchInput.signal);
+              const parsed = parseAgentSessionOpenInput({
+                operation: "branch",
+                sessionId: branchInput.sessionId,
+                source: branchInput.source,
+                configuration: branchInput.configuration,
+              });
+              if (parsed.operation !== "branch") {
+                throw new TypeError("Expected a branch session input.");
+              }
+              assertAgentSessionConfigurationSupported(
+                capabilities,
+                parsed.configuration,
+              );
+              const workingDirectory = parseWorkingDirectory(
+                branchInput.workingDirectory,
+              );
+              const sourceBinding = parsed.source.binding;
+              return openIdentityCreatingAgentProviderSession({
+                capabilities,
+                sessionId: parsed.sessionId,
+                observer: branchInput.onBindingCreated,
+                sourceBinding,
+                openingInput: branchInput,
+                ...(lease === undefined ? {} : { hostBindingLease: lease }),
+                open: (observer) =>
+                  invokeAgentSessionOpening({
+                    providerKey: capabilities.providerKey, openingInput: branchInput, lease,
+                    open: (context) => declaredBranching.branchSession(context),
+                    candidateInput: {
+                      sessionId: parsed.sessionId,
+                      workingDirectory,
+                      source: parsed.source,
+                      configuration: parsed.configuration,
+                      onBindingCreated: observer,
+                      ...(lease === undefined ? {} : { hostBinding: lease.binding }),
+                      ...(branchInput.signal === undefined
+                        ? {}
+                        : { signal: branchInput.signal }),
+                    },
+                  }),
+              });
+            },
+          }),
         });
 
   const declaredAuthentication = adapter.authentication;
@@ -305,39 +348,55 @@ export function validateAgentProviderAdapter(
           },
         });
 
-  return Object.freeze({
-    createSession: async (createInput: AgentProviderCreateSessionInput) => {
-      throwIfAgentOperationAborted(createInput.signal);
-      const parsed = parseAgentSessionOpenInput({
-        operation: "create",
-        sessionId: createInput.sessionId,
-        configuration: createInput.configuration,
-      });
-      assertAgentSessionConfigurationSupported(
-        capabilities,
-        parsed.configuration,
-      );
-      const workingDirectory = parseWorkingDirectory(
-        createInput.workingDirectory,
-      );
-      return openIdentityCreatingAgentProviderSession({
-        capabilities,
-        sessionId: parsed.sessionId,
-        observer: createInput.onBindingCreated,
-        open: (observer) =>
-          adapter.createSession({
-            sessionId: parsed.sessionId,
-            workingDirectory,
-            configuration: parsed.configuration,
-            onBindingCreated: observer,
-            ...(createInput.signal === undefined
-              ? {}
-              : { signal: createInput.signal }),
-          }),
-      });
-    },
+  const validated: AgentProviderAdapter = Object.freeze({
+    hostBinding,
+    createSession: async (createInput: AgentProviderCreateSessionInput) => withAgentSessionHostBinding({
+      providerKey: capabilities.providerKey,
+      binding: createInput.hostBinding,
+      openingInput: createInput,
+      support: hostBinding,
+      open: async (lease) => {
+        throwIfAgentOperationAborted(createInput.signal);
+        const parsed = parseAgentSessionOpenInput({
+          operation: "create",
+          sessionId: createInput.sessionId,
+          configuration: createInput.configuration,
+        });
+        assertAgentSessionConfigurationSupported(
+          capabilities,
+          parsed.configuration,
+        );
+        const workingDirectory = parseWorkingDirectory(
+          createInput.workingDirectory,
+        );
+        return openIdentityCreatingAgentProviderSession({
+          capabilities,
+          sessionId: parsed.sessionId,
+          observer: createInput.onBindingCreated,
+          openingInput: createInput,
+          ...(lease === undefined ? {} : { hostBindingLease: lease }),
+          open: (observer) =>
+            invokeAgentSessionOpening({
+              providerKey: capabilities.providerKey, openingInput: createInput, lease,
+              open: (context) => adapter.createSession(context),
+              candidateInput: {
+                sessionId: parsed.sessionId,
+                workingDirectory,
+                configuration: parsed.configuration,
+                onBindingCreated: observer,
+                ...(lease === undefined ? {} : { hostBinding: lease.binding }),
+                ...(createInput.signal === undefined
+                  ? {}
+                  : { signal: createInput.signal }),
+              },
+            }),
+        });
+      },
+    }),
     resumption,
     branching,
     authentication,
   });
+  validatedAdapters.set(validated, adapter);
+  return validated;
 }

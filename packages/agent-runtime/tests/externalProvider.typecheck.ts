@@ -8,6 +8,7 @@ import {
   defineAgentProviderDriver,
   type AgentProviderSession,
   type AgentTurnSteeringResult,
+  type AgentSessionHostBinding,
 } from "@agen-ai/agent-runtime";
 import {
   parseAgentCapabilities,
@@ -21,9 +22,27 @@ import {
 } from "@agen-ai/agent-protocol";
 
 const providerKey = parseAgentProviderKey("external-provider");
+
+export const externalHostBinding: AgentSessionHostBinding = {
+  bindingId: "external-host-binding",
+  tools: [{
+    name: "external_status",
+    description: "Inspect the host-authorized session.",
+    inputSchema: {
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      type: "object", properties: {}, additionalProperties: false,
+    },
+  }],
+  invoke(input) {
+    input.invocationId satisfies string;
+    input.signal satisfies AbortSignal | undefined;
+    return { kind: "success", value: { status: "ready" } };
+  },
+  release() {},
+};
 const capabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 9,
+  protocolVersion: 10,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -87,9 +106,10 @@ function providerSession(
     binding: {
       conversationId: parseAgentProviderConversationId("external-conversation"),
     },
-    runTurn: async function* (input) {
+    startTurn(input) {
+      return { turnId: input.turnId, async resolveRequest() { return { status: "delivered" }; }, outputs: (async function* () {
       yield createAgentEventOutput({
-        protocolVersion: 9,
+        protocolVersion: 10,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -97,7 +117,7 @@ function providerSession(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 9,
+        protocolVersion: 10,
         type: "item.completed",
         sessionId,
         turnId: input.turnId,
@@ -105,15 +125,16 @@ function providerSession(
         payload: commandItem,
       });
       yield createAgentEventOutput({
-        protocolVersion: 9,
+        protocolVersion: 10,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
         occurredAt: "2026-08-04T00:00:00.000Z",
         payload: { outcome: "completed" },
       });
+    })() };
     },
-    resolveRequest: async function* () {},
+
     interruption: { kind: "unsupported" },
     steering: {
       kind: "supported",

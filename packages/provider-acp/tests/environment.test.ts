@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { parseAgentEnvironmentId } from '@agen-ai/agent-protocol';
+import { createAgentProviderRegistry } from '@agen-ai/agent-runtime';
+import { createAcpProviderDriver } from '../src/index.js';
+import { createHostPeer, hostDefinition, hostProviderKey, hostSessionContext } from './node-fixtures/host-peer.js';
+
+test('session command observations distinguish unknown from known empty and publish bounded full replacements', { timeout: 3_000 }, async (t) => {
+  const peer = createHostPeer();
+  const registry = await createAgentProviderRegistry({ drivers: [createAcpProviderDriver({ providerKey: hostProviderKey, createConnection: () => peer.lease })], definitions: [hostDefinition] });
+  t.after(async () => { await registry.dispose(); peer.destroy(); });
+  const instance = registry.requireInstance(hostDefinition.instanceId);
+  const session = await instance.adapter.createSession(hostSessionContext());
+  assert.equal(session.environment.kind, 'read_and_watch');
+  if (session.environment.kind !== 'read_and_watch') return;
+  const environment = session.environment;
+  const environmentId = parseAgentEnvironmentId('environment:commands');
+  const controller = new AbortController();
+  const context = { signal: controller.signal, environmentId };
+  const unknown = await environment.readEnvironment(context);
+  assert.equal(unknown.commands.kind, 'not_initialized');
+  const stream = environment.watchEnvironment(context)[Symbol.asyncIterator]();
+  const invalidation = stream.next();
+  peer.send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'native-session', update: { sessionUpdate: 'available_commands_update', availableCommands: [] } } });
+  assert.deepEqual((await invalidation).value, { environmentId, domains: ['commands'] });
+  const empty = await environment.readEnvironment(context);
+  assert.equal(empty.commands.kind, 'available');
+  if (empty.commands.kind === 'available') assert.deepEqual(empty.commands.catalog.commands, []);
+  const next = stream.next();
+  peer.send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'native-session', update: { sessionUpdate: 'available_commands_update', availableCommands: [
+    { name: 'review', description: 'Review changes', input: { hint: 'scope' } }, { name: 'a', description: '' }, { name: 'b', description: 'B' },
+  ] } } });
+  await next;
+  const populated = await environment.readEnvironment(context);
+  assert.equal(populated.commands.kind, 'available');
+  if (populated.commands.kind !== 'available') return;
+  assert.equal(populated.commands.extent, 'session'); assert.equal(populated.commands.completeness, 'complete');
+  assert.equal(populated.commands.catalog.commands.find((command) => command.name === 'review')?.summary, 'Review changes');
+  assert.equal(populated.commands.catalog.commands.find((command) => command.name === 'a')?.summary, undefined);
+  assert.deepEqual(populated.commands.catalog.commands.map((command) => command.commandId), populated.commands.catalog.commands.map((command) => command.commandId).sort());
+  assert.deepEqual(populated.commands.catalog.commands[0]?.source, { scope: 'unknown', origin: 'unknown' });
+  assert.deepEqual(populated.content, { kind: 'unsupported', reasons: [] });
+  assert.deepEqual(populated.extensions, { kind: 'unsupported', reasons: [] });
+  assert.ok(populated.revision > empty.revision);
+  assert.equal(populated.commands.catalog.commands[0]?.operation, undefined);
+  const pending = stream.next();
+  controller.abort();
+  await assert.rejects(pending, { name: 'AbortError' });
+  await stream.return?.();
+});

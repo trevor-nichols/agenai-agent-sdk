@@ -17,6 +17,7 @@ import {
   safeParseAgentOperationCatalog,
   safeParseAgentOperationInvocationFor,
   safeParseAgentOperationResultFor,
+  type AgentProtocolParseResult,
 } from "../src/public/index.js";
 
 const operation = {
@@ -55,6 +56,51 @@ const invocation = {
     optionId: "fast",
   }],
 } as const;
+
+test("operation, collaboration, and resource outputs apply shared failure refinements", () => {
+  const timestamp = "2026-10-11T12:00:00.000Z";
+  const error = {
+    category: "quota_exhausted",
+    code: "allowance_exhausted",
+    message: "The included allowance was exhausted.",
+    recovery: {
+      kind: "wait_for_quota",
+      quota: { sourceId: "source:1", poolId: "pool:1", windowId: "window:1", observedAt: timestamp },
+    },
+  } as const;
+  const boundaries: readonly Readonly<{
+    name: string;
+    parse: (failure: unknown) => AgentProtocolParseResult<unknown>;
+  }>[] = [
+    {
+      name: "operation",
+      parse: (failure) => safeParseAgentOperationResultFor(operation, invocation, {
+        invocationId: invocation.invocationId, status: "failed", error: failure,
+      }),
+    },
+    {
+      name: "collaboration",
+      parse: (failure) => safeParseAgentCollaborationNode({
+        collaborationId: "collaboration:1", rootCollaborationId: "collaboration:1",
+        role: "delegate", title: "Delegate", status: "failed", objective: "Complete the task.",
+        usage: { kind: "unavailable" }, outcome: { kind: "failed", error: failure },
+        createdAt: timestamp, updatedAt: timestamp, terminalAt: timestamp,
+      }),
+    },
+    {
+      name: "resource",
+      parse: (failure) => safeParseAgentGeneratedResourceDescriptor({
+        resourceId: "resource:1", kind: "document", status: "unavailable", displayName: "Report",
+        producer: { kind: "session", sessionId: "session:1" }, createdAt: timestamp, error: failure,
+      }),
+    },
+  ];
+  for (const boundary of boundaries) {
+    const accepted = boundary.parse(error);
+    assert.equal(accepted.success, true, boundary.name);
+    assert.equal(boundary.parse({ ...error, category: "budget_exhausted" }).success, false, boundary.name);
+  }
+});
 
 test("operation catalogs and invocations enforce canonical identity, revision, and fields", () => {
   assert.equal(

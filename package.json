@@ -1,6 +1,6 @@
 {
   "name": "agenai-agent-sdk",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "description": "Provider-neutral TypeScript contracts for hosting coding agents.",
   "type": "module",
@@ -10,22 +10,40 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "pnpm --filter @agen-ai/validation build && pnpm --filter @agen-ai/agent-protocol build && pnpm --filter @agen-ai/agent-runtime build",
-    "check": "pnpm check:repository && pnpm test:release && pnpm check:generated && pnpm build && pnpm typecheck:packages && pnpm test:unit && pnpm test:external-consumer",
-    "check:generated": "pnpm --filter @agen-ai/agent-protocol check:contracts && pnpm --filter @agen-ai/agent-protocol check:json-schema",
+    "build": "pnpm --filter @agen-ai/validation build && pnpm --filter @agen-ai/agent-protocol build && pnpm --filter @agen-ai/agent-runtime build && pnpm --filter @agen-ai/agent-orchestration build && pnpm --filter @agen-ai/acp-transport build && pnpm --filter @agen-ai/provider-acp build && pnpm --filter @agen-ai/acp-registry build",
+    "check": "pnpm check:repository && pnpm test:release && pnpm check:generated && pnpm build && pnpm typecheck:packages && pnpm test:examples && pnpm test:unit && pnpm test:external-consumer",
+    "check:generated": "pnpm --filter @agen-ai/agent-protocol check:contracts && pnpm --filter @agen-ai/agent-protocol check:json-schema && pnpm --filter @agen-ai/acp-transport check:generated",
     "check:repository": "node scripts/check-repository.mjs",
     "clean": "pnpm -r --if-present clean",
-    "test": "pnpm test:release && pnpm build && pnpm test:unit && pnpm test:external-consumer",
+    "examples:local": "tsx examples/local-command.ts",
+    "examples:live-request-output": "tsx examples/live-request-output.ts",
+    "examples:registry": "tsx examples/registry-install-run.ts",
+    "test": "pnpm test:release && pnpm build && pnpm test:unit && pnpm test:examples && pnpm test:external-consumer",
+    "test:examples": "pnpm typecheck:examples && pnpm examples:local && pnpm examples:live-request-output && pnpm examples:registry && pnpm examples:delegation && pnpm examples:delegation:acp && pnpm test:examples:native",
+    "test:examples:native": "node --import tsx --test examples/delegation/native/tests/*.test.ts",
+    "test:examples:durable": "node --import tsx --test examples/delegation/tests/*.test.ts && pnpm examples:delegation:failures",
     "test:external-consumer": "node scripts/architecture/check-agent-sdk-external-consumer.mjs",
     "test:release": "node --test scripts/release/*.test.mjs",
-    "test:unit": "pnpm --filter @agen-ai/validation test && pnpm --filter @agen-ai/agent-protocol test && pnpm --filter @agen-ai/agent-runtime test",
+    "test:unit": "pnpm --filter @agen-ai/validation test && pnpm --filter @agen-ai/agent-protocol test && pnpm --filter @agen-ai/agent-runtime test && pnpm --filter @agen-ai/agent-orchestration test && pnpm --filter @agen-ai/acp-transport test && pnpm --filter @agen-ai/provider-acp test && pnpm --filter @agen-ai/acp-registry test",
     "typecheck": "pnpm build && pnpm typecheck:packages",
-    "typecheck:packages": "pnpm --filter @agen-ai/validation typecheck && pnpm --filter @agen-ai/agent-protocol typecheck && pnpm --filter @agen-ai/agent-runtime typecheck"
+    "typecheck:examples": "tsc --project examples/tsconfig.json --noEmit",
+    "typecheck:packages": "pnpm --filter @agen-ai/validation typecheck && pnpm --filter @agen-ai/agent-protocol typecheck && pnpm --filter @agen-ai/agent-runtime typecheck && pnpm --filter @agen-ai/agent-orchestration typecheck && pnpm --filter @agen-ai/acp-transport typecheck && pnpm --filter @agen-ai/provider-acp typecheck && pnpm --filter @agen-ai/acp-registry typecheck",
+    "examples:delegation": "tsx examples/delegation/workflow.ts",
+    "examples:delegation:acp": "tsx examples/delegation/acp.ts",
+    "examples:delegation:durable": "tsx examples/delegation/durable.ts",
+    "examples:delegation:failures": "tsx examples/delegation/failures.ts"
   },
   "devDependencies": {
+    "@agen-ai/acp-registry": "workspace:*",
+    "@agen-ai/acp-transport": "workspace:*",
+    "@agen-ai/agent-orchestration": "workspace:*",
+    "@agen-ai/agent-protocol": "workspace:*",
+    "@agen-ai/agent-runtime": "workspace:*",
+    "@agen-ai/provider-acp": "workspace:*",
     "@types/node": "^22.10.1",
     "rimraf": "^5.0.10",
     "tsx": "^4.19.3",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "zod": "catalog:"
   }
 }

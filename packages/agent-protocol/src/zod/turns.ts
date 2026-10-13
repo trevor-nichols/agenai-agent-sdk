@@ -4,6 +4,8 @@
 
 import { z } from 'zod/v4';
 
+import { AgentErrorSchema } from './failures.js';
+
 import {
   AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
   AGENT_PROTOCOL_SUMMARY_MAX_LENGTH,
@@ -46,7 +48,6 @@ import {
 } from '../turns/types.js';
 import {
   AgentCanonicalIdValueSchema,
-  AgentErrorSchema,
   AgentEnvironmentIdSchema,
   AgentEffectiveContentIdSchema,
   AgentIsoDateTimeSchema,

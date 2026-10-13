@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "project": "agentclientprotocol/agent-client-protocol",
+  "releaseTag": "schema-v1.23.0",
+  "annotatedTagObject": "b410d434fc5cbf1bad5d82c817c435846f1e5bda",
+  "taggedCommit": "6d08f412a7a1370d3cc9a124e3be3d6acf92641e",
+  "releasePublishedDate": "2026-09-18",
+  "releasePublishedAt": "2026-09-18T10:43:39Z",
+  "acquiredDate": "2026-10-09",
+  "license": "Apache-2.0",
+  "profileChannel": "stable",
+  "protocolVersion": 1,
+  "releaseBaseUrl": "https://github.com/agentclientprotocol/agent-client-protocol/releases/download/schema-v1.23.0",
+  "licenseUrl": "https://raw.githubusercontent.com/agentclientprotocol/agent-client-protocol/6d08f412a7a1370d3cc9a124e3be3d6acf92641e/LICENSE",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sourcePath": "LICENSE",
+      "sourceUrl": "https://raw.githubusercontent.com/agentclientprotocol/agent-client-protocol/6d08f412a7a1370d3cc9a124e3be3d6acf92641e/LICENSE",
+      "bytes": 10782,
+      "sha256": "f250d08cee4549b22b3b4aaaf3a743473336fd280316df5d0340717e5127a221"
+    },
+    {
+      "path": "meta.json",
+      "sourcePath": "schema/v1/meta.json",
+      "sourceUrl": "https://raw.githubusercontent.com/agentclientprotocol/agent-client-protocol/6d08f412a7a1370d3cc9a124e3be3d6acf92641e/schema/v1/meta.json",
+      "bytes": 1159,
+      "sha256": "061edb6efa8fb2aa2792459a86ec7268de5fe665bba48b2ffe7939df01481f88"
+    },
+    {
+      "path": "schema.json",
+      "sourcePath": "schema/v1/schema.json",
+      "sourceUrl": "https://raw.githubusercontent.com/agentclientprotocol/agent-client-protocol/6d08f412a7a1370d3cc9a124e3be3d6acf92641e/schema/v1/schema.json",
+      "bytes": 247168,
+      "sha256": "3c17bd6385d90cf672d8a661fddc359d73422cf8b8ce6865213d25cfd4c0eca7"
+    }
+  ]
+}

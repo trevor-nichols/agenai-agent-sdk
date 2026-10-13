@@ -21,6 +21,14 @@ import {
   type AgentSessionBranching,
   type AgentTurnSteering,
   type AgentTurnSteeringResult,
+  type AgentProviderSession,
+  type AgentProviderStartTurnInput,
+  type AgentProviderOperationResult,
+  type AgentProviderTurnInterruptionResult,
+  type AgentRequestResolutionResult,
+  type AgentHostToolInputSchema,
+  type AgentHostToolResult,
+  type AgentSessionHostBindingSupport,
 } from "../src/index.js";
 
 const instanceId: AgentInstanceId = parseAgentInstanceId("instance:external");
@@ -66,6 +74,30 @@ const deliveredSteering: AgentTurnSteeringResult = { status: "delivered" };
 // @ts-expect-error Steering receipts do not own provider output.
 deliveredSteering.outputs;
 
+function continuousTurnContract(session: AgentProviderSession, input: AgentProviderStartTurnInput) {
+  const execution = session.startTurn(input);
+  execution.turnId satisfies typeof input.turnId;
+  execution.outputs satisfies AsyncIterable<unknown>;
+  // @ts-expect-error The removed segmented operation has no compatibility alias.
+  session.runTurn;
+  // @ts-expect-error Answers belong to their exact live turn execution.
+  session.resolveRequest;
+  // @ts-expect-error Output ownership cannot move into a delivery receipt.
+  const invalid: AgentRequestResolutionResult = { status: "delivered", outputs: execution.outputs };
+  void invalid;
+  // @ts-expect-error A definitive refusal must identify exact callback availability.
+  const incomplete: AgentRequestResolutionResult = { status: "rejected", error: {
+    category: "provider", code: "refused", message: "Refused.", recovery: { kind: "none" },
+  } };
+  void incomplete;
+}
+void continuousTurnContract;
+
+const outputBearingOperation: AgentProviderOperationResult = { status: "completed", outputs: [] };
+// @ts-expect-error Generic operation output cannot be passed through an interruption receipt.
+const invalidInterruption: AgentProviderTurnInterruptionResult = outputBearingOperation;
+void invalidInterruption;
+
 // @ts-expect-error The active-input port was deleted by the steering hard cut.
 type RemovedActiveTurnInput = import("../src/index.js").AgentActiveTurnInput;
 
@@ -86,6 +118,20 @@ const context: AgentProviderSessionContext = {
   teamId: 42,
 };
 void context;
+
+const unsupportedBinding: AgentSessionHostBindingSupport = { kind: "unsupported" };
+// @ts-expect-error Unsupported bindings do not promise instruction placements.
+unsupportedBinding.instructionPlacements;
+
+// @ts-expect-error Tool roots must explicitly select the supported schema dialect.
+const missingToolDialect: AgentHostToolInputSchema = {
+  type: "object", properties: {}, additionalProperties: false,
+};
+void missingToolDialect;
+
+// @ts-expect-error Portable host tool results cannot contain functions.
+const executableToolResult: AgentHostToolResult = { kind: "success", value: () => undefined };
+void executableToolResult;
 
 const providerEventEvidence = createAgentProviderEvidence({
   category: "provider_event",

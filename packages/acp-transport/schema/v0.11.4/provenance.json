@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "project": "agentclientprotocol/agent-client-protocol",
+  "releaseTag": "v0.11.4",
+  "annotatedTagObject": "f8662f197ecf813d8f372211af6c68c54578e7df",
+  "taggedCommit": "e931357254ff44573294d5cee214a269e0cd6c54",
+  "releasePublishedDate": "2026-03-28",
+  "acquiredDate": "2026-07-21",
+  "license": "Apache-2.0",
+  "releaseBaseUrl": "https://github.com/agentclientprotocol/agent-client-protocol/releases/download/v0.11.4",
+  "licenseUrl": "https://raw.githubusercontent.com/agentclientprotocol/agent-client-protocol/v0.11.4/LICENSE",
+  "files": [
+    {
+      "path": "meta.json",
+      "bytes": 848,
+      "sha256": "71036d4c70f1e964c445569c1878a513e2fadfc797161d7582224b4647669330"
+    },
+    {
+      "path": "meta.unstable.json",
+      "bytes": 1610,
+      "sha256": "a040127bddad5cfa9b713c4553a11c78bcdca6f386868e2a3b12cc8f583bd98b"
+    },
+    {
+      "path": "schema.json",
+      "bytes": 148033,
+      "sha256": "38751907a86016c73662ea2ad1ded2c8cbbdb99fe40b8368b6dd2794726be236"
+    },
+    {
+      "path": "schema.unstable.json",
+      "bytes": 277588,
+      "sha256": "5c2c4c090d4fc1ca988322f5bdcb719bab2b63c3a86447c3c2c139678ca414a2"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 10782,
+      "sha256": "f250d08cee4549b22b3b4aaaf3a743473336fd280316df5d0340717e5127a221"
+    }
+  ]
+}

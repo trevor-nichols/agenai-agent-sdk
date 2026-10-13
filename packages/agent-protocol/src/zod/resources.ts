@@ -4,6 +4,8 @@
 
 import { z } from 'zod/v4';
 
+import { AgentErrorSchema } from './failures.js';
+
 import { AGENT_ARTIFACT_BYTE_SIZE_MAX } from '../artifacts/types.js';
 import {
   AGENT_GENERATED_RESOURCE_DISPLAY_NAME_MAX_LENGTH,
@@ -15,7 +17,6 @@ import {
 import {
   AgentArtifactIdSchema,
   AgentCollaborationIdSchema,
-  AgentErrorSchema,
   AgentGeneratedResourceIdSchema,
   AgentIsoDateTimeSchema,
   AgentOperationInvocationIdSchema,

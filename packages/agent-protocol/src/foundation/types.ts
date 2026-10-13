@@ -10,12 +10,13 @@ export type {
   ValidationPathSegment,
 } from './validation.js';
 export { AgentProtocolValidationError } from './validation.js';
+export type { AgentError, AgentErrorContext } from '../failures/types.js';
 
 // ------------------------------------------------------------------------------------------------
 //                Protocol Version and Limits
 // ------------------------------------------------------------------------------------------------
 
-export const AGENT_PROTOCOL_VERSION = 9 as const;
+export const AGENT_PROTOCOL_VERSION = 10 as const;
 export const AGENT_PROTOCOL_ID_MAX_LENGTH = 256;
 export const AGENT_PROTOCOL_PROVIDER_REFERENCE_MAX_LENGTH = 512;
 export const AGENT_PROTOCOL_PROVIDER_KEY_MAX_LENGTH = 100;
@@ -100,23 +101,6 @@ export interface AgentProviderRefs {
   readonly turnId?: AgentProviderTurnRef;
   readonly itemId?: AgentProviderItemRef;
   readonly requestId?: AgentProviderRequestRef;
-}
-
-// ------------------------------------------------------------------------------------------------
-//                Portable Error Semantics
-// ------------------------------------------------------------------------------------------------
-
-export interface AgentErrorContext {
-  readonly operation?: string;
-  readonly component?: string;
-  readonly status?: string;
-}
-
-export interface AgentError {
-  readonly code: string;
-  readonly message: string;
-  readonly retryable: boolean;
-  readonly context?: AgentErrorContext;
 }
 
 // ------------------------------------------------------------------------------------------------

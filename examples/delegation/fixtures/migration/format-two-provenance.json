@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "45ffbebd798c69bc067c3f4b66567321b14df324",
+  "sourceTaskFormat": 2,
+  "sourceStorePortContract": 2,
+  "ownerFormat": 1,
+  "runtime": {
+    "node": "v24.18.0",
+    "sqlite": "3.53.1",
+    "platform": "linux",
+    "filesystem": "0xef53"
+  },
+  "method": "Frozen original example sources and installed matching baseline public tarballs committed requests, completed continuation receipts, settled failures/recovery and paired inbox acceptance. No provider or parent was invoked.",
+  "fixtureSha256": "0401252af55b65eca5ee13edff5a7acf6a34bda284d71698539719265ad7321c",
+  "producerSha256": "d16aa06cedc582c95ace383dc64455d0c325e58c31cedc0a7f0b0f471e624c5e",
+  "publicTarballs": {
+    "agen-ai-acp-registry-0.4.0.tgz": "sha256:e03124ef806d4d4d0dca349170cc4a4e0df57333dad4af997c02ec517a7e3ea4",
+    "agen-ai-acp-transport-0.4.0.tgz": "sha256:0b54846ad63c998afa3f366d2ad55292d35f240ad18db5ce137e9724fce09fd6",
+    "agen-ai-agent-orchestration-0.4.0.tgz": "sha256:4f36be4a8cccb7154d0b8d5cc54f070a295b6d0a0610ed13884a632e7b487f5d",
+    "agen-ai-agent-protocol-0.4.0.tgz": "sha256:ce5946a99ec5c12ce8f0dbc28a17fb23db0fba3c389aa07d50b24e406b483b59",
+    "agen-ai-agent-runtime-0.4.0.tgz": "sha256:1ba256f90ef6fc86f146a6ccf4106ba156290a5c8524130c7fcba904bd9ea3c6",
+    "agen-ai-provider-acp-0.4.0.tgz": "sha256:75ed11bbf02f2efecd1d9c8857ebc9ac49cfb9998a85d84c267dc1ed13099b81",
+    "agen-ai-validation-0.4.0.tgz": "sha256:fba6652b1decc3518fe8f5702486ad76c10439a730e5e28eb9838584afedb82d"
+  },
+  "command": "node --import <repo>/node_modules/tsx/dist/loader.mjs <baseline-consumer>/format-two-producer.mjs <baseline-consumer>/frozen-examples/delegation <owned-ext4-store> <new-output-directory>"
+}

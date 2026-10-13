@@ -55,11 +55,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Set up Python for offline registry installation fixtures
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.14.4'
+
+      - name: Set up uv for offline registry installation fixtures
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.11.28'
+          enable-cache: false
+
+      - name: Verify registry fixture prerequisites
+        run: |
+          python3 --version
+          uv --version
+
       - name: Verify release tag and package versions
         shell: bash
         run: |
           set -euo pipefail
-          expected_version="${RELEASE_TAG#v}"
           root_version="$(node --print "require('./package.json').version")"
 
           if [[ "$RELEASE_TAG" != "v$root_version" || "$RELEASE_REF" != "refs/tags/$RELEASE_TAG" ]]; then
@@ -67,13 +82,7 @@ jobs:
             exit 1
           fi
 
-          for manifest in packages/*/package.json; do
-            package_version="$(node --print "require('./$manifest').version")"
-            if [[ "$package_version" != "$expected_version" ]]; then
-              echo "$manifest has version $package_version; expected $expected_version." >&2
-              exit 1
-            fi
-          done
+          node scripts/release/verify-release-set.mjs --release-ref "$RELEASE_REF"
 
           release_commit="$(git rev-parse "$RELEASE_REF^{commit}")"
           if [[ "$GITHUB_REF" != "$RELEASE_REF" ]]; then
@@ -90,7 +99,13 @@ jobs:
               packages/validation \
               packages/agent-protocol \
               packages/agent-runtime \
-              scripts/architecture/check-agent-sdk-external-consumer.mjs
+              packages/agent-orchestration \
+              packages/acp-transport \
+              packages/provider-acp \
+              packages/acp-registry \
+              scripts/architecture/check-agent-sdk-external-consumer.mjs \
+              scripts/architecture/agent-sdk-consumers \
+              examples
           elif [[ "$release_commit" != "$GITHUB_SHA" ]]; then
             echo "Release tag $RELEASE_TAG does not resolve to workflow commit $GITHUB_SHA." >&2
             exit 1
@@ -108,7 +123,16 @@ jobs:
           pnpm --filter @agen-ai/validation pack --pack-destination "$GITHUB_WORKSPACE/release"
           pnpm --filter @agen-ai/agent-protocol pack --pack-destination "$GITHUB_WORKSPACE/release"
           pnpm --filter @agen-ai/agent-runtime pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/agent-orchestration pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/acp-transport pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/provider-acp pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/acp-registry pack --pack-destination "$GITHUB_WORKSPACE/release"
           ls -1 release/*.tgz
+
+      - name: Verify complete release artifact set
+        run: >-
+          node scripts/release/verify-release-set.mjs
+          --release-ref "$RELEASE_REF" --release-directory release
 
       - name: Inspect validation publication
         id: validation
@@ -179,6 +203,98 @@ jobs:
           --release-sha "$RELEASE_SHA"
           --require-present --attempts 30 --delay-ms 10000
 
+      - name: Inspect agent orchestration publication
+        id: agent_orchestration
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-agent-orchestration-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish agent orchestration
+        if: steps.agent_orchestration.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-agent-orchestration-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Verify agent orchestration publication
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-agent-orchestration-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --require-present --attempts 30 --delay-ms 10000
+
+      - name: Inspect ACP transport publication
+        id: acp_transport
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-acp-transport-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish ACP transport
+        if: steps.acp_transport.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-acp-transport-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Verify ACP transport publication
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-acp-transport-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --require-present --attempts 30 --delay-ms 10000
+
+      - name: Inspect ACP provider publication
+        id: provider_acp
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-provider-acp-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish ACP provider
+        if: steps.provider_acp.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-provider-acp-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Verify ACP provider publication
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-provider-acp-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --require-present --attempts 30 --delay-ms 10000
+
+      - name: Inspect ACP registry publication
+        id: acp_registry
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-acp-registry-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish ACP registry
+        if: steps.acp_registry.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-acp-registry-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Verify ACP registry publication
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-acp-registry-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --require-present --attempts 30 --delay-ms 10000
+
       - name: Verify registry signatures and provenance
         shell: bash
         run: |
@@ -190,5 +306,9 @@ jobs:
           npm install --ignore-scripts --no-audit --no-fund \
             "@agen-ai/validation@${RELEASE_TAG#v}" \
             "@agen-ai/agent-protocol@${RELEASE_TAG#v}" \
-            "@agen-ai/agent-runtime@${RELEASE_TAG#v}"
+            "@agen-ai/agent-runtime@${RELEASE_TAG#v}" \
+            "@agen-ai/agent-orchestration@${RELEASE_TAG#v}" \
+            "@agen-ai/acp-transport@${RELEASE_TAG#v}" \
+            "@agen-ai/provider-acp@${RELEASE_TAG#v}" \
+            "@agen-ai/acp-registry@${RELEASE_TAG#v}"
           npm audit signatures

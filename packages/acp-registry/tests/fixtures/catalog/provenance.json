@@ -1,0 +1,44 @@
+{
+  "sourceCommit": "7f9be29696108572a2bca70e0563af528073a0c3",
+  "baseUrl": "https://raw.githubusercontent.com/agentclientprotocol/registry/7f9be29696108572a2bca70e0563af528073a0c3/",
+  "kind": "derived-published-shape",
+  "derivation": "Selected pinned source entries; source preview removed and builder icon URL added. This is not downloaded CDN catalog evidence.",
+  "files": [
+    {
+      "path": "amp-acp/agent.json",
+      "sha256": "829bd05fe9de760ffe774f5fdb3f91ee4334a1315fb683d40121403372c7a37e"
+    },
+    {
+      "path": "cursor/agent.json",
+      "sha256": "46b7373f82fd15eb728c044b32b4bb98ec659169469f6f3c232a88ed620efcec"
+    },
+    {
+      "path": "vtcode/agent.json",
+      "sha256": "0a5a635fcc5c887815300db51caf7724537b024c80565489ea2fc999eddd93bf"
+    },
+    {
+      "path": "claude-acp/agent.json",
+      "sha256": "474d262c46c6a18bb66381da5fc85be26fd241f98d767c414229131e36702813"
+    },
+    {
+      "path": "deepagents/agent.json",
+      "sha256": "2ab6fd37ab8df817aea5746d4ef076c0a5fe1a48bc9476bac92fb2dc37d131aa"
+    },
+    {
+      "path": "fast-agent/agent.json",
+      "sha256": "19bccb5c3864356c1d7046ade8f1b076e3fb57b059754ef0954f743da66ce734"
+    },
+    {
+      "path": "minion-code/agent.json",
+      "sha256": "9b20df14cfeda918ef3551967363227744421f7c3e7805ebece4d535737a73b4"
+    },
+    {
+      "path": "dimcode/agent.json",
+      "sha256": "e5c90bde627f895a537647587b28e10830dc2d536c31efef6b862c1db5d5f681"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "7f0f022815d9ffe57a2b9a717d49893f77bfed052f16af179dcb99dbbb6f6ab8"
+    }
+  ]
+}

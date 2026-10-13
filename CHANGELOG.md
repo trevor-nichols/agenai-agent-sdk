@@ -1,7 +1,178 @@
 # Changelog
 
-All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. The three
-packages always ship together at one version during beta.
+All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. Starting with
+`0.4.0`, the three core packages and four optional packages (orchestration, ACP transport, ACP provider
+and ACP registry) share one source version and a seven-package release inventory.
+
+## 0.4.0 - 2026-10-13
+
+This coordinated release advances Agent Protocol from V9 to V10 while preserving explicit entrypoints
+and core dependency boundaries. It introduces the four optional packages alongside the core set.
+
+### Added
+
+- Replace the segmented session API with synchronous `startTurn` reservation and one lazy execution.
+  Its output reader remains live through pending requests; execution-owned `resolveRequest` returns
+  independent delivered, rejected or uncertain receipts. Exact request claims prevent duplicate
+  callbacks, and close starts native quiescence before joining entered controls. Public ACP and
+  managed delegation use the same continuous execution contract. Managed store contract 3 and
+  reference SQLite format 3 preserve historical receipts through explicit offline migration.
+- Add `examples/live-request-output.ts` and `pnpm examples:live-request-output`. The packed,
+  credentialless walkthrough holds an exact request open until unrelated progress is observed,
+  then accepts its answer while one reader owns later output, true terminality and joined cleanup.
+  Complete the published-`0.3.1` migration guide with independent human handling, exact rejected
+  request availability, cancellation/uncertainty boundaries and retained cleanup ownership.
+- Add bounded provider-neutral failure categories and strict recovery hints to `AgentError`, retaining
+  its root imports and parsers. Category and recovery are required; the former `retryable` field is
+  removed. Observed quota references reuse the account-quota reset contract. Live V10 parsers reject
+  V9 values; historical records retain their recorded decoder.
+- Add nonterminal turn-scoped `runtime.retrying` observations with provider ownership and optional
+  retry counters and delay. Counters exclude the original attempt and are local to each provider retry
+  operation. Remove `retryable` from `runtime.warning`. Recovery hints and observations grant no replay
+  authority and do not alter uncertainty, retirement or cleanup ownership.
+
+- Add optional `@agen-ai/agent-orchestration` with inert certified target catalogs and a pure
+  developer/user policy resolver. Managed delegation defaults disabled, developer exclusions default
+  empty, fast starts unselected, and no model/reasoning ceiling is imposed. Exact selections, unknown
+  semantics and source revisions remain explicit; native subagents retain their independent policy.
+
+- Add scoped managed task execution over the validated runtime registry, bounded volatile storage,
+  exact-reference descendant ceilings, host-only live request handles and truthful steering/cancellation
+  outcomes. Atomic outcome/notification and critical cleanup capacity are independent of observation
+  storage. The explicit `/store-adapter` entrypoint shares closed transition rules with storage adapters.
+  Host authority, resource leases and configuration attestation gate child execution, including applying
+  the selected configuration before its first prompt. Parent turns do not own child lifetime.
+- Add default `collect` completion and explicit compatible parent-inbox ports for `next_turn` and
+  `automatic`. Keep child outcome, deduplicated inbox acceptance and authorized parent dispatch separate.
+  Inspect lost acknowledgments before retry, preserve results after revocation/expiry, and never replay
+  uncertain child execution or parent dispatch. `collect` requires no inbox, including with durable
+  storage; any inbox configured for durable storage must be durable. Bounded latest delivery
+  claim/receipt slots keep bookkeeping finite.
+- Add scoped `delegation_targets`, `delegate_task`, `task_status`, `task_send` and `task_cancel` tools
+  through `createDelegationHostBinding`, with bounded projections/waits and durable operation IDs.
+  Disabled policy returns no binding; enabled-empty policy explains the empty catalog. Cached tools
+  enforce current authority while preserving authorized result/control access. SDK-generated internal
+  guidance requires no user-facing prompt template and uses truthful declared placement. Native tools
+  and subagents remain independent.
+- Add the explicit orchestration `/mcp` entrypoint with an owned loopback HTTP bridge using pinned
+  `@modelcontextprotocol/sdk@1.29.0`. Share the scoped handlers and runtime argument/result validation;
+  keep imports inert, bearer credentials host-only, and tool/server guidance distinct from trusted
+  system/developer instructions. Binding release drains calls without disposing managed tasks.
+- Add `isAgentProviderSessionCleanupErrorFor` to identify retained opening-cleanup ownership
+  against the exact create/resume/branch input, without treating a foreign propagated error as the current
+  owner. `AgentProviderSessionCleanupError` retains failed candidate cleanup without requiring host tools;
+  the existing binding-specific error remains its compatible subclass. Adapters can report owned
+  partial-opening cleanup with `createAgentProviderSessionCleanupError` and the exact opening input.
+
+- Add optional session-local host tools and instruction bindings to the runtime SPI. Validate
+  bounded JSON schemas, invocation arguments and results; declare adapter transport and instruction
+  placement support; and retain binding ownership through create/resume/branch cleanup. Failed
+  opening cleanup exposes an explicit retry handle. Existing native collaboration remains independent.
+- Add optional `@agen-ai/acp-transport` with bounded Node.js JSON-RPC transport and explicit root
+  and `/client` entrypoints. It owns package-local ACP v0.11.4 stable/unstable schemas, upstream
+  license and provenance, and deterministic standalone generation. The core packages remain
+  independent of ACP and Ajv.
+- Add the separately selected stable `schema-v1.23.0` profile with immutable upstream provenance.
+  Preserve legacy defaults and scope method validation and request cancellation to the selected
+  profile. Modern unstable and ACP v2 methods remain unavailable.
+- Add bounded `unknownExtensionPolicy: 'reject' | 'standard'`. Direct transport defaults
+  to reject; public injected-stream and Node providers default to standard. Standard
+  discards unknown extension notifications and returns correlated `-32601` for unknown
+  extension requests without host effects. Exact known-method validation and transport
+  limits remain in force; writer saturation stops synchronous rejection floods before
+  further request IDs can be retained.
+- Include the transport in standalone projection, packed consumer proofs, and guarded release
+  source workflows. This prepares source only; the transport has not been published.
+
+- Add optional `@agen-ai/provider-acp` with injected connections and an explicit `/node` launcher.
+  Map bounded text, reasoning, tool progress and exact once-only permission answers through
+  the continuous runtime API. Keep one native prompt across request boundaries and retain explicit
+  connection ownership, immutable negotiation and cancellation certainty.
+- Admit transport notifications, reverse requests and received-response hooks in wire order while
+  awaiting their processing independently, preserving control responsiveness under backpressure.
+- Map advertised ACP resume with bounded replay suppression, explicit selectable catalogs and
+  exact offered revision checks, two-stage forms preserving all native dispositions, inline images,
+  observed plans/partial file changes and command catalogs. Add explicit host facilities for
+  authentication, URL/form interactions, files and complete terminal lifecycles; configuration
+  and host policy never imply observed integration, skill, quota or compaction support.
+- Add optional negotiated `sessionMcpBinding: { transport, create }` composition to the ACP provider.
+  Create/resume receive fresh session-local MCP resources before native opening, preserving static
+  servers. Declare support only for the configured negotiated HTTP/SSE transport. Quiesce the native
+  connection before MCP release and original runtime binding release; retain failed-opening cleanup
+  handles. Setup evidence does not certify actual native tool discovery or invocation.
+- Expose the transport's allocated request ID to synchronous dispatch observers so authorized
+  host interactions correlate an exact active RPC. An observer that aborts admission prevents the
+  original request from being written.
+
+- Add optional `@agen-ai/acp-registry` with bounded published-v1 catalog validation, explicit source
+  identities, raw-byte and normalized digests, deterministic search/selection and immutable install
+  plans. Bind exact package resolution, toolchain identities and integrity/scripts/network policy
+  without executing metadata. Keep bounded origin-restricted fetching under `/node` and include
+  the registry package in standalone projection, packed consumer proofs and release governance.
+- Add explicit verified binary/npm/uv installation under the registry's `/node` entrypoint, with
+  bounded artifact acquisition, checked archive extraction, real offline package managers and
+  caller-pinned toolchains. Publish complete payload receipts atomically into an owned store;
+  retained launch revalidates payload/tool entries and requires a persisted active reference.
+  Exact recovery tokens, reference-safe removal and independent update generations preserve
+  installation ownership. Package lifecycle scripts and Python source builds remain unsupported.
+- Add executable credentialless local-command and registry-plan/install/retain/run examples using
+  public entrypoints and the ordinary runtime registry, session and execution-owned response APIs.
+  The registry example reopens a verified store after deleting its source artifact and retains its
+  installation reference through native cleanup. Both examples participate in standalone checks.
+- Add executable direct-delegation and ACP/MCP workflows for target choice, configuration before
+  prompting, scoped tools, host approval and children that outlive their parent turn. Add a SQLite
+  task-store/parent-inbox reference and setup/inspect/restart/cleanup walkthrough with a separate
+  process-crash qualification matrix. The durable reference qualifies only its documented
+  Linux/Node `24.18.0`/SQLite `3.53.1`/local-filesystem tuple. Examples use public entrypoints and packed
+  artifacts; deterministic peers prove integration behavior without credentials or inference.
+- Add an explicitly invoked native Grok qualification runner with independently pinned
+  inputs, separate discovery/selection, offline evidence checks, installed dependency
+  verification, one bounded invocation lifetime and retained cleanup authority. Direct
+  and fresh-process retained-binary qualification exercised Grok `1.0.50` on Linux
+  x86_64 through the API-key route with `grok-4.3` / Low / observed default service tier,
+  real managed callbacks, once approvals, child-result delivery and cancellation.
+  Hermetic runner tests execute in source and packed-consumer checks; ordinary commands
+  never launch authenticated native inference. Native completion in this example is
+  volatile, and qualification remains specific to the recorded inputs. Retained version-1 reports
+  describe the prior continuation API; the new version-2 execution reports require fresh qualification.
+
+### Fixed
+
+- Terminate the built-in ACP launcher's owned POSIX process group through bounded graceful and
+  forced phases, including descendants that outlive the leader or close their streams. Require
+  group and stream closure before release succeeds. Reject built-in Windows launch before spawn;
+  Windows hosts supply their own owned connection and process-tree supervisor.
+- Carry forward the correction first prepared in unpublished `0.3.2`: retire a validated session
+  after its provider returns steering `delivery_uncertain`. The active output stream can settle,
+  but later mutations fail with `session_unusable`; the host must close and rematerialize the
+  session. Preserve the exact uncertainty receipt and keep definitively rejected steering reusable.
+
+### Changed
+
+- Coordinate all seven package manifests and their packed SDK dependency ranges at `0.4.0`.
+  Validation, protocol and core dependency boundaries remain unchanged; optional packages are
+  installed only by consumers that need them.
+- Admit the complete seven-package source/archive set before publication and reject missing,
+  unknown or mixed-version packages. Retain exact tarball, tag, provenance and guarded-retry checks.
+- Document the exact schema/registry pins, capability support, host lifecycle responsibilities,
+  expected versus measured integrity, dependency reproducibility gaps and separate native/platform
+  qualification. Package semver remains independent of native vendor versions.
+- Document the SDK-first boundary: product settings, user preference persistence, account-aware
+  target catalogs and production provider registration remain host/application follow-up work.
+
+Provider-invoked steering failure classification carries forward from `0.3.1`. Continuous execution
+ownership supersedes its former waiting-interruption invalidation: terminal output stays on the
+original reader after accepted interruption. Public SDK publication does not deploy a host or
+change private fleet execution authority.
+
+See [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) for compatibility and lifecycle guidance.
+
+## 0.3.2 - Superseded unpublished preparation
+
+The `0.3.2` source preparation was never published. Its uncertain-steering retirement correction
+is included in the coordinated `0.4.0` source above. The retained
+[MIGRATING-TO-0.3.2.md](MIGRATING-TO-0.3.2.md) records that preparation; use
+[MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) for the current release target.
 
 ## 0.3.1 - 2026-09-12
 

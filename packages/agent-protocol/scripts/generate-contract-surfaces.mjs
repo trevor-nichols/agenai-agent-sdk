@@ -17,6 +17,7 @@ const checkOnly = process.argv.includes('--check');
 const publicSurfaces = {
   'public/index.ts': [
     '../foundation/index.js',
+    '../failures/index.js',
     '../accountQuota/index.js',
     '../sessions/index.js',
     '../turns/index.js',
@@ -67,9 +68,14 @@ const equalityRecords = [
   ['AgentContentReferenceInputPart', 'AgentContentReferenceInputPartSchema', 'turns'],
   ['AgentAccountQuotaSnapshot', 'AgentAccountQuotaSnapshotSchema', 'accountQuota'],
   ['AgentAccountQuotaWindow', 'AgentAccountQuotaWindowSchema', 'accountQuota'],
+  ['AgentAccountQuotaReset', 'AgentAccountQuotaResetSchema', 'accountQuota'],
   ['AgentJsonValue', 'AgentJsonValueSchema', 'foundation'],
   ['AgentProviderRefs', 'AgentProviderRefsSchema', 'foundation'],
-  ['AgentError', 'AgentErrorSchema', 'foundation'],
+  ['AgentError', 'AgentErrorSchema', 'failures'],
+  ['AgentErrorContext', 'AgentErrorContextSchema', 'failures'],
+  ['AgentFailureCategory', 'AgentFailureCategorySchema', 'failures'],
+  ['AgentFailureQuotaReference', 'AgentFailureQuotaReferenceSchema', 'failures'],
+  ['AgentRecoveryHint', 'AgentRecoveryHintSchema', 'failures'],
   ['AgentSessionBinding', 'AgentSessionBindingSchema', 'sessions'],
   ['AgentSessionConfiguration', 'AgentSessionConfigurationSchema', 'sessions'],
   ['AgentSessionOpenInput', 'AgentSessionOpenInputSchema', 'sessions'],

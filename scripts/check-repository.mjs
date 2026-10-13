@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { inspectReleaseSet } from "./release/verify-release-set.mjs";
 
 // ------------------------------------------------------------------------------------------------
 //                Public Workspace Policy
@@ -15,23 +16,7 @@ const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 const REPOSITORY_URL = "git+https://github.com/trevor-nichols/agenai-agent-sdk.git";
 const HOMEPAGE_URL = "https://github.com/trevor-nichols/agenai-agent-sdk#readme";
 const BUGS_URL = "https://github.com/trevor-nichols/agenai-agent-sdk/issues";
-const PACKAGE_POLICIES = [
-  {
-    root: "packages/validation",
-    name: "@agen-ai/validation",
-    dependencies: { zod: "catalog:" },
-  },
-  {
-    root: "packages/agent-protocol",
-    name: "@agen-ai/agent-protocol",
-    dependencies: { "@agen-ai/validation": "workspace:^", zod: "catalog:" },
-  },
-  {
-    root: "packages/agent-runtime",
-    name: "@agen-ai/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "workspace:^" },
-  },
-];
+
 const IGNORED_DIRECTORIES = new Set([".git", ".turbo", "coverage", "dist", "node_modules"]);
 const PRIVATE_DOCUMENT_PATTERNS = [
   "/home/",
@@ -39,6 +24,10 @@ const PRIVATE_DOCUMENT_PATTERNS = [
   "packages/platform/validation",
   "packages/ai/agent-protocol",
   "packages/ai/agent-runtime",
+  "packages/ai/agent-orchestration",
+  "packages/ai/adapter-acp",
+  "packages/ai/provider-acp",
+  "packages/ai/acp-registry",
 ];
 
 async function readJson(relativePath) {
@@ -70,7 +59,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.3.1");
+assert.equal(rootManifest.version, "0.4.0");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
@@ -107,27 +96,50 @@ const protocolInspection = releaseWorkflow.indexOf("Inspect agent protocol publi
 const protocolPublish = releaseWorkflow.indexOf("Publish agent protocol");
 const runtimeInspection = releaseWorkflow.indexOf("Inspect agent runtime publication");
 const runtimePublish = releaseWorkflow.indexOf("Publish agent runtime");
+const orchestrationInspection = releaseWorkflow.indexOf("Inspect agent orchestration publication");
+const orchestrationPublish = releaseWorkflow.indexOf("Publish agent orchestration");
+const transportInspection = releaseWorkflow.indexOf("Inspect ACP transport publication");
+const transportPublish = releaseWorkflow.indexOf("Publish ACP transport");
+const providerInspection = releaseWorkflow.indexOf("Inspect ACP provider publication");
+const providerPublish = releaseWorkflow.indexOf("Publish ACP provider");
+const registryInspection = releaseWorkflow.indexOf("Inspect ACP registry publication");
+const registryPublish = releaseWorkflow.indexOf("Publish ACP registry");
+const releaseSetVerification = releaseWorkflow.indexOf("Verify complete release artifact set");
+assert.ok(releaseSetVerification >= 0 && releaseSetVerification < validationInspection);
+assert.match(releaseWorkflow, /node scripts\/release\/verify-release-set\.mjs --release-ref "\$RELEASE_REF"/u);
+assert.match(releaseWorkflow, /--release-ref "\$RELEASE_REF" --release-directory release/u);
 assert.ok(validationInspection >= 0 && validationInspection < validationPublish);
 assert.ok(validationPublish < protocolInspection && protocolInspection < protocolPublish);
 assert.ok(protocolPublish < runtimeInspection && runtimeInspection < runtimePublish);
+assert.ok(runtimePublish < orchestrationInspection && orchestrationInspection < orchestrationPublish);
+assert.ok(orchestrationPublish < transportInspection && transportInspection < transportPublish);
+assert.ok(transportPublish < providerInspection && providerInspection < providerPublish);
+assert.ok(providerPublish < registryInspection && registryInspection < registryPublish);
 assert.match(releaseWorkflow, /verify-package-publication\.mjs/u);
 assert.match(releaseWorkflow, /--require-present --attempts 30 --delay-ms 10000/u);
 assert.match(releaseWorkflow, /release_ref:/u);
 assert.match(releaseWorkflow, /release_commit="\$\(git rev-parse "\$RELEASE_REF\^\{commit\}"\)"/u);
 assert.match(releaseWorkflow, /RELEASE_SHA=\$release_commit/u);
-assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 6);
+assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 14);
 assert.match(releaseWorkflow, /git diff --exit-code/u);
-assert.equal(releaseWorkflow.match(/npm publish \.\/release\//gu)?.length, 3);
+assert.match(releaseWorkflow, /scripts\/architecture\/agent-sdk-consumers/u);
+assert.equal(releaseWorkflow.match(/npm publish \.\/release\//gu)?.length, 7);
+assert.match(releaseWorkflow, /packages\/agent-orchestration/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/agent-orchestration pack/u);
+assert.match(releaseWorkflow, /packages\/acp-transport/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/acp-transport pack/u);
+assert.match(releaseWorkflow, /packages\/provider-acp/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/provider-acp pack/u);
+assert.match(releaseWorkflow, /packages\/acp-registry/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/acp-registry pack/u);
 assert.match(releaseWorkflow, /npm audit signatures/u);
 assert.doesNotMatch(
   releaseWorkflow,
   /NODE_AUTH_TOKEN|(?:^|\n)\s*(?:npm|pnpm exec npm)\s+dist-tag\b/u,
 );
 
-for (const policy of PACKAGE_POLICIES) {
-  const manifest = await readJson(`${policy.root}/package.json`);
-  assert.equal(manifest.name, policy.name);
-  assert.equal(manifest.version, "0.3.1");
+const releaseSet = await inspectReleaseSet({ repositoryRoot: REPOSITORY_ROOT });
+for (const { policy, manifest } of releaseSet.packages) {
   assert.equal(manifest.private, false);
   assert.equal(manifest.license, "MIT");
   assert.equal(manifest.type, "module");

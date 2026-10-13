@@ -207,6 +207,7 @@ function isEventCapabilitySupported(
     case "turn.state_changed":
     case "turn.completed":
     case "progress.updated":
+    case "runtime.retrying":
     case "runtime.warning":
     case "runtime.error":
     case "provider.diagnostic":
