@@ -153,6 +153,11 @@ function fixtureFetch(fixture) {
       return new Response(fixture.publishedBytes);
     }
     if (url === `${REGISTRY_URL}/-/npm/v1/attestations/%40agen-ai%2Fvalidation@0.2.0`) {
+      return Response.json({ attestations: fixture.attestations.filter((entry) => (
+        entry.predicateType === "https://slsa.dev/provenance/v1"
+      )) }, { headers: { "cache-control": "public, max-age=31557600" } });
+    }
+    if (url === `${REGISTRY_URL}/-/npm/v1/attestations/@agen-ai/validation@0.2.0`) {
       return Response.json({ attestations: fixture.attestations });
     }
     return new Response("unexpected", { status: 500 });
@@ -183,7 +188,7 @@ test("admits publication when the immutable version is absent", async (t) => {
   assert.equal(result.integrity, tarball.integrity);
 });
 
-test("skips only an exact tagged publication with matching provenance", async (t) => {
+test("skips an exact tagged publication through the canonical scoped attestation path", async (t) => {
   const tarball = await createTarball(t);
   const result = await inspect(tarball, publicationFixture(tarball));
   assert.deepEqual(

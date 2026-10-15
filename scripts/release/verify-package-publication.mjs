@@ -99,7 +99,12 @@ function registryPackagePath(name) {
 }
 
 function attestationsPath(name, version) {
-  return `${encodeURIComponent(name)}@${encodeURIComponent(version)}`;
+  const scopeSeparator = name.startsWith("@") ? name.indexOf("/") : -1;
+  // Preserve the scope syntax: npm can serve a stale incomplete set for an encoded separator.
+  const packagePath = scopeSeparator === -1
+    ? encodeURIComponent(name)
+    : `@${encodeURIComponent(name.slice(1, scopeSeparator))}/${encodeURIComponent(name.slice(scopeSeparator + 1))}`;
+  return `${packagePath}@${encodeURIComponent(version)}`;
 }
 
 function decodeStatement(attestation) {
