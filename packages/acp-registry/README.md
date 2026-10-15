@@ -1,8 +1,7 @@
 # @agen-ai/acp-registry
 
 Optional ACP catalog validation, search, immutable planning and verified installation for Node.js 22 or newer.
-The coordinated source SDK version is `0.4.1` and remains unpublished; the published
-release is `0.4.0`. The package is ESM, MIT licensed and side-effect-free on import.
+The coordinated SDK release is `0.4.1`. The package is ESM, MIT licensed and side-effect-free on import.
 The metadata graph depends only on `@agen-ai/validation` and exact `zod@4.4.3`. Explicit Node
 installation uses pinned tar, ZIP and bzip2 readers. Public contracts are plain TypeScript values
 and AgenAI validation issues, with no exposed Zod schemas or Agent Runtime dependency.

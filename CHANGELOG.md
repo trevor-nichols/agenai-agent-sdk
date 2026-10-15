@@ -4,10 +4,10 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 `0.4.0`, the three core packages and four optional packages (orchestration, ACP transport, ACP provider
 and ACP registry) share one source version and a seven-package release inventory.
 
-## 0.4.1 - Unreleased
+## 0.4.1 - 2026-10-15
 
-This coordinated source update advances Agent Protocol to V11. All seven packages remain published
-at `0.4.0`; preparing, exporting and packing `0.4.1` does not publish it. See
+This coordinated release advances Agent Protocol to V11. All seven packages are published
+at `0.4.1`, selected by npm `latest` and `beta`. See
 [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before adopting the new lifecycle surface.
 
 ### Added

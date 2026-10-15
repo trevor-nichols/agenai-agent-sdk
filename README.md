@@ -2,8 +2,8 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> All seven packages are published at `0.4.0`. This checkout prepares coordinated `0.4.1` source,
-> which remains unpublished and implements Agent Protocol V11.
+> All seven packages are published at coordinated version `0.4.1` with Agent Protocol V11.
+> npm `latest` and `beta` select this release.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
 > and [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
@@ -44,7 +44,7 @@ Write the host once. Adapt each agent once.
 
 All seven packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All seven source versions are `0.4.1`; their published coordinated release is `0.4.0`.
+schema assets. All seven source and published package versions are coordinated at `0.4.1`.
 
 The dependency chain is intentionally narrow:
 
@@ -91,25 +91,25 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published coordinated `0.4.0` runtime:
+Install the published coordinated `0.4.1` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.0
+pnpm add @agen-ai/agent-runtime@0.4.1
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.0 @agen-ai/agent-protocol@0.4.0
+pnpm add @agen-ai/validation@0.4.1 @agen-ai/agent-protocol@0.4.1
 ```
 
 Keep every SDK package you install at the same coordinated version, including optional packages.
 The source Agent Protocol V11 directly replaces V10 at the live boundary; the current parser has no
 V10 compatibility mode. The published `0.4.0` release retains V10.
-The session-lifetime API described below belongs to unpublished `0.4.1` source. Run its examples
-from a built source checkout, or consume a complete matching set of locally packed `0.4.1` artifacts.
-Installing `0.4.0` does not provide that new API.
+The session-lifetime and remembered-approval APIs below are available in published `0.4.1`.
+Run the examples from a built source checkout or use the matching npm package family.
+Installing the earlier `0.4.0` release does not provide these APIs.
 
 ## Handle decisions outside a turn
 

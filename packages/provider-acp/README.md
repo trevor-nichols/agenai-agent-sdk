@@ -2,8 +2,7 @@
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
 Agent Client Protocol wire version 1 into the existing Agent Protocol V11 session
-API. The coordinated source SDK version is `0.4.1` and remains unpublished;
-the published release is `0.4.0`.
+API. The coordinated SDK release is `0.4.1`.
 The package is ESM, MIT licensed, side-effect-free on import and requires Node.js
 22 or newer. It depends only on the public transport, runtime and protocol packages;
 the core packages remain independent of ACP.
@@ -403,7 +402,7 @@ It does not publish packages, integrate a consumer application or enable private
 
 ## Session-lifetime folder decisions
 
-The unpublished `0.4.1` source includes the opt-in mapping on
+The `0.4.1` release includes the opt-in mapping on
 `createNodeAcpProviderDriver`:
 `sessionInteractions: { mapping: 'grok-folder-trust-v1' }`. Supply an explicit
 `executionBoundary` at construction and the generic `interactions.onRequest`
@@ -480,7 +479,7 @@ ownership attempt remains unqualified.
 
 ## Reserved execution ownership
 
-This surface is included in the unpublished `0.4.1` source candidate.
+This surface is included in the `0.4.1` release.
 
 The Node constructor also accepts an explicit `executionBoundary`. This host-owned
 port is useful when native descendants can create their own sessions or process

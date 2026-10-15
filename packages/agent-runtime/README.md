@@ -9,9 +9,8 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This source package implements Agent Protocol V11 at coordinated SDK version `0.4.1`,
-which remains unpublished. The published release remains `0.4.0` with V10. The source candidate
-also includes the additive session-interaction API.
+This package implements Agent Protocol V11 at coordinated SDK release `0.4.1`,
+including the additive session-interaction API. The earlier `0.4.0` release retains V10.
 Upgrade consumers from `0.3.1` using the coordinated release and its migration guide.
 The SDK contract version is independent of private transport and product persistence versions. This
 is intentionally one coordinated tuple rather than a deployable mixed-version graph.
@@ -450,8 +449,8 @@ turn/request ordering, request resolution, steering, interruption, configuration
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
 
-The coordinated source SDK version is `0.4.1`, remains unpublished and implements Agent Protocol V11.
-The published coordinated release remains `0.4.0` with V10.
+The coordinated SDK release is `0.4.1` and implements Agent Protocol V11.
+The earlier `0.4.0` release retains V10.
 The earlier public `0.3.0` and `0.3.1` releases implemented V9 and remain historical.
 Keep installed packages in the seven-package SDK release family on the coordinated version; the
 orchestration and ACP packages remain optional. Every materialized instance requires `environment` and

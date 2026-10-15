@@ -1,13 +1,12 @@
 # Migrating to 0.4.1
 
-`0.4.1` is a coordinated, unpublished source update for all seven SDK packages. Published `0.4.0`
-remains available unchanged. Keep the complete package family at one version when building or
-packing this source; publication, release tags, dist-tags and application rollout are separate
-operations. Upgrading from `0.3.1` also requires [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md).
+`0.4.1` is the coordinated published release for all seven SDK packages. The earlier `0.4.0`
+release remains available unchanged. Keep the complete package family at one version when
+installing, building or packing it. Application rollout remains a separate operation. Upgrading from `0.3.1` also requires [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md).
 
 This update adds a bounded session-lifetime decision channel. A setup question can be offered
 during session opening, remain answerable after opening returns and settle without starting a
-model turn. The same source candidate advances Agent Protocol to V11 for explicit approval
+model turn. The same release advances Agent Protocol to V11 for explicit approval
 consequences. Continuously owned turn output and execution-owned request resolution retain their
 ownership and delivery contracts. The new channel does not add interactive materialization,
 authentication elicitation or a durable interaction store.

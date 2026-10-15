@@ -37,8 +37,7 @@ continuation, session-lifetime decisions, retained startup/opening cleanup, canc
 peers and slow consumers. The fixture sources are part of
 this public projection, so the proof can run without access to the private monorepo.
 
-The source candidate is coordinated `0.4.1` and remains unpublished; all seven published packages
-are `0.4.0`. Read [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before changing lifecycle behavior.
+The current source and published package family are coordinated at `0.4.1`. Read [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before changing lifecycle behavior.
 After building, `pnpm examples:lifecycle-interactions` runs the generic core-only walkthrough:
 an early handler receives a setup question, opening returns while it is pending, a bound response
 settles it and cleanup joins without starting a model turn. Turn requests have the separate

@@ -11,12 +11,12 @@ ACP registry) ship together at one version. Publish the complete seven-package s
 6. `@agen-ai/provider-acp` (optional local-process and injected-stream provider)
 7. `@agen-ai/acp-registry` (optional catalog planning, verified installation and retained launch)
 
-The coordinated source candidate is `0.4.1` and remains unpublished. All seven packages completed
-publication at `0.4.0`; keep that release and its historical evidence unchanged. Verify current
+The coordinated source and published release are `0.4.1`; all seven packages select it on
+`latest` and `beta`. Preserve the earlier `0.4.0` release and its historical evidence. Verify current
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before adopting this candidate and
+[MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before adopting this release and
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
 The public repository uses npm trusted publishing. GitHub Actions receives a short-lived npm
@@ -111,9 +111,9 @@ evidence, not application settings, product integration or provider registration
 
 ## Package setup status
 
-All seven package names completed npm setup, trusted-publisher configuration and publication for
-`0.4.0`. The `0.4.1` candidate needs no initial-package bootstrap or placeholder. Inspect the
-existing trust relationships before a later authorized release; do not recreate them merely
+All seven package names completed npm setup and trusted-publisher configuration for `0.4.0`,
+and the same relationships published `0.4.1`. Future releases need no initial-package bootstrap or
+placeholder. Inspect the existing trust relationships before a later authorized release; do not recreate them merely
 because this source version changed. Historical staging and publication evidence remains tied to
 the original release. Source preparation creates no stage, trusted publisher, release tag or
 registry dist-tag.
@@ -172,8 +172,8 @@ npm dist-tag add "@agen-ai/acp-registry@$VERSION" latest
 ```
 
 Read every tag back after the seven commands. A promotion changes package resolution, not tarball
-bytes; `beta` may continue to select the same exact version. The candidate above remains unpublished;
-these commands are a later release procedure and must not run as part of source readiness.
+bytes; `beta` may continue to select the same exact version. Both tags now select `0.4.1`.
+These commands remain a separately authorized release procedure, not a source-readiness step.
 
 ## Trusted publisher configuration
 
