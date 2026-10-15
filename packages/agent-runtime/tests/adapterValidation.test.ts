@@ -6,6 +6,7 @@ import { fixtureTurn, collectToRequest, resolveAndCollectTurn } from "./fixtures
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 
 import {
@@ -29,6 +30,7 @@ import {
   parseAgentRequestFieldId,
   parseAgentRequestId,
   parseAgentSessionId,
+  parseAgentSessionDecisionRequest,
   parseAgentTurnId,
   type AgentCapabilities,
   type AgentIsoDateTime,
@@ -49,14 +51,20 @@ import {
   type AgentProviderSession,
   type AgentProviderSteerTurnInput,
   type AgentTurnSteeringResult,
+  type AgentSessionInteractionContext,
+  type AgentSessionInteractionSupport,
+  type AgentSessionInteractionTerminal,
+  type AgentSessionInteraction,
+  DEFAULT_AGENT_SESSION_INTERACTION_LIMITS,
 } from "../src/index.js";
 import { validateAgentGeneratedResourceForCapabilities } from "../src/interactionValidation.js";
 import { createFakeAgentProvider } from "../src/testing/index.js";
+import { deferred } from "./fixtures/hostBindings/harness.js";
 
 const providerKey = parseAgentProviderKey("contract-fixture");
 const capabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 10,
+  protocolVersion: 11,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -93,7 +101,7 @@ const requestCapabilities: AgentCapabilities = parseAgentCapabilities({
   ...capabilities,
   requests: {
     approval: {
-      kind: "supported",
+      kind: "supported", providerManagedRemembrance: false,
       modes: [{ persistence: "once", scopeKinds: ["exact_action"] }],
     },
     elicitation: { kind: "unsupported" },
@@ -146,15 +154,13 @@ function approvalRequest(input: {
         optionId: allowOnceOptionId,
         label: "Allow once",
         decision: "approved",
-        persistence: "once",
-        scope: { kind: "exact_action" },
+        consequence: { kind: 'scoped', persistence: "once", scope: { kind: "exact_action" } },
       },
       {
         optionId: denyOnceOptionId,
         label: "Deny",
         decision: "denied",
-        persistence: "once",
-        scope: { kind: "exact_action" },
+        consequence: { kind: 'scoped', persistence: "once", scope: { kind: "exact_action" } },
       },
     ],
   };
@@ -170,7 +176,7 @@ function allowOnceResolution(requestId: ReturnType<typeof parseAgentRequestId>) 
 }
 
 function eventBase(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
-  return { protocolVersion: 10 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 11 as const, sessionId, turnId, occurredAt };
 }
 
 function retryingOutput(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
@@ -269,7 +275,7 @@ function session(
     binding: { conversationId: "contract-conversation" as never },
     startTurn: fixtureTurn(async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 10,
+        protocolVersion: 11,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -277,7 +283,7 @@ function session(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 10,
+        protocolVersion: 11,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -312,6 +318,168 @@ function adapter(
     authentication: { kind: "unsupported" },
   };
 }
+
+test("session interaction support and context validation reject before provider entry", async (t) => {
+  const support: AgentSessionInteractionSupport = { kind: "supported", openingOperations: ["create", "resume"],
+    requestKinds: ["decision"], producerOwnership: "exclusive" };
+  let entries = 0;
+  const native = adapter((input) => {
+    entries += 1;
+    const candidate = session();
+    input.onBindingCreated(candidate.binding);
+    return candidate;
+  });
+  const input = { sessionId, workingDirectory: "/host/session", configuration, onBindingCreated() {} };
+  const invalidSupport: readonly unknown[] = [
+    { kind: "unsupported", requestKinds: [] },
+    { ...support, producerOwnership: "shared" }, { ...support, openingOperations: [] },
+    { ...support, openingOperations: ["resume", "create"] }, { ...support, openingOperations: ["create", "create"] },
+    { ...support, openingOperations: ["branch"] }, { ...support, requestKinds: ["decision", "form"] },
+    { ...support, extra: true },
+  ];
+  for (const declaration of invalidSupport) await t.test("invalid support", () => {
+    assert.throws(() => validateAgentProviderAdapter(capabilities,
+      { ...native, sessionInteractions: declaration as AgentSessionInteractionSupport }),
+    (error: unknown) => error instanceof AgentProviderContractError && error.code === "invalid_session_interaction");
+  });
+  const unsupported = validateAgentProviderAdapter(capabilities, native);
+  assert.deepEqual(unsupported.sessionInteractions, { kind: "unsupported" });
+  await assert.rejects(async () => unsupported.createSession({ ...input, interactions: { onRequest() {} } }),
+    (error: unknown) => error instanceof AgentProviderContractError && error.code === "session_interactions_unsupported");
+  const validated = validateAgentProviderAdapter(capabilities, { ...native, sessionInteractions: support });
+  const invalidContexts: readonly unknown[] = [
+    null, {}, { onRequest: 1 }, { onRequest() {}, extra: true },
+    { onRequest() {}, limits: { extra: 1 } }, { onRequest() {}, limits: { maxRetainedRequests: 0 } },
+    { onRequest() {}, limits: { maxRetainedRequests: 33 } }, { onRequest() {}, limits: { maxRetainedBytes: 65_535 } },
+    { onRequest() {}, limits: { requestTimeoutMs: Infinity } }, { onRequest() {}, limits: { responseTimeoutMs: 1.5 } },
+    { onRequest() {}, limits: { cleanupTimeoutMs: 120_001 } },
+  ];
+  for (const context of invalidContexts) await t.test("invalid context", async () => {
+    await assert.rejects(async () => validated.createSession({ ...input, interactions: context as AgentSessionInteractionContext }),
+      (error: unknown) => error instanceof AgentProviderContractError && error.code === "invalid_session_interaction");
+  });
+  assert.equal(entries, 0);
+});
+
+test("session interaction opening forwards a frozen handler and complete limit snapshot", async () => {
+  const limits = { maxRetainedRequests: 3 };
+  const context: AgentSessionInteractionContext = { onRequest() { throw new Error("Should not be called without an offer."); }, limits };
+  let captured: AgentSessionInteractionContext | undefined;
+  const native = adapter((input) => {
+    captured = input.interactions;
+    const candidate = session();
+    input.onBindingCreated(candidate.binding);
+    return candidate;
+  });
+  const validated = validateAgentProviderAdapter(capabilities, { ...native, sessionInteractions: {
+    kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+  } });
+  const opening = validated.createSession({ sessionId, workingDirectory: "/host/session", configuration,
+    onBindingCreated() {}, interactions: context });
+  limits.maxRetainedRequests = 32;
+  const opened = await opening;
+  assert.ok(captured);
+  assert.notEqual(captured.onRequest, context.onRequest);
+  assert.deepEqual(captured.limits, { ...DEFAULT_AGENT_SESSION_INTERACTION_LIMITS, maxRetainedRequests: 3 });
+  assert.equal(Object.isFrozen(captured), true);
+  assert.equal(Object.isFrozen(captured.limits), true);
+  await opened.close({ reason: "idle" });
+});
+
+test("uncertain interaction delivery before publication aborts opening and closes its late candidate", async () => {
+  const aborted = deferred<void>();
+  const publish = deferred<AgentProviderSession>();
+  const terminal = deferred<AgentSessionInteractionTerminal>();
+  const error = { category: "unknown" as const, code: "native_delivery_uncertain", message: "Native answer acceptance is uncertain.",
+    recovery: { kind: "unknown" as const } };
+  let closes = 0;
+  let answers = 0;
+  const candidate = session({ async close() { closes += 1; } });
+  const native = adapter((input) => {
+    input.onBindingCreated(candidate.binding);
+    assert.ok(input.signal);
+    input.signal.addEventListener("abort", () => aborted.resolve(), { once: true });
+    assert.ok(input.interactions);
+    const callback = input.interactions.onRequest({
+      request: parseAgentSessionDecisionRequest({ kind: "decision", requestId: "early-uncertain", sessionId: input.sessionId,
+        title: "Workspace configuration", target: { kind: "workspace", path: "/host/session" },
+        expiresAt: new Date(Date.now() + 60_000).toISOString(), choices: [{ choiceId: "leave-gated", label: "Leave gated",
+          description: "Keep workspace configuration gated.", consequence: { kind: "decline", configuration: "remains_gated" } }] }),
+      signal: new AbortController().signal, terminal: terminal.promise,
+      async respond() { answers += 1; terminal.resolve({ kind: "delivery_uncertain", error }); return { status: "delivery_uncertain", error }; },
+    });
+    void Promise.resolve(callback).catch(() => {});
+    return publish.promise;
+  });
+  const validated = validateAgentProviderAdapter(capabilities, { ...native, sessionInteractions: {
+    kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+  } });
+  const opening = validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated() {},
+    interactions: { async onRequest(handle) {
+      assert.equal((await handle.respond({ choiceId: handle.request.choices[0].choiceId })).status, "delivery_uncertain");
+    } } });
+  const rejected = assert.rejects(Promise.resolve(opening),
+    (failure: unknown) => failure instanceof AgentProviderContractError && failure.code === "session_unusable");
+  await aborted.promise;
+  assert.equal(closes, 0);
+  publish.resolve(candidate);
+  await rejected;
+  assert.equal(closes, 1);
+  assert.equal(answers, 1);
+});
+
+test("an uncertainty fence makes a sibling unavailable without claiming native retirement or closing the producer", async () => {
+  const terminals = [deferred<AgentSessionInteractionTerminal>(), deferred<AgentSessionInteractionTerminal>()];
+  const signals = [new AbortController(), new AbortController()];
+  const handles: AgentSessionInteraction[] = [];
+  const error = { category: "unknown" as const, code: "native_delivery_uncertain", message: "Native answer acceptance is uncertain.",
+    recovery: { kind: "unknown" as const } };
+  let closes = 0;
+  let siblingAnswers = 0;
+  let siblingNativeTerminalSettled = false;
+  void terminals[1]!.promise.then(() => { siblingNativeTerminalSettled = true; });
+  const candidate = session({ async close() {
+    closes += 1;
+    for (const [index, terminal] of terminals.entries()) {
+      terminal.resolve({ kind: "session_closed" });
+      signals[index]!.abort();
+    }
+  } });
+  const native = adapter((input) => {
+    input.onBindingCreated(candidate.binding);
+    assert.ok(input.interactions);
+    for (const [index, terminal] of terminals.entries()) {
+      const callback = input.interactions.onRequest({
+        request: parseAgentSessionDecisionRequest({ kind: "decision", requestId: `sibling-decision:${index}`, sessionId: input.sessionId,
+          title: "Workspace configuration", target: { kind: "workspace", path: "/host/session" },
+          expiresAt: new Date(Date.now() + 60_000).toISOString(), choices: [{ choiceId: "leave-gated", label: "Leave gated",
+            description: "Keep workspace configuration gated.", consequence: { kind: "decline", configuration: "remains_gated" } }] }),
+        signal: signals[index]!.signal, terminal: terminal.promise,
+        async respond() {
+          if (index !== 0) siblingAnswers += 1;
+          terminal.resolve({ kind: "delivery_uncertain", error });
+          return { status: "delivery_uncertain", error };
+        },
+      });
+      void Promise.resolve(callback).catch(() => {});
+    }
+    return candidate;
+  });
+  const validated = validateAgentProviderAdapter(capabilities, { ...native, sessionInteractions: {
+    kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+  } });
+  const opened = await validated.createSession({ sessionId, workingDirectory: "/host/session", configuration, onBindingCreated() {},
+    interactions: { limits: { responseTimeoutMs: 1_000 }, onRequest(handle) { handles.push(handle); } } });
+  assert.equal((await handles[0]!.respond({ choiceId: handles[0]!.request.choices[0].choiceId })).status, "delivery_uncertain");
+  const refused = await handles[1]!.respond({ choiceId: handles[1]!.request.choices[0].choiceId });
+  assert.equal(refused.status, "rejected");
+  if (refused.status === "rejected") assert.equal(refused.requestState, "unavailable");
+  assert.equal(handles[1]!.signal.aborted, true);
+  await delay(1_100);
+  assert.deepEqual([closes, siblingAnswers, signals[1]!.signal.aborted, siblingNativeTerminalSettled], [0, 0, false, false]);
+  await opened.close({ reason: "idle" });
+  assert.deepEqual([closes, siblingAnswers, signals[1]!.signal.aborted, siblingNativeTerminalSettled], [1, 0, true, true]);
+});
 
 test("adapter validation rejects C1 controls in working directories", async () => {
   let delegated = false;
@@ -1853,7 +2021,7 @@ test("session operation observations preserve backpressure and reject turn-owned
               invokeOperation: async (operationInput) => {
                 operationInput.onProviderExecutionStarted?.();
                 await operationInput.onOutput?.(createAgentEventOutput({
-                  protocolVersion: 10,
+                  protocolVersion: 11,
                   type: "item.completed",
                   sessionId,
                   turnId: operationInput.observationTurnId,
@@ -2626,7 +2794,7 @@ test("validated sessions reject cross-session output and malformed turn ordering
       const opened = session({
         startTurn: fixtureTurn(async function* (turnInput) {
           yield createAgentEventOutput({
-            protocolVersion: 10,
+            protocolVersion: 11,
             type: "turn.started",
             sessionId: "another-session",
             turnId: turnInput.turnId,

@@ -55,17 +55,27 @@ const AgentApprovalPromptSchema = z
   .max(AGENT_PROTOCOL_TEXT_MAX_LENGTH)
   .regex(/^(?:\S|\S[\s\S]*\S)$/u);
 
+export const AgentApprovalConsequenceSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('scoped'),
+    persistence: z.enum(AGENT_APPROVAL_PERSISTENCES),
+    scope: z.object({ kind: z.enum(AGENT_APPROVAL_SCOPE_KINDS) }).strict().readonly(),
+  }).strict().readonly(),
+  z.object({
+    kind: z.literal('provider_managed_remembrance'),
+    duration: z.object({ kind: z.literal('unknown') }).strict().readonly(),
+    applicability: z.object({ kind: z.literal('unknown') }).strict().readonly(),
+    explanation: AgentApprovalDescriptionSchema,
+  }).strict().readonly(),
+]);
+
 const AgentApprovalOptionSchema = z
   .object({
     optionId: AgentApprovalOptionIdSchema,
     label: AgentApprovalLabelSchema,
     description: AgentApprovalDescriptionSchema.optional(),
     decision: z.enum(['approved', 'denied']),
-    persistence: z.enum(AGENT_APPROVAL_PERSISTENCES),
-    scope: z
-      .object({ kind: z.enum(AGENT_APPROVAL_SCOPE_KINDS) })
-      .strict()
-      .readonly(),
+    consequence: AgentApprovalConsequenceSchema,
   })
   .strict()
   .readonly();

@@ -63,10 +63,10 @@ async function provePermission(session: AgentProviderSession, fixture: Installed
   const requestEvent = initial.find((event) => event.type === 'request.opened');
   assert.ok(requestEvent?.type === 'request.opened' && requestEvent.payload.request.requestKind === 'approval');
   const request = requestEvent.payload.request;
-  const approved = request.options.find((option) => option.decision === 'approved');
+  const approved = request.options.find((option) => option.decision === 'approved' && option.consequence.kind === 'scoped'
+    && option.consequence.persistence === 'once' && option.consequence.scope.kind === 'exact_action');
   assert.ok(approved);
-  assert.equal(approved.persistence, 'once');
-  assert.deepEqual(approved.scope, { kind: 'exact_action' });
+  assert.deepEqual(approved.consequence, { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } });
   assert.equal(initial.some((event) => event.type === 'turn.completed'), false);
   const before = await waitReport(fixture.reportPath, (report) => report.promptReady);
   assert.equal(before.methods.filter((method) => method === 'session/prompt').length, 1);

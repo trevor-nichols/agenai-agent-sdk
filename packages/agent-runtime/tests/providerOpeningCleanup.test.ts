@@ -78,11 +78,15 @@ test("a provider cleanup receipt without a host binding identifies the original 
 });
 
 test("foreign, cloned and unassociated cleanup errors cannot retain the current opening", async (t) => {
-  for (const ownership of ["foreign", "clone", "unassociated", "wrong_provider"] as const) {
-    await t.test(ownership, async () => {
+  for (const ownership of ["foreign", "clone", "unassociated", "wrong_provider"] as const) for (const interactions of [false, true]) {
+    await t.test(`${ownership} ${interactions ? "with interactions" : "without interactions"}`, async () => {
       let retries = 0;
       let thrown: AgentProviderSessionCleanupError | undefined;
-      const harness = await createHarness({ beforeOpen(context) {
+      const harness = await createHarness({
+        transformAdapter: (adapter) => ({ ...adapter, createSession: (input) => adapter.createSession(input), sessionInteractions: {
+          kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+        } }),
+        beforeOpen(context) {
         const openingInput: AgentProviderSessionContext = ownership === "foreign"
           ? { ...context, workingDirectory: "/another/workspace" } : ownership === "clone" ? { ...context } : context;
         const input = { providerKey: ownership === "wrong_provider" ? parseAgentProviderKey("other-provider") : harness.fake.definition.providerKey,
@@ -92,7 +96,8 @@ test("foreign, cloned and unassociated cleanup errors cannot retain the current 
         throw thrown;
       } });
       const host = makeBinding();
-      const failure: unknown = await Promise.resolve(harness.open("create", host.binding)).catch((error: unknown) => error);
+      const failure: unknown = await Promise.resolve(harness.open("create", host.binding,
+        interactions ? { interactions: { onRequest() {} } } : {})).catch((error: unknown) => error);
       assert.equal(failure, thrown);
       assert.equal(host.releaseCount(), 1);
       assert.equal(retries, 0);

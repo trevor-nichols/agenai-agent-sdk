@@ -5,7 +5,8 @@ This optional AgenAI Agent SDK package connects a host to streams supplied by th
 host. It validates messages against packaged, hash-pinned ACP schemas and owns
 framing, correlation, reverse requests, deadlines and connection cleanup.
 
-The coordinated SDK version is `0.4.0`. The package is ESM, MIT
+The coordinated SDK source version is `0.4.1` and remains unpublished; the published
+release is `0.4.0`. The package is ESM, MIT
 licensed and side-effect-free on import, with exact Ajv `8.17.1` as its sole runtime
 dependency. It is independent of the provider-neutral `@agen-ai/agent-protocol`
 and `@agen-ai/agent-runtime` packages.
@@ -56,7 +57,7 @@ bounded protocol limits, typed errors and explicit extension registration.
 No internal file path is a supported import.
 
 Transport errors and validated remote JSON-RPC errors retain their ACP meanings. Provider adapters
-own translation into Agent Protocol V10 failures and any provider-owned retry observation; the
+own translation into Agent Protocol V11 failures and any provider-owned retry observation; the
 transport has no dependency on that protocol and grants no turn replay or quota authority.
 
 An adapter migrating from a private transport import should use these public

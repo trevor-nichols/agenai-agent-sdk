@@ -23,6 +23,8 @@ import { containsAgentControlCharacter } from "./internal/controlCharacters.js";
 import { withAgentSessionHostBinding } from "./hostBindings/lifetime.js";
 import { invokeAgentSessionOpening } from "./hostBindings/opening.js";
 import { validateAgentSessionHostBindingSupport } from "./hostBindings/validation.js";
+import { createSessionInteractionOwner } from "./sessionInteractions/lifetime.js";
+import { validateSessionInteractionSupport } from "./sessionInteractions/validation.js";
 import {
   validateAgentProviderOperationResult,
   validateAgentProviderOutputForContext,
@@ -120,6 +122,7 @@ export function validateAgentProviderAdapter(
   }
 
   const declaredResumption = adapter.resumption;
+  const sessionInteractions = validateSessionInteractionSupport(capabilities, adapter);
   let hostBinding: ReturnType<typeof validateAgentSessionHostBindingSupport>;
   try {
     hostBinding = validateAgentSessionHostBindingSupport(adapter.hostBinding);
@@ -161,8 +164,13 @@ export function validateAgentProviderAdapter(
                 resumeInput.workingDirectory,
               );
               const binding = parsed.binding;
+              const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
+                sessionId: parsed.sessionId, operation: "resume", support: sessionInteractions,
+                ...(resumeInput.interactions === undefined ? {} : { context: resumeInput.interactions }),
+                ...(resumeInput.signal === undefined ? {} : { signal: resumeInput.signal }) });
               const candidate = await invokeAgentSessionOpening({
                 providerKey: capabilities.providerKey, openingInput: resumeInput, lease,
+                ...(interactions === undefined ? {} : { interactions }),
                 open: (context) => declaredResumption.resumeSession(context),
                 candidateInput: {
                   sessionId: parsed.sessionId,
@@ -170,23 +178,27 @@ export function validateAgentProviderAdapter(
                   binding,
                   configuration: parsed.configuration,
                   ...(lease === undefined ? {} : { hostBinding: lease.binding }),
-                  ...(resumeInput.signal === undefined
+                  ...(interactions === undefined ? {} : { interactions: interactions.facade }),
+                  ...((interactions?.openingSignal ?? resumeInput.signal) === undefined
                     ? {}
-                    : { signal: resumeInput.signal }),
+                    : { signal: interactions?.openingSignal ?? resumeInput.signal }),
                 },
               });
               try {
-                return validateAgentProviderSession({
+                const session = validateAgentProviderSession({
                   capabilities,
                   sessionId: parsed.sessionId,
                   candidate,
                   expectedBinding: binding,
+                  ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
                   ...(lease === undefined ? {} : { hostBindingLease: lease }),
                 });
+                interactions?.adopt();
+                return session;
               } catch (error) {
                 return closeRejectedAgentProviderSession(candidate, error,
                   lease === undefined ? undefined : { providerKey: capabilities.providerKey, lease },
-                  { providerKey: capabilities.providerKey, input: resumeInput });
+                  { providerKey: capabilities.providerKey, input: resumeInput }, interactions);
               }
             },
           }),
@@ -224,16 +236,22 @@ export function validateAgentProviderAdapter(
                 branchInput.workingDirectory,
               );
               const sourceBinding = parsed.source.binding;
+              const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
+                sessionId: parsed.sessionId, operation: "branch", support: sessionInteractions,
+                ...(branchInput.interactions === undefined ? {} : { context: branchInput.interactions }),
+                ...(branchInput.signal === undefined ? {} : { signal: branchInput.signal }) });
               return openIdentityCreatingAgentProviderSession({
                 capabilities,
                 sessionId: parsed.sessionId,
                 observer: branchInput.onBindingCreated,
                 sourceBinding,
                 openingInput: branchInput,
+                ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
                 ...(lease === undefined ? {} : { hostBindingLease: lease }),
                 open: (observer) =>
                   invokeAgentSessionOpening({
                     providerKey: capabilities.providerKey, openingInput: branchInput, lease,
+                    ...(interactions === undefined ? {} : { interactions }),
                     open: (context) => declaredBranching.branchSession(context),
                     candidateInput: {
                       sessionId: parsed.sessionId,
@@ -242,9 +260,10 @@ export function validateAgentProviderAdapter(
                       configuration: parsed.configuration,
                       onBindingCreated: observer,
                       ...(lease === undefined ? {} : { hostBinding: lease.binding }),
-                      ...(branchInput.signal === undefined
+                      ...(interactions === undefined ? {} : { interactions: interactions.facade }),
+                      ...((interactions?.openingSignal ?? branchInput.signal) === undefined
                         ? {}
-                        : { signal: branchInput.signal }),
+                        : { signal: interactions?.openingSignal ?? branchInput.signal }),
                     },
                   }),
               });
@@ -350,6 +369,7 @@ export function validateAgentProviderAdapter(
 
   const validated: AgentProviderAdapter = Object.freeze({
     hostBinding,
+    sessionInteractions,
     createSession: async (createInput: AgentProviderCreateSessionInput) => withAgentSessionHostBinding({
       providerKey: capabilities.providerKey,
       binding: createInput.hostBinding,
@@ -369,15 +389,21 @@ export function validateAgentProviderAdapter(
         const workingDirectory = parseWorkingDirectory(
           createInput.workingDirectory,
         );
+        const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
+          sessionId: parsed.sessionId, operation: "create", support: sessionInteractions,
+          ...(createInput.interactions === undefined ? {} : { context: createInput.interactions }),
+          ...(createInput.signal === undefined ? {} : { signal: createInput.signal }) });
         return openIdentityCreatingAgentProviderSession({
           capabilities,
           sessionId: parsed.sessionId,
           observer: createInput.onBindingCreated,
           openingInput: createInput,
+          ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
           ...(lease === undefined ? {} : { hostBindingLease: lease }),
           open: (observer) =>
             invokeAgentSessionOpening({
               providerKey: capabilities.providerKey, openingInput: createInput, lease,
+              ...(interactions === undefined ? {} : { interactions }),
               open: (context) => adapter.createSession(context),
               candidateInput: {
                 sessionId: parsed.sessionId,
@@ -385,9 +411,10 @@ export function validateAgentProviderAdapter(
                 configuration: parsed.configuration,
                 onBindingCreated: observer,
                 ...(lease === undefined ? {} : { hostBinding: lease.binding }),
-                ...(createInput.signal === undefined
+                ...(interactions === undefined ? {} : { interactions: interactions.facade }),
+                ...((interactions?.openingSignal ?? createInput.signal) === undefined
                   ? {}
-                  : { signal: createInput.signal }),
+                  : { signal: interactions?.openingSignal ?? createInput.signal }),
               },
             }),
         });

@@ -1,6 +1,5 @@
 import type { AcpJsonObject } from '@agen-ai/acp-transport';
 import {
-  parseAgentApprovalOptionId,
   parseAgentApprovalRequest,
   parseAgentItemId,
   parseAgentRequestId,
@@ -18,6 +17,8 @@ import { displayText, nativeObject, nativeString } from './native.js';
 import type { SessionQueue } from './queue.js';
 import { acpPlanSteps } from './plans.js';
 import { acpToolDiff } from './files.js';
+import type { AcpPermissionMappingSelection } from '../permissions/contracts.js';
+import { mapAcpPermissionOptions } from '../permissions/mapping.js';
 
 interface ObservedItem {
   snapshot: AgentItemSnapshot;
@@ -27,6 +28,7 @@ interface ObservedItem {
 export interface MappedPermission {
   readonly request: AgentApprovalRequest;
   readonly nativeOptions: ReadonlyMap<string, string>;
+  readonly warning?: Readonly<{ code: string; message: string }>;
 }
 
 export class TurnMapping {
@@ -40,6 +42,7 @@ export class TurnMapping {
     readonly sessionId: AgentSessionId;
     readonly turnId: AgentTurnId;
     readonly workingDirectory: string;
+    readonly permissionMapping: AcpPermissionMappingSelection;
     readonly now: () => string;
     readonly nextItemId: () => number;
     readonly nextRequestId: () => number;
@@ -48,7 +51,7 @@ export class TurnMapping {
 
   event(type: string, payload: unknown): AgentProviderOutput {
     return createAgentEventOutput({
-      protocolVersion: 10,
+      protocolVersion: 11,
       sessionId: this.context.sessionId,
       turnId: this.context.turnId,
       occurredAt: this.context.now(),
@@ -208,28 +211,7 @@ export class TurnMapping {
   permission(params: AcpJsonObject, itemId: AgentItemId): MappedPermission {
     const tool = nativeObject(params.toolCall, 'permission tool');
     const title = displayText(tool.title, 'Agent tool');
-    if (!Array.isArray(params.options)) throw new AcpProviderSessionError('acp_permission_options_invalid', 'ACP permission options must be an array.');
-    const nativeOptions = new Map<string, string>();
-    const options = params.options.flatMap((value, index) => {
-      const option = nativeObject(value, 'permission option');
-      if (option.kind !== 'allow_once' && option.kind !== 'reject_once') return [];
-      const optionId = parseAgentApprovalOptionId(`acp:option:${index + 1}`);
-      const nativeId = nativeString(option.optionId, 'permission option identity');
-      if ([...nativeOptions.values()].includes(nativeId)) {
-        throw new AcpProviderSessionError('acp_permission_option_duplicate', 'ACP repeated a permission option identity.');
-      }
-      nativeOptions.set(optionId, nativeId);
-      return [{
-        optionId,
-        label: displayText(option.name, option.kind === 'allow_once' ? 'Allow once' : 'Reject once'),
-        decision: option.kind === 'allow_once' ? 'approved' as const : 'denied' as const,
-        persistence: 'once' as const,
-        scope: { kind: 'exact_action' as const },
-      }];
-    });
-    if (options.length === 0) {
-      throw new AcpProviderSessionError('acp_permission_persistence_unsupported', 'ACP offered no supported once-only permission choice.');
-    }
+    const { options, nativeOptions, warning } = mapAcpPermissionOptions(this.context.permissionMapping, params);
     return {
       request: parseAgentApprovalRequest({
         requestKind: 'approval',
@@ -239,6 +221,7 @@ export class TurnMapping {
         options,
       }),
       nativeOptions,
+      ...(warning ? { warning } : {}),
     };
   }
 

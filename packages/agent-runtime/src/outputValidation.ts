@@ -101,12 +101,14 @@ function isApprovalRequestCapabilitySupported(
   if (request.requestKind !== "approval") return false;
   const capability = capabilities.requests.approval;
   return capability.kind === "supported"
-    && request.options.every((option) =>
-      capability.modes.some(
-        (mode) =>
-          mode.persistence === option.persistence
-          && mode.scopeKinds.includes(option.scope.kind),
-      ),
+    && request.options.every(({ consequence }) =>
+      consequence.kind === "provider_managed_remembrance"
+        ? capability.providerManagedRemembrance
+        : capability.modes.some(
+            (mode) =>
+              mode.persistence === consequence.persistence
+              && mode.scopeKinds.includes(consequence.scope.kind),
+          ),
     );
 }
 

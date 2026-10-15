@@ -25,7 +25,8 @@ imports `/zod`.
 
 ## Versioning and release
 
-The package participates in the coordinated Agent Protocol V10 SDK version `0.4.0`.
+The package participates in the coordinated Agent Protocol V11 SDK source version `0.4.1`,
+which remains unpublished. The published coordinated release remains `0.4.0` with V10.
 Public `0.3.0` and `0.3.1` SDK releases
 implemented V9 and remain the prior protocol generation. This package's ordinary validator-neutral
 surface is unchanged from `0.1.0`; coordinated versioning prevents consumers from resolving a mixed

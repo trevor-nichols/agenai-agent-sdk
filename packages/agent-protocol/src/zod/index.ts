@@ -52,6 +52,15 @@ export {
   AgentSessionResumeInputSchema,
 } from './sessions.js';
 export {
+  AgentSessionDecisionChoiceIdSchema,
+  AgentSessionWorkspaceTargetSchema,
+  AgentSessionDecisionConsequenceSchema,
+  AgentSessionDecisionChoiceSchema,
+  AgentSessionDecisionRequestPortableSchema,
+  AgentSessionDecisionRequestSchema,
+  AgentSessionDecisionResponseSchema,
+} from './sessionInteractions.js';
+export {
   AgentBrowserActionDetailsSchema,
   AgentCollaborationToolCallDetailsSchema,
   AgentCommandExecutionDetailsSchema,
@@ -78,6 +87,7 @@ export {
   AgentWebSearchDetailsSchema,
 } from './turns.js';
 export {
+  AgentApprovalConsequenceSchema,
   AgentApprovalRequestSchema,
   AgentApprovalResolutionSchema,
   AgentElicitationRequestSchema,

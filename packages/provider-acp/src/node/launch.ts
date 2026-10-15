@@ -1,14 +1,10 @@
 import path from 'node:path';
 import { AcpProviderConnectionError } from '../connection/errors.js';
-import type { NodeAcpLaunchOptions } from './contracts.js';
+import type { CreateNodeAcpProviderDriverOptions, NodeAcpLaunchOptions } from './contracts.js';
+import type { AcpSessionInteractionSelection } from '../sessionInteractions/contracts.js';
+import type { NodeAcpExecutionInput } from './execution/types.js';
 
-export interface ResolvedNodeAcpLaunch {
-  readonly executable: string;
-  readonly args: readonly string[];
-  readonly cwd: string;
-  readonly env: Readonly<Record<string, string>>;
-  readonly shutdownTimeoutMs: number;
-}
+export type ResolvedNodeAcpLaunch = NodeAcpExecutionInput;
 
 function validArgument(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 65_536 && !value.includes('\0');
@@ -43,4 +39,22 @@ export function resolveNodeAcpLaunch(launch: NodeAcpLaunchOptions): ResolvedNode
     env: Object.freeze({ ...env }),
     shutdownTimeoutMs,
   });
+}
+
+export function resolveNodeAcpSessionInteractions(
+  options: CreateNodeAcpProviderDriverOptions,
+  launch: ResolvedNodeAcpLaunch,
+): AcpSessionInteractionSelection | undefined {
+  const selection = options.sessionInteractions;
+  if (selection === undefined && !Object.hasOwn(options, 'sessionInteractions')) return undefined;
+  if (!selection || typeof selection !== 'object' || Array.isArray(selection)
+    || Reflect.ownKeys(selection).length !== 1 || !Object.hasOwn(selection, 'mapping')
+    || selection.mapping !== 'grok-folder-trust-v1') {
+    throw new TypeError('ACP session interaction selection must name the supported mapping without additional fields.');
+  }
+  if (launch.args.length !== 3 || launch.args[0] !== 'agent'
+    || launch.args[1] !== '--no-leader' || launch.args[2] !== 'stdio') {
+    throw new TypeError('The Grok folder-trust mapping requires exact direct arguments: agent --no-leader stdio.');
+  }
+  return Object.freeze({ mapping: 'grok-folder-trust-v1' });
 }

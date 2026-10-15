@@ -90,9 +90,16 @@ import { validateAgentTurnSteeringResult } from "./steeringValidation.js";
 import { createValidatedAgentTurnExecution, type ValidatedAgentTurnExecution } from "./turnExecution/execution.js";
 import { validateAgentProviderTurnInterruptionResult } from "./turnExecution/receipts.js";
 import type { PendingAgentRequest } from "./turnExecution/requests.js";
+import type { SessionInteractionOwner } from "./sessionInteractions/lifetime.js";
 
 //                Session Validation
 // ------------------------------------------------------------------------------------------------
+
+function validateCloseReason(reason: AgentProviderCloseSessionInput["reason"]): void {
+  if (reason !== undefined && !["idle", "shutdown", "replaced", "contract_rejected", "error", "other"].includes(reason)) {
+    throw new TypeError("Provider session close reason is unsupported.");
+  }
+}
 
 function validateSessionPorts(
   capabilities: AgentCapabilities,
@@ -1061,6 +1068,7 @@ export function validateAgentProviderSession(input: {
   readonly expectedBinding?: AgentSessionBinding;
   readonly sourceBinding?: AgentSessionBinding;
   readonly hostBindingLease?: AgentHostBindingLease;
+  readonly sessionInteractionOwner?: SessionInteractionOwner;
 }): AgentProviderSession {
   const { capabilities, sessionId } = input;
   const providerKey = capabilities.providerKey;
@@ -1146,6 +1154,7 @@ export function validateAgentProviderSession(input: {
       );
   };
   const requireUsable = (): void => {
+    input.sessionInteractionOwner?.requireUsable();
     requireOpen();
     if (unusable) {
       throwAgentProviderContractError(
@@ -1196,6 +1205,7 @@ export function validateAgentProviderSession(input: {
       await input.observeOutput?.(candidate);
     };
     try {
+      requireUsable();
       const candidate = await input.invoke(onProviderExecutionStarted, onOutput);
       if (!executionStarted) {
         throwAgentProviderContractError(
@@ -1969,45 +1979,33 @@ export function validateAgentProviderSession(input: {
           },
         });
 
-  const close = (closeInput: AgentProviderCloseSessionInput): Promise<void> => {
-    if (closed) return Promise.resolve();
-    if (closePromise) return closePromise;
+  const closeOwned = (closeInput: AgentProviderCloseSessionInput, explicit: boolean): Promise<void> => {
+    if (closed && !input.sessionInteractionOwner) return Promise.resolve();
+    if (!input.sessionInteractionOwner && closePromise) return closePromise;
     throwIfAgentOperationAborted(closeInput.signal);
-    if (
-      closeInput.reason !== undefined &&
-      ![
-        "idle",
-        "shutdown",
-        "replaced",
-        "contract_rejected",
-        "error",
-        "other",
-      ].includes(closeInput.reason)
-    ) {
-      throw new TypeError("Provider session close reason is unsupported.");
-    }
+    validateCloseReason(closeInput.reason);
     unusable = true;
     sessionLifetime.abort(new DOMException("The provider session was closed.", "AbortError"));
     input.hostBindingLease?.stop();
     const closingTurn = activeTurn;
     closingTurn?.owner.stop(new DOMException("The provider session was closed.", "AbortError"));
-    closePromise = Promise.resolve()
-      .then(async () => {
-        if (!providerClosed) {
-          await input.candidate.close(closeInput);
-          providerClosed = true;
-        }
-        await closingTurn?.owner.join();
-        await input.hostBindingLease?.release();
-      })
-      .then(() => {
-        closed = true;
-      })
-      .finally(() => {
-        closePromise = null;
-      });
+    const cleanup = async (): Promise<void> => {
+      if (!providerClosed) {
+        await input.candidate.close(closeInput);
+        providerClosed = true;
+      }
+      await input.sessionInteractionOwner?.join();
+      await closingTurn?.owner.join();
+      await input.hostBindingLease?.release();
+      closed = true;
+    };
+    if (input.sessionInteractionOwner) return input.sessionInteractionOwner.close(cleanup, explicit);
+    closePromise = Promise.resolve().then(cleanup).finally(() => { closePromise = null; });
     return closePromise;
   };
+
+  const close = (closeInput: AgentProviderCloseSessionInput): Promise<void> => closeOwned(closeInput, true);
+  input.sessionInteractionOwner?.installClose(() => closeOwned({ reason: "error" }, false));
 
   return Object.freeze({
     binding,
@@ -2029,9 +2027,11 @@ export async function closeRejectedAgentProviderSession(
   error: unknown,
   hostBinding?: Readonly<{ providerKey: AgentProviderKey; lease: AgentHostBindingLease }>,
   opening?: Readonly<{ providerKey: AgentProviderKey; input: object }>,
+  interactions?: SessionInteractionOwner,
 ): Promise<never> {
   if (!session) throw error;
   hostBinding?.lease.stop();
+  interactions?.stop();
   let providerClosed = false;
   const cleanup = async (): Promise<void> => {
     if (!providerClosed) {
@@ -2041,22 +2041,25 @@ export async function closeRejectedAgentProviderSession(
       await session.close({ reason: "contract_rejected" });
       providerClosed = true;
     }
+    await interactions?.join();
     await hostBinding?.lease.release();
   };
   try {
-    await cleanup();
+    if (interactions) await interactions.close(cleanup, false);
+    else await cleanup();
   } catch (cleanupError) {
     if (hostBinding) {
       const retained = createAgentHostBindingCleanupError({
         providerKey: hostBinding.providerKey,
         lease: hostBinding.lease,
         errors: [error, cleanupError],
-        retryCleanup: cleanup,
+        retryCleanup: () => interactions ? interactions.close(cleanup, false) : cleanup(),
       });
       throw opening ? associateAgentSessionCleanupError(retained, opening.input) : retained;
     }
     if (opening) throw associateAgentSessionCleanupError(new AgentProviderSessionCleanupError({
-      providerKey: opening.providerKey, errors: [error, cleanupError], retryCleanup: cleanup,
+      providerKey: opening.providerKey, errors: [error, cleanupError],
+      retryCleanup: () => interactions ? interactions.close(cleanup, false) : cleanup(),
     }), opening.input);
     throw new AggregateError(
       [error, cleanupError],
@@ -2135,6 +2138,7 @@ export async function openIdentityCreatingAgentProviderSession(input: {
   readonly sourceBinding?: AgentSessionBinding;
   readonly hostBindingLease?: AgentHostBindingLease;
   readonly openingInput?: object;
+  readonly sessionInteractionOwner?: SessionInteractionOwner;
   readonly open: (
     observer: AgentSessionBindingCreatedObserver,
   ) => MaybePromise<AgentProviderSession>;
@@ -2153,18 +2157,20 @@ export async function openIdentityCreatingAgentProviderSession(input: {
       capabilities: input.capabilities,
       sessionId: input.sessionId,
       candidate,
+      ...(input.sessionInteractionOwner === undefined ? {} : { sessionInteractionOwner: input.sessionInteractionOwner }),
       ...(input.hostBindingLease === undefined ? {} : { hostBindingLease: input.hostBindingLease }),
       ...(input.sourceBinding === undefined
         ? {}
         : { sourceBinding: input.sourceBinding }),
     });
     tracker.requireMatch(session.binding);
+    input.sessionInteractionOwner?.adopt();
     return session;
   } catch (error) {
     return closeRejectedAgentProviderSession(candidate, error,
       input.hostBindingLease === undefined ? undefined : {
         providerKey: input.capabilities.providerKey, lease: input.hostBindingLease,
-      }, input.openingInput === undefined ? undefined : { providerKey: input.capabilities.providerKey, input: input.openingInput });
+      }, input.openingInput === undefined ? undefined : { providerKey: input.capabilities.providerKey, input: input.openingInput }, input.sessionInteractionOwner);
   }
 }
 

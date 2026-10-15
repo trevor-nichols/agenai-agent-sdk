@@ -42,23 +42,78 @@ const onceApprovalRequest = {
       optionId: 'approval:allow-once',
       label: 'Allow once',
       decision: 'approved',
-      persistence: 'once',
-      scope: { kind: 'exact_action' },
+      consequence: { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } },
     },
     {
       optionId: 'approval:deny-once',
       label: 'Deny',
       decision: 'denied',
-      persistence: 'once',
-      scope: { kind: 'exact_action' },
+      consequence: { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } },
     },
   ],
 } as const;
 
-function capabilitiesWithApproval(approval: unknown): unknown {
+test('remembered approval and denial preserve explicit unknown consequences and offered identities', () => {
+  const consequence = {
+    kind: 'provider_managed_remembrance',
+    duration: { kind: 'unknown' },
+    applicability: { kind: 'unknown' },
+    explanation: 'The provider remembers this choice; duration and future matching are unknown.',
+  } as const;
+  const request = {
+    ...onceApprovalRequest,
+    options: [
+      { optionId: 'remember:allow', label: 'Remember', decision: 'approved', consequence },
+      { optionId: 'remember:deny', label: 'Remember', decision: 'denied', consequence },
+    ],
+  } as const;
+  assert.deepEqual(parseAgentApprovalRequest(request), request);
+  for (const option of request.options) {
+    assert.deepEqual(safeParseAgentRequestResolutionFor(request, {
+      requestKind: 'approval', requestId: request.requestId,
+      disposition: 'selected', optionId: option.optionId,
+    }), { success: true, data: {
+      requestKind: 'approval', requestId: request.requestId,
+      disposition: 'selected', optionId: option.optionId,
+    } });
+  }
+  const invalidConsequences = [
+    { ...consequence, explanation: '' },
+    { ...consequence, explanation: ' x' },
+    { ...consequence, explanation: 'x'.repeat(1_001) },
+    { ...consequence, duration: { kind: 'session' } },
+    { ...consequence, applicability: { kind: 'unknown', pattern: '*' } },
+    { ...consequence, persistence: 'workspace', scope: { kind: 'tool' } },
+    { kind: 'provider_managed_remembrance', duration: { kind: 'unknown' }, applicability: { kind: 'unknown' } },
+  ];
+  for (const invalidConsequence of invalidConsequences) {
+    assert.equal(safeParseAgentApprovalRequest({
+      ...request, options: [{ ...request.options[0], consequence: invalidConsequence }],
+    }).success, false);
+  }
+  const maximumExplanation = { ...consequence, explanation: 'x'.repeat(1_000) };
+  assert.deepEqual(parseAgentApprovalRequest({
+    ...request, options: [{ ...request.options[0], consequence: maximumExplanation }],
+  }).options[0]?.consequence, maximumExplanation);
+});
+
+test('remembered-only and combined capabilities require an explicit nonempty total support', () => {
+  for (const capability of [
+    { kind: 'supported', modes: [], providerManagedRemembrance: true },
+    { kind: 'supported', modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }], providerManagedRemembrance: true },
+  ]) {
+    assert.deepEqual(AgentApprovalCapabilitySchema.parse(capability), capability);
+    assert.deepEqual(parseAgentCapabilities(capabilitiesWithApproval(capability)).requests.approval, capability);
+  }
+  assert.equal(AgentApprovalCapabilitySchema.safeParse({
+    kind: 'supported', modes: [], providerManagedRemembrance: false,
+  }).success, false);
+});
+
+function capabilitiesWithApproval(approval: unknown) {
   return {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: 'v8-contract-provider',
     sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
     turns: {
@@ -95,7 +150,7 @@ function capabilitiesWithApproval(approval: unknown): unknown {
 
 test('approval capability and request freeze exact bounded once semantics', () => {
   const approvalCapability = {
-    kind: 'supported',
+    kind: 'supported', providerManagedRemembrance: false,
     modes: [
       {
         persistence: 'once',
@@ -140,7 +195,7 @@ test('approval capability and request freeze exact bounded once semantics', () =
 
 test('context usage and compaction examples retain only bounded neutral facts', () => {
   const usage = {
-    protocolVersion: 10,
+    protocolVersion: 11,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -214,9 +269,14 @@ test('approval freeze rejects ambiguous correlation, choices, and legacy decisio
       options: [
         {
           ...onceApprovalRequest.options[0],
-          persistence: 'forever',
+          consequence: { kind: 'scoped', persistence: 'forever', scope: { kind: 'exact_action' } },
         },
       ],
+    },
+    {
+      ...onceApprovalRequest,
+      options: [{ optionId: 'old:allow', label: 'Allow', decision: 'approved',
+        persistence: 'once', scope: { kind: 'exact_action' } }],
     },
     {
       ...onceApprovalRequest,
@@ -253,23 +313,23 @@ test('approval freeze rejects ambiguous correlation, choices, and legacy decisio
 
 test('capability freeze rejects duplicate and noncanonical modes/scopes', () => {
   const invalidCapabilities = [
-    { kind: 'supported', modes: [] },
+    { kind: 'supported', providerManagedRemembrance: false, modes: [] },
     {
-      kind: 'supported',
+      kind: 'supported', providerManagedRemembrance: false,
       modes: [
         { persistence: 'once', scopeKinds: ['exact_action'] },
         { persistence: 'once', scopeKinds: ['exact_action'] },
       ],
     },
     {
-      kind: 'supported',
+      kind: 'supported', providerManagedRemembrance: false,
       modes: [
         { persistence: 'session', scopeKinds: ['tool'] },
         { persistence: 'once', scopeKinds: ['exact_action'] },
       ],
     },
     {
-      kind: 'supported',
+      kind: 'supported', providerManagedRemembrance: false,
       modes: [
         {
           persistence: 'session',
@@ -278,7 +338,7 @@ test('capability freeze rejects duplicate and noncanonical modes/scopes', () => 
       ],
     },
     {
-      kind: 'supported',
+      kind: 'supported', providerManagedRemembrance: false,
       modes: [
         {
           persistence: 'once',
@@ -287,7 +347,13 @@ test('capability freeze rejects duplicate and noncanonical modes/scopes', () => 
       ],
     },
   ];
-  for (const capability of invalidCapabilities) {
+  const closedCapabilities = [
+    ...invalidCapabilities,
+    ...invalidCapabilities.slice(1).map((capability) => ({ ...capability, providerManagedRemembrance: true })),
+    { kind: 'supported', modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }] },
+    { kind: 'unsupported', providerManagedRemembrance: false },
+  ];
+  for (const capability of closedCapabilities) {
     const standalone = AgentApprovalCapabilitySchema.safeParse(capability);
     const embedded = AgentCapabilitiesSchema.safeParse(
       capabilitiesWithApproval(capability),
@@ -316,7 +382,7 @@ test('capability freeze rejects duplicate and noncanonical modes/scopes', () => 
 
 test('context freeze rejects impossible usage and compaction measurements', () => {
   const usageBase = {
-    protocolVersion: 10,
+    protocolVersion: 11,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',

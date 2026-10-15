@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PassThrough } from 'node:stream';
 import { once } from 'node:events';
-import { parseAgentConfigurationRevisionId, parseAgentInstanceId, parseAgentProviderKey, parseAgentSessionId } from '@agen-ai/agent-protocol';
+import { parseAgentConfigurationRevisionId, parseAgentInstanceId, parseAgentProviderKey, parseAgentSessionId, parseAgentTurnId } from '@agen-ai/agent-protocol';
 import { AgentProviderConfigurationError, AgentProviderRegistryError, createAgentProviderRegistry } from '@agen-ai/agent-runtime';
-import { createAcpProviderDriver, type AcpConnectionLease, type CreateAcpProviderDriverOptions } from '../src/index.js';
+import { createAcpProviderDriver, type AcpConnectionLease, type AcpPermissionMenuSignature, type AcpPermissionOptionSignature, type CreateAcpProviderDriverOptions } from '../src/index.js';
 import { createStreamPeer } from './node-fixtures/peer.js';
-import { createSessionPeer } from './fixtures/session-peer.js';
+import { collectRemaining, createSessionPeer, takeUntilRequest } from './fixtures/session-peer.js';
 
 const providerKey = parseAgentProviderKey('acp-fixture');
 const definition = { providerKey, instanceId: parseAgentInstanceId('acp:instance'), driverConfiguration: {} };
@@ -95,6 +95,113 @@ test('invalid extension policies fail during construction before invoking the co
   }
   assert.equal(acquisitions, 0);
 });
+
+test('malformed permission selections fail synchronously before connection acquisition', () => {
+  const option = { optionId: 'native:allow', kind: 'allow_always' };
+  const menu = { toolKind: 'edit', options: [option] };
+  const selection = { mapping: 'declared-complete-consequences-v1', agentInfo: { name: 'session-fixture', version: '1.0.0' }, menus: [menu] };
+  const sparseMenus: unknown[] = [menu]; sparseMenus.length = 2;
+  const sparseOptions: unknown[] = [option]; sparseOptions.length = 2;
+  const invalid: readonly [string, unknown][] = [
+    ['null', null], ['unknown mapping', { mapping: 'other' }], ['callback', () => selection],
+    ['policy payload', { mapping: 'once-only-v1', policy: {} }],
+    ['missing identity', { ...selection, agentInfo: undefined }],
+    ['blank name', { ...selection, agentInfo: { name: ' ', version: '1' } }],
+    ['padded version', { ...selection, agentInfo: { name: 'peer', version: ' 1' } }],
+    ['over-limit name', { ...selection, agentInfo: { name: 'x'.repeat(257), version: '1' } }],
+    ['over-limit version', { ...selection, agentInfo: { name: 'peer', version: 'x'.repeat(161) } }],
+    ['identity format character', { ...selection, agentInfo: { name: 'peer\u200b', version: '1' } }],
+    ['no menus', { ...selection, menus: [] }], ['sparse menus', { ...selection, menus: sparseMenus }],
+    ['too many menus', { ...selection, menus: Array.from({ length: 17 }, (_, index) => ({ ...menu, options: [{ ...option, optionId: `native:${index}` }] })) }],
+    ['duplicate menus', { ...selection, menus: [menu, structuredClone(menu)] }],
+    ['unknown tool kind', { ...selection, menus: [{ ...menu, toolKind: 'custom' }] }],
+    ['no options', { ...selection, menus: [{ ...menu, options: [] }] }],
+    ['sparse options', { ...selection, menus: [{ ...menu, options: sparseOptions }] }],
+    ['too many options', { ...selection, menus: [{ ...menu, options: Array.from({ length: 17 }, (_, index) => ({ ...option, optionId: `native:${index}` })) }] }],
+    ['duplicate option IDs', { ...selection, menus: [{ ...menu, options: [option, { ...option, kind: 'reject_always' }] }] }],
+    ['missing option ID', { ...selection, menus: [{ ...menu, options: [{ kind: 'allow_always' }] }] }],
+    ['empty option ID', { ...selection, menus: [{ ...menu, options: [{ ...option, optionId: '' }] }] }],
+    ['padded option ID', { ...selection, menus: [{ ...menu, options: [{ ...option, optionId: ' native' }] }] }],
+    ['control option ID', { ...selection, menus: [{ ...menu, options: [{ ...option, optionId: 'native\u0085id' }] }] }],
+    ['over-limit option ID', { ...selection, menus: [{ ...menu, options: [{ ...option, optionId: 'x'.repeat(257) }] }] }],
+    ['unknown option kind', { ...selection, menus: [{ ...menu, options: [{ ...option, kind: 'approve' }] }] }],
+    ['invented consequence', { ...selection, menus: [{ ...menu, options: [{ ...option, consequence: { kind: 'provider_managed_remembrance' } }] }] }],
+  ];
+  let acquisitions = 0;
+  for (const [name, permissionMapping] of invalid) {
+    assert.throws(() => createAcpProviderDriver({ providerKey, permissionMapping,
+      createConnection() { acquisitions += 1; throw new Error('Invalid selection acquired a connection.'); },
+    } as unknown as CreateAcpProviderDriverOptions), TypeError, name);
+  }
+  assert.equal(acquisitions, 0);
+});
+
+test('constructor captures maximum bounded permission declarations without truncating menu or native option identities', { timeout: 3_000 }, async (t) => {
+  const agentInfo = { name: 'n'.repeat(256), version: 'v'.repeat(160) };
+  const makeOption = (menu: number, index: number): AcpPermissionOptionSignature => ({ optionId: `${menu}:${index}:`.padEnd(256, 'x'), kind: 'allow_always' });
+  const makeOptions = (menu: number): [AcpPermissionOptionSignature, ...AcpPermissionOptionSignature[]] => [
+    makeOption(menu, 0), ...Array.from({ length: 15 }, (_, index) => makeOption(menu, index + 1)),
+  ];
+  const lastOptions = makeOptions(15);
+  const menus: [AcpPermissionMenuSignature, ...AcpPermissionMenuSignature[]] = [
+    { toolKind: 'edit', options: makeOptions(0) },
+    ...Array.from({ length: 14 }, (_, index) => ({ toolKind: 'edit' as const, options: makeOptions(index + 1) })),
+    { toolKind: 'edit', options: lastOptions },
+  ];
+  const nativeOptions = lastOptions.map((option) => ({ ...option, name: 'Remember' }));
+  const originalNativeId = lastOptions[15]!.optionId;
+  const peer = createSessionPeer({ initializeResult: { protocolVersion: 1, agentInfo: { ...agentInfo } }, onPrompt(peer) {
+    peer.send({ jsonrpc: '2.0', id: 'max-menu', method: 'session/request_permission', params: {
+      sessionId: peer.sessionId, toolCall: { toolCallId: 'max-tool', title: 'Edit', kind: 'edit', status: 'in_progress' }, options: nativeOptions,
+    } });
+  }, onResolution(peer) { peer.complete(); } });
+  const driver = createAcpProviderDriver({ providerKey, createConnection: () => peer.lease,
+    permissionMapping: { mapping: 'declared-complete-consequences-v1', agentInfo, menus },
+  });
+  agentInfo.name = 'mutated';
+  lastOptions[15] = { optionId: 'mutated', kind: 'reject_once' };
+  menus.pop();
+  const instance = await driver.materialize(definition);
+  t.after(async () => { await instance.dispose(); peer.dispose(); });
+  const session = await instance.adapter.createSession(createContext('session:maximum'));
+  const execution = session.startTurn({ turnId: parseAgentTurnId('turn:maximum'), interactionMode: 'default', parts: [{ type: 'text', text: 'Edit file.' }] });
+  const iterator = execution.outputs[Symbol.asyncIterator]();
+  const outputs = await takeUntilRequest(iterator);
+  const opened = outputs.find((output) => output.kind === 'event' && output.event.type === 'request.opened');
+  assert.ok(opened?.kind === 'event' && opened.event.type === 'request.opened' && opened.event.payload.request.requestKind === 'approval');
+  const request = opened.event.payload.request;
+  assert.equal(request.options.length, 16);
+  assert.equal(request.options[15]?.optionId, 'acp:option:16');
+  assert.deepEqual(await execution.resolveRequest({ resolution: {
+    requestKind: 'approval', requestId: request.requestId, disposition: 'selected', optionId: request.options[15]!.optionId,
+  } }), { status: 'delivered' });
+  assert.deepEqual((await collectRemaining(iterator)).filter((output) => output.kind === 'event' && output.event.type === 'turn.completed')
+    .map((output) => output.kind === 'event' && output.event.type === 'turn.completed' ? output.event.payload.outcome : undefined), ['completed']);
+  assert.deepEqual(peer.frames.filter((frame) => frame.id === 'max-menu' && !frame.method).map((frame) => frame.result), [
+    { outcome: { outcome: 'selected', optionId: originalNativeId } },
+  ]);
+});
+
+for (const [name, initialize, permissionMapping] of [
+  ['missing declared identity', { protocolVersion: 1 }, { mapping: 'declared-complete-consequences-v1', agentInfo: { name: 'declared-peer', version: '1' }, menus: [{ toolKind: 'edit', options: [{ optionId: 'allow', kind: 'allow_always' }] }] }],
+  ['different declared name', { protocolVersion: 1, agentInfo: { name: 'other-peer', version: '1' } }, { mapping: 'declared-complete-consequences-v1', agentInfo: { name: 'declared-peer', version: '1' }, menus: [{ toolKind: 'edit', options: [{ optionId: 'allow', kind: 'allow_always' }] }] }],
+  ['different declared version', { protocolVersion: 1, agentInfo: { name: 'declared-peer', version: '2' } }, { mapping: 'declared-complete-consequences-v1', agentInfo: { name: 'declared-peer', version: '1' }, menus: [{ toolKind: 'edit', options: [{ optionId: 'allow', kind: 'allow_always' }] }] }],
+  ['Grok version only in agentInfo', { protocolVersion: 1, agentInfo: { name: 'grok', version: '1.0.50' } }, { mapping: 'grok-build-1.0.50-edit-remembrance-v1' }],
+  ['different Grok metadata version', { protocolVersion: 1, _meta: { agentVersion: '1.0.51' } }, { mapping: 'grok-build-1.0.50-edit-remembrance-v1' }],
+  ['over-limit Grok metadata version', { protocolVersion: 1, _meta: { agentVersion: 'x'.repeat(161) } }, { mapping: 'grok-build-1.0.50-edit-remembrance-v1' }],
+] as const) {
+  test(`selected permission profile rejects ${name} and releases the owned connection before any native session`, async () => {
+    const peer = createStreamPeer(initialize);
+    let releases = 0;
+    const driver = createAcpProviderDriver({ providerKey, permissionMapping, createConnection: () => ({
+      ...peer.lease, ownership: 'owned', release() { releases += 1; peer.stdout.destroy(); peer.stdin.destroy(); },
+    }) });
+    await assert.rejects(async () => driver.materialize(definition), hasCode('acp_permission_profile_mismatch'));
+    assert.deepEqual(peer.frames.map((frame) => frame.method), ['initialize']);
+    assert.equal(releases, 1);
+    assert.equal(peer.stdout.destroyed, true);
+  });
+}
 
 test('a changed initialized envelope is rejected before creating another native session', async (t) => {
   const peers = [createStreamPeer(), createStreamPeer({ protocolVersion: 1, agentInfo: { name: 'stream-fixture', version: '2.0.0' } })];

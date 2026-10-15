@@ -113,7 +113,7 @@ test("the deterministic fake passes conformance with a provider retry after requ
                     && output.event.payload.state === "waiting_for_request") {
                     observedRetries += 1;
                     yield createAgentEventOutput({
-                      protocolVersion: 10,
+                      protocolVersion: 11,
                       sessionId: input.sessionId,
                       turnId: turnInput.turnId,
                       occurredAt: "2026-10-11T00:00:00.000Z",
@@ -318,7 +318,7 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
       environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-      protocolVersion: 10,
+      protocolVersion: 11,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {

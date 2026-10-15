@@ -1,5 +1,8 @@
 import { parseAgentCapabilities, type AgentAuthenticationFlow, type AgentCapabilities, type AgentProviderKey } from '@agen-ai/agent-protocol';
 import type { AcpNegotiatedAgent } from './connection/contracts.js';
+import type { AcpSessionInteractionSelection } from './sessionInteractions/contracts.js';
+import type { AcpPermissionMappingSelection } from './permissions/contracts.js';
+import { acpPermissionCapability } from './permissions/selection.js';
 
 function freezeCapabilities<Value>(value: Value): Value {
   if (value && typeof value === 'object') {
@@ -14,15 +17,17 @@ export function acpProviderCapabilities(
   negotiated: AcpNegotiatedAgent,
   configuration: 'managed' | 'selectable' = 'managed',
   authenticationFlows: readonly AgentAuthenticationFlow[] = [],
+  sessionInteractions?: AcpSessionInteractionSelection,
+  permissionMapping: AcpPermissionMappingSelection = { mapping: 'once-only-v1' },
 ): AgentCapabilities {
   return freezeCapabilities(parseAgentCapabilities({
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey,
-    sessions: { create: true, resume: negotiated.agentCapabilities.loadSession === true
-      || (negotiated.agentCapabilities.sessionCapabilities as import('@agen-ai/acp-transport').AcpJsonObject | undefined)?.resume != null, branch: { kind: 'unsupported' } },
+    sessions: { create: true, resume: sessionInteractions === undefined && (negotiated.agentCapabilities.loadSession === true
+      || (negotiated.agentCapabilities.sessionCapabilities as import('@agen-ai/acp-transport').AcpJsonObject | undefined)?.resume != null), branch: { kind: 'unsupported' } },
     turns: { interactionModes: ['default'], interrupt: true, steer: { kind: 'unsupported' } },
     requests: {
-      approval: { kind: 'supported', modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }] },
+      approval: acpPermissionCapability(permissionMapping),
       elicitation: { kind: 'supported', fieldKinds: ['single_select', 'multi_select', 'boolean'], maxFields: 16, sensitiveFields: false },
     },
     context: { usage: { kind: 'unsupported' }, compaction: { kind: 'unsupported' } },

@@ -142,7 +142,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
@@ -152,7 +152,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
     requests: {
       approval: {
-        kind: "supported",
+        kind: "supported", providerManagedRemembrance: false,
         modes: [{ persistence: "once", scopeKinds: ["exact_action"] }],
       },
       elicitation: {
@@ -272,7 +272,7 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 10 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 11 as const, sessionId, turnId, occurredAt };
 }
 
 function fakeEnvironmentSnapshot(
@@ -382,15 +382,13 @@ function requestForTurn(turnId: AgentTurnId): AgentRequest {
         optionId: parseAgentApprovalOptionId("approval:allow-once"),
         label: "Allow once",
         decision: "approved",
-        persistence: "once",
-        scope: { kind: "exact_action" },
+        consequence: { kind: 'scoped', persistence: "once", scope: { kind: "exact_action" } },
       },
       {
         optionId: parseAgentApprovalOptionId("approval:deny-once"),
         label: "Deny",
         decision: "denied",
-        persistence: "once",
-        scope: { kind: "exact_action" },
+        consequence: { kind: 'scoped', persistence: "once", scope: { kind: "exact_action" } },
       },
     ],
   };

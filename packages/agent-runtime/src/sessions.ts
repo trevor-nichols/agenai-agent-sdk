@@ -32,6 +32,7 @@ import type { MaybePromise } from "./foundation.js";
 import type { AgentSessionHostBinding, AgentSessionHostBindingSupport } from "./hostBindings/types.js";
 import type { AgentProviderOutput } from "./outputs.js";
 import type { AgentArtifactCandidate } from "./artifacts.js";
+import type { AgentSessionInteractionContext, AgentSessionInteractionSupport } from "./sessionInteractions/types.js";
 import type {
   AgentEnvironmentObservationPort,
 } from "./environment/types.js";
@@ -46,6 +47,7 @@ export interface AgentProviderSessionContext {
   readonly configuration: AgentSessionConfiguration;
   readonly signal?: AbortSignal;
   readonly hostBinding?: AgentSessionHostBinding;
+  readonly interactions?: AgentSessionInteractionContext;
 }
 
 export type AgentSessionBindingCreatedObserver = (
@@ -336,6 +338,7 @@ export type AgentProviderAuthentication =
     }>;
 
 export interface AgentProviderAdapter {
+  readonly sessionInteractions?: AgentSessionInteractionSupport;
   readonly hostBinding?: AgentSessionHostBindingSupport;
   readonly createSession: (
     input: AgentProviderCreateSessionInput,

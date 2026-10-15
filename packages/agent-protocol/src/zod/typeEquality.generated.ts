@@ -8,7 +8,7 @@ import type { z } from 'zod/v4';
 
 import type { AgentAccountQuotaReset, AgentAccountQuotaSnapshot, AgentAccountQuotaWindow } from '../accountQuota/types.js';
 import type { AgentArtifactDescriptor } from '../artifacts/types.js';
-import type { AgentCapabilities } from '../capabilities/types.js';
+import type { AgentApprovalCapability, AgentCapabilities } from '../capabilities/types.js';
 import type { AgentCollaborationControlInput, AgentCollaborationNode, AgentCollaborationSpawnInput } from '../collaboration/types.js';
 import type { AgentCommandCatalog, AgentCommandDescriptor } from '../commands/types.js';
 import type { AgentConfigurationCatalog, AgentConfigurationSelectionInput } from '../configuration/types.js';
@@ -21,13 +21,14 @@ import type { AgentJsonValue, AgentProviderRefs } from '../foundation/types.js';
 import type { AgentIntegrationCatalog, AgentIntegrationDescriptor, AgentMcpIntegrationDescriptor } from '../integrations/types.js';
 import type { AgentManagedContentCatalog, AgentManagedContentDescriptor } from '../managedContent/types.js';
 import type { AgentOperationCatalog, AgentOperationDescriptor, AgentOperationInvocation, AgentOperationResult } from '../operations/types.js';
-import type { AgentRequest, AgentRequestResolution } from '../requests/types.js';
+import type { AgentApprovalConsequence, AgentRequest, AgentRequestResolution } from '../requests/types.js';
 import type { AgentGeneratedResourceDescriptor } from '../resources/types.js';
+import type { AgentSessionDecisionChoice, AgentSessionDecisionConsequence, AgentSessionDecisionRequest, AgentSessionDecisionResponse, AgentSessionWorkspaceTarget } from '../sessionInteractions/types.js';
 import type { AgentSessionBinding, AgentSessionConfiguration, AgentSessionOpenInput } from '../sessions/types.js';
 import type { AgentContentReferenceInputPart, AgentItemSnapshot, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
 import { AgentAccountQuotaResetSchema, AgentAccountQuotaSnapshotSchema, AgentAccountQuotaWindowSchema } from './accountQuota.js';
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
-import { AgentCapabilitiesSchema } from './capabilities.js';
+import { AgentApprovalCapabilitySchema, AgentCapabilitiesSchema } from './capabilities.js';
 import { AgentCollaborationControlInputSchema, AgentCollaborationNodeSchema, AgentCollaborationSpawnInputSchema } from './collaboration.js';
 import { AgentCommandCatalogSchema, AgentCommandDescriptorSchema } from './commands.js';
 import { AgentConfigurationCatalogSchema, AgentConfigurationSelectionInputSchema } from './configuration.js';
@@ -40,8 +41,9 @@ import { AgentJsonValueSchema, AgentProviderRefsSchema } from './foundation.js';
 import { AgentIntegrationCatalogSchema, AgentIntegrationDescriptorSchema, AgentMcpIntegrationDescriptorSchema } from './integrations.js';
 import { AgentManagedContentCatalogSchema, AgentManagedContentDescriptorSchema } from './managedContent.js';
 import { AgentOperationCatalogSchema, AgentOperationDescriptorSchema, AgentOperationInvocationSchema, AgentOperationResultSchema } from './operations.js';
-import { AgentRequestResolutionSchema, AgentRequestSchema } from './requests.js';
+import { AgentApprovalConsequenceSchema, AgentRequestResolutionSchema, AgentRequestSchema } from './requests.js';
 import { AgentGeneratedResourceDescriptorSchema } from './resources.js';
+import { AgentSessionDecisionChoiceSchema, AgentSessionDecisionConsequenceSchema, AgentSessionDecisionRequestSchema, AgentSessionDecisionResponseSchema, AgentSessionWorkspaceTargetSchema } from './sessionInteractions.js';
 import { AgentSessionBindingSchema, AgentSessionConfigurationSchema, AgentSessionOpenInputSchema } from './sessions.js';
 import { AgentContentReferenceInputPartSchema, AgentItemSnapshotSchema, AgentTurnInputContentSchema, AgentTurnInterruptionInputSchema, AgentTurnRunInputSchema } from './turns.js';
 
@@ -49,6 +51,16 @@ type Extends<Left, Right> = [Left] extends [Right] ? true : false;
 type Assert<Value extends true> = Value;
 
 export type AgentProtocolSchemaTypeAssertions = readonly [
+  Assert<Extends<z.output<typeof AgentSessionWorkspaceTargetSchema>, AgentSessionWorkspaceTarget>>,
+  Assert<Extends<AgentSessionWorkspaceTarget, z.output<typeof AgentSessionWorkspaceTargetSchema>>>,
+  Assert<Extends<z.output<typeof AgentSessionDecisionConsequenceSchema>, AgentSessionDecisionConsequence>>,
+  Assert<Extends<AgentSessionDecisionConsequence, z.output<typeof AgentSessionDecisionConsequenceSchema>>>,
+  Assert<Extends<z.output<typeof AgentSessionDecisionChoiceSchema>, AgentSessionDecisionChoice>>,
+  Assert<Extends<AgentSessionDecisionChoice, z.output<typeof AgentSessionDecisionChoiceSchema>>>,
+  Assert<Extends<z.output<typeof AgentSessionDecisionRequestSchema>, AgentSessionDecisionRequest>>,
+  Assert<Extends<AgentSessionDecisionRequest, z.output<typeof AgentSessionDecisionRequestSchema>>>,
+  Assert<Extends<z.output<typeof AgentSessionDecisionResponseSchema>, AgentSessionDecisionResponse>>,
+  Assert<Extends<AgentSessionDecisionResponse, z.output<typeof AgentSessionDecisionResponseSchema>>>,
   Assert<Extends<z.output<typeof AgentEffectiveContentCatalogSchema>, AgentEffectiveContentCatalog>>,
   Assert<Extends<AgentEffectiveContentCatalog, z.output<typeof AgentEffectiveContentCatalogSchema>>>,
   Assert<Extends<z.output<typeof AgentEffectiveContentDescriptorSchema>, AgentEffectiveContentDescriptor>>,
@@ -103,6 +115,10 @@ export type AgentProtocolSchemaTypeAssertions = readonly [
   Assert<Extends<AgentTurnInterruptionInput, z.output<typeof AgentTurnInterruptionInputSchema>>>,
   Assert<Extends<z.output<typeof AgentItemSnapshotSchema>, AgentItemSnapshot>>,
   Assert<Extends<AgentItemSnapshot, z.output<typeof AgentItemSnapshotSchema>>>,
+  Assert<Extends<z.output<typeof AgentApprovalConsequenceSchema>, AgentApprovalConsequence>>,
+  Assert<Extends<AgentApprovalConsequence, z.output<typeof AgentApprovalConsequenceSchema>>>,
+  Assert<Extends<z.output<typeof AgentApprovalCapabilitySchema>, AgentApprovalCapability>>,
+  Assert<Extends<AgentApprovalCapability, z.output<typeof AgentApprovalCapabilitySchema>>>,
   Assert<Extends<z.output<typeof AgentRequestSchema>, AgentRequest>>,
   Assert<Extends<AgentRequest, z.output<typeof AgentRequestSchema>>>,
   Assert<Extends<z.output<typeof AgentRequestResolutionSchema>, AgentRequestResolution>>,

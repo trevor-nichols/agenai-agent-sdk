@@ -4,6 +4,7 @@
 
 import assert from "node:assert/strict";
 import { lstat, readFile, readdir } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectReleaseSet } from "./release/verify-release-set.mjs";
@@ -59,7 +60,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.4.0");
+assert.equal(rootManifest.version, "0.4.1");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
@@ -140,6 +141,10 @@ assert.doesNotMatch(
 
 const releaseSet = await inspectReleaseSet({ repositoryRoot: REPOSITORY_ROOT });
 for (const { policy, manifest } of releaseSet.packages) {
+  const packageRequire = createRequire(path.join(REPOSITORY_ROOT, policy.root, "package.json"));
+  const tsupManifestPath = packageRequire.resolve("tsup/package.json");
+  assert.equal(packageRequire(tsupManifestPath).version, "8.5.0", `${policy.name}: unqualified tsup version`);
+  assert.equal(createRequire(tsupManifestPath)("esbuild/package.json").version, "0.25.10", `${policy.name}: unqualified esbuild version`);
   assert.equal(manifest.private, false);
   assert.equal(manifest.license, "MIT");
   assert.equal(manifest.type, "module");

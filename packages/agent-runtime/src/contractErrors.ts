@@ -48,6 +48,8 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "host_tool_input_invalid",
   "host_tool_result_invalid",
   "host_tool_capacity_exhausted",
+  "invalid_session_interaction",
+  "session_interactions_unsupported",
 ] as const;
 
 export type AgentProviderContractErrorCode =
@@ -66,8 +68,9 @@ export class AgentProviderContractError extends Error {
     readonly providerKey: AgentProviderKey,
     readonly code: AgentProviderContractErrorCode,
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "AgentProviderContractError";
   }
 }

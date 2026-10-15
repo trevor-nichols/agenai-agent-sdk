@@ -8,6 +8,7 @@ export * from '../foundation/index.js';
 export * from '../failures/index.js';
 export * from '../accountQuota/index.js';
 export * from '../sessions/index.js';
+export * from '../sessionInteractions/index.js';
 export * from '../turns/index.js';
 export * from '../requests/index.js';
 export * from '../operations/index.js';

@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-protocol",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": false,
   "description": "Provider-neutral sessions, turns, requests, capabilities, artifacts, and events for coding-agent runtimes.",
   "type": "module",
@@ -23,6 +23,10 @@
     "./sessions": {
       "types": "./dist/public/sessions.d.ts",
       "import": "./dist/public/sessions.js"
+    },
+    "./session-interactions": {
+      "types": "./dist/public/sessionInteractions.d.ts",
+      "import": "./dist/public/sessionInteractions.js"
     },
     "./turns": {
       "types": "./dist/public/turns.d.ts",

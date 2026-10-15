@@ -53,6 +53,8 @@ export class SessionState {
   private nativeSessionId: string | undefined;
   private turn: NativeTurn | undefined;
   private failure: Error | undefined;
+  private failureObserved = false;
+  private cleanupFailure: unknown;
   private closed = false;
   private closePromise: Promise<void> | undefined;
   private itemSequence = 0;
@@ -86,11 +88,13 @@ export class SessionState {
   async open(): Promise<AgentProviderSession> {
     this.requireUsable();
     throwIfAgentOperationAborted(this.input.context.signal);
+    const sessionInteractions = this.input.connection.sessionInteractions;
     await openAcpNativeSession(this.input, {
       replay: this.replay,
       bind: (binding) => {
         this.binding = binding;
         this.nativeSessionId = binding.conversationId;
+        this.input.connection.sessionInteractions?.bindNativeSession(binding.conversationId);
         this.bindHostSession();
       },
       observeSetup: (result) => {
@@ -104,6 +108,9 @@ export class SessionState {
         }
         this.configuration.observeSetup(result);
       },
+      ...(sessionInteractions ? {
+        completeOpeningResponse: () => sessionInteractions.completeOpeningResponse(),
+      } : {}),
     });
     this.requireUsable();
     if (!this.binding) throw new AcpProviderSessionError('acp_binding_missing', 'ACP did not return a session binding.');
@@ -121,7 +128,7 @@ export class SessionState {
       environment: this.environment.port,
       collaboration: Object.freeze({ kind: 'unsupported' as const }),
       generatedResources: Object.freeze({ kind: 'unsupported' as const }),
-      close: async () => this.close(),
+      close: async () => this.close(true),
     });
   }
 
@@ -139,13 +146,14 @@ export class SessionState {
   private fail(error: Error): void {
     if (this.failure) return;
     this.failure = error;
+    this.input.connection.sessionInteractions?.stop({ kind: 'failed', cause: error });
     this.turn?.hostInteractions.abort(error);
     this.queue.fail(error);
     this.requests.cancelAll();
     this.environment.close();
     this.turn?.settled.reject(error);
     this.clearTurnTimers();
-    void this.input.connection.close().catch(() => undefined);
+    void this.input.connection.close().catch((cause) => { this.cleanupFailure = cause; });
   }
 
   private admitNotification(context: AcpNotificationContext): Promise<void> | void {
@@ -220,6 +228,7 @@ export class SessionState {
         sessionId: this.input.context.sessionId,
         turnId: input.turnId,
         workingDirectory: this.input.context.workingDirectory,
+        permissionMapping: this.input.permissionMapping,
         now: this.input.now,
         nextItemId: () => ++this.itemSequence,
         nextRequestId: () => ++this.requestSequence,
@@ -338,10 +347,16 @@ export class SessionState {
             if (turn.terminal) return 'terminal';
             yield* this.emit(next.value);
             if (turn.terminal) return 'terminal';
+            if (request.answered || turn.cancelReason) break;
             next = mappedTool.next();
           }
+          if (!next.done) { entry.release(); continue; }
           const permission = turn.mapping.permission(request.params, next.value);
           request.mapped = { kind: 'permission', permission, request: permission.request };
+          if (permission.warning) {
+            yield* this.emit(turn.mapping.event('runtime.warning', permission.warning));
+            if (turn.terminal) return 'terminal';
+          }
         } else {
           if (request.params.toolCallId != null && !turn.mapping.hasTool(nativeString(request.params.toolCallId, 'elicitation tool identity'))) {
             this.requests.reject(request, new AcpRpcHandlerError(-32602, 'ACP form tool identity was not observed in this turn.'));
@@ -354,6 +369,7 @@ export class SessionState {
           const flow = new AcpFormFlow(request.form!, () => parseAgentRequestId(`acp:request:${++this.requestSequence}`));
           request.mapped = { kind: 'form', flow, request: flow.request };
         }
+        if (request.answered || turn.cancelReason) { entry.release(); continue; }
         turn.waiting = request;
         yield* this.offerRequest(turn, request);
         if (turn.terminal) return 'terminal';
@@ -457,23 +473,41 @@ export class SessionState {
     } catch (error) { this.fail(sessionError(error)); throw error; }
   }
 
-  async close(): Promise<void> {
-    if (this.closePromise) return this.closePromise;
-    this.closed = true;
-    this.closePromise = Promise.resolve().then(async () => {
-      await this.input.closeResources();
-      this.input.onClosed();
-    }).catch((error) => { this.closePromise = undefined; throw error; });
-    const error = new AcpProviderSessionError('acp_session_closed', 'The ACP session is closed.');
-    this.turn?.hostInteractions.abort(error);
-    this.queue.fail(error);
-    this.requests.cancelAll();
-    this.turn?.settled.reject(error);
-    this.clearTurnTimers();
-    this.environment.close();
-    this.turn?.mapping.release();
-    this.detach();
-    this.input.connection.stopped.removeEventListener('abort', this.onStopped);
-    return this.closePromise;
+  async close(observeFailure = false): Promise<void> {
+    if (!this.closePromise) {
+      this.closed = true;
+      this.closePromise = Promise.resolve().then(async () => {
+        await this.input.closeResources();
+        this.input.onClosed();
+      }).catch((error) => { this.cleanupFailure = error; this.closePromise = undefined; throw error; });
+      this.input.connection.sessionInteractions?.stop({ kind: 'session_closed' });
+      const error = new AcpProviderSessionError('acp_session_closed', 'The ACP session is closed.');
+      this.turn?.hostInteractions.abort(error);
+      this.queue.fail(error);
+      this.requests.cancelAll();
+      this.turn?.settled.reject(error);
+      this.clearTurnTimers();
+      this.environment.close();
+      this.turn?.mapping.release();
+      this.detach();
+      this.input.connection.stopped.removeEventListener('abort', this.onStopped);
+    }
+    try { await this.closePromise; }
+    catch (cause) {
+      const failure = this.observeFailure(observeFailure);
+      if (failure) throw new AggregateError([failure, cause], 'ACP session failure and cleanup remain owned.');
+      throw cause;
+    }
+    const failure = this.observeFailure(observeFailure);
+    if (failure) {
+      if (this.cleanupFailure !== undefined) throw new AggregateError([failure, this.cleanupFailure], 'ACP session failed before cleanup completed.');
+      throw failure;
+    }
+  }
+
+  private observeFailure(explicit: boolean): Error | undefined {
+    if (!explicit || !this.input.connection.sessionInteractions || !this.failure || this.failureObserved) return undefined;
+    this.failureObserved = true;
+    return this.failure;
   }
 }

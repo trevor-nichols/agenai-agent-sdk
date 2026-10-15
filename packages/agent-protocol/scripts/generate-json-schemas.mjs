@@ -47,6 +47,10 @@ import {
   AgentSessionOpenInputPortableSchema,
 } from '../src/zod/sessions.ts';
 import {
+  AgentSessionDecisionRequestPortableSchema,
+  AgentSessionDecisionResponsePortableSchema,
+} from '../src/zod/sessionInteractions.ts';
+import {
   AgentTurnInputContentSchema,
   AgentTurnRunInputPortableSchema,
 } from '../src/zod/turns.ts';
@@ -66,6 +70,20 @@ const failureParserInvariants = [
 ];
 
 const definitions = [
+  {
+    exportName: 'AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-decision-request',
+    direction: 'output',
+    schema: AgentSessionDecisionRequestPortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf16_text_lengths', 'utf8_field_bytes', 'serialized_utf8_bytes', 'unique_choice_ids'],
+  },
+  {
+    exportName: 'AGENT_SESSION_DECISION_RESPONSE_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-decision-response',
+    direction: 'input',
+    schema: AgentSessionDecisionResponsePortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf8_field_bytes', 'serialized_utf8_bytes', 'offered_choice_membership'],
+  },
   {
     exportName: 'AGENT_ERROR_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.error',

@@ -20,6 +20,7 @@ const publicSurfaces = {
     '../failures/index.js',
     '../accountQuota/index.js',
     '../sessions/index.js',
+    '../sessionInteractions/index.js',
     '../turns/index.js',
     '../requests/index.js',
     '../operations/index.js',
@@ -38,6 +39,7 @@ const publicSurfaces = {
   ],
   'public/accountQuota.ts': ['../accountQuota/index.js'],
   'public/sessions.ts': ['../sessions/index.js'],
+  'public/sessionInteractions.ts': ['../sessionInteractions/index.js'],
   'public/turns.ts': ['../turns/index.js'],
   'public/requests.ts': ['../requests/index.js'],
   'public/operations.ts': ['../operations/index.js'],
@@ -56,6 +58,11 @@ const publicSurfaces = {
 };
 
 const equalityRecords = [
+  ['AgentSessionWorkspaceTarget', 'AgentSessionWorkspaceTargetSchema', 'sessionInteractions'],
+  ['AgentSessionDecisionConsequence', 'AgentSessionDecisionConsequenceSchema', 'sessionInteractions'],
+  ['AgentSessionDecisionChoice', 'AgentSessionDecisionChoiceSchema', 'sessionInteractions'],
+  ['AgentSessionDecisionRequest', 'AgentSessionDecisionRequestSchema', 'sessionInteractions'],
+  ['AgentSessionDecisionResponse', 'AgentSessionDecisionResponseSchema', 'sessionInteractions'],
   ['AgentEffectiveContentCatalog', 'AgentEffectiveContentCatalogSchema', 'effectiveContent'],
   ['AgentEffectiveContentDescriptor', 'AgentEffectiveContentDescriptorSchema', 'effectiveContent'],
   ['AgentCommandCatalog', 'AgentCommandCatalogSchema', 'commands'],
@@ -83,6 +90,8 @@ const equalityRecords = [
   ['AgentTurnRunInput', 'AgentTurnRunInputSchema', 'turns'],
   ['AgentTurnInterruptionInput', 'AgentTurnInterruptionInputSchema', 'turns'],
   ['AgentItemSnapshot', 'AgentItemSnapshotSchema', 'turns'],
+  ['AgentApprovalConsequence', 'AgentApprovalConsequenceSchema', 'requests'],
+  ['AgentApprovalCapability', 'AgentApprovalCapabilitySchema', 'capabilities'],
   ['AgentRequest', 'AgentRequestSchema', 'requests'],
   ['AgentRequestResolution', 'AgentRequestResolutionSchema', 'requests'],
   ['AgentOperationCatalog', 'AgentOperationCatalogSchema', 'operations'],

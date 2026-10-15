@@ -156,7 +156,7 @@ export function parseNativeParentPermissionProof(value: unknown): NativeParentPe
     const toolName = tool(callback.toolName), title = `agenai_delegation__${toolName}`;
     requireFact(request.prompt === title && request.subject.title === title && request.subject.itemId === item.itemId && item.title === title
       && request.options.length === 2 && !request.expiresAt && !request.subject.description
-      && request.options.every((option) => option.persistence === 'once' && option.scope.kind === 'exact_action' && !option.description
+      && request.options.every((option) => option.consequence.kind === 'scoped' && option.consequence.persistence === 'once' && option.consequence.scope.kind === 'exact_action' && !option.description
         && option.label === (option.decision === 'approved' ? 'allow once' : 'reject once')));
     const offered = request.options.filter((option) => option.decision === 'approved');
     requireFact(offered.length === 1 && offered[0]!.optionId === selected.optionId);

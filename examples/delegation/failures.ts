@@ -29,7 +29,7 @@ const input = (text: string) => ({ parts: [{ type: 'text' as const, text }] });
 
 async function openExample(root: string) {
   const provider = await createExampleProvider({ async *outputs(context, turn) {
-    const base = { protocolVersion: 10 as const, sessionId: context.sessionId, turnId: turn.turnId,
+    const base = { protocolVersion: 11 as const, sessionId: context.sessionId, turnId: turn.turnId,
       occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
     yield createAgentEventOutput({ ...base, type: 'turn.started', payload: {} });
     const scenario = turn.parts.find((part) => part.type === 'text')?.text;

@@ -8,17 +8,23 @@ import {
   type AcpUnknownExtensionPolicy,
 } from '@agen-ai/acp-transport';
 import { throwIfAgentOperationAborted } from '@agen-ai/agent-runtime';
-import type { AcpConnectionFactory, AcpConnectionFactoryContext, AcpConnectionLease } from '../contracts.js';
+import type { AcpConnectionFactoryContext, AcpConnectionLease } from '../contracts.js';
 import type { AcpProviderLimits } from '../limits.js';
-import type { AcpInitializedConnection, AcpSessionIngress } from './contracts.js';
+import type { AcpConnectionAcquisition, AcpInitializedConnection, AcpSessionIngress } from './contracts.js';
 import { AcpProviderConnectionError } from './errors.js';
 import { acquireAcpLease, releaseOwnedLease } from './acquire.js';
 import { readNegotiatedAgent } from './negotiation.js';
 import type { AcpAuthenticationMethods, AcpHostFacilities, AcpHostInteractionScope } from '../host/contracts.js';
 import { AcpHostRouter, type AcpBoundSession } from '../host/router.js';
+import { SessionInteractionBroker } from '../sessionInteractions/broker.js';
+import { createSessionInteractionExtensionRegistry } from '../sessionInteractions/extensions.js';
+import { GROK_FOLDER_TRUST_CAPABILITY_META, GROK_FOLDER_TRUST_METHOD } from '../sessionInteractions/grokFolderTrust.js';
+import type { AcpSessionInteractionSelection } from '../sessionInteractions/contracts.js';
+import { awaitHost } from '../host/lifecycle.js';
+import type { AcpPermissionMappingSelection } from '../permissions/contracts.js';
 
 export async function initializeAcpConnection(input: {
-  readonly createConnection: AcpConnectionFactory;
+  readonly source: AcpConnectionAcquisition;
   readonly unknownExtensionPolicy: AcpUnknownExtensionPolicy;
   readonly context: AcpConnectionFactoryContext;
   readonly limits: AcpProviderLimits;
@@ -26,6 +32,8 @@ export async function initializeAcpConnection(input: {
   readonly host?: AcpHostFacilities;
   readonly authentication?: AcpAuthenticationMethods;
   readonly configuration?: 'managed' | 'selectable';
+  readonly sessionInteractions?: AcpSessionInteractionSelection;
+  readonly permissionMapping?: AcpPermissionMappingSelection;
 }): Promise<AcpInitializedConnection> {
   throwIfAgentOperationAborted(input.context.signal);
   const initialization = new AbortController();
@@ -37,9 +45,14 @@ export async function initializeAcpConnection(input: {
     'acp_provider_initialization_timeout', 'ACP connection acquisition or initialization exceeded its deadline.',
   )), input.limits.initializationTimeoutMs);
   let lease: AcpConnectionLease;
+  const execution = input.source.kind === 'reserved' ? input.source.owner : undefined;
   try {
-    lease = await acquireAcpLease(input.createConnection, { ...input.context, signal: initialization.signal });
+    const context = { ...input.context, signal: initialization.signal };
+    lease = input.source.kind === 'factory'
+      ? await acquireAcpLease(input.source.create, context)
+      : await awaitHost(input.source.owner.start(context), initialization.signal);
     try { validateLease(lease, input.usedStreams); } catch (cause) {
+      if (execution) throw cause;
       try { await releaseOwnedLease(lease); } catch (cleanupError) {
         throw new AggregateError([cause, cleanupError], 'ACP lease validation and cleanup failed.');
       }
@@ -48,6 +61,10 @@ export async function initializeAcpConnection(input: {
   } catch (cause) {
     clearTimeout(timeout);
     input.context.signal?.removeEventListener('abort', onInitializationAbort);
+    if (execution) {
+      try { await execution.cleanup(); }
+      catch (cleanupError) { throw execution.retainedError(cause, cleanupError); }
+    }
     throw cause;
   }
   const stopped = new AbortController();
@@ -57,6 +74,7 @@ export async function initializeAcpConnection(input: {
   let closePromise: Promise<void> | undefined;
   let releasePromise: Promise<void> | undefined;
   let released = false;
+  let sessionInteractions: SessionInteractionBroker | undefined;
   const host = input.host ?? {};
   const router = new AcpHostRouter({ instanceId: input.context.instanceId, host, limits: input.limits,
     stopped: stopped.signal, ingress: () => ingress });
@@ -71,11 +89,13 @@ export async function initializeAcpConnection(input: {
   const stop = (reason: Error) => {
     if (!stopped.signal.aborted) stopped.abort(reason);
   };
-  const close = (): Promise<void> => {
+  const closeActual = (): Promise<void> => {
     if (!closePromise) {
       closePromise = Promise.resolve().then(async () => {
         try {
-          const cleanup = await Promise.allSettled([router.close(), ...(client ? [client.dispose()] : []), release()]);
+          // Start transport disposal and actual producer release before joining callbacks.
+          const stopping = [router.close(), ...(client ? [client.dispose()] : []), release()];
+          const cleanup = await Promise.allSettled([...stopping, ...(sessionInteractions ? [sessionInteractions.join()] : [])]);
           const failures = cleanup.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
           if (failures.length) throw new AggregateError(failures.map((result) => result.reason), 'ACP connection cleanup failed.');
         } finally {
@@ -87,23 +107,31 @@ export async function initializeAcpConnection(input: {
           initialization.signal.removeEventListener('abort', onAbort);
         }
       }).catch((error) => { closePromise = undefined; throw error; });
+      sessionInteractions?.stop({ kind: 'session_closed' });
       stop(new AcpProviderConnectionError('acp_provider_connection_closed', 'The ACP connection was closed.'));
     }
     return closePromise;
   };
-  const onPeerEnd = () => {
-    stop(new AcpProviderConnectionError('acp_provider_peer_closed', 'The ACP peer closed its stream.'));
-    void close().catch(() => undefined);
-  };
-  const onPeerError = (error: Error) => {
+  execution?.retainCleanup(closeActual);
+  const close = (): Promise<void> => execution ? execution.cleanup() : closeActual();
+  const fail = (error: Error): void => {
+    if (stopped.signal.aborted) return;
     stop(error);
     void close().catch(() => undefined);
   };
+  if (input.sessionInteractions) sessionInteractions = new SessionInteractionBroker({
+    stopped: stopped.signal, limits: input.limits, onFailure: fail,
+  });
+  const onPeerEnd = () => {
+    fail(new AcpProviderConnectionError('acp_provider_peer_closed', 'The ACP peer closed its stream.'));
+  };
+  const onPeerError = (error: Error) => {
+    fail(error);
+  };
   const onAbort = () => {
-    stop(initialization.signal.reason instanceof Error
+    fail(initialization.signal.reason instanceof Error
       ? initialization.signal.reason
       : new DOMException('ACP initialization was aborted.', 'AbortError'));
-    void close().catch(() => undefined);
   };
   lease.stdout.once('end', onPeerEnd);
   lease.stdout.once('close', onPeerEnd);
@@ -121,6 +149,7 @@ export async function initializeAcpConnection(input: {
       schemaChannel: 'stable',
       unknownExtensionPolicy: input.unknownExtensionPolicy,
       outboundRequestIdPrefix: 'agenai-acp-',
+      ...(sessionInteractions ? { extensions: createSessionInteractionExtensionRegistry() } : {}),
       limits: {
         maxInboundFrameBytes: Math.min(input.limits.maxQueuedBytes, 1_024 * 1_024),
         maxOutboundFrameBytes: Math.min(input.limits.maxQueuedBytes, 8 * 1_024 * 1_024),
@@ -139,40 +168,40 @@ export async function initializeAcpConnection(input: {
         'elicitation/complete': (notification) => router.complete(notification.params ?? null),
       },
       reverseRequestHandlers: {
+        ...(sessionInteractions ? { [GROK_FOLDER_TRUST_METHOD]: sessionInteractions.handleRequest } : {}),
         ...Object.fromEntries(['session/request_permission', 'elicitation/create', 'fs/read_text_file', 'fs/write_text_file',
           'terminal/create', 'terminal/output', 'terminal/wait_for_exit', 'terminal/kill', 'terminal/release']
           .map((method) => [method, (request: import('@agen-ai/acp-transport').AcpReverseRequestContext) => router.admit(request)])),
       },
-      onFatalError: (error) => {
-        stop(error);
-        void close().catch(() => undefined);
-      },
+      onFatalError: fail,
     });
     void client.closed.then((result) => {
-      stop(result.error ?? new AcpProviderConnectionError('acp_provider_connection_closed', 'The ACP connection stopped.'));
-      void close().catch(() => undefined);
+      fail(result.error ?? new AcpProviderConnectionError('acp_provider_connection_closed', 'The ACP connection stopped.'));
     });
     const response = await createAcpStandardSessionOperations(client).initialize({
       protocolVersion: 1,
       clientCapabilities: {
+        ...(sessionInteractions ? { _meta: GROK_FOLDER_TRUST_CAPABILITY_META } : {}),
         fs: { readTextFile: !!host.readTextFile, writeTextFile: !!host.writeTextFile },
         terminal: !!host.createTerminal,
         auth: { terminal: !!host.authenticateInTerminal && !!input.authentication?.terminal },
         elicitation: { form: {}, ...(host.url ? { url: {} } : {}) },
         ...(input.configuration === 'selectable' ? { session: { configOptions: { boolean: {} } } } : {}),
       },
-      clientInfo: { name: '@agen-ai/provider-acp', version: '0.4.0' },
+      clientInfo: { name: '@agen-ai/provider-acp', version: '0.4.1' },
     }, {
       timeoutMs: input.limits.initializationTimeoutMs,
       signal: initialization.signal,
     });
     if (stopped.signal.aborted) throw stopped.signal.reason;
-    const negotiated = readNegotiatedAgent(response);
+    const negotiated = readNegotiatedAgent(response, input.permissionMapping);
     initialization.signal.removeEventListener('abort', onAbort);
     return Object.freeze({
       client,
       negotiated,
       stopped: stopped.signal,
+      ...(execution ? { execution } : {}),
+      ...(sessionInteractions ? { sessionInteractions } : {}),
       bindSession: (binding: AcpBoundSession) => router.bindSession(binding),
       ...(host.form || host.url ? { hostElicitation: (context: import('@agen-ai/acp-transport').AcpReverseRequestContext) => router.sessionElicitation(context) } : {}),
       async requestWithScope(method: string, params: AcpJsonValue, scope: AcpHostInteractionScope, options: AcpRequestOptions = {}) {
@@ -192,7 +221,9 @@ export async function initializeAcpConnection(input: {
       close,
     });
   } catch (cause) {
+    if (execution?.cleanupFailure) throw execution.retainedError(cause, execution.cleanupFailure.error);
     try { await close(); } catch (cleanupError) {
+      if (execution) throw execution.retainedError(cause, cleanupError);
       throw new AggregateError([cause, cleanupError], 'ACP initialization and cleanup failed.');
     }
     throw cause;

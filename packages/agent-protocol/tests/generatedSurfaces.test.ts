@@ -34,6 +34,8 @@ import {
   safeParseAgentRequestResolution,
   safeParseAgentSessionBinding,
   safeParseAgentSessionConfiguration,
+  safeParseAgentSessionDecisionRequest,
+  safeParseAgentSessionDecisionResponse,
   safeParseAgentSessionOpenInput,
   safeParseAgentTurnInputContent,
   safeParseAgentTurnRunInput,
@@ -44,6 +46,7 @@ import {
   protocolTimestamp,
   providerCapabilityFixtures,
 } from './fixtures.js';
+import { sessionDecisionFixture } from './sessionInteractions.fixture.js';
 
 const packageManifest = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -81,6 +84,7 @@ test('package exports are explicit and complete', () => {
     './package.json',
     './requests',
     './resources',
+    './session-interactions',
     './sessions',
     './turns',
     './zod',
@@ -92,12 +96,12 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 27);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 29);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 10);
+    assert.equal(artifact.protocolVersion, 11);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -125,6 +129,18 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
     },
   } as const;
   const fixtures = [
+    {
+      contractId: 'agenai.agent-protocol.session-decision-request',
+      parser: safeParseAgentSessionDecisionRequest,
+      accepted: sessionDecisionFixture(),
+      rejected: { ...sessionDecisionFixture(), choices: [] },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-decision-response',
+      parser: safeParseAgentSessionDecisionResponse,
+      accepted: { choiceId: 'grant' },
+      rejected: { choiceId: 'grant', native: 'trust' },
+    },
     {
       contractId: 'agenai.agent-protocol.error',
       parser: safeParseAgentError,
@@ -209,8 +225,7 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
           optionId: 'approval:allow-once',
           label: 'Allow once',
           decision: 'approved',
-          persistence: 'once',
-          scope: { kind: 'exact_action' },
+          consequence: { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } },
         }],
       },
       rejected: { requestKind: 'unknown' },
@@ -225,6 +240,26 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
         optionId: 'approval:allow-once',
       },
       rejected: { requestKind: 'approval', requestId: 'request:1' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.request',
+      parser: safeParseAgentRequest,
+      accepted: {
+        requestKind: 'approval', requestId: 'request:remembered', prompt: 'Remember this decision?',
+        subject: { kind: 'tool', title: 'Run a tool', itemId: 'item:remembered' },
+        options: ['approved', 'denied'].map((decision) => ({
+          optionId: `remembered:${decision}`, label: 'Remember', decision,
+          consequence: { kind: 'provider_managed_remembrance', duration: { kind: 'unknown' },
+            applicability: { kind: 'unknown' }, explanation: 'x'.repeat(1_000) },
+        })),
+      },
+      rejected: {
+        requestKind: 'approval', requestId: 'request:remembered', prompt: 'Remember this decision?',
+        subject: { kind: 'tool', title: 'Run a tool', itemId: 'item:remembered' },
+        options: [{ optionId: 'remembered:approved', label: 'Remember', decision: 'approved',
+          consequence: { kind: 'provider_managed_remembrance', duration: { kind: 'unknown' },
+            applicability: { kind: 'unknown' }, explanation: 'x'.repeat(1_001) } }],
+      },
     },
     {
       contractId: 'agenai.agent-protocol.operation-catalog',
@@ -425,7 +460,33 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
       contractId: 'agenai.agent-protocol.capabilities',
       parser: safeParseAgentCapabilities,
       accepted: providerCapabilityFixtures.codex,
-      rejected: { ...providerCapabilityFixtures.codex, protocolVersion: 3 },
+      rejected: { ...providerCapabilityFixtures.codex, protocolVersion: 10 },
+    },
+    {
+      contractId: 'agenai.agent-protocol.capabilities',
+      parser: safeParseAgentCapabilities,
+      accepted: { ...providerCapabilityFixtures.codex, requests: {
+        ...providerCapabilityFixtures.codex.requests,
+        approval: { kind: 'supported', modes: [], providerManagedRemembrance: true },
+      } },
+      rejected: { ...providerCapabilityFixtures.codex, requests: {
+        ...providerCapabilityFixtures.codex.requests,
+        approval: { kind: 'supported', modes: [], providerManagedRemembrance: false },
+      } },
+    },
+    {
+      contractId: 'agenai.agent-protocol.capabilities',
+      parser: safeParseAgentCapabilities,
+      accepted: { ...providerCapabilityFixtures.codex, requests: {
+        ...providerCapabilityFixtures.codex.requests,
+        approval: { kind: 'supported', providerManagedRemembrance: false,
+          modes: ['once', 'session', 'workspace'].map((persistence) => ({ persistence, scopeKinds: ['exact_action'] })) },
+      } },
+      rejected: { ...providerCapabilityFixtures.codex, requests: {
+        ...providerCapabilityFixtures.codex.requests,
+        approval: { kind: 'supported', providerManagedRemembrance: false,
+          modes: ['once', 'session', 'workspace', 'workspace'].map((persistence) => ({ persistence, scopeKinds: ['exact_action'] })) },
+      } },
     },
     {
       contractId: 'agenai.agent-protocol.artifact-descriptor',
@@ -458,6 +519,8 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
   const ajv = new Ajv2020({
     allErrors: true,
     strict: true,
+    // Precise approval modes use a bounded head-plus-rest tuple.
+    strictTuples: false,
     validateFormats: false,
   });
 
@@ -530,6 +593,35 @@ test('turn JSON Schemas declare decoded inline-image byte-size parity', () => {
   }
 });
 
+test('session decision JSON Schema declares parser-only identity and encoding bounds', () => {
+  const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find(
+    (candidate) => candidate.contractId === 'agenai.agent-protocol.session-decision-request',
+  );
+  assert.ok(artifact);
+  const validate = new Ajv2020({ allErrors: true, strict: true, validateFormats: false }).compile(artifact.schema);
+  const request = sessionDecisionFixture();
+  const cases = [
+    { invariant: 'unique_choice_ids', value: { ...request, choices: [request.choices[0], request.choices[0]] } },
+    { invariant: 'utf16_text_lengths', value: { ...request, title: '😀'.repeat(61) } },
+    { invariant: 'utf8_field_bytes', value: { ...request, choices: [{ ...request.choices[0], choiceId: '界'.repeat(43) }] } },
+    {
+      invariant: 'serialized_utf8_bytes',
+      value: {
+        ...request,
+        description: '界'.repeat(4_000),
+        choices: Array.from({ length: 16 }, (_, index) => ({
+          ...request.choices[0], choiceId: `choice:${index}`, label: '界'.repeat(120), description: '界'.repeat(1_000),
+        })),
+      },
+    },
+  ];
+  for (const entry of cases) {
+    assert.ok(artifact.parserInvariants.some((invariant) => invariant === entry.invariant));
+    assert.equal(validate(entry.value), true, entry.invariant);
+    assert.equal(safeParseAgentSessionDecisionRequest(entry.value).success, false, entry.invariant);
+  }
+});
+
 test('capability JSON Schema publishes collection uniqueness and residual parser invariants', () => {
   const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find(
     (candidate) =>
@@ -563,6 +655,7 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
   const validate = new Ajv2020({
     allErrors: true,
     strict: true,
+    strictTuples: false,
     validateFormats: false,
   }).compile(artifact.schema);
   const fixture = providerCapabilityFixtures.fixture;
@@ -706,7 +799,7 @@ test('event JSON Schema declares residual semantic parser invariants', () => {
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 10,
+    protocolVersion: 11,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',

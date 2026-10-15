@@ -42,7 +42,7 @@ export const externalHostBinding: AgentSessionHostBinding = {
 };
 const capabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 10,
+  protocolVersion: 11,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -109,7 +109,7 @@ function providerSession(
     startTurn(input) {
       return { turnId: input.turnId, async resolveRequest() { return { status: "delivered" }; }, outputs: (async function* () {
       yield createAgentEventOutput({
-        protocolVersion: 10,
+        protocolVersion: 11,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -117,7 +117,7 @@ function providerSession(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 10,
+        protocolVersion: 11,
         type: "item.completed",
         sessionId,
         turnId: input.turnId,
@@ -125,7 +125,7 @@ function providerSession(
         payload: commandItem,
       });
       yield createAgentEventOutput({
-        protocolVersion: 10,
+        protocolVersion: 11,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,

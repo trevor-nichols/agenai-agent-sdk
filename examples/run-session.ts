@@ -119,7 +119,8 @@ export async function runExampleSession(
 export async function approveSyntheticRequest(request: AgentApprovalRequest): Promise<AgentApprovalResolution> {
   // Only the bundled credentialless peer uses this policy. Real hosts must obtain their own user/policy decision.
   const option = request.options.find((candidate) => candidate.decision === 'approved'
-    && candidate.persistence === 'once' && candidate.scope.kind === 'exact_action');
+    && candidate.consequence.kind === 'scoped' && candidate.consequence.persistence === 'once'
+    && candidate.consequence.scope.kind === 'exact_action');
   if (!option) throw new Error('The synthetic peer must offer a once-only exact-action approval.');
   return { requestKind: 'approval', requestId: request.requestId, disposition: 'selected', optionId: option.optionId };
 }

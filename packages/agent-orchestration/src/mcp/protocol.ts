@@ -43,7 +43,7 @@ export function mcpTools(binding: AgentSessionHostBinding): Tool[] {
 }
 
 export function createMcpProtocol(context: McpProtocolContext, tools: Tool[]) {
-  const protocol = new Server({ name: "agenai_delegation", version: "0.4.0" }, {
+  const protocol = new Server({ name: "agenai_delegation", version: "0.4.1" }, {
     capabilities: { tools: {} },
     ...(context.binding.instructions ? { instructions: context.binding.instructions.text } : {}),
   });

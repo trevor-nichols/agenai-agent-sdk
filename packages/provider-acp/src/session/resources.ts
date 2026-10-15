@@ -75,10 +75,12 @@ export class AcpSessionResources {
   close(): Promise<void> {
     if (this.closed) return Promise.resolve();
     this.lifetime.abort(new DOMException('ACP session resources were closed.', 'AbortError'));
+    const nativeCleanup = this.nativeClosed ? Promise.resolve() : this.input.connection.close();
+    void nativeCleanup.catch(() => {});
     // A deadline never abandons the actual acquisition/release attempt or permits an overlapping retry.
     this.cleanup ??= Promise.resolve().then(async () => {
       if (!this.nativeClosed) {
-        await this.input.connection.close();
+        await (this.input.connection.execution?.joinCleanup() ?? nativeCleanup);
         this.nativeClosed = true;
       }
       if (this.acquisition) {
@@ -92,7 +94,8 @@ export class AcpSessionResources {
       this.input.onReleased();
     }).finally(() => { this.cleanup = undefined; });
     const deadline = hostDeadline(new AbortController().signal, this.input.limits.hostOperationTimeoutMs);
-    return awaitHost(this.cleanup, deadline.signal).finally(() => { deadline.close(); });
+    return awaitHost(Promise.all([nativeCleanup, this.cleanup]).then(() => undefined), deadline.signal)
+      .finally(() => { deadline.close(); });
   }
 }
 

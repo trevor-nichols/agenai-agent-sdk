@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { parseAgentConfigurationRevisionId, parseAgentInstanceId, parseAgentProviderKey, parseAgentSessionId, parseAgentTurnId, type AgentEvent, type AgentRequest } from '@agen-ai/agent-protocol';
 import { createAgentProviderRegistry, type AgentProviderOutput } from '@agen-ai/agent-runtime';
-import { createAcpProviderDriver, type AcpProviderLimits } from '../../src/index.js';
+import { createAcpProviderDriver, type AcpPermissionMappingSelection, type AcpProviderLimits } from '../../src/index.js';
 import type { SessionPeer } from './session-peer.js';
 
 export const providerKey = parseAgentProviderKey('acp-session-fixture');
@@ -23,11 +23,12 @@ export const selection = (request: AgentRequest) => {
   assert.ok(option);
   return { requestKind: 'approval' as const, requestId: request.requestId, disposition: 'selected' as const, optionId: option.optionId };
 };
-export async function open(peer: SessionPeer, limits?: Partial<AcpProviderLimits>) {
-  const driver = createAcpProviderDriver({ providerKey, createConnection: () => peer.lease, limits });
+export async function open(peer: SessionPeer, limits?: Partial<AcpProviderLimits>, permissionMapping?: AcpPermissionMappingSelection) {
+  const driver = createAcpProviderDriver({ providerKey, createConnection: () => peer.lease, limits, permissionMapping });
   const registry = await createAgentProviderRegistry({ drivers: [driver], definitions: [definition] });
-  const session = await registry.requireInstance(definition.instanceId).adapter.createSession({
+  const instance = registry.requireInstance(definition.instanceId);
+  const session = await instance.adapter.createSession({
     sessionId: parseAgentSessionId('fixture:session'), workingDirectory: '/fixture', configuration, onBindingCreated() {},
   });
-  return { registry, session };
+  return { registry, session, capabilities: instance.capabilities };
 }

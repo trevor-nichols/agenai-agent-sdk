@@ -4,6 +4,99 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 `0.4.0`, the three core packages and four optional packages (orchestration, ACP transport, ACP provider
 and ACP registry) share one source version and a seven-package release inventory.
 
+## 0.4.1 - Unreleased
+
+This coordinated source update advances Agent Protocol to V11. All seven packages remain published
+at `0.4.0`; preparing, exporting and packing `0.4.1` does not publish it. See
+[MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before adopting the new lifecycle surface.
+
+### Added
+
+- Add the closed `AgentApprovalConsequence` union. Precise options carry a `scoped` consequence;
+  provider-managed remembrance carries explicit unknown duration and applicability with a bounded
+  explanation. Supported approval capabilities declare `providerManagedRemembrance`; existing
+  default once-only ACP mapping declares false.
+- Add constructor-selected ACP permission mappings: an exact Grok 1.0.50 edit profile and a bounded
+  complete-menu declaration for inspected peers. Both preserve exact native option IDs, unknown
+  remembered boundaries, remembered denial versus cancellation and the original output reader.
+  Selected identities and complete menus are validated; the default remains once-only.
+- Add core-only `examples/remembered-approvals.ts` and optional
+  `examples/remembered-approvals-acp.ts`, with matching example commands. The synthetic walkthroughs
+  display explicit unknown remembrance bounds, select exact offered IDs, retain the original output
+  reader and join cleanup. The controlled ACP peer records actual correlated replies for remembered
+  allow, remembered deny and cancellation; neither example claims native persistence. Packed
+  consumers compile and run the same sources, preserving the core-only three-package installation.
+- Add bounded neutral workspace decision requests, offered choices, explicit grant/decline
+  consequences and exact-choice parsers. Persistent provider-managed workspace grants declare
+  that they may affect other sessions; decline keeps configuration gated without promising
+  revocation or a persisted denial.
+- Add optional runtime `sessionInteractions` support per opening operation and request kind,
+  with an early `interactions.onRequest` handler, bound response receipts, presentation signals
+  and terminal observation. Opening can return with a live outside-turn decision and no model
+  turn. Omitted support remains unsupported and ordinary no-handler callers retain their path.
+- Bound retained requests/bytes, expiry, responses and cleanup observation. Preserve actual
+  callback, response and producer ownership through terminality; uncertainty fences mutation
+  without authorizing response replay. Failed opening and cleanup retain exact callable owners.
+- Add the explicit Node `grok-folder-trust-v1` create-only mapping for a genuine direct native
+  executable with exact `agent --no-leader stdio` arguments. It requires an early handler and a
+  host-supplied exclusive descendant-owning execution boundary before materialization. Injected
+  or shared connections, selected-profile resume/branch, interactive materialization and
+  outside-turn forms/authentication remain unsupported.
+- Add the typed `NodeAcpExecutionBoundary` reservation/start/release port and retained
+  `NodeAcpExecutionCleanupError`. Failed acquisition or initialization cleanup stays retryable
+  through the registry error's exact cause, including failure before a registry is returned.
+- Add a maintained typed Linux execution reference using systemd, cgroup v2 and Bubblewrap.
+  Controlled proof and independent close checkpoints cover its declared host/tooling tuple;
+  Linux dependencies remain outside the published packages and core imports.
+- Add `examples/lifecycle-interactions.ts` and `pnpm examples:lifecycle-interactions`, a core-only
+  credentialless walkthrough that retains a question after opening, answers its bound handle,
+  observes terminality and joins cleanup without invoking a turn. Packed consumer coverage uses
+  public entrypoints, including retained opening and startup-cleanup failures.
+
+### Changed
+
+- Advance serialized protocol envelopes to V11 and reject older live protocol values. Approval
+  options replace flat `persistence`/`scope` fields with `consequence`; adapters must update their
+  options and approval capability declaration together. Managed store contract and SQLite format
+  remain 3. Exact offered-ID selection, once-only response entry and receipt meaning are retained.
+
+### Fixed
+
+- Start native quiescence before joining session-interaction callbacks and entered responses.
+  Cleanup timeouts bound observation while retaining the actual cleanup and retry owner.
+- Preserve exact startup-cleanup errors through runtime registry materialization failures.
+  Successful request delivery or terminality no longer substitutes for workload cleanup.
+
+### Qualification
+
+- Qualify SDK03 remembered edits through the exact installed seven-package `0.4.1`/V11 set and
+  genuine Grok Build `1.0.50` (`c58f321264ba`) with the selected edit mapping. One session's
+  once-only edit, once-only repeat, remembered edit, exact repeat, neighboring owned file and
+  uncovered terminal action have request counts `[1, 1, 1, 0, 0, 1]`, exact native reply correlation
+  and actual fixture effects. An isolated loopback model fixture uses no real account credentials
+  or paid/backend inference. Each successful SDK close has an independent empty checkpoint of the
+  same physical cgroup before registry/host disposal, with the controller alive and no earlier
+  external intervention.
+- Qualify a separate retained-state SDK03 attempt with a fresh native process and native session:
+  the edit asks again and runs after its exact once-only answer. Process and session change together;
+  duration and applicability remain unknown. General matching, separate projects/profiles,
+  remembered denial, terminal remembrance and revocation remain unqualified. Exact native-used
+  archive/report identities are recorded in the
+  [provider README](packages/provider-acp/README.md#qualified-remembered-edit-scope-sdk03).
+- Preserve the earlier SDK02 grant, decline and pending-close qualification for its distinct
+  retained `0.4.1`/V10 artifacts and exact Grok Build `1.0.50`
+  (`c58f321264ba`), no-leader Node mapping, modern stable ACP `schema-v1.23.0`, API-key,
+  Linux x86_64 kernel `7.0.0-38-generic`, Node `24.18.0` and frozen execution/dependency tuple.
+  Grant has separate vendor-file effect proof; decline proves local delivery and absence of
+  grant. Each SDK close has an independent same-cgroup empty checkpoint while the consumer is
+  alive, followed by host retirement without external intervention.
+- For that SDK02 session-lifetime proof, keep native wire correlation and prompt counts unobserved.
+  Separate controlled peers prove
+  wire behavior and no-prompt execution, while frozen native consumers invoke no SDK turn.
+  Later documentation or packing can change archive identities; new `0.4.1` tarballs are not
+  automatically the retained native-qualified artifacts. This scope grants no publication,
+  consumer application integration, other pairing or private execution qualification.
+
 ## 0.4.0 - 2026-10-13
 
 This coordinated release advances Agent Protocol from V9 to V10 while preserving explicit entrypoints

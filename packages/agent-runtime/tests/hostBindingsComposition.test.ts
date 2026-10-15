@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseAgentCapabilities } from "@agen-ai/agent-protocol";
+import { parseAgentCapabilities, parseAgentSessionDecisionRequest } from "@agen-ai/agent-protocol";
 
 import {
   AgentProviderHostBindingCleanupError,
@@ -14,10 +14,12 @@ import {
   validateAgentProviderAdapter,
   type AgentProviderDriver,
   type AgentProviderSession,
+  type AgentSessionInteractionTerminal,
 } from "../src/index.js";
 import { createFakeAgentProvider } from "../src/testing/index.js";
 import {
   createHarness,
+  deferred,
   hasContractCode,
   invoke,
   makeBinding,
@@ -43,6 +45,48 @@ test("registry composition with a prevalidated adapter preserves one binding own
       await harness.registry.dispose();
     });
   }
+});
+
+test("rejected session cleanup joins the real interaction callback before releasing its host binding", async () => {
+  const callback = deferred<void>();
+  const terminal = deferred<AgentSessionInteractionTerminal>();
+  const nativeClosed = deferred<void>();
+  const events: string[] = [];
+  const harness = await createHarness({
+    transformAdapter: (adapter) => ({ ...adapter, createSession: (input) => adapter.createSession(input), sessionInteractions: {
+      kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+    } }),
+    beforeOpen(context) {
+      assert.ok(context.interactions);
+      const completion = context.interactions.onRequest({
+        request: parseAgentSessionDecisionRequest({ kind: "decision", requestId: "rejected-session-decision", sessionId: context.sessionId,
+          title: "Workspace configuration", target: { kind: "workspace", path: "/host/workspace" },
+          expiresAt: new Date(Date.now() + 60_000).toISOString(), choices: [{ choiceId: "leave-gated", label: "Leave gated",
+            description: "Keep workspace configuration gated.", consequence: { kind: "decline", configuration: "remains_gated" } }] }),
+        signal: new AbortController().signal, terminal: terminal.promise,
+        async respond() { throw new Error("The rejected opening must never receive a decision."); },
+      });
+      assert.equal(completion, callback.promise, "The facade must expose actual callback completion to the adapter.");
+    },
+    transformSession(session) {
+      return Object.assign({ ...session, async close(input: Parameters<AgentProviderSession["close"]>[0]) {
+        await session.close(input);
+        terminal.resolve({ kind: "session_closed" });
+        events.push("native_closed");
+        nativeClosed.resolve();
+      } }, { invalidExtraPort: true });
+    },
+  });
+  const host = makeBinding({ events });
+  const opening = harness.open("create", host.binding, { interactions: { onRequest: () => callback.promise } });
+  const rejected = assert.rejects(Promise.resolve(opening), hasContractCode("invalid_session"));
+  await nativeClosed.promise;
+  assert.equal(host.releaseCount(), 0);
+  assert.deepEqual(events, ["native_closed"]);
+  callback.resolve();
+  await rejected;
+  assert.deepEqual(events, ["native_closed", "host_release"]);
+  await harness.registry.dispose();
 });
 
 test("registry revalidation applies current capabilities to a previously validated adapter", async () => {

@@ -19,6 +19,8 @@ import {
   parseAgentSessionId,
   parseAgentTurnId,
   type AgentCapabilities,
+  type AgentApprovalConsequence,
+  type AgentApprovalRequest,
   type AgentEvent,
   type AgentRequest,
   type AgentTurnId,
@@ -50,7 +52,7 @@ const configuration = {
 
 const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 10,
+  protocolVersion: 11,
   providerKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -88,7 +90,7 @@ const approvalCapabilities = parseAgentCapabilities({
   ...baseCapabilities,
   requests: {
     approval: {
-      kind: "supported",
+      kind: "supported", providerManagedRemembrance: false,
       modes: [{ persistence: "once", scopeKinds: ["exact_action"] }],
     },
     elicitation: { kind: "unsupported" },
@@ -143,15 +145,13 @@ function approvalRequest(input: {
         optionId: allowOnceOptionId,
         label: "Allow",
         decision: "approved",
-        persistence: input.persistence ?? "once",
-        scope: { kind: input.scopeKind ?? "exact_action" },
+        consequence: { kind: 'scoped', persistence: input.persistence ?? "once", scope: { kind: input.scopeKind ?? "exact_action" } },
       },
       {
         optionId: denyOnceOptionId,
         label: "Deny",
         decision: "denied",
-        persistence: "once",
-        scope: { kind: "exact_action" },
+        consequence: { kind: 'scoped', persistence: "once", scope: { kind: "exact_action" } },
       },
     ],
     ...(input.expiresAt === undefined ? {} : { expiresAt: input.expiresAt }),
@@ -164,7 +164,7 @@ function event<TType extends AgentEvent["type"]>(
   payload: Extract<AgentEvent, { readonly type: TType }>["payload"],
 ) {
   return createAgentEventOutput({
-    protocolVersion: 10,
+    protocolVersion: 11,
     sessionId,
     turnId,
     occurredAt,
@@ -247,6 +247,92 @@ function waitingApprovalOutputs(turnId: AgentTurnId, request: AgentRequest) {
 // ------------------------------------------------------------------------------------------------
 //                Approval Refusal Boundaries
 // ------------------------------------------------------------------------------------------------
+
+const rememberedConsequence: AgentApprovalConsequence = {
+  kind: "provider_managed_remembrance",
+  duration: { kind: "unknown" },
+  applicability: { kind: "unknown" },
+  explanation: "The provider remembers this decision with unknown duration and applicability.",
+};
+
+test("checks every offered consequence before exposing an answerable approval", async () => {
+  const source = approvalRequest({ requestId: parseAgentRequestId("request:remembered-refusal") });
+  const remembered = { ...source, options: source.options.map((option) => ({ ...option, consequence: rememberedConsequence })) };
+  const mixed = { ...source, options: [...source.options.slice(0, 1), ...remembered.options.slice(1)] };
+  const rememberedOnly = parseAgentCapabilities({
+    ...baseCapabilities,
+    requests: { ...baseCapabilities.requests,
+      approval: { kind: "supported", modes: [], providerManagedRemembrance: true } },
+  });
+  for (const [name, capabilities, request] of [
+    ["precise-only", approvalCapabilities, mixed],
+    ["remembered-only", rememberedOnly, mixed],
+    ["unsupported", baseCapabilities, remembered],
+  ] as const) {
+    const turnId = parseAgentTurnId(`turn:remembered-refusal:${name}`);
+    const answers: unknown[] = [];
+    const opened = await openSession(capabilities, candidateSession({
+      startTurn: fixtureTurn(async function* () {
+        yield* waitingApprovalOutputs(turnId, request);
+      }, async function* (answer) { answers.push(answer.resolution); }),
+    }));
+    const execution = opened.startTurn({ turnId, interactionMode: "default",
+      parts: [{ type: "text", text: "Reject unsupported consequences." }] });
+    const iterator = execution.outputs[Symbol.asyncIterator]();
+    const visible = [await iterator.next(), await iterator.next()];
+    assert.deepEqual(visible.map((entry) => !entry.done && entry.value.kind === "event" ? entry.value.event.type : null),
+      ["turn.started", "item.started"]);
+    await assert.rejects(iterator.next(), (error: unknown) => error instanceof AgentProviderContractError
+      && error.code === "output_capability_mismatch", name);
+    await assert.rejects(execution.resolveRequest({ resolution: {
+      requestKind: "approval", requestId: request.requestId, disposition: "selected", optionId: allowOnceOptionId,
+    } }), (error: unknown) => error instanceof AgentProviderContractError);
+    assert.deepEqual(answers, [], name);
+    await opened.close({ reason: "idle" });
+  }
+});
+
+test("remembered approval and denial retain exact selection and the original pending reader", async () => {
+  for (const selectedId of [allowOnceOptionId, denyOnceOptionId]) {
+    const turnId = parseAgentTurnId(`turn:remembered:${selectedId}`);
+    const source = approvalRequest({ requestId: parseAgentRequestId(`request:remembered:${selectedId}`) });
+    const request: AgentApprovalRequest = { ...source, options: source.options.map((option) => ({ ...option, consequence: rememberedConsequence })) };
+    const capabilities = parseAgentCapabilities({ ...baseCapabilities, requests: {
+      ...baseCapabilities.requests, approval: { kind: "supported", modes: [], providerManagedRemembrance: true },
+    } });
+    const answers: unknown[] = [];
+    let starts = 0;
+    const opened = await openSession(capabilities, candidateSession({
+      startTurn: fixtureTurn(async function* () {
+        starts += 1;
+        yield* waitingApprovalOutputs(turnId, request);
+      }, async function* ({ resolution }) {
+        answers.push(resolution);
+        yield event(turnId, "turn.completed", { outcome: "completed" });
+      }),
+    }));
+    const execution = opened.startTurn({ turnId, interactionMode: "default",
+      parts: [{ type: "text", text: "Choose an offered remembered consequence." }] });
+    const iterator = execution.outputs[Symbol.asyncIterator]();
+    const visible = [await iterator.next(), await iterator.next(), await iterator.next(), await iterator.next()];
+    const requestOutput = visible[2];
+    assert.deepEqual(!requestOutput?.done && requestOutput?.value.kind === "event" ? requestOutput.value.event.payload : null,
+      { request });
+    const pending = iterator.next();
+    const resolution = { requestKind: "approval" as const, requestId: request.requestId,
+      disposition: "selected" as const, optionId: selectedId };
+    assert.deepEqual(await execution.resolveRequest({ resolution }), { status: "delivered" });
+    assert.deepEqual(answers, [resolution]);
+    await assert.rejects(execution.resolveRequest({ resolution }), (error: unknown) =>
+      error instanceof AgentProviderContractError && error.code === "request_resolution_mismatch");
+    const terminal = await pending;
+    assert.deepEqual(!terminal.done && terminal.value.kind === "event" ? terminal.value.event.payload : null,
+      { outcome: "completed" });
+    assert.deepEqual(await iterator.next(), { done: true, value: undefined });
+    assert.equal(starts, 1);
+    await opened.close({ reason: "idle" });
+  }
+});
 
 test("refuses unoffered and expired approval choices before provider delegation", async () => {
   const scenarios = [

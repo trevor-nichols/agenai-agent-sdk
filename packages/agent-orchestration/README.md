@@ -1,8 +1,10 @@
 # @agen-ai/agent-orchestration
 
 Optional managed delegation for applications using the AgenAI coding-agent SDK, at coordinated
-version `0.4.0`. This package sits above
-`@agen-ai/agent-runtime`. Core runtime consumers do not depend on it.
+source version `0.4.1` (unpublished; the published release is `0.4.0`). This package sits above
+`@agen-ai/agent-runtime`. Core runtime consumers do not depend on it. Current source uses Agent
+Protocol V11; the published `0.4.0` release uses V10. Managed store contract and SQLite format
+remain 3; retained historical requests cannot reconstruct live reply authority.
 
 The current implementation provides bounded target catalogs, a pure developer/user policy resolver,
 managed task coordination, a volatile store and host-injected completion delivery. A separately

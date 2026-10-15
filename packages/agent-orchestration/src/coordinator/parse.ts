@@ -2,6 +2,7 @@
 //                parse.ts - Bounded public coordinator input capture
 // ------------------------------------------------------------------------------------------------
 
+import type { AgentRequestResolution } from "@agen-ai/agent-protocol";
 import { AgentRequestResolutionSchema, AgentTurnInputContentSchema } from "@agen-ai/agent-protocol/zod";
 import { z } from "zod/v4";
 import { copyBoundedDelegationData } from "../shared/bounds.js";
@@ -53,4 +54,4 @@ export function parseSendTaskInput(input: unknown, limits: DelegationLimits): De
 
 export const parseOperationId = (input: unknown): string => parseCoordinatorInput(operation, input);
 export const parseTaskId = (input: unknown): string => parseCoordinatorInput(z.uuid(), input);
-export const parseRequestResolution = (input: unknown) => parseCoordinatorInput(AgentRequestResolutionSchema, input);
+export const parseRequestResolution = (input: unknown): AgentRequestResolution => parseCoordinatorInput(AgentRequestResolutionSchema, input);

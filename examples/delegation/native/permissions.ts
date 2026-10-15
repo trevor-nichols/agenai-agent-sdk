@@ -27,7 +27,7 @@ export function selectManagedParentPermission(request: AgentApprovalRequest, ite
       : (() => { throw new NativeQualificationError('approval_not_authorized'); })();
   const approved = request.options.filter((option) => option.decision === 'approved');
   const option = approved[0];
-  if (approved.length !== 1 || !option || option.label !== 'allow once' || option.persistence !== 'once'
-    || option.scope.kind !== 'exact_action') throw new NativeQualificationError('approval_not_authorized');
+  if (approved.length !== 1 || !option || option.label !== 'allow once' || option.consequence.kind !== 'scoped' || option.consequence.persistence !== 'once'
+    || option.consequence.scope.kind !== 'exact_action') throw new NativeQualificationError('approval_not_authorized');
   return { toolName, option, item, itemStatus: item.status };
 }

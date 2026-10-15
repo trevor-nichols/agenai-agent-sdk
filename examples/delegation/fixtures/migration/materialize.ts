@@ -5,14 +5,16 @@ import { join } from 'node:path';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import fixture from './legacy-v1.json' with { type: 'json' };
 import formatTwo from './legacy-v2.json' with { type: 'json' };
+import formatThree from '../history/retained-v3.json' with { type: 'json' };
 
-export { fixture as legacyFixture, formatTwo as formatTwoFixture };
+export { fixture as legacyFixture, formatTwo as formatTwoFixture, formatThree as formatThreeFixture };
 
 /** Reconstructs the actual old producer's serialized values, verifying every original padded blob digest. */
 export function materializeLegacyStore(root: string): void { materialize(root, fixture); }
 export function materializeFormatTwoStore(root: string): void { materialize(root, formatTwo); }
+export function materializeFormatThreeStore(root: string): void { materialize(root, formatThree); }
 
-function materialize(root: string, retained: typeof fixture | typeof formatTwo): void {
+function materialize(root: string, retained: typeof fixture | typeof formatTwo | typeof formatThree): void {
   mkdirSync(root, { mode: 0o700, recursive: true });
   chmodSync(root, 0o700);
   for (const name of ['task', 'owner'] as const) {

@@ -31,9 +31,10 @@ if (process.env.ACP_FIXTURE_MODE === 'ignore_term') {
   process.on('SIGTERM', () => log({ type: 'ignored_term' }));
 }
 const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
+let permissionPrompt;
 for await (const line of createInterface({ input: process.stdin })) {
   const message = JSON.parse(line);
-  log({ type: 'received', method: message.method, params: message.params });
+  log({ type: 'received', method: message.method, params: message.params, id: message.id, result: message.result });
   if (message.method === 'initialize') {
     if (process.env.ACP_FIXTURE_MODE === 'unknown_extension') send({ jsonrpc: '2.0', method: '_x.ai/mcp/servers_updated', params: { servers: [] } });
     if (process.env.ACP_FIXTURE_MODE === 'malformed') process.stdout.write('{bad-json}\n');
@@ -41,8 +42,18 @@ for await (const line of createInterface({ input: process.stdin })) {
   } else if (message.method === 'session/new') {
     send({ jsonrpc: '2.0', id: message.id, result: { sessionId: `native:${process.pid}` } });
   } else if (message.method === 'session/prompt') {
+    if (process.env.ACP_FIXTURE_MODE === 'remembered_permission') {
+      permissionPrompt = message.id;
+      send({ jsonrpc: '2.0', id: 'node:permission', method: 'session/request_permission', params: {
+        sessionId: message.params.sessionId, toolCall: { toolCallId: 'node:edit', title: 'Edit file', kind: 'edit', status: 'in_progress' },
+        options: [{ optionId: 'native:node-remember', name: 'Allow permanently', kind: 'allow_always' }],
+      } });
+      continue;
+    }
     send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: message.params.sessionId, update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'fixture output' } } } });
     send({ jsonrpc: '2.0', id: message.id, result: { stopReason: 'end_turn' } });
+  } else if (message.id === 'node:permission' && !message.method) {
+    send({ jsonrpc: '2.0', id: permissionPrompt, result: { stopReason: 'end_turn' } });
   }
 }
 if (process.env.ACP_FIXTURE_MODE === 'ignore_term') setInterval(() => {}, 1_000);

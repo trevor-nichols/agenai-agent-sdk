@@ -319,15 +319,13 @@ test('approval and structured elicitation requests are strict discriminated valu
         optionId: 'approval:allow-once',
         label: 'Allow once',
         decision: 'approved',
-        persistence: 'once',
-        scope: { kind: 'exact_action' },
+        consequence: { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } },
       },
       {
         optionId: 'approval:deny-once',
         label: 'Deny',
         decision: 'denied',
-        persistence: 'once',
-        scope: { kind: 'exact_action' },
+        consequence: { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } },
       },
     ],
   } as const;

@@ -112,6 +112,31 @@ test("registry rejects duplicate providers and instance definitions before mater
   assert.equal(fake.snapshot().materializationCount, 0);
 });
 
+test("registry preserves a rejected materialization's cause while disposing earlier instances", async () => {
+  const first = createFakeAgentProvider({ providerKey: "first-provider", instanceId: "first-instance" });
+  const failure = new Error("Provider startup failed with retained cleanup ownership");
+  const providerKey = parseAgentProviderKey("startup-failure-provider");
+  const instanceId = parseAgentInstanceId("startup-failure-instance");
+  const driver = defineAgentProviderDriver({
+    providerKey,
+    supportsMultipleInstances: true,
+    parseConfiguration: () => ({}),
+    createInstance: () => { throw failure; },
+  });
+
+  await assert.rejects(createAgentProviderRegistry({
+    drivers: [first.driver, driver],
+    definitions: [first.definition, { providerKey, instanceId, driverConfiguration: {} }],
+  }), (error: unknown) => {
+    assert.ok(error instanceof AgentProviderRegistryError);
+    assert.equal(error.code, "instance_materialization_failed");
+    assert.equal(error.instanceId, instanceId);
+    assert.equal(error.cause, failure);
+    return true;
+  });
+  assert.equal(first.snapshot().instanceDisposeCount, 1);
+});
+
 test("registry rejects malformed raw drivers before catalog publication", async () => {
   const fake = createFakeAgentProvider();
   const invalidDrivers = [
@@ -155,7 +180,7 @@ test("registry validates materialized instance identity and capability ownership
       instanceId: parseAgentInstanceId("another-instance"),
       capabilities: parseAgentCapabilities({
         environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-        protocolVersion: 10,
+        protocolVersion: 11,
         providerKey,
         sessions: {
           create: true,
@@ -260,7 +285,7 @@ test("registry cleans earlier instances when a rejected instance also fails clea
       instanceId: parseAgentInstanceId("wrong-instance"),
       capabilities: parseAgentCapabilities({
         environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-        protocolVersion: 10,
+        protocolVersion: 11,
         providerKey,
         sessions: {
           create: true,

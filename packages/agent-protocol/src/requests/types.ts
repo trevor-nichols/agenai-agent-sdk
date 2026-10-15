@@ -65,13 +65,25 @@ export type AgentApprovalSubject =
       itemId: AgentItemId;
     }>);
 
+export type AgentApprovalConsequence =
+  | Readonly<{
+      kind: 'scoped';
+      persistence: AgentApprovalPersistence;
+      scope: Readonly<{ kind: AgentApprovalScopeKind }>;
+    }>
+  | Readonly<{
+      kind: 'provider_managed_remembrance';
+      duration: Readonly<{ kind: 'unknown' }>;
+      applicability: Readonly<{ kind: 'unknown' }>;
+      explanation: string;
+    }>;
+
 export interface AgentApprovalOption {
   readonly optionId: AgentApprovalOptionId;
   readonly label: string;
   readonly description?: string;
   readonly decision: 'approved' | 'denied';
-  readonly persistence: AgentApprovalPersistence;
-  readonly scope: Readonly<{ kind: AgentApprovalScopeKind }>;
+  readonly consequence: AgentApprovalConsequence;
 }
 
 export interface AgentApprovalRequest {

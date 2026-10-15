@@ -50,8 +50,9 @@ test('concurrent native permissions retain one prompt, FIFO requests and unrelat
   const firstRequest = requestFrom(first);
   assert.equal(firstRequest.requestKind, 'approval');
   if (firstRequest.requestKind !== 'approval') throw new Error('Expected approval.');
-  assert.deepEqual(firstRequest.options.map((option) => [option.decision, option.persistence, option.scope.kind]), [
-    ['approved', 'once', 'exact_action'], ['denied', 'once', 'exact_action'],
+  assert.deepEqual(firstRequest.options.map((option) => [option.decision, option.consequence]), [
+    ['approved', { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } }],
+    ['denied', { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } }],
   ]);
   for (;;) {
     const next = await iterator.next();

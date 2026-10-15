@@ -5,11 +5,46 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { createAgentEventOutput } from "@agen-ai/agent-runtime";
+import { AgentProviderContractError, createAgentEventOutput, type AgentProviderCreateSessionInput } from "@agen-ai/agent-runtime";
 import type { DelegationOperationRecord } from "../src/index.js";
 import { createExecutionHarness, waitFor } from "./fixtures/execution/harness.js";
 import { bindingSupport, ownedBinding } from "./fixtures/execution/binding.js";
 import { completedTurn, eventBase, mapTurnOutputs } from "./fixtures/execution/provider.js";
+
+test("a provider requiring session setup rejects managed preparation without a handler or turn request", { timeout: 10_000 }, async (t) => {
+  const binding = ownedBinding();
+  const openings: AgentProviderCreateSessionInput[] = [];
+  const harness: Awaited<ReturnType<typeof createExecutionHarness>> = await createExecutionHarness({ binding: () => binding.binding,
+    provider: { transformAdapter(adapter) {
+      return { ...adapter, hostBinding: bindingSupport, sessionInteractions: {
+        kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+      }, createSession(input: AgentProviderCreateSessionInput) {
+        openings.push(input);
+        if (input.interactions === undefined) throw new AgentProviderContractError(harness.provider.definition.providerKey,
+          "invalid_session_interaction", "This provider requires an explicit session interaction handler.");
+        return adapter.createSession(input);
+      } };
+    } },
+  });
+  t.after(() => harness.close());
+  const admitted = await harness.spawn();
+  const settled = await harness.client.wait({ taskId: admitted.taskId, timeoutMs: 1_000 });
+  assert.equal(settled.status, "settled");
+  assert.equal(settled.task.runs.items[0]?.outcome?.kind, "failed");
+  const run = settled.task.runs.items[0];
+  assert.equal(run?.preparation, "none");
+  assert.equal(run?.dispatch, "none");
+  assert.equal(run?.pendingRequest, undefined);
+  assert.equal(openings.length, 1, "The actual provider opening must reject the absent setup handler.");
+  assert.equal(openings[0]!.interactions, undefined);
+  assert.deepEqual(harness.provider.fake.snapshot().createdSessionIds, []);
+  assert.deepEqual([harness.provider.calls.turns.length, harness.provider.calls.resolutions.length, harness.requests.length], [0, 0, 0]);
+  assert.deepEqual([binding.releases(), harness.resourceReleases(), harness.grantReleases()], [1, 1, 1]);
+  const operations = await harness.store.read({ kind: "operations", taskId: admitted.taskId, runId: admitted.runId });
+  assert.equal(operations.kind, "operations");
+  assert.equal(operations.page.items.find((operation) => operation.kind === "prepare")?.disposition, "rejected");
+  assert.equal(operations.page.items.some((operation) => operation.kind === "request_resolution" || operation.kind === "turn"), false);
+});
 
 test("paired cleanup intents precede the exact runtime close and complete only after native quiescence", { timeout: 10_000 }, async (t) => {
   const events: string[] = [];

@@ -1,7 +1,8 @@
 # @agen-ai/acp-registry
 
 Optional ACP catalog validation, search, immutable planning and verified installation for Node.js 22 or newer.
-The coordinated SDK version is `0.4.0`. The package is ESM, MIT licensed and side-effect-free on import.
+The coordinated source SDK version is `0.4.1` and remains unpublished; the published
+release is `0.4.0`. The package is ESM, MIT licensed and side-effect-free on import.
 The metadata graph depends only on `@agen-ai/validation` and exact `zod@4.4.3`. Explicit Node
 installation uses pinned tar, ZIP and bzip2 readers. Public contracts are plain TypeScript values
 and AgenAI validation issues, with no exposed Zod schemas or Agent Runtime dependency.
@@ -254,6 +255,32 @@ The provider launcher supplies no sandbox, account credentials or filesystem/net
 The registry is also usable without the provider package when another explicit process owner
 consumes the verified launch recipe.
 
+The `0.4.1` session-interaction API extends the same dependency rule to decisions
+outside a turn. Register the runtime handler before opening and retain the exact
+installation reference while a decision is pending, after a local response receipt,
+and through session close and callback/native cleanup. An `answered`, `expired`,
+`session_closed` or uncertain terminal does not release the reference. An uncertain
+choice must never be replayed as part of installation or process recovery.
+
+The optional Node `grok-folder-trust-v1` mapping requires an explicitly supplied
+`executionBoundary` before materialization. The registry verifies installation
+identity and returns a launch recipe; it supplies no process containment or
+session-interaction policy. Use the provider's
+[execution ownership guidance](../provider-acp/README.md#reserved-execution-ownership)
+and the maintained [Linux reference](../../examples/execution/linux/README.md)
+when composing that selected profile. Its exact local native qualification does
+not qualify all registry-installed agents or other platforms.
+
+If registry construction fails before returning a registry, preserve the original
+`AgentProviderRegistryError.cause`. A retained `NodeAcpExecutionCleanupError` there
+keeps the startup cleanup callable; invoke its `retryCleanup()` and retain the
+external host and installation reference until native shutdown and entered
+callbacks have actually joined. For a failed session opening, retain the exact
+`AgentProviderSessionCleanupError` associated with that input object; for a returned
+session, retain its close owner. Releasing a reference or deleting the store cannot
+repair incomplete provider cleanup, and serializing an error does not preserve
+the callable owner.
+
 Installation and launch require the current OS/architecture to match the plan. The caller supplies
 an absent store directory under an existing owned parent, or reopens a valid owned store. Foreign
 and substituted roots fail closed. The library creates a private stage, verifies every retained file,
@@ -317,7 +344,7 @@ network confinement; execution of arbitrary install scripts is deliberately unsu
 4,096-byte paths, three download redirects, two-minute artifact/tool deadlines, 1 MiB combined tool
 output, 16 MiB receipts and 1,024 active references. Larger values remain bounded by package ceilings.
 Errors use `AcpInstallationError` with stable `code`; malformed plans retain registry validation issues.
-Registry and installation failures remain distinct from Agent Protocol V10 operational failures and
+Registry and installation failures remain distinct from Agent Protocol V11 operational failures and
 provider retry observations. This package has no runtime dependency or policy for retrying an agent
 turn; retained installation integrity and process quiescence do not settle uncertain native execution.
 

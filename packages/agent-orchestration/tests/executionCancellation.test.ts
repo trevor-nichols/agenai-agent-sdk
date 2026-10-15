@@ -196,6 +196,40 @@ test("policy revocation between resource acquisition and runtime claim cleans th
   assert.deepEqual(events, ["binding_released", "resources_released"]);
 });
 
+test("canceling preparation retains an acquired child lease until its late delivery and releases it without opening", { timeout: 10_000 }, async (t) => {
+  const acquired = deferred<void>();
+  const deliver = deferred<void>();
+  const binding = ownedBinding();
+  let acquisitionSignal: AbortSignal | undefined;
+  const harness = await createExecutionHarness({ binding: () => binding.binding,
+    provider: { transformAdapter(adapter) { return { ...adapter, hostBinding: bindingSupport }; } },
+    host(base) { return { async acquireChildResources(input) {
+      const resources = await base.acquireChildResources(input);
+      acquisitionSignal = input.signal;
+      acquired.resolve();
+      await deliver.promise;
+      return resources;
+    } }; },
+  });
+  t.after(async () => { deliver.resolve(); await harness.close(); });
+  const admitted = await harness.spawn();
+  await acquired.promise;
+  const cancellation = await harness.client.cancel({ operationId: randomUUID(), taskId: admitted.taskId });
+  assert.equal(cancellation.status, "requested");
+  assert.equal(acquisitionSignal?.aborted, true);
+  assert.equal((await harness.client.inspect({ taskId: admitted.taskId })).runs.items[0]?.phase, "preparing");
+  assert.deepEqual([binding.releases(), harness.resourceReleases(), harness.grantReleases()], [0, 0, 0]);
+  deliver.resolve();
+  const settled = await harness.client.wait({ taskId: admitted.taskId, timeoutMs: 1_000 });
+  assert.equal(settled.status, "settled");
+  assert.equal(settled.task.runs.items[0]?.cancelRequested, true);
+  assert.equal(settled.task.runs.items[0]?.dispatch, "none");
+  assert.equal(settled.task.runs.items[0]?.pendingRequest, undefined);
+  assert.deepEqual([harness.provider.contexts.length, harness.provider.calls.turns.length, harness.provider.calls.resolutions.length, harness.requests.length], [0, 0, 0, 0]);
+  assert.deepEqual([binding.releases(), harness.resourceReleases(), harness.grantReleases()], [1, 1, 1]);
+  assert.deepEqual(harness.events, ["execution_acquired", "resources_acquired", "resources_released", "execution_released"]);
+});
+
 test("an accepted interruption without a terminal confirmation stays recovery_required", { timeout: 10_000 }, async (t) => {
   const finish = deferred<void>();
   const entered = deferred<void>();

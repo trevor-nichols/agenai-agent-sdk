@@ -9,11 +9,11 @@ test('a stopped listener reentering connection close shares the published cleanu
   const peer = createStreamPeer();
   let releases = 0;
   const connection = await initializeAcpConnection({
-    createConnection: () => ({
+    source: { kind: 'factory', create: () => ({
       ...peer.lease, ownership: 'owned', release() {
         releases += 1; peer.stdout.destroy(); peer.stdin.destroy();
       },
-    }),
+    }) },
     context: { instanceId: parseAgentInstanceId('connection:fixture') },
     unknownExtensionPolicy: 'standard',
     limits: resolveAcpProviderLimits(),

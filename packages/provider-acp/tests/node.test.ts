@@ -6,18 +6,20 @@ import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
 import { parseAgentConfigurationRevisionId, parseAgentInstanceId, parseAgentProviderKey, parseAgentSessionId, parseAgentTurnId } from '@agen-ai/agent-protocol';
 import { createNodeAcpProviderDriver, type CreateNodeAcpProviderDriverOptions } from '../src/node/index.js';
+import { collectRemaining, takeUntilRequest } from './fixtures/session-peer.js';
 
 const fixture = fileURLToPath(new URL('./node-fixtures/process.mjs', import.meta.url));
 const providerKey = parseAgentProviderKey('node-acp-fixture');
 const definition = { providerKey, instanceId: parseAgentInstanceId('node:instance'), driverConfiguration: {} };
 const posixOnly = { skip: process.platform === 'win32' };
-interface LogEntry { readonly type: string; readonly pid?: number; readonly argv?: string[]; readonly inherited?: unknown; readonly cwd?: string; readonly method?: string }
-function setup(t: TestContext, mode = 'normal', unknownExtensionPolicy?: CreateNodeAcpProviderDriverOptions['unknownExtensionPolicy']) {
+interface LogEntry { readonly type: string; readonly pid?: number; readonly argv?: string[]; readonly inherited?: unknown; readonly cwd?: string; readonly method?: string; readonly id?: string | number; readonly result?: unknown }
+function setup(t: TestContext, mode = 'normal', unknownExtensionPolicy?: CreateNodeAcpProviderDriverOptions['unknownExtensionPolicy'], permissionMapping?: CreateNodeAcpProviderDriverOptions['permissionMapping']) {
   const cwd = mkdtempSync(path.join(tmpdir(), 'agenai-node-acp-'));
   const log = path.join(cwd, 'events.jsonl');
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const driver = createNodeAcpProviderDriver({ providerKey,
     ...(unknownExtensionPolicy !== undefined ? { unknownExtensionPolicy } : {}),
+    ...(permissionMapping !== undefined ? { permissionMapping } : {}),
     ...(mode.startsWith('descendant_') ? { limits: { initializationTimeoutMs: 1_000 } } : {}), launch: {
     executable: process.execPath,
     args: [fixture, '$HOME', `$(touch ${path.join(cwd, 'shell-executed')})`],
@@ -69,6 +71,40 @@ test('node launch forwards explicit reject and reaps the child after an unknown 
 
 test('node launch rejects a runtime null extension policy before spawning', posixOnly, (t) => {
   assert.throws(() => setup(t, 'unknown_extension', null as unknown as 'reject'), TypeError);
+});
+
+test('node launch forwards selected remembered permissions to the original child callback and closes the child', posixOnly, async (t) => {
+  const { driver, cwd, entries } = setup(t, 'remembered_permission', undefined, {
+    mapping: 'declared-complete-consequences-v1', agentInfo: { name: 'node-fixture', version: '1.0.0' },
+    menus: [{ toolKind: 'edit', options: [{ optionId: 'native:node-remember', kind: 'allow_always' }] }],
+  });
+  const instance = await driver.materialize(definition);
+  t.after(() => instance.dispose());
+  const session = await instance.adapter.createSession({
+    sessionId: parseAgentSessionId('node:remembered-session'), workingDirectory: cwd,
+    configuration: { kind: 'managed', revision: parseAgentConfigurationRevisionId('config:fixture') }, onBindingCreated() {},
+  });
+  const execution = session.startTurn({ turnId: parseAgentTurnId('node:remembered-turn'), interactionMode: 'default', parts: [{ type: 'text', text: 'Edit file.' }] });
+  const iterator = execution.outputs[Symbol.asyncIterator]();
+  const opened = (await takeUntilRequest(iterator)).find((output) => output.kind === 'event' && output.event.type === 'request.opened');
+  assert.ok(opened?.kind === 'event' && opened.event.type === 'request.opened' && opened.event.payload.request.requestKind === 'approval');
+  const request = opened.event.payload.request;
+  assert.deepEqual(request.options.map((option) => [option.optionId, option.decision, option.consequence.kind]), [
+    ['acp:option:1', 'approved', 'provider_managed_remembrance'],
+  ]);
+  assert.deepEqual(await execution.resolveRequest({ resolution: {
+    requestKind: 'approval', requestId: request.requestId, disposition: 'selected', optionId: request.options[0]!.optionId,
+  } }), { status: 'delivered' });
+  const outputs = await collectRemaining(iterator);
+  assert.deepEqual(outputs.filter((output) => output.kind === 'event' && output.event.type === 'turn.completed')
+    .map((output) => output.kind === 'event' && output.event.type === 'turn.completed' ? output.event.payload.outcome : undefined), ['completed']);
+  assert.deepEqual(entries().filter((entry) => entry.id === 'node:permission').map((entry) => entry.result), [
+    { outcome: { outcome: 'selected', optionId: 'native:node-remember' } },
+  ]);
+  assert.equal(entries().filter((entry) => entry.method === 'session/prompt').length, 1);
+  await session.close({ reason: 'shutdown' });
+  await instance.dispose();
+  assertExited(entries()[0]?.pid);
 });
 
 test('owned process cleanup escalates when the peer ignores graceful termination', posixOnly, async (t) => {

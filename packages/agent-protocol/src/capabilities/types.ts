@@ -134,7 +134,13 @@ export type AgentApprovalCapability =
   | Readonly<{ kind: 'unsupported' }>
   | Readonly<{
       kind: 'supported';
+      modes: readonly [AgentApprovalCapabilityMode, ...AgentApprovalCapabilityMode[]];
+      providerManagedRemembrance: false;
+    }>
+  | Readonly<{
+      kind: 'supported';
       modes: readonly AgentApprovalCapabilityMode[];
+      providerManagedRemembrance: true;
     }>;
 
 export type AgentContextUsageCapability =
@@ -203,7 +209,7 @@ export type AgentTurnSteeringCapability =
     }>;
 
 export interface AgentCapabilities {
-  readonly protocolVersion: 10;
+  readonly protocolVersion: 11;
   readonly providerKey: AgentProviderKey;
   readonly sessions: Readonly<{
     create: true;

@@ -3,6 +3,11 @@ export { DEFAULT_ACP_PROVIDER_LIMITS, type AcpProviderLimits } from './limits.js
 export { AcpProviderConnectionError } from './connection/errors.js';
 export { AcpProviderSessionError } from './session/errors.js';
 export type {
+  AcpPermissionOptionSignature,
+  AcpPermissionMenuSignature,
+  AcpPermissionMappingSelection,
+} from './permissions/contracts.js';
+export type {
   AcpConnectionStreams,
   AcpConnectionLease,
   AcpConnectionFactoryContext,

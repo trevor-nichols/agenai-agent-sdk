@@ -13,7 +13,7 @@ import {
   type AgentProviderTurnExecution,
   type AgentProviderSessionContext,
 } from "@agen-ai/agent-runtime";
-import { createFakeAgentProvider } from "@agen-ai/agent-runtime/testing";
+import { createFakeAgentProvider, type FakeAgentProviderOptions } from "@agen-ai/agent-runtime/testing";
 import {
   parseDelegationPolicySnapshot,
   type DelegationHost,
@@ -26,7 +26,7 @@ export const parent: DelegationParentScope = { parentId: "parent", scopeId: "qua
 export const input = { parts: [{ type: "text" as const, text: "Perform the delegated task." }] };
 
 export function eventBase(context: AgentProviderSessionContext, turnId: AgentTurnId) {
-  return { protocolVersion: 10 as const, sessionId: context.sessionId, turnId, occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
+  return { protocolVersion: 11 as const, sessionId: context.sessionId, turnId, occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
 }
 
 export async function* completedOutputs(context: AgentProviderSessionContext, turnId: AgentTurnId, deltas = ["Durable result."]): AsyncIterable<AgentProviderOutput> {
@@ -42,10 +42,11 @@ export async function createReferenceHost(options: {
   readonly onInvoke?: () => void | Promise<void>;
   readonly onRequest?: (request: DelegationHostRequest) => void | Promise<void>;
   readonly allowContinuation?: boolean;
+  readonly fakeOptions?: FakeAgentProviderOptions;
   readonly execution?: (session: AgentProviderSession, context: AgentProviderSessionContext, turn: AgentProviderStartTurnInput) => AgentProviderTurnExecution;
   readonly outputs?: (session: AgentProviderSession, context: AgentProviderSessionContext, turn: AgentProviderStartTurnInput) => AsyncIterable<AgentProviderOutput>;
 }) {
-  const fake = createFakeAgentProvider();
+  const fake = createFakeAgentProvider(options.fakeOptions);
   const driver: AgentProviderDriver = {
     ...fake.driver,
     async materialize(definition) {

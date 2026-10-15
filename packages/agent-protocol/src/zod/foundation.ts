@@ -185,6 +185,7 @@ export const AgentJsonObjectKeySchema = z
 interface ProtocolInputPreflightOptions {
   readonly maxDepth?: number;
   readonly maxCollectionLength?: number;
+  readonly requireJsonData?: boolean;
 }
 
 function passesProtocolInputPreflight(
@@ -207,7 +208,12 @@ function passesProtocolInputPreflight(
     if (options.maxDepth !== undefined && current.depth > options.maxDepth) {
       return false;
     }
-    if (current.value === null || typeof current.value !== 'object') continue;
+    if (current.value === null || typeof current.value !== 'object') {
+      if (options.requireJsonData && current.value !== null
+        && typeof current.value !== 'string' && typeof current.value !== 'boolean'
+        && !(typeof current.value === 'number' && Number.isFinite(current.value))) return false;
+      continue;
+    }
     if (activeObjects.has(current.value)) return false;
 
     activeObjects.add(current.value);
@@ -232,6 +238,11 @@ function passesProtocolInputPreflight(
 
     let propertyKeys: readonly PropertyKey[];
     try {
+      if (options.requireJsonData) {
+        const prototype = Object.getPrototypeOf(current.value);
+        if (prototype !== (Array.isArray(current.value) ? Array.prototype : Object.prototype)
+          && prototype !== null) return false;
+      }
       propertyKeys = Reflect.ownKeys(current.value);
     } catch {
       return false;
@@ -239,6 +250,7 @@ function passesProtocolInputPreflight(
 
     let collectionLength = 0;
     for (const propertyKey of propertyKeys) {
+      if (options.requireJsonData && typeof propertyKey !== 'string') return false;
       if (
         typeof propertyKey === 'string'
         && !AGENT_JSON_OBJECT_KEY_PATTERN.test(propertyKey)
@@ -251,7 +263,13 @@ function passesProtocolInputPreflight(
       } catch {
         return false;
       }
-      if (!descriptor?.enumerable) continue;
+      if (options.requireJsonData && (!descriptor || !('value' in descriptor))) return false;
+      if (!descriptor?.enumerable) {
+        if (options.requireJsonData && !(Array.isArray(current.value) && propertyKey === 'length')) return false;
+        continue;
+      }
+      if (options.requireJsonData && Array.isArray(current.value)
+        && (typeof propertyKey !== 'string' || !/^(?:0|[1-9][0-9]*)$/u.test(propertyKey))) return false;
       if (!('value' in descriptor)) return false;
       collectionLength += 1;
       if (

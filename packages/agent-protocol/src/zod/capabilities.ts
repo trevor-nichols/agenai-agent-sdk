@@ -108,55 +108,52 @@ function boundedPositiveSafeInteger(maximum: number): z.ZodNumber {
   return z.number().int().positive().max(maximum);
 }
 
-export const AgentApprovalCapabilitySchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
-  z
-    .object({
-      kind: z.literal('supported'),
-      modes: z
-        .array(
-          z
-            .object({
-              persistence: z.enum(AGENT_APPROVAL_PERSISTENCES),
-              scopeKinds: z
-                .array(z.enum(AGENT_APPROVAL_SCOPE_KINDS))
-                .min(1)
-                .max(AGENT_APPROVAL_SCOPE_KINDS.length)
-                .meta({ uniqueItems: true })
-                .readonly(),
-            })
-            .strict()
-            .readonly(),
-        )
-        .min(1)
-        .max(AGENT_APPROVAL_PERSISTENCES.length)
-        .readonly(),
-    })
-    .strict()
-    .superRefine((capability, context) => {
-      addCanonicalListIssues(
-        {
-          values: capability.modes.map((mode) => mode.persistence),
-          canonicalOrder: AGENT_APPROVAL_PERSISTENCES,
-          path: ['modes'],
-          label: 'Approval persistence modes',
-        },
-        context,
-      );
-      capability.modes.forEach((mode, index) => {
-        addCanonicalListIssues(
-          {
-            values: mode.scopeKinds,
-            canonicalOrder: AGENT_APPROVAL_SCOPE_KINDS,
-            path: ['modes', index, 'scopeKinds'],
-            label: 'Approval scope kinds',
-          },
-          context,
-        );
-      });
-    })
+const AgentApprovalCapabilityModeSchema = z.object({
+  persistence: z.enum(AGENT_APPROVAL_PERSISTENCES),
+  scopeKinds: z.array(z.enum(AGENT_APPROVAL_SCOPE_KINDS))
+    .min(1)
+    .max(AGENT_APPROVAL_SCOPE_KINDS.length)
+    .meta({ uniqueItems: true })
     .readonly(),
-]);
+}).strict().readonly();
+
+export const AgentApprovalCapabilitySchema = z.union([
+  z.object({ kind: z.literal('unsupported') }).strict().readonly(),
+  z.object({
+    kind: z.literal('supported'),
+    modes: z.tuple([AgentApprovalCapabilityModeSchema])
+      .rest(AgentApprovalCapabilityModeSchema)
+      .refine((modes) => modes.length <= AGENT_APPROVAL_PERSISTENCES.length, {
+        message: 'Approval modes must contain at most three precise persistences.',
+      })
+      .meta({ minItems: 1, maxItems: AGENT_APPROVAL_PERSISTENCES.length })
+      .readonly(),
+    providerManagedRemembrance: z.literal(false),
+  }).strict().readonly(),
+  z.object({
+    kind: z.literal('supported'),
+    modes: z.array(AgentApprovalCapabilityModeSchema)
+      .max(AGENT_APPROVAL_PERSISTENCES.length)
+      .readonly(),
+    providerManagedRemembrance: z.literal(true),
+  }).strict().readonly(),
+]).superRefine((capability, context) => {
+  if (capability.kind === 'unsupported') return;
+  addCanonicalListIssues({
+    values: capability.modes.map((mode) => mode.persistence),
+    canonicalOrder: AGENT_APPROVAL_PERSISTENCES,
+    path: ['modes'],
+    label: 'Approval persistence modes',
+  }, context);
+  capability.modes.forEach((mode, index) => {
+    addCanonicalListIssues({
+      values: mode.scopeKinds,
+      canonicalOrder: AGENT_APPROVAL_SCOPE_KINDS,
+      path: ['modes', index, 'scopeKinds'],
+      label: 'Approval scope kinds',
+    }, context);
+  });
+});
 
 const AgentContextUsageCapabilitySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('unsupported') }).strict().readonly(),

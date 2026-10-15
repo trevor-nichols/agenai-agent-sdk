@@ -335,6 +335,7 @@ async function materializeInstances(input: {
           error instanceof AgentProviderConfigurationError
             ? `Agent provider configuration is invalid for ${definition.instanceId}.`
             : `Agent provider instance ${definition.instanceId} could not be materialized.`,
+        cause: error,
       });
     }
 

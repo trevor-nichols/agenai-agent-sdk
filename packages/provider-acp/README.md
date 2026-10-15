@@ -1,16 +1,22 @@
 # @agen-ai/provider-acp
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
-Agent Client Protocol wire version 1 into the existing Agent Protocol V10 session
-API at coordinated SDK version `0.4.0`.
+Agent Client Protocol wire version 1 into the existing Agent Protocol V11 session
+API. The coordinated source SDK version is `0.4.1` and remains unpublished;
+the published release is `0.4.0`.
 The package is ESM, MIT licensed, side-effect-free on import and requires Node.js
 22 or newer. It depends only on the public transport, runtime and protocol packages;
 the core packages remain independent of ACP.
 
 The provider pins the transport's `schema-v1.23.0` stable profile. It translates
-ACP into existing V10 capabilities and rejects unsupported semantics explicitly.
+ACP into current V11 capabilities and rejects unsupported semantics explicitly.
 Connection negotiation, configured host facilities, and mapping policy fix one
 capability envelope per instance; every later connection must match it.
+
+Tool approvals default to once-only scoped consequences. Both constructors accept an explicit
+`permissionMapping` selection for completely described provider-managed remembered choices.
+Native option labels or kinds alone never establish their consequences. See
+[Remembered tool approvals](#remembered-tool-approvals) for mapping admission and qualification limits.
 
 ## Unknown extensions
 
@@ -46,10 +52,10 @@ under a different policy.
 
 | Surface | Supported behavior and requirements |
 | --- | --- |
-| Turns and requests | Default text turns, streamed assistant/reasoning text, tool progress, cancellation and once-only exact-action permissions. One execution retains the original native prompt across request waits and answers. |
+| Turns and requests | Default text turns, streamed assistant/reasoning text, tool progress, cancellation and once-only exact-action permissions by default, with opt-in complete remembered-choice mappings. One execution retains the original native prompt across request waits and answers. |
 | Resume | Exact persisted binding using advertised `session/resume`, otherwise advertised `session/load`. Load history is bounded and suppressed from new-turn output. No automatic recreation after failure. |
 | Configuration | Managed by default. Explicit `configuration: 'selectable'` maps observed boolean/select catalogs, with a session-mode fallback when config options are absent. Unknown metadata differs from observed empty metadata. |
-| Forms | Canonical boolean/single-select/multi-select forms that fit V10 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
+| Forms | Canonical boolean/single-select/multi-select forms that fit V11 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
 | Images | Inline base64 PNG/JPEG/WebP only when the peer advertises image input, within image and total turn budgets. No implicit local-file read or URL fetch. |
 | Plans | Complete replacements of observed turn plans. A mode called “plan” does not establish enforced planning behavior or approval authority. |
 | File changes | Partial structured observations from native tool diffs. Canonical paths contained by the working directory become sorted relative display paths without filesystem reads. Unfinished tools remain unknown at ordinary turn completion. No final workspace diff or Review artifact is inferred. |
@@ -57,12 +63,13 @@ under a different policy.
 | Authentication | Explicit method-to-flow selection and host interaction facilities. Agent methods retain the authenticated connection; terminal methods require a host facility and fresh verified initialization afterward. |
 | Files and terminals | Explicit host callbacks, correlated to the bound native session. Terminal support requires the complete output/wait/kill/release lifecycle; embedded terminal transcript references remain unsupported. |
 | MCP setup | Static host-approved `mcpServers` and optional owned `sessionMcpBinding` factory for creation/resume. HTTP/SSE require advertised peer support. Configuration is not observed tool exposure. |
+| Session decisions | Opt-in `grok-folder-trust-v1` on the Node constructor, with a required host execution boundary and handler registered before create. This outside-turn mapping has its own exact support and qualification scope below. |
 
 Through-turn branching, same-turn steering, enforced plan mode, persistent
-permission grants, context usage/compaction, account quota, effective skill/rule
+SDK-owned tool-approval grants, context usage/compaction, account quota, effective skill/rule
 inventory, collaboration, generated resources and artifact publication remain
 unsupported. ACP usage counters can decrease without confirmed compaction and
-cannot satisfy V10's context continuity contract. Unsupported media output fails
+cannot satisfy V11's context continuity contract. Unsupported media output fails
 explicitly rather than disappearing from an otherwise successful transcript.
 Embedded terminal references also fail explicitly: a mutable, possibly truncated
 terminal snapshot does not provide an ordered append-only transcript. Agents can
@@ -75,7 +82,7 @@ over other conversations or account state.
 
 ## Operational failures and uncertainty
 
-The provider maps supported standard `schema-v1.23.0` prompt errors into V10 `AgentError` values.
+The provider maps supported standard `schema-v1.23.0` prompt errors into V11 `AgentError` values.
 Standard `-32000` reports `authentication` with an `authenticate` user-action hint; `-32602` reports
 `invalid_request`; `-32603` reports `provider`; standard parse/request/method errors report `protocol`.
 Other remote codes remain `unknown` with unknown recovery. Mapping uses the standard error code,
@@ -219,7 +226,7 @@ the host must retain ownership and establish native-process quiescence.
 
 The root entrypoint exports `createAcpProviderDriver`. Its constructor accepts
 `providerKey`, `createConnection`, and optional `limits`, `configuration`,
-`authentication`, `host`, `mcpServers`, and `sessionMcpBinding`. The connection factory receives the public
+`authentication`, `host`, `mcpServers`, `sessionMcpBinding`, and `permissionMapping`. The connection factory receives the public
 `instanceId` and an initialization `signal`. Return fresh, exclusive Node
 `stdout`, `stdin`, and optional `stderr` streams for every invocation, with one of:
 
@@ -255,6 +262,342 @@ The built-in launcher rejects Windows before spawning with
 `createAcpProviderDriver` with an owned connection factory backed by their own process
 supervisor, such as a Windows Job Object; the SDK does not supply a native Windows
 process-tree launcher in `0.4.0`.
+
+## Remembered tool approvals
+
+`permissionMapping` is constructor configuration on both `createAcpProviderDriver` and
+`createNodeAcpProviderDriver`. It is captured when the driver is created and is absent from the
+empty serialized `driverConfiguration`. Omission or `{ mapping: 'once-only-v1' }` retains the
+conservative once-only subset of each menu and advertises `providerManagedRemembrance: false`.
+A remembered-only native menu is unsupported under that default.
+
+For a peer whose complete permission behavior you have inspected and qualified, declare its exact
+initialized identity and complete ordered menus:
+
+```ts
+import type { AcpPermissionMappingSelection } from '@agen-ai/provider-acp';
+
+const permissionMapping = {
+  mapping: 'declared-complete-consequences-v1',
+  agentInfo: { name: 'example-agent', version: '1.2.3' },
+  menus: [{
+    toolKind: 'edit',
+    options: [
+      { optionId: 'allow-once', kind: 'allow_once' },
+      { optionId: 'remember-allow', kind: 'allow_always' },
+      { optionId: 'deny-once', kind: 'reject_once' },
+      { optionId: 'remember-deny', kind: 'reject_always' },
+    ],
+  }],
+} as const satisfies AcpPermissionMappingSelection;
+```
+
+Pass that value with your ordinary connection or Node launch options. The example identities are
+illustrative. Selecting this mapping is your attestation that every listed option has only its
+current allow/deny decision and once-only or provider-managed remembered consequence. A choice
+that also changes mode, clears context or grants another authority needs a different complete
+mapping; this API cannot discover hidden effects or authenticate the implementation from its name.
+
+Declarations contain 1–16 menus, each with 1–16 options. Native IDs must be canonical strings of
+1–256 characters and unique within each menu. Menu signatures must be unique. Peer names are
+bounded to 256 characters and versions to 160; edge whitespace and control/format characters are
+rejected. Tool kinds use the pinned ACP standard vocabulary. Selection uses exact identity, tool
+kind and the complete ordered ID/kind list; native labels are display data. There are no predicates,
+regular expressions, native payload bags or custom mapping callbacks.
+
+The capability reflects the selected declarations. Remembered-only menus advertise no precise
+modes and `providerManagedRemembrance: true`; combined menus advertise once/exact-action as well.
+A remembered option has the neutral label “Allow and remember” or “Deny and remember” and an
+explanation that duration and future matching are unspecified. Native wording is omitted from its
+optional description. An offered choice never promises that a provider actually saved a rule.
+
+The SDK keeps distinct offered IDs, including several options with the same immediate decision.
+Resolve one exact public option ID on the original execution. The live callback returns its exact
+original native ID once. Deny-once, deny-and-remember and cancellation remain distinct. Continue
+reading the original execution outputs through terminal settlement; a delivery receipt establishes
+local callback acceptance, not native persistence, later matching or successful tool execution.
+
+Malformed constructor selection throws `TypeError` before acquisition. A selected peer identity
+mismatch fails initialization with `acp_permission_profile_mismatch`; retain any failed cleanup
+owner as usual. Declared menu mismatches or unqualified option/request metadata fail with
+`acp_permission_consequence_unsupported`. Duplicate IDs are rejected across the entire native menu
+before any filtering. Invalid menu size fails with `acp_permission_options_invalid`. The default's
+remembered-only refusal remains `acp_permission_persistence_unsupported`.
+
+The built-in `{ mapping: 'grok-build-1.0.50-edit-remembrance-v1' }` selects the narrowly inspected
+Grok Build 1.0.50 edit behavior. Its peer must report `_meta.agentVersion: '1.0.50'`. It recognizes
+only the inspected `SearchReplace` edit input with `replace_all: false` and the ordered native menu
+`allow-edits-session`/`allow_always`, `allow-once`/`allow_once`, `reject-once`/`reject_once`.
+Other action categories retain the once-only subset with an explicit warning on the original
+output stream; unsupported remembered-only menus fail. Native terminal remembrance and remembered
+denial are not qualified by this edit profile. Duration and applicability remain unknown despite
+native wording or observed same-session behavior.
+
+The selected constructor and your host-owned installation/launch attest to the exact inspected
+native executable; the reported version does not authenticate its bytes. The inspected candidate
+is Linux x86_64 Grok Build 1.0.50 (`c58f321264ba`), SHA-256
+`c80de0155706ff2d995623887b102f2d0abd2c62b2643dea3a0cebaf7dd724d5`, launched with
+`agent --no-leader stdio`. Controlled mapping tests prove exact reply behavior; the installed
+native fixture proof below separately establishes the selected edits' actual effects and cleanup.
+
+This turn-level selection is independent of session-lifetime folder trust, host filesystem/terminal
+facilities and unknown-extension policy. It creates no SDK permission database, automatic answer
+cache, revoke operation or private Workspaces execution authority.
+
+### Qualified remembered-edit scope (SDK03)
+
+Two final native fixture attempts used the genuine executable above, the selected
+`grok-build-1.0.50-edit-remembrance-v1` mapping, modern stable `schema-v1.23.0` and a matching
+installed seven-package `0.4.1`/Agent Protocol V11 set. The recorded tuple is Linux x86_64 kernel
+`7.0.0-38-generic`, Node `24.18.0`, pnpm `11.7.0`, systemd `259.5`, Bubblewrap `0.11.1` and owned
+tmpfs state. An isolated loopback model fixture drove actual native tool calls without real account
+credentials or paid/backend inference. The SDK owned the only ACP reader and responder; a passive
+observer independently checked exact native choices and actual fixture effects.
+
+The first attempt used one public/native session and six turns:
+
+| Turn | Observed request and effect |
+| --- | --- |
+| Once-only edit | One request; exact once-only native choice delivered once; edit performed. |
+| Repeat after once-only | Asked again; exact once-only choice delivered once; edit performed. |
+| Remembered edit | One request; exact remembered native choice delivered once; edit performed. |
+| Exact repeat after remembrance | No new request; edit performed. |
+| Neighboring owned file | No new request; edit performed. |
+| Uncovered terminal action | Asked again; effect occurred after its exact once-only approval. |
+
+The second attempt reopened the verified retained owned state with both a fresh native process
+and a distinct native session. Its first edit asked again and performed the expected edit after
+one exact once-only answer. This combined restart/new-session observation does not isolate the
+effect of either change or define a general expiry or storage contract. Same-process second-session
+behavior was observed only in separate native discovery, outside this installed Node composition.
+
+For both attempts, successful public `session.close()` preceded an independent empty checkpoint
+of the same physical workload cgroup while the controller remained alive, before registry or host
+disposal. No earlier external cleanup intervention or OOM kill occurred. Native effects, answer
+correlation and SDK cleanup were checked independently.
+
+The exact retained report SHA-256 identities are
+`4ea3ea5b9fac16761b32919ac476ec9b4621f2e99434c441d9eefadb469c5a6b` (six-turn attempt) and
+`bd93b95c3fdba51b0f7f03eaea0393e796a4626298eaedb2a9ebf1ce9bb36730` (retained-state restart).
+The native-used package archives have these SHA-256 identities:
+
+| Package at `0.4.1` | Native-used archive SHA-256 |
+| --- | --- |
+| `@agen-ai/validation` | `84d97191d2175be1c7d83e86a007157b80c303088b94be0c05ec6961e2a41729` |
+| `@agen-ai/agent-protocol` | `5a647b2fa504ec3175d58075f503f5e9e435186ec0e8c0758e74ea37741ad192` |
+| `@agen-ai/agent-runtime` | `81dc5ed8940d96bc5f3ae3f0fdb2ad862af87a087e57032db41995a29dacf4b4` |
+| `@agen-ai/agent-orchestration` | `914ad78cdac3ee6af1fe6a7d8522e5c216a3de670816462a082f5c0bde0988fa` |
+| `@agen-ai/acp-transport` | `81314926f24fa428e910c0256671add61f525cac036d5b2841185a7c3e953894` |
+| `@agen-ai/provider-acp` | `2a68df821134fc0af48ab850c1a48ad33be74b8e42e64a6d916bfe2eb84acf6a` |
+| `@agen-ai/acp-registry` | `ab317cc347bf53dcd0045aff4a6d74cb429fc6781c336ea6ed128ced13bdaa07` |
+
+Later documentation or packing can change archive bytes; the same version is not an identity
+check. Reuse of this evidence requires comparison of the exact installed dependency closure,
+runtime/declaration members, mapping and host composition. The earlier SDK02 folder-trust proof
+below used different `0.4.1`/V10 artifacts and establishes a separate session-lifetime behavior.
+
+Duration and applicability remain unknown. This fixture proof does not qualify arbitrary path
+matching, separate projects/profiles, remembered denial, terminal remembrance, revocation,
+worktree/account/distributed behavior, real-model inference or other native/runtime pairings.
+It does not publish packages, integrate a consumer application or enable private execution.
+
+## Session-lifetime folder decisions
+
+The unpublished `0.4.1` source includes the opt-in mapping on
+`createNodeAcpProviderDriver`:
+`sessionInteractions: { mapping: 'grok-folder-trust-v1' }`. Supply an explicit
+`executionBoundary` at construction and the generic `interactions.onRequest`
+handler on each `createSession` input before opening. Materialization itself
+remains noninteractive. The mapping is absent by default, and ordinary standard
+unknown-extension handling never enables it implicitly.
+
+The selected launch arguments are exactly `['agent', '--no-leader', 'stdio']`.
+The adapter exposes create-only `sessionInteractions` support with an exclusive
+producer and decision requests. The handler receives a neutral workspace
+decision and can keep its response capability after opening returns, before
+any model turn. Use the generic
+[runtime lifecycle](../agent-runtime/README.md#session-lifetime-interactions)
+for presentation, exact offered choices, receipt handling and cleanup. The core
+[runnable example](../../examples/lifecycle-interactions.ts) requires no ACP
+dependency, native account or network.
+
+| Phase or surface | Selected mapping support |
+| --- | --- |
+| Create a session with an early handler | Workspace decision may remain pending after opening returns. |
+| Grant or decline the offered decision | One bound response, with a local delivery receipt separate from native effect. |
+| Close while unanswered | Retires eligibility, joins the native producer and callback, and refuses a late response. |
+| Interactive materialization | Unsupported; no materialization handler is added. |
+| Resume or branch in this selected profile | Unsupported. Generic ACP resume remains a separate unselected capability. |
+| Injected/shared root connections | Unsupported for this mapping; the Node-only execution boundary is required. |
+| Session forms or authentication questions | Unsupported by this outside-turn decision mapping. Existing turn/form and adapter authentication APIs remain separate. |
+
+The grant consequence covers current and future configuration for the workspace
+and is provider-managed persistent trust that can affect other sessions using
+that profile. Detected configuration categories do not narrow it. Decline leaves
+configuration gated without revoking old grants or proving a persisted denial.
+Do not expose native request IDs or use a parallel transport responder. Only
+the offered neutral response capability may answer the request.
+
+`delivered` establishes acceptance by the local provider handler. It does not
+universally prove native receipt, loaded configuration or stored trust. An
+entered delivery failure or timeout is uncertain and fences further mutation;
+close without resending the choice. A request's terminal promise or aborted
+presentation signal cannot replace full producer/callback cleanup. Retain the
+session, opening cleanup receipt and dependent host/installation owners when
+cleanup fails.
+
+### Qualified session-lifetime scope (SDK02)
+
+The earlier SDK02 native qualification covers Grok Build `1.0.50` (`c58f321264ba`),
+executable SHA-256 `c80de0155706ff2d995623887b102f2d0abd2c62b2643dea3a0cebaf7dd724d5`,
+direct no-leader stdio, this selected mapping, modern stable `schema-v1.23.0`,
+its retained installed public SDK `0.4.1`/Agent Protocol V10 artifacts, API-key authentication,
+Linux x86_64 kernel
+`7.0.0-38-generic`, Node `24.18.0`, and the exact retained reference,
+toolchain, network and dependency inputs. It is local qualification, with no
+package publication or consumer-repository integration implied. These exact earlier artifacts
+are distinct from the SDK03 V11 remembered-edit artifacts above despite sharing version `0.4.1`.
+
+Three separate native runs established grant, decline and pending close. Grant
+additionally observed the vendor-written isolated workspace trust file. Decline
+established local acceptance and absence of a grant; no further hidden native
+acknowledgment was attested. Pending close sent no choice before close, joined
+the handler and rejected the stale grant as unavailable. Each run independently
+enrolled the genuine target and observed the same stable cgroup empty after SDK
+close with the consumer alive, before registry or host disposal, without external
+intervention. The trusted host was retired afterward.
+
+Native wire reply correlation and prompt-frame counts remain unobserved. Zero
+SDK turn invocations is a frozen-consumer-source claim. Separate installed
+controlled peers prove exact wire correlation, no prompts and failure ownership;
+the real Linux controlled lane proves descendant containment and negative
+close-checkpoint behavior. Neither substitutes for native effect evidence.
+The bounded native runs fit the reference's 64-task/512 MiB/180-second limits
+for these setup scenarios only. They establish no general model-turn sizing,
+other builds/platforms, browser login, native durable recovery, SDK-managed
+remembered permissions or private execution support. The earlier failed native
+ownership attempt remains unqualified.
+
+## Reserved execution ownership
+
+This surface is included in the unpublished `0.4.1` source candidate.
+
+The Node constructor also accepts an explicit `executionBoundary`. This host-owned
+port is useful when native descendants can create their own sessions or process
+groups. It is required when selecting
+`sessionInteractions: { mapping: 'grok-folder-trust-v1' }`; omission fails at
+constructor admission before materialization. The root injected constructor does
+not accept this Node-only option. Ordinary unselected Node drivers keep the
+process-group launcher described above.
+
+Import the types from `@agen-ai/provider-acp/node`. A boundary synchronously
+reserves one fresh, inert owner for each immutable launch recipe:
+
+```ts
+interface NodeAcpExecutionBoundary {
+  reserve(input: NodeAcpExecutionInput): NodeAcpExecutionReservation;
+}
+```
+
+The recipe contains the exact absolute executable, literal arguments, working
+directory, explicit environment and `shutdownTimeoutMs`. `reserve` must acquire
+no resources and start no asynchronous work. The SDK retains its bound `start`
+and `release` methods before entering startup. `start(context)` establishes the
+operating-system boundary before executing native code and returns ACP streams;
+it receives the current initialization signal. `release()` must synchronously
+fence further startup, initiate termination, and join entered startup, streams
+and the complete descendant workload. It must work before, during and after
+startup. Late startup results remain owned by that same reservation.
+
+A supplied object is an ownership contract, not containment proof. The host must
+prevent the workload from leaving its boundary or controlling its supervisor.
+A changing PID list or killing one process group cannot establish that guarantee.
+The standalone [Linux reference](../../examples/execution/linux/README.md) uses
+explicit cgroup delegation and isolated supervisor controls. Its platform and
+host prerequisites are separate from the portable SDK API; there is no automatic
+privilege escalation or fallback to weaker ownership for the selected mapping.
+
+For the qualified Linux composition, retain the external host before starting
+it, then give its boundary to the Node driver. The host supplies the physical
+installation, workspace and each writable profile/runtime/temp mount plus an
+explicit native environment:
+
+```ts
+import { createNodeAcpProviderDriver } from '@agen-ai/provider-acp/node';
+import { createLinuxExecutionHost } from '../../examples/execution/linux/boundary.mjs';
+
+const host = createLinuxExecutionHost({
+  network: 'host',
+  networkInputs: {
+    resolver: '/etc/resolv.conf',
+    hosts: '/etc/hosts',
+    certificates: '/etc/ssl/certs',
+  },
+  mounts: [
+    { path: installationRoot, writable: false },
+    { path: workspaceRoot, writable: true },
+    ...ownedProfileMounts,
+  ],
+});
+await host.start();
+const driver = createNodeAcpProviderDriver({
+  providerKey,
+  sessionInteractions: { mapping: 'grok-folder-trust-v1' },
+  executionBoundary: host.executionBoundary,
+  launch: { executable: approvedExecutable, args: ['agent', '--no-leader', 'stdio'],
+    cwd: workspaceRoot, env: explicitNativeEnvironment, shutdownTimeoutMs: 2_000 },
+});
+```
+
+Construct a registry with that driver and register the generic handler on
+session opening. On success, close the session, dispose the registry, then
+dispose the host. Retain the host if `start()` rejects. When qualifying cleanup,
+keep the exact empty boundary for an independent checkpoint after SDK close
+and before registry/host disposal. Networking and confinement remain explicit
+host authority; the SDK does not create this Linux host automatically.
+
+If initial materialization fails and cleanup remains incomplete, the `/node`
+entrypoint exposes `NodeAcpExecutionCleanupError` and
+`isNodeAcpExecutionCleanupError`. Through `createAgentProviderRegistry`, this
+error remains the registry error's `cause`. Keep that original object and its
+bound `retryCleanup()` callback until cleanup succeeds. Its `cause` preserves the
+original startup failure and `cleanupError` records the failed cleanup attempt.
+The callback retains the full acquired resource lifetime, including native work,
+streams and entered provider callbacks. Serializing the error cannot preserve
+this cleanup authority.
+
+For example, a failed registry construction can be inspected without replacing
+the callable owner:
+
+```ts
+import { AgentProviderRegistryError } from '@agen-ai/agent-runtime';
+import { isNodeAcpExecutionCleanupError } from '@agen-ai/provider-acp/node';
+
+if (error instanceof AgentProviderRegistryError && isNodeAcpExecutionCleanupError(error.cause)) {
+  const retained = error.cause;
+  await retained.retryCleanup();
+  // Only now may the host release resources that depended on this native owner.
+}
+```
+
+If this retry rejects, keep `retained` and the external host owned for explicit
+recovery. A late cleanup success cannot change the original opening failure or
+authorize another native action. Host intervention during qualification keeps
+the original verdict failed even if recovery eventually succeeds.
+
+Each cleanup attempt has one observation window of `2 * shutdownTimeoutMs`
+(default four seconds, maximum sixty seconds). A timeout preserves actual pending
+work. A retry gets a fresh observation window and joins the same work; it never
+starts a second process or overlaps an unfinished release. Only a release that
+actually settled with failure may be called again. A shorter runtime deadline
+can return first while the same cleanup remains owned.
+
+Once an instance exists, an unsuccessful session opening uses the existing exact
+`AgentProviderSessionCleanupError` receipt. A returned session keeps its normal
+`close` retry path. Retain the corresponding instance, registry and host supervisor
+until all dependent cleanup succeeds. A successful session close establishes
+native quiescence under the supplied owner's contract; independent qualification
+must verify that the concrete owner fulfills it.
 
 ## Session-scoped MCP bindings
 
@@ -418,8 +761,8 @@ close ends that handle's ownership. The host retains control over its process po
 Canonical forms preflight the whole schema before presenting a request. They
 support at most 16 ordinary fields and 100 choices per selection. Free-text fields,
 nested objects, numeric fields, defaults, patterns/formats, and constraints without
-a V10 representation are rejected. Native free text permits blank/whitespace values
-and measures length in Unicode code points; V10 text answers use nonblank/UTF-16
+a V11 representation are rejected. Native free text permits blank/whitespace values
+and measures length in Unicode code points; V11 text answers use nonblank/UTF-16
 bounds. The provider does not narrow those native semantics silently. Enumerated
 string values can map through opaque canonical selection IDs.
 A required multi-select must require exactly one minimum selection; an optional
@@ -440,7 +783,7 @@ binding grants no interaction authority. Their host callbacks receive a turn
 lifetime signal that ends on cancellation, settlement or close.
 
 Image input allows at most 16 images, 375,000 decoded bytes per image and 750,000
-decoded bytes total, subject to the stricter 1 MiB V10 turn-content bound. Declared
+decoded bytes total, subject to the stricter 1 MiB V11 turn-content bound. Declared
 media type, dimensions, base64 encoding and byte counts are validated. The provider
 does not decode pixels or publish generated bytes; hosts needing image-content
 inspection must perform it before submitting input.

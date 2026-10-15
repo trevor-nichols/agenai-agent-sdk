@@ -4,6 +4,7 @@ import type { AgentSessionHostBinding, MaybePromise } from '@agen-ai/agent-runti
 import type { AcpProviderLimits } from './limits.js';
 import type { AcpStandardMcpServer, AcpUnknownExtensionPolicy } from '@agen-ai/acp-transport';
 import type { AcpAuthenticationMethods, AcpHostFacilities } from './host/contracts.js';
+import type { AcpPermissionMappingSelection } from './permissions/contracts.js';
 
 export type { AcpProviderLimits } from './limits.js';
 
@@ -63,6 +64,8 @@ export interface CreateAcpProviderDriverOptions {
   readonly createConnection: AcpConnectionFactory;
   /** Defaults to standard handling of unknown optional vendor extensions. */
   readonly unknownExtensionPolicy?: AcpUnknownExtensionPolicy;
+  /** Defaults to once-only choices; complete profiles require independently qualified native semantics. */
+  readonly permissionMapping?: AcpPermissionMappingSelection;
   readonly limits?: Partial<AcpProviderLimits>;
   readonly configuration?: 'managed' | 'selectable';
   readonly authentication?: AcpAuthenticationMethods;

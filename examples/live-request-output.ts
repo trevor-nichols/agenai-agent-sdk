@@ -42,7 +42,7 @@ const answerText = 'Archive';
 
 // This provider is a deterministic teaching fixture. It performs no native or network operation.
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 10,
+  protocolVersion: 11,
   providerKey: 'example-live-request',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
   turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
@@ -91,7 +91,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
             sensitivity: 'ordinary', multiline: false, maxLength: 40 }],
         });
         let accepted = false;
-        const base = { protocolVersion: 10 as const, sessionId: context.sessionId, turnId: input.turnId,
+        const base = { protocolVersion: 11 as const, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime('2026-10-12T12:00:00.000Z') };
         async function* outputs(): AsyncGenerator<AgentProviderOutput, void> {
           signal.throwIfAborted();

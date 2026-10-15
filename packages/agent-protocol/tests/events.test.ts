@@ -82,6 +82,7 @@ test('the fixture corpus covers every provider-observed event discriminant', () 
 test('events reject unsupported versions, unknown fields, and product coordinates', () => {
   const base = eventFixtureCorpus[0];
   for (const invalid of [
+    { ...base, protocolVersion: 10 },
     { ...base, protocolVersion: 9 },
     { ...base, protocolVersion: 8 },
     { ...base, protocolVersion: 2 },
@@ -106,7 +107,7 @@ test('events reject unsupported versions, unknown fields, and product coordinate
 
 test('events enforce reference, state, terminal, progress, and byte invariants', () => {
   const base = {
-    protocolVersion: 10,
+    protocolVersion: 11,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -169,7 +170,7 @@ test('retry, runtime-error, and failed-turn events preserve shared failure refin
     ['turn.completed', { outcome: 'failed', error }],
   ] as const) {
     const event = {
-      protocolVersion: 10, sessionId: 'session:1', turnId: 'turn:1',
+      protocolVersion: 11, sessionId: 'session:1', turnId: 'turn:1',
       occurredAt: protocolTimestamp, type, payload,
     };
     assert.deepEqual(parseAgentEvent(event), event);
@@ -181,7 +182,7 @@ test('retry, runtime-error, and failed-turn events preserve shared failure refin
 
 test('events reject noncanonical identifiers and diagnostic strings', () => {
   const base = {
-    protocolVersion: 10,
+    protocolVersion: 11,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -252,7 +253,7 @@ test('events reject noncanonical identifiers and diagnostic strings', () => {
 
 test('plan snapshots preserve canceled status and optional canonical priority', () => {
   const base = {
-    protocolVersion: 10,
+    protocolVersion: 11,
     sessionId: 'session:plan-semantics',
     turnId: 'turn:plan-semantics',
     occurredAt: protocolTimestamp,

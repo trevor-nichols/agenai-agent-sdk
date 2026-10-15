@@ -41,10 +41,12 @@ export async function openAcpNativeSession(input: CreateAcpProviderSessionInput,
   readonly replay: AcpHistoryReplay;
   readonly bind: (binding: AgentSessionBinding) => void;
   readonly observeSetup: (result: AcpJsonObject) => void;
+  readonly completeOpeningResponse?: () => void;
 }): Promise<void> {
   const client = acpSessionControlClient(input);
   const operations = createAcpStandardSessionOperations(client);
   const resumed = input.resume;
+  const sessionInteractions = input.connection.sessionInteractions;
   if (resumed) {
     hooks.bind(resumed.binding);
     hooks.replay.active = resumed.method === 'session/load';
@@ -53,6 +55,7 @@ export async function openAcpNativeSession(input: CreateAcpProviderSessionInput,
   const options = {
     ...(input.context.signal === undefined ? {} : { signal: input.context.signal }),
     timeoutMs: input.limits.initializationTimeoutMs,
+    ...(sessionInteractions ? { onRequestDispatch: () => sessionInteractions.onOpeningDispatched() } : {}),
     onResponseReceived: (response: AcpResponseReceived) => {
       hooks.replay.active = false;
       if (response.kind === 'error') return;
@@ -64,6 +67,7 @@ export async function openAcpNativeSession(input: CreateAcpProviderSessionInput,
         input.context.onBindingCreated(binding);
       }
       hooks.observeSetup(result);
+      hooks.completeOpeningResponse?.();
     },
   };
   if (resumed?.method === 'session/resume') await client.request('session/resume', { ...params, sessionId: resumed.binding.conversationId }, options);

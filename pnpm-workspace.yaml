@@ -9,3 +9,5 @@ catalog:
 
 overrides:
   fast-uri: 3.1.0
+  tsup: 8.5.0
+  tsup>esbuild: 0.25.10

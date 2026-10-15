@@ -11,11 +11,13 @@ ACP registry) ship together at one version. Publish the complete seven-package s
 6. `@agen-ai/provider-acp` (optional local-process and injected-stream provider)
 7. `@agen-ai/acp-registry` (optional catalog planning, verified installation and retained launch)
 
-The coordinated release version is `0.4.0`. Verify current registry versions and dist-tags before
-starting or resuming a release. Source preparation and local validation do not authorize publication,
-tag creation, dist-tag changes or host deployment. The unpublished `0.3.2` preparation is superseded;
-its steering retirement correction is retained in `0.4.0`. Review
-[MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) before releasing or upgrading.
+The coordinated source candidate is `0.4.1` and remains unpublished. All seven packages completed
+publication at `0.4.0`; keep that release and its historical evidence unchanged. Verify current
+registry versions and dist-tags before starting or resuming any separately authorized release.
+Source preparation and local validation do not authorize publication, public-repository push,
+tag creation, dist-tag changes or host deployment. Review
+[MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before adopting this candidate and
+[MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
 The public repository uses npm trusted publishing. GitHub Actions receives a short-lived npm
 credential through OIDC, so the repository does not need an npm token secret. npm attaches
@@ -33,6 +35,9 @@ generated schemas, builds, types, executable examples, package tests and the pac
 consumer. Registry installation fixtures require the documented Python/uv prerequisites; the
 credentialless local, registry, direct-delegation and ACP-delegation workflows need no installed
 agent or account. The process-launch examples retain their documented POSIX requirements.
+The core-only `examples:lifecycle-interactions` walkthrough observes a live decision after opening,
+uses its bound receipt and joins cleanup without a native process or model turn. It runs against
+source and matching packed packages; it does not establish native effect or whole-workload cleanup.
 The native-runner tests are also hermetic and run against both source and packed
 packages. Installed-consumer proof covers the provider's default standard extension
 policy, explicit rejection through the Node launcher, and actual managed completion
@@ -59,6 +64,35 @@ record the applicability of unchanged evidence; rerun affected native behavior o
 when that comparison or the behavior change requires it. Default checks never run
 the authenticated qualification command.
 
+The separate `0.4.1` lifecycle qualification covers grant, decline and pending-close through
+the selected `grok-folder-trust-v1` create mapping. Its exact retained composition is Grok Build
+`1.0.50` (`c58f321264ba`), executable SHA-256
+`c80de0155706ff2d995623887b102f2d0abd2c62b2643dea3a0cebaf7dd724d5`, direct
+`agent --no-leader stdio`, modern stable ACP `schema-v1.23.0`, API-key authentication, Linux
+x86_64 kernel `7.0.0-38-generic`, Node `24.18.0`, systemd `259.5`, Bubblewrap `0.11.1` and the
+frozen installed dependency/toolchain/network inputs. The explicitly supplied Linux owner had
+64-task, 512 MiB and 180-second whole-service bounds. Each returned SDK close had an independent
+same-cgroup empty checkpoint while the consumer remained alive, then host retirement without
+external intervention. Grant has separate native-file effect proof; decline proves local acceptance
+and absence of grant, without a separately attested acknowledgment or persisted denial.
+
+Keep that native evidence separate from controlled wire/reference proof and fresh standalone
+checks. Native wire correlation and prompt counts remain unobserved; frozen native consumers made
+no SDK turn invocation. The native dependency closure included `fast-uri@3.1.8`, while the standalone
+source retains its `fast-uri@3.1.0` override. Source documentation changes also change package archive
+bytes. Record applicability by comparing behavior-bearing inputs, rather than presenting newly
+packed `0.4.1` archives as the original native-qualified set. Source preparation does not qualify
+other native/account/platform pairings, general model-turn resource sizing, interactive
+materialization, root injected/shared connections, selected-profile resume/branch, outside-turn
+forms/authentication, durable native recovery, SDK-managed remembered permissions or private execution.
+
+The [typed Linux execution reference](examples/execution/linux/README.md) supplies a host-owned
+`NodeAcpExecutionBoundary`; containment is not built into the SDK. The selection rejects a missing
+boundary before materialization. Review early handler registration, exact receipt meaning and
+[retained startup/opening cleanup](MIGRATING-TO-0.4.1.md#retain-startup-and-opening-cleanup), including
+`NodeAcpExecutionCleanupError` preserved through `AgentProviderRegistryError.cause`. A request terminal,
+timeout or canceled wait never substitutes for successful native cleanup.
+
 Retain separate durable-delivery qualification evidence when reviewing the SQLite reference. Follow
 the [durable example instructions](examples/delegation/README.md#run-the-durable-qualification) in the
 exact qualified Linux, Node `24.18.0`, SQLite `3.53.1` and local-filesystem environment:
@@ -75,58 +109,19 @@ other environments. Completion inbox acceptance and parent dispatch must remain 
 crash recovery must not replay uncertain provider execution. These checks prepare SDK release
 evidence, not application settings, product integration or provider registration.
 
-## Initial publication of optional packages
+## Package setup status
 
-The core packages already completed their one-time npm bootstrap. Each new optional package needs
-its own separately authorized package setup and trusted publisher relationship. npm requires the
-package to exist before configuring trust. [npm trust documentation](https://docs.npmjs.com/cli/v11/commands/npm-trust/)
-
-For a new package, npm staging can create a public `0.0.0-stage` placeholder while withholding the
-staged payload. It requires npm >=11.15.0 and Node >=22.14.0. This is a registry write requiring
-separate approval. [npm staged-publishing documentation](https://docs.npmjs.com/staged-publishing/)
-
-During the `0.4.0` setup, staging admitted trusted-publisher configuration for all four optional
-package names even while public package metadata returned HTTP 404. Inspect the authenticated stage
-and trust records rather than relying on a public placeholder. Use organization access, a signed-in
-maintainer session and account 2FA:
-
-1. In a disposable directory outside the SDK checkout, review a minimal manifest for one new
-   optional package. Use a distinct version such as `0.0.0-bootstrap.0`, with no SDK payload:
-
-   ```json
-   {
-     "name": "@agen-ai/acp-transport",
-     "version": "0.0.0-bootstrap.0",
-     "description": "Package-name setup only; do not approve this staged version.",
-     "license": "MIT",
-     "files": []
-   }
-   ```
-
-2. From that directory, run `npm stage publish --access public --tag bootstrap`. Inspect
-   `npm stage list @agen-ai/acp-transport`, `npm stage view STAGE_ID` and
-   `npm view @agen-ai/acp-transport versions dist-tags --json`, replacing `STAGE_ID` with the
-   exact returned stage identity. Confirm the intended name and distinct staged version, and record
-   whether public metadata exposes a placeholder or still returns HTTP 404.
-3. Configure the exact trusted publisher below and inspect it with `npm trust list`. Repeat the
-   isolated setup for `@agen-ai/agent-orchestration`, `@agen-ai/provider-acp` and `@agen-ai/acp-registry`.
-4. Reject each unneeded bootstrap stage with `npm stage reject STAGE_ID`; never approve it. Confirm
-   that the package name and correct trust relationship remain, the bootstrap stage is absent and
-   `0.4.0` is neither published nor staged. A staged version reserves its semver identity, so staging
-   the target `0.4.0` would block ordinary publication of that version.
-   [npm stage command reference](https://docs.npmjs.com/cli/v11/commands/npm-stage/)
-5. After separate release approval, publish fresh coordinated `0.4.0` artifacts through the
-   unchanged workflow so its release provenance is available. Inspect package access and token
-   restrictions, then verify all seven artifacts and attestations before promotion.
-
-Do not locally publish target `0.4.0` bytes as a bootstrap. The verifier rejects an existing target
-version without the required GitHub release provenance, and npm will not overwrite it. Live setup
-must confirm the composition above works without weakening publication verification. Source
-preparation creates no placeholder, stage, trusted publisher, release tag or registry dist-tag.
+All seven package names completed npm setup, trusted-publisher configuration and publication for
+`0.4.0`. The `0.4.1` candidate needs no initial-package bootstrap or placeholder. Inspect the
+existing trust relationships before a later authorized release; do not recreate them merely
+because this source version changed. Historical staging and publication evidence remains tied to
+the original release. Source preparation creates no stage, trusted publisher, release tag or
+registry dist-tag.
 
 ## Routine release
 
-1. Update all package versions and release notes in the private source repository.
+1. Obtain separate authorization for the exact release operation. Update all package versions and
+   release notes in the private source repository.
 2. Export the approved SDK snapshot to this repository.
 3. Merge the projection to `main` and wait for CI.
 4. Tag the public commit as `v<version>` and push the tag.
@@ -166,7 +161,7 @@ maintainer-authenticated npm session after the immutable version and provenance 
 the release does not request OIDC dist-tag permission:
 
 ```sh
-VERSION=0.4.0
+VERSION=0.4.1
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest
@@ -177,7 +172,8 @@ npm dist-tag add "@agen-ai/acp-registry@$VERSION" latest
 ```
 
 Read every tag back after the seven commands. A promotion changes package resolution, not tarball
-bytes; `beta` may continue to select the same exact version.
+bytes; `beta` may continue to select the same exact version. The candidate above remains unpublished;
+these commands are a later release procedure and must not run as part of source readiness.
 
 ## Trusted publisher configuration
 

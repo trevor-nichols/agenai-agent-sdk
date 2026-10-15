@@ -70,22 +70,22 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.4.0", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.1", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.0" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.1" },
   },
   {
     name: "@agen-ai/agent-orchestration",
     root: "packages/agent-orchestration",
     directory: "packages/agent-orchestration",
     dependencies: {
-      "@agen-ai/agent-runtime": "^0.4.0",
-      "@agen-ai/agent-protocol": "^0.4.0",
-      "@agen-ai/validation": "^0.4.0",
+      "@agen-ai/agent-runtime": "^0.4.1",
+      "@agen-ai/agent-protocol": "^0.4.1",
+      "@agen-ai/validation": "^0.4.1",
       zod: "4.4.3",
       "@modelcontextprotocol/sdk": "1.29.0",
     },
@@ -108,16 +108,16 @@ const PACKAGES = [
     root: "packages/provider-acp",
     directory: "packages/provider-acp",
     dependencies: {
-      "@agen-ai/acp-transport": "^0.4.0",
-      "@agen-ai/agent-runtime": "^0.4.0",
-      "@agen-ai/agent-protocol": "^0.4.0",
+      "@agen-ai/acp-transport": "^0.4.1",
+      "@agen-ai/agent-runtime": "^0.4.1",
+      "@agen-ai/agent-protocol": "^0.4.1",
     },
   },
   {
     name: "@agen-ai/acp-registry",
     root: "packages/acp-registry",
     directory: "packages/acp-registry",
-    dependencies: { "@agen-ai/validation": "^0.4.0", zod: "4.4.3",
+    dependencies: { "@agen-ai/validation": "^0.4.1", zod: "4.4.3",
       "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
@@ -239,7 +239,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.4.0");
+  assert.equal(manifest.version, "0.4.1");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -397,6 +397,7 @@ import {
   parseAgentOperationInvocationId,
   parseAgentProviderConversationId,
   parseAgentProviderKey,
+  parseAgentRequestId,
   parseAgentSessionId,
   parseAgentTurnId,
   safeParseAgentError,
@@ -406,6 +407,12 @@ import {
 } from "@agen-ai/agent-protocol";
 import { parseAgentAccountQuotaSnapshot, type AgentAccountQuotaSnapshot } from "@agen-ai/agent-protocol/account-quota";
 import { parseAgentSessionBinding } from "@agen-ai/agent-protocol/sessions";
+import {
+  parseAgentSessionDecisionChoiceId,
+  parseAgentSessionDecisionRequest,
+  parseAgentSessionDecisionResponseFor,
+  type AgentSessionDecisionRequest,
+} from "@agen-ai/agent-protocol/session-interactions";
 import { parseAgentEnvironmentSnapshot, type AgentEnvironmentSnapshot } from "@agen-ai/agent-protocol/environment";
 import { parseAgentEffectiveContentCatalog } from "@agen-ai/agent-protocol/effective-content";
 import { parseAgentCommandCatalog } from "@agen-ai/agent-protocol/commands";
@@ -422,8 +429,8 @@ import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
 import { parseAgentEvent } from "@agen-ai/agent-protocol/events";
 import { parseAgentCapabilities } from "@agen-ai/agent-protocol/capabilities";
 import { parseAgentArtifactDescriptor } from "@agen-ai/agent-protocol/artifacts";
-import { AgentErrorSchema, AgentEventSchema } from "@agen-ai/agent-protocol/zod";
-import { AGENT_ERROR_JSON_SCHEMA, AGENT_EVENT_JSON_SCHEMA } from "@agen-ai/agent-protocol/json-schema";
+import { AgentErrorSchema, AgentEventSchema, AgentSessionDecisionRequestSchema } from "@agen-ai/agent-protocol/zod";
+import { AGENT_ERROR_JSON_SCHEMA, AGENT_EVENT_JSON_SCHEMA, AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA } from "@agen-ai/agent-protocol/json-schema";
 import {
   AGENT_PROVIDER_CONTRACT_ERROR_CODES,
   createAgentEventOutput,
@@ -433,6 +440,9 @@ import {
   validateAgentProviderAdapter,
   type AgentAccountQuotaPort,
   type AgentSessionHostBinding,
+  type AgentSessionInteraction,
+  type AgentSessionInteractionContext,
+  type AgentSessionInteractionTerminal,
   type AgentProviderSession,
   type AgentTurnSteeringResult,
 } from "@agen-ai/agent-runtime";
@@ -444,7 +454,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.4.0");
+assert.equal(protocolManifest.version, "0.4.1");
 
 const packedFailure: AgentError = {
   category: "quota_exhausted", code: "allowance_unavailable", message: "The observed allowance is exhausted.",
@@ -458,15 +468,15 @@ const packedFailure: AgentError = {
 assert.deepEqual(parseAgentError(JSON.parse(JSON.stringify(packedFailure))), packedFailure);
 assert.deepEqual(AgentErrorSchema.parse(packedFailure), packedFailure);
 assert.equal(safeParseAgentError({ code: "legacy", message: "Legacy failure.", retryable: false }).success, false);
-assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 10);
+assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 11);
 const packedRetry: AgentRuntimeRetryingEvent = {
-  protocolVersion: 10, sessionId: parseAgentSessionId("packed-retry-session"),
+  protocolVersion: 11, sessionId: parseAgentSessionId("packed-retry-session"),
   turnId: parseAgentTurnId("packed-retry-turn"), occurredAt: parseAgentIsoDateTime("2026-10-11T12:00:00.000Z"),
   type: "runtime.retrying", payload: { owner: "provider", error: packedFailure, attempt: 1, maxAttempts: 2, delayMs: 0 },
 };
 assert.deepEqual(parseAgentEvent(JSON.parse(JSON.stringify(packedRetry))), packedRetry);
 assert.deepEqual(AgentEventSchema.parse(packedRetry), packedRetry);
-assert.throws(() => parseAgentEvent({ ...packedRetry, protocolVersion: 9 }));
+assert.throws(() => parseAgentEvent({ ...packedRetry, protocolVersion: 10 }));
 
 const quotaSnapshot: AgentAccountQuotaSnapshot = parseAgentAccountQuotaSnapshot({
   schemaVersion: 1, sourceId: "packed-source", observedAt: "2026-09-07T12:00:00.000Z",
@@ -764,7 +774,7 @@ assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 10);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 11);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -810,7 +820,7 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 10,
+  protocolVersion: 11,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -857,7 +867,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
     outputs: (async function* () {
       packedRunCount += 1;
       yield createAgentEventOutput({
-        protocolVersion: 10,
+        protocolVersion: 11,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -865,7 +875,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 10,
+        protocolVersion: 11,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -891,6 +901,70 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
   generatedResources: { kind: "unsupported" },
   close: async () => undefined,
 });
+// Packed declarations and export maps must support a complete outside-turn decision.
+const decision: AgentSessionDecisionRequest = parseAgentSessionDecisionRequest({
+  kind: "decision", requestId: parseAgentRequestId("packed-session-decision"),
+  sessionId: parseAgentSessionId("packed-interaction-session"),
+  title: "Allow workspace configuration?", target: { kind: "workspace", path: "/tmp/packed-workspace" },
+  expiresAt: new Date(Date.now() + 60_000).toISOString(),
+  choices: [{ choiceId: parseAgentSessionDecisionChoiceId("decline"), label: "Keep gated",
+    description: "Leave workspace configuration gated.",
+    consequence: { kind: "decline", configuration: "remains_gated" } }],
+});
+assert.deepEqual(AgentSessionDecisionRequestSchema.parse(decision), decision);
+assert.equal(AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA.protocolVersion, 11);
+assert.throws(() => parseAgentSessionDecisionResponseFor(decision, { choiceId: "unoffered" }));
+const presented: AgentSessionInteraction[] = [];
+const interactions: AgentSessionInteractionContext = { onRequest: (handle) => { presented.push(handle); } };
+let decisionEntries = 0;
+let interactionCloses = 0;
+const interactionAdapter = validateAgentProviderAdapter(steeringCapabilities, {
+  sessionInteractions: { kind: "supported", openingOperations: ["create"],
+    requestKinds: ["decision"], producerOwnership: "exclusive" },
+  createSession(input) {
+    const native = packedSession(input.sessionId);
+    input.onBindingCreated(native.binding);
+    let settleTerminal: ((value: AgentSessionInteractionTerminal) => void) | undefined;
+    const terminal = new Promise<AgentSessionInteractionTerminal>((resolve) => { settleTerminal = resolve; });
+    const lifetime = new AbortController();
+    const callback = Promise.resolve(input.interactions?.onRequest({
+      request: decision, signal: lifetime.signal, terminal,
+      respond: async ({ choiceId }) => {
+        decisionEntries += 1;
+        assert.ok(settleTerminal);
+        settleTerminal({ kind: "answered", choiceId });
+        return { status: "delivered" };
+      },
+    }));
+    return { ...native, close: async () => {
+      interactionCloses += 1;
+      lifetime.abort();
+      assert.ok(settleTerminal);
+      settleTerminal({ kind: "session_closed" });
+      await callback;
+    } };
+  },
+  resumption: { kind: "unsupported" }, branching: { kind: "unsupported" },
+  authentication: { kind: "unsupported" },
+});
+const interactionSession = await interactionAdapter.createSession({
+  sessionId: decision.sessionId, workingDirectory: "/tmp/packed-workspace",
+  configuration: environmentConfiguration, onBindingCreated: () => undefined, interactions,
+});
+assert.equal(presented.length, 1);
+const interaction = presented[0];
+assert.ok(interaction);
+assert.equal(decisionEntries, 0);
+const answer = { choiceId: decision.choices[0].choiceId };
+assert.deepEqual(await interaction.respond(answer), { status: "delivered" });
+assert.deepEqual(await interaction.terminal, { kind: "answered", choiceId: answer.choiceId });
+const repeatAnswer = await interaction.respond(answer);
+assert.equal(repeatAnswer.status, "rejected");
+if (repeatAnswer.status === "rejected") assert.equal(repeatAnswer.requestState, "unavailable");
+assert.equal(decisionEntries, 1);
+await interactionSession.close({ reason: "idle" });
+assert.equal(interactionCloses, 1);
+
 const steeringDriver = defineAgentProviderDriver({
   providerKey: steeringProviderKey,
   supportsMultipleInstances: false,
@@ -1071,7 +1145,8 @@ const report = await runAgentProviderConformance({
     if (request.requestKind !== "approval") {
       throw new TypeError("The deterministic fake must open an approval request.");
     }
-    const option = request.options.find((candidate) => candidate.decision === "approved");
+    const option = request.options.find((candidate) => candidate.decision === "approved" && candidate.consequence.kind === "scoped"
+      && candidate.consequence.persistence === "once" && candidate.consequence.scope.kind === "exact_action");
     assert.ok(option);
     return {
       requestKind: "approval",
@@ -1100,7 +1175,7 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
@@ -1164,7 +1239,7 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 10,
+  protocolVersion: 11,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -1186,7 +1261,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 10,
+  protocolVersion: 11,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -1351,7 +1426,8 @@ import {
   type AgentProviderOutput,
   type AgentProviderSession,
 } from "@agen-ai/agent-runtime";
-import { createAcpProviderDriver, type AcpHostFacilities } from "@agen-ai/provider-acp";
+import { createAcpProviderDriver, type AcpHostFacilities, type AcpPermissionMappingSelection,
+  type AcpPermissionMenuSignature, type AcpPermissionOptionSignature } from "@agen-ai/provider-acp";
 import { createNodeAcpProviderDriver } from "@agen-ai/provider-acp/node";
 
 async function collectEvents(iterator: AsyncIterator<AgentProviderOutput>, untilRequest = false): Promise<AgentEvent[]> {
@@ -1410,6 +1486,15 @@ function runTextTurn(session: AgentProviderSession, name: string) {
 }
 
 export async function runAcpProviderConsumer(): Promise<void> {
+  const declaredOption: AcpPermissionOptionSignature = { optionId: "remembered", kind: "allow_always" };
+  const declaredMenu: AcpPermissionMenuSignature = { toolKind: "edit", options: [declaredOption] };
+  const permissionMapping: AcpPermissionMappingSelection = { mapping: "declared-complete-consequences-v1",
+    agentInfo: { name: "packed-declared-peer", version: "1.0.0" }, menus: [declaredMenu] };
+  let constructorConnections = 0;
+  const declaredDriver = createAcpProviderDriver({ providerKey: "packed-declared-constructor", permissionMapping,
+    createConnection() { constructorConnections += 1; throw new Error("Construction must remain inert."); } });
+  assert.equal(declaredDriver.providerKey, "packed-declared-constructor");
+  assert.equal(constructorConnections, 0);
   const stdout = new PassThrough();
   const methods: string[] = [];
   const stdin = new Writable({
@@ -1494,10 +1579,10 @@ export async function runAcpProviderConsumer(): Promise<void> {
     assert.ok(request && request.requestKind === "approval");
     assert.equal(request.subject.kind, "tool");
     if (request.subject.kind !== "tool") throw new Error("Expected a correlated tool approval.");
-    const approved = request.options.find((option) => option.decision === "approved");
+    const approved = request.options.find((option) => option.decision === "approved" && option.consequence.kind === "scoped"
+      && option.consequence.persistence === "once" && option.consequence.scope.kind === "exact_action");
     assert.ok(approved);
-    assert.equal(approved.persistence, "once");
-    assert.deepEqual(approved.scope, { kind: "exact_action" });
+    assert.deepEqual(approved.consequence, { kind: "scoped", persistence: "once", scope: { kind: "exact_action" } });
     assert.equal(initial.some((event) => event.type === "turn.completed"), false);
     assert.ok(initial.some((event) => event.type === "turn.state_changed" && event.payload.state === "waiting_for_request"));
     assert.deepEqual(await execution.resolveRequest({ resolution: {
@@ -1831,9 +1916,154 @@ const INTENTIONALLY_INVALID_CONSUMER_SOURCE = `import type {
   AgentCapabilities,
 } from "@agen-ai/agent-protocol";
 
-const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 9;
+const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 10;
 void retiredProtocolVersion;
 `;
+
+async function writePackedOverrides(consumerRoot, dependencies) {
+  await writeFile(path.join(consumerRoot, ".pnpmfile.cjs"),
+    `const packedDependencies = ${JSON.stringify(dependencies)};\nmodule.exports = { hooks: { readPackage(pkg) {\n  for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {\n    if (!pkg[section]) continue;\n    for (const [name, tarball] of Object.entries(packedDependencies)) {\n      if (Object.hasOwn(pkg[section], name)) pkg[section][name] = tarball;\n    }\n  }\n  return pkg;\n} } };\n`);
+}
+
+function assertApprovalWalkthrough(report, expectedResolution, completionText) {
+  assert.deepEqual(report.resolution, expectedResolution);
+  assert.equal(report.receipt, "delivered");
+  assert.equal(report.cleanup, "joined");
+  assert.deepEqual(report.transcript, ["turn.started", "request.opened",
+    "output:Independent work continues while the approval is open.", "answer.submitted", "answer.delivered",
+    `output:${completionText}`, "turn.completed:completed", "session.closed", "handler.joined"]);
+  for (const option of report.offered) {
+    if (option.consequence.kind === "scoped") {
+      assert.deepEqual(option.consequence, { kind: "scoped", persistence: "once", scope: { kind: "exact_action" } });
+      assert.equal(option.display, "once; exact_action");
+    } else {
+      assert.equal(option.consequence.kind, "provider_managed_remembrance");
+      assert.deepEqual(option.consequence.duration, { kind: "unknown" });
+      assert.deepEqual(option.consequence.applicability, { kind: "unknown" });
+      assert.match(option.consequence.explanation, /Duration and future matching are unspecified/u);
+      assert.match(option.display, /^Duration: unknown; applicability: unknown\./u);
+    }
+  }
+}
+
+function assertRememberedCoreExample(report) {
+  assert.equal(report.example, "remembered-approvals");
+  assert.equal(report.evidence, "synthetic");
+  assert.deepEqual(report.offered.map(({ optionId, label, decision, consequence }) =>
+    ({ optionId, label, decision, kind: consequence.kind })), [
+    { optionId: "remembered:once", label: "Allow once", decision: "approved", kind: "scoped" },
+    { optionId: "remembered:allow", label: "Allow and remember", decision: "approved", kind: "provider_managed_remembrance" },
+  ]);
+  assertApprovalWalkthrough(report, { requestKind: "approval", requestId: "remembered:request",
+    disposition: "selected", optionId: "remembered:allow" }, "The original turn continues; native persistence remains unobserved.");
+  assert.deepEqual({ starts: report.starts, outputReaders: report.outputReaders, acceptedAnswers: report.acceptedAnswers,
+    closes: report.closes, producerJoined: report.producerJoined },
+  { starts: 1, outputReaders: 1, acceptedAnswers: 1, closes: 1, producerJoined: true });
+  assert.equal(report.nativePersistence, "unobserved");
+  assert.equal(report.effect, "not_performed");
+}
+
+function assertRememberedAcpExample(report) {
+  assert.equal(report.example, "remembered-approvals-acp");
+  assert.equal(report.evidence, "synthetic");
+  assert.equal(report.mapping, "declared-complete-consequences-v1");
+  assert.equal(report.nativePersistence, "unobserved");
+  assert.equal(report.effect, "not_performed");
+  assert.equal(report.cleanup, "joined");
+  assert.deepEqual(report.scenarios.map(({ name }) => name), ["remember-allow", "remember-deny", "cancel"]);
+  const expectedReplies = [
+    { id: "permission:remember-allow", outcome: { outcome: "selected", optionId: "native-remember-allow" } },
+    { id: "permission:remember-deny", outcome: { outcome: "selected", optionId: "native-remember-deny" } },
+    { id: "permission:cancel", outcome: { outcome: "cancelled" } },
+  ];
+  const permissions = report.nativeFrames.filter(({ direction, frame }) =>
+    direction === "peer_to_host" && frame.method === "session/request_permission");
+  assert.deepEqual(permissions.map(({ frame }) => ({ id: frame.id, toolKind: frame.params.toolCall.kind,
+    options: frame.params.options.map(({ optionId, kind }) => ({ optionId, kind })) })), expectedReplies.map(({ id }) => ({
+    id, toolKind: "edit", options: [
+      { optionId: "native-allow-once", kind: "allow_once" }, { optionId: "native-remember-allow", kind: "allow_always" },
+      { optionId: "native-deny-once", kind: "reject_once" }, { optionId: "native-remember-deny", kind: "reject_always" },
+    ],
+  })));
+  const replies = report.nativeFrames.filter(({ direction, frame }) => direction === "host_to_peer" && frame.result);
+  assert.deepEqual(replies.map(({ frame }) => ({ id: frame.id, outcome: frame.result.outcome })), expectedReplies,
+    "Remembered denial must select the exact native rejection option; cancellation must carry no option.");
+  const prompts = report.nativeFrames.filter(({ direction, frame }) => direction === "host_to_peer" && frame.method === "session/prompt");
+  assert.deepEqual(prompts.map(({ frame }) => frame.params.prompt), [
+    [{ type: "text", text: "remember-allow" }], [{ type: "text", text: "remember-deny" }], [{ type: "text", text: "cancel" }],
+  ], "Each original native prompt must remain owned through permission delivery and terminality.");
+  for (const scenario of report.scenarios) {
+    assert.deepEqual(scenario.offered.map(({ optionId, decision, consequence }) => ({ optionId, decision, kind: consequence.kind })), [
+      { optionId: "acp:option:1", decision: "approved", kind: "scoped" },
+      { optionId: "acp:option:2", decision: "approved", kind: "provider_managed_remembrance" },
+      { optionId: "acp:option:3", decision: "denied", kind: "scoped" },
+      { optionId: "acp:option:4", decision: "denied", kind: "provider_managed_remembrance" },
+    ]);
+    assertApprovalWalkthrough(scenario, scenario.name === "cancel"
+      ? { requestKind: "approval", requestId: "acp:request:1", disposition: "canceled" }
+      : { requestKind: "approval", requestId: "acp:request:1", disposition: "selected",
+        optionId: scenario.name === "remember-allow" ? "acp:option:2" : "acp:option:4" },
+    `Original native prompt completed after ${scenario.name}.`);
+  }
+}
+
+async function runCoreConsumer(tempRoot, artifacts) {
+  const consumerRoot = path.join(tempRoot, "core-consumer");
+  await mkdir(path.join(consumerRoot, "src"), { recursive: true });
+  await mkdir(path.join(consumerRoot, "examples/fixtures"), { recursive: true });
+  const coreNames = ["@agen-ai/validation", "@agen-ai/agent-protocol", "@agen-ai/agent-runtime"];
+  const dependencies = Object.fromEntries(coreNames.map((name) => [name,
+    `file:${artifacts.find((artifact) => artifact.manifest.name === name).tarballPath}`]));
+  await writeFile(path.join(consumerRoot, "package.json"), JSON.stringify({
+    name: "agent-sdk-core-only-interaction-proof", version: "1.0.0", private: true, type: "module",
+    packageManager: "pnpm@11.7.0", engines: { node: ">=22.0.0" }, dependencies: { ...dependencies, zod: "4.4.3" },
+    devDependencies: { "@types/node": "24.10.1", typescript: "5.9.3" },
+  }, null, 2) + "\n");
+  await writeFile(path.join(consumerRoot, "tsconfig.json"), JSON.stringify({ compilerOptions: {
+    target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", outDir: "dist", rootDir: ".",
+    strict: true, noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, skipLibCheck: false, types: ["node"],
+  }, include: ["src/*.ts", "examples/lifecycle-interactions.ts", "examples/remembered-approvals.ts"] }, null, 2) + "\n");
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/session-interactions/core.ts"), path.join(consumerRoot, "src/core.ts"));
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/remembered-approvals/core-types.ts"),
+    path.join(consumerRoot, "src/remembered-types.ts"));
+  const examplePath = path.join(consumerRoot, "examples/lifecycle-interactions.ts");
+  await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "lifecycle-interactions.ts"), examplePath);
+  const exampleSha256 = createHash("sha256").update(await readFile(examplePath)).digest("hex");
+  const rememberedExamplePath = path.join(consumerRoot, "examples/remembered-approvals.ts");
+  await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "remembered-approvals.ts"), rememberedExamplePath);
+  await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "fixtures/approval-walkthrough.ts"),
+    path.join(consumerRoot, "examples/fixtures/approval-walkthrough.ts"));
+  const rememberedExampleSha256 = createHash("sha256").update(await readFile(rememberedExamplePath)).digest("hex");
+  await writeFile(path.join(consumerRoot, "offline-guard.mjs"),
+    'globalThis.fetch = async () => { throw new Error("Core-only session interaction proof must execute without network access."); };\n');
+  await writePackedOverrides(consumerRoot, dependencies);
+  await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], { cwd: consumerRoot });
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const example = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/examples/lifecycle-interactions.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.deepEqual(JSON.parse(example.stdout.trim()), {
+    example: "lifecycle-interactions", evidence: "synthetic", pendingAfterOpening: true, receipt: "delivered", terminal: "answered",
+    effect: "not_performed", turns: 0, acceptedAnswers: 1, sessionCloses: 1, instanceDisposals: 1, cleanup: "joined",
+    transcript: ["handler.offered", "opening.returned", "host.selected:decline", "answer.delivered", "decision.answered", "session.closed", "instance.disposed"],
+  });
+  process.stdout.write(example.stdout);
+  const remembered = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/examples/remembered-approvals.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assertRememberedCoreExample(JSON.parse(remembered.stdout.trim()));
+  process.stdout.write(remembered.stdout);
+  const core = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/src/core.js", REPO_ROOT],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  const report = JSON.parse(core.stdout.trim());
+  assert.equal(report.proof, "core-only-session-interactions");
+  assert.equal(report.evidence, "synthetic");
+  assert.deepEqual(report.scenarios, [
+    { scenario: "pending-close", openings: 1, callbacks: 1, answers: 0, nativeCloses: 1, hostReleases: 1, turns: 0, cleanup: "joined" },
+    { scenario: "returned-cleanup", openings: 1, callbacks: 1, answers: 0, nativeCloses: 2, hostReleases: 1, turns: 0, cleanup: "joined" },
+    { scenario: "opening-cleanup", openings: 1, callbacks: 1, answers: 0, nativeCloses: 1, hostReleases: 1, turns: 0, cleanup: "joined" },
+  ]);
+  process.stdout.write(core.stdout);
+  return { exampleSha256, rememberedExampleSha256, packages: coreNames };
+}
 
 async function runConsumer(tempRoot, artifacts) {
   const consumerRoot = path.join(tempRoot, "consumer");
@@ -1874,7 +2104,7 @@ async function runConsumer(tempRoot, artifacts) {
       skipLibCheck: false,
       types: ["node"],
     },
-    include: ["src/scenario.ts", "src/registry.ts", "src/registry-provider/*.ts", "src/orchestration/*.ts"],
+    include: ["src/scenario.ts", "src/registry.ts", "src/registry-provider/*.ts", "src/orchestration/*.ts", "src/session-interactions/*.ts"],
   };
   await writeFile(
     path.join(consumerRoot, "package.json"),
@@ -1887,6 +2117,13 @@ async function runConsumer(tempRoot, artifacts) {
   await writeFile(path.join(sourceRoot, "scenario.ts"), CONSUMER_SOURCE);
   await writeFile(path.join(sourceRoot, "provider.ts"), ACP_PROVIDER_CONSUMER_SOURCE);
   await writeFile(path.join(sourceRoot, "registry.ts"), ACP_REGISTRY_CONSUMER_SOURCE);
+  await mkdir(path.join(sourceRoot, "session-interactions"));
+  for (const file of ["node.ts", "controlled-owner.ts", "registry-cleanup.ts", "execution-reference.ts"]) {
+    await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/session-interactions", file),
+      path.join(sourceRoot, "session-interactions", file));
+  }
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/session-interactions/peer.mjs"),
+    path.join(consumerRoot, "session-interaction-peer.mjs"));
   await mkdir(path.join(sourceRoot, "orchestration"));
   for (const file of ["policy.ts", "execution.ts", "acp.ts", "acp-host.ts", "acp-ownership.ts", "acp-failures.ts"]) {
     await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/orchestration", file),
@@ -1911,6 +2148,8 @@ async function runConsumer(tempRoot, artifacts) {
   await cp(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT), path.join(consumerRoot, "examples"), { recursive: true });
   const liveExampleSha256 = createHash("sha256")
     .update(await readFile(path.join(consumerRoot, "examples/live-request-output.ts"))).digest("hex");
+  const rememberedAcpExampleSha256 = createHash("sha256")
+    .update(await readFile(path.join(consumerRoot, "examples/remembered-approvals-acp.ts"))).digest("hex");
   await writeFile(path.join(consumerRoot, "examples-offline-guard.mjs"),
     'globalThis.fetch = async () => { throw new Error("Public examples must execute without network access."); };\n');
   await writeFile(
@@ -1925,18 +2164,7 @@ async function runConsumer(tempRoot, artifacts) {
       include: ["src/intentionally-invalid.ts"],
     }, null, 2)}\n`,
   );
-  await writeFile(
-    path.join(consumerRoot, ".pnpmfile.cjs"),
-    `const packedDependencies = ${JSON.stringify({
-      "@agen-ai/validation": fileDependency("@agen-ai/validation"),
-      "@agen-ai/agent-protocol": fileDependency("@agen-ai/agent-protocol"),
-      "@agen-ai/agent-runtime": fileDependency("@agen-ai/agent-runtime"),
-      "@agen-ai/agent-orchestration": fileDependency("@agen-ai/agent-orchestration"),
-      "@agen-ai/acp-transport": fileDependency("@agen-ai/acp-transport"),
-      "@agen-ai/provider-acp": fileDependency("@agen-ai/provider-acp"),
-      "@agen-ai/acp-registry": fileDependency("@agen-ai/acp-registry"),
-    })};\nmodule.exports = { hooks: { readPackage(pkg) {\n  for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {\n    if (!pkg[section]) continue;\n    for (const [name, tarball] of Object.entries(packedDependencies)) {\n      if (Object.hasOwn(pkg[section], name)) pkg[section][name] = tarball;\n    }\n  }\n  return pkg;\n} } };\n`,
-  );
+  await writePackedOverrides(consumerRoot, Object.fromEntries(PACKAGES.map(({ name }) => [name, fileDependency(name)])));
   await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], {
     cwd: consumerRoot,
   });
@@ -1944,6 +2172,14 @@ async function runConsumer(tempRoot, artifacts) {
     cwd: consumerRoot,
   });
   await run("pnpm", ["exec", "tsc", "--project", "examples/tsconfig.json", "--noEmit"], { cwd: consumerRoot });
+  const permissionFlag = process.allowedNodeEnvironmentFlags.has("--permission") ? "--permission" : "--experimental-permission";
+  const executionReference = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
+    "dist/session-interactions/execution-reference.js"], { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.deepEqual(JSON.parse(executionReference.stdout.trim()), {
+    proof: "packed-linux-execution-reference", evidence: "inert-public-composition", hostInputsRequired: true,
+    publicBoundaryCompatible: true, hostsConstructed: 2, hostStarts: 0, nativeStarts: 0, operationRootsCreated: 0, unusedHostsDisposed: 2,
+  });
+  process.stdout.write(executionReference.stdout);
   const liveExample = await run(process.execPath,
     ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/live-request-output.ts"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
@@ -1967,6 +2203,11 @@ async function runConsumer(tempRoot, artifacts) {
     producerJoined: true, handlerJoined: true, cleanup: "joined",
   }], "The packed example must show live progress before answering and complete through its original reader.");
   process.stdout.write(liveExample.stdout);
+  const rememberedAcpExample = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/remembered-approvals-acp.ts"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assertRememberedAcpExample(JSON.parse(rememberedAcpExample.stdout.trim()));
+  process.stdout.write(rememberedAcpExample.stdout);
   const nativeTests = (await readdir(path.join(consumerRoot, "examples/delegation/native/tests")))
     .filter((file) => file.endsWith(".test.ts")).sort();
   assert.ok(nativeTests.length > 0, "Native qualification requires executable hermetic public tests.");
@@ -2087,6 +2328,21 @@ async function runConsumer(tempRoot, artifacts) {
   const installationExecution = await run("node", ["dist/registry-provider/consumer.js", REPO_ROOT], { cwd: consumerRoot });
   assert.match(installationExecution.stdout, /External packed registry→binary\/npm\/uv→offline provider proof passed/u);
   process.stdout.write(installationExecution.stdout);
+  const interactionExecution = await run(process.execPath, ["--import", "./examples-offline-guard.mjs", "dist/session-interactions/node.js", REPO_ROOT],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  const interactionReport = JSON.parse(interactionExecution.stdout.trim());
+  assert.equal(interactionReport.proof, "packed-controlled-node-session-interactions");
+  assert.equal(interactionReport.evidence, "synthetic");
+  assert.equal(interactionReport.executionBoundary, "controlled-single-child");
+  assert.deepEqual(interactionReport.scenarios, [
+    { scenario: "answer", callbacks: 1, nativeReplies: 1, nativePromptFrames: 0, sdkTurns: 0, childAndGroupGone: true, effect: "not_performed" },
+    { scenario: "pending", callbacks: 1, nativeReplies: 0, nativePromptFrames: 0, sdkTurns: 0, childAndGroupGone: true, effect: "not_performed" },
+  ]);
+  assert.deepEqual(interactionReport.startupCleanup, {
+    scenario: "registry-startup-cleanup", cause: "NodeAcpExecutionCleanupError", pendingStartupRetained: true,
+    pendingReleaseRetained: true, reservations: 1, starts: 1, releases: 1, joins: 1, nativeStarts: 0, cleanup: "joined",
+  });
+  process.stdout.write(interactionExecution.stdout);
   for (const profile of ["v0.11.4", "schema-v1.23.0"]) {
     const schemaPath = path.join(consumerRoot, `node_modules/@agen-ai/acp-transport/schema/${profile}/schema.json`);
     const schemaBytes = await readFile(schemaPath);
@@ -2103,7 +2359,7 @@ assert.throws(() => createAcpSchemaValidator("stable", ${JSON.stringify(profile)
       await writeFile(schemaPath, schemaBytes);
     }
   }
-  return { liveExampleSha256 };
+  return { liveExampleSha256, rememberedAcpExampleSha256 };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -2152,13 +2408,18 @@ async function main() {
         await inspectTarball(definition, tarballPath, extractedRoot),
       );
     }
-    const { liveExampleSha256 } = await runConsumer(tempRoot, artifacts);
+    const coreConsumer = await runCoreConsumer(tempRoot, artifacts);
+    const { liveExampleSha256, rememberedAcpExampleSha256 } = await runConsumer(tempRoot, artifacts);
     process.stdout.write(`${JSON.stringify({
       proof: "agent-sdk-packed-artifact-identities",
       example: {
         path: "examples/live-request-output.ts",
         sha256: liveExampleSha256,
       },
+      lifecycleExample: { path: "examples/lifecycle-interactions.ts", sha256: coreConsumer.exampleSha256, installedSdkPackages: coreConsumer.packages },
+      rememberedExample: { path: "examples/remembered-approvals.ts", sha256: coreConsumer.rememberedExampleSha256,
+        installedSdkPackages: coreConsumer.packages },
+      rememberedAcpExample: { path: "examples/remembered-approvals-acp.ts", sha256: rememberedAcpExampleSha256 },
       packages: await Promise.all(artifacts.map(async ({ manifest, tarballPath }) => ({
         name: manifest.name, version: manifest.version,
         sha256: createHash("sha256").update(await readFile(tarballPath)).digest("hex"),

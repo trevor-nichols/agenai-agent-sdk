@@ -14,11 +14,14 @@ import {
 import { createHarness, deferred, makeBinding } from "./fixtures/hostBindings/harness.js";
 
 test("failed candidate cleanup retains its exact opening owner with and without a host binding", async (t) => {
-  for (const kind of ["create", "resume", "branch"] as const) for (const withBinding of [false, true]) {
-    await t.test(`${kind} ${withBinding ? "with binding" : "without binding"}`, async () => {
+  for (const kind of ["create", "resume", "branch"] as const) for (const withBinding of [false, true]) for (const withInteractions of [false, true]) {
+    await t.test(`${kind} ${withBinding ? "with binding" : "without binding"} ${withInteractions ? "with interactions" : "without interactions"}`, async () => {
       let closes = 0;
       const finish = deferred<void>();
-      const harness = await createHarness({ transformSession(session) {
+      const harness = await createHarness({
+        transformAdapter: (adapter) => ({ ...adapter, createSession: (input) => adapter.createSession(input), sessionInteractions: { kind: "supported",
+          openingOperations: ["create", "resume", "branch"], requestKinds: ["decision"], producerOwnership: "exclusive" } }),
+        transformSession(session) {
         return Object.assign({ ...session, async close(input: Parameters<AgentProviderSession["close"]>[0]) {
           closes += 1;
           if (closes === 1) throw new Error("Native cleanup did not complete.");
@@ -30,6 +33,7 @@ test("failed candidate cleanup retains its exact opening owner with and without 
         sessionId: parseAgentSessionId(`cleanup:${kind}`), workingDirectory: "/host/workspace",
         configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("cleanup-contract"), catalogRevision: 1, selections: [] }, onBindingCreated() {},
         ...(withBinding ? { hostBinding: makeBinding().binding } : {}),
+        ...(withInteractions ? { interactions: { onRequest() {} } } : {}),
       };
       const binding = { conversationId: parseAgentProviderConversationId("cleanup-conversation"),
         historyAnchor: parseAgentProviderHistoryAnchor("cleanup-history") };

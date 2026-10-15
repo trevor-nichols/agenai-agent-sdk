@@ -1,0 +1,133 @@
+{
+  "method": "Original MS001 installed V10 consumer and unchanged reference sources committed a real precise approval delivery and terminal success through the public coordinator. No native vendor or migration ran.",
+  "verifiedReferenceSourceCommit": "41b6011632f09e6f232ab705127ca1299af4a28c",
+  "sourceCommitScope": "The listed reference TypeScript source files were independently byte-compared with this git object. Installed package identity is recorded separately by exact bytes; no package build-commit field was retained.",
+  "producer": "fixtures/history/format-three-producer.mjs",
+  "protocolVersion": 10,
+  "storeContractVersion": 3,
+  "taskFormat": 3,
+  "runtime": {
+    "node": "v24.18.0",
+    "sqlite": "3.53.1",
+    "platform": "linux",
+    "filesystem": "0xef53"
+  },
+  "fixtureSha256": "bdb39e4dfa093794de05fb0c71787b2180346f605511c17ed2992800d33154f1",
+  "producerSha256": "5377f727ec456599ede5f40e548a1a130d6030349d0d4285c06947d8bbd4bd66",
+  "packages": [
+    {
+      "name": "@agen-ai/validation",
+      "version": "0.4.1",
+      "tarball": "agen-ai-validation-0.4.1.tgz",
+      "tarballSha256": "663420f9d42b4fa6561fec2eadef2c3c4b4088cc31637b6f6b393da204ca1529",
+      "manifestSha256": "d374794d2139aa0a5902605dcd59430e6324f3187ba27de136e563a697eafbb3",
+      "entrypointSha256": "85ce0c54036ef660b48ff90b5d2e2f4543c4a5c2464e3e3bc60241cb208ba08f"
+    },
+    {
+      "name": "@agen-ai/agent-protocol",
+      "version": "0.4.1",
+      "tarball": "agen-ai-agent-protocol-0.4.1.tgz",
+      "tarballSha256": "89814ba2cd46966de2f9488b6f4459edb4fa884fa61259ca6a1bf31e98e5ec6e",
+      "manifestSha256": "32ee19108bd1b5ae383bfc9cdd8ce57b595fa23c99b0493cc9907d040e8195d9",
+      "entrypointSha256": "c911a097208793ff72f2c62872a99638331b1e7fad5ebce69afe561594e95ebd"
+    },
+    {
+      "name": "@agen-ai/agent-runtime",
+      "version": "0.4.1",
+      "tarball": "agen-ai-agent-runtime-0.4.1.tgz",
+      "tarballSha256": "3225f0a8656955994f911476843bed4c6ad010b924ea84575aea0a91fc54ac7a",
+      "manifestSha256": "7b10c71fdde357384f85bd6b2ad68ccbb43fe74ed583ed26121fd57c1b8c9680",
+      "entrypointSha256": "2fb273c1d18ab2cde89e2df94ac372ecb504ab977fe83404d288b9c4dda33b21"
+    },
+    {
+      "name": "@agen-ai/agent-orchestration",
+      "version": "0.4.1",
+      "tarball": "agen-ai-agent-orchestration-0.4.1.tgz",
+      "tarballSha256": "a756689e4c240233fec738ce80802a67a249731558b08fe1a01deb6d0ce112ed",
+      "manifestSha256": "d45813f638d0e662f32bb43be362cc26adf288d9eb8d123080d64c6312cdad8b",
+      "entrypointSha256": "f866ab79a8fa4316cdc51586653e545d96ed83bb36c9a964a308794687bc85b1"
+    },
+    {
+      "name": "@agen-ai/acp-transport",
+      "version": "0.4.1",
+      "tarball": "agen-ai-acp-transport-0.4.1.tgz",
+      "tarballSha256": "032c3eab752435fd94ad68ebdc9d4dcb9e6dfdd22ccd1115cf4b02ff0d8dcfeb",
+      "manifestSha256": "2f810dcd61af5c33bfed4ece6b573666b2fdf7aad4a944e8f22913d4019c6c05",
+      "entrypointSha256": "de53333601ba78b82edf70e41259db571f26082982e616f3f048b4b87bb5de1a"
+    },
+    {
+      "name": "@agen-ai/provider-acp",
+      "version": "0.4.1",
+      "tarball": "agen-ai-provider-acp-0.4.1.tgz",
+      "tarballSha256": "34df119e46758c5f11ac02f0c9795a57b9d4ffc80ba09abd98fe516bc21bf2bc",
+      "manifestSha256": "9ba1c82fdab3cf0d5827073ccdd7e158c05ac4ae0e54c9208420a09304abb328",
+      "entrypointSha256": "ef46869c03661c56a6d512d7a39a03793cf67271244eb93c6e524c102d502bcd"
+    },
+    {
+      "name": "@agen-ai/acp-registry",
+      "version": "0.4.1",
+      "tarball": "agen-ai-acp-registry-0.4.1.tgz",
+      "tarballSha256": "ffb9288dbd575f59fa2d08ec17cb86c3b68700c37d74095d2781932a90117026",
+      "manifestSha256": "4d1fb4c80ec6a66f512de301311b407aee1bd8c3c18a44d07c619223dff6f76b",
+      "entrypointSha256": "aea4a590621f6bb1c0418db99bc6d079771a789bc043a19711fa7a566bdf42a3"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "file": "sqlite/capacity.ts",
+      "sha256": "ea18af9f9cbb60c13b6d0573c8b61e0998e8e7bd1624f993335816d6baf74e08"
+    },
+    {
+      "file": "sqlite/commit.ts",
+      "sha256": "6d4b3f1b344978b808942ee40da8d53c0d0151887402f51925808a7d7937a38d"
+    },
+    {
+      "file": "sqlite/database.ts",
+      "sha256": "3abe60db277ed9dbed8a767a688034d82b81f00d59e2b5adcfe1ead7a3101acc"
+    },
+    {
+      "file": "sqlite/errors.ts",
+      "sha256": "325d855e4af889aad82d248b45e58d14cdca5ee23456ddd177d886ac96cc2e66"
+    },
+    {
+      "file": "sqlite/filesystem.ts",
+      "sha256": "3248d2e3372a56c0cfb1986a7f6545511981cfe93c416533f0f712fba693cec8"
+    },
+    {
+      "file": "sqlite/index.ts",
+      "sha256": "cf62d2a8452d6bcbd6f944efe311a2f9e58a157b2b38996ad70eee67df08bca2"
+    },
+    {
+      "file": "sqlite/layout.ts",
+      "sha256": "c2d2bb4b792ebdc9da145e4ebff83b5912287b750b9209dfbd3b22b861849239"
+    },
+    {
+      "file": "sqlite/migrate.ts",
+      "sha256": "01ec7a32f8b95d777954c914e5db6426cbb64f1617cdd015e3ef28be09db36cb"
+    },
+    {
+      "file": "sqlite/mutations.ts",
+      "sha256": "22dc5d43d34239108f366e1eec4c94a61f53d5ec7d7fe5d7b4378e485bcb3d14"
+    },
+    {
+      "file": "sqlite/ownership.ts",
+      "sha256": "30be159da02154067dba38910dda328172787d2fa61fae431c3df5df109697e8"
+    },
+    {
+      "file": "sqlite/read.ts",
+      "sha256": "8e64d68b14286380bcce02516476dad1be14c98a562671d1bd6160159c72481d"
+    },
+    {
+      "file": "sqlite/records.ts",
+      "sha256": "06fcd42ce03d25ee584b2f6df0a8827fefec0d0dc1e49884b3970df40d050ddd"
+    },
+    {
+      "file": "sqlite/schema.ts",
+      "sha256": "06ebc0d30512cceee94627ef5e59d69a45949ab1f5167867fc13511387cd0021"
+    },
+    {
+      "file": "fixtures/host.ts",
+      "sha256": "8bc409e3d79a2c543cb4efc47379482c95ef5cc6fd9423142c0da731be359962"
+    }
+  ]
+}

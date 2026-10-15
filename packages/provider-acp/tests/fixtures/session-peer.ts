@@ -34,6 +34,7 @@ export function createSessionPeer(options: {
   readonly owned?: boolean;
   readonly onRelease?: () => void;
   readonly agentCapabilities?: AcpJsonObject;
+  readonly initializeResult?: AcpJsonObject;
   readonly onSetup?: (peer: SessionPeer, frame: PeerFrame) => void;
 } = {}): SessionPeer {
   const stdout = new PassThrough();
@@ -76,7 +77,7 @@ export function createSessionPeer(options: {
       const frame = JSON.parse(buffered.slice(0, newline)) as PeerFrame;
       buffered = buffered.slice(newline + 1);
       frames.push(frame);
-      if (frame.method === 'initialize') send({ jsonrpc: '2.0', id: frame.id, result: {
+      if (frame.method === 'initialize') send({ jsonrpc: '2.0', id: frame.id, result: options.initializeResult ?? {
         protocolVersion: 1, agentCapabilities: options.agentCapabilities ?? {}, authMethods: [], agentInfo: { name: 'session-fixture', version: '1.0.0' },
       } });
       else if (frame.method === 'session/new' || frame.method === 'session/load' || frame.method === 'session/resume') {

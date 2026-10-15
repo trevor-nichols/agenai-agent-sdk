@@ -28,7 +28,7 @@ const supportedInput = {
 } as const;
 
 const onceApproval = {
-  kind: 'supported',
+  kind: 'supported', providerManagedRemembrance: false,
   modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }],
 } as const;
 
@@ -132,7 +132,7 @@ const supportedNativeDomains = {
 export const providerCapabilityFixtures = {
   fixture: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: 'fixture',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -165,7 +165,7 @@ export const providerCapabilityFixtures = {
   },
   codex: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: 'codex',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -189,7 +189,7 @@ export const providerCapabilityFixtures = {
   },
   claudeCode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: 'claude_code',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -213,7 +213,7 @@ export const providerCapabilityFixtures = {
   },
   opencode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: 'opencode',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -237,7 +237,7 @@ export const providerCapabilityFixtures = {
   },
   cursor: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: 'cursor_acp',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -261,7 +261,7 @@ export const providerCapabilityFixtures = {
   },
   grokBuild: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 10,
+    protocolVersion: 11,
     providerKey: 'grok_build',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -286,7 +286,7 @@ export const providerCapabilityFixtures = {
 } as const;
 
 const eventBase = {
-  protocolVersion: 10,
+  protocolVersion: 11,
   sessionId: 'session:external-42',
   turnId: 'turn:external-9',
   occurredAt: protocolTimestamp,
@@ -382,15 +382,13 @@ export const eventFixtureCorpus = [
             optionId: 'approval:allow-once',
             label: 'Allow once',
             decision: 'approved',
-            persistence: 'once',
-            scope: { kind: 'exact_action' },
+            consequence: { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } },
           },
           {
             optionId: 'approval:deny-once',
             label: 'Deny',
             decision: 'denied',
-            persistence: 'once',
-            scope: { kind: 'exact_action' },
+            consequence: { kind: 'scoped', persistence: 'once', scope: { kind: 'exact_action' } },
           },
         ],
       },

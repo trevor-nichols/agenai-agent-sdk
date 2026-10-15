@@ -132,7 +132,7 @@ test('capabilities reject older versions and removed active-input declarations',
       ...providerCapabilityFixtures.fixture,
       turns: {
         interrupt: true,
-        activeInput: { kind: 'supported', modes: ['steer'] },
+        activeInput: { kind: 'supported', providerManagedRemembrance: false, modes: ['steer'] },
       },
     }).success,
     false,
