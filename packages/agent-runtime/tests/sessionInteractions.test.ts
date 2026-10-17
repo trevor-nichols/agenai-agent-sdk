@@ -8,152 +8,17 @@ import test from "node:test";
 import {
   AgentProtocolValidationError, parseAgentConfigurationRevisionId, parseAgentIsoDateTime, parseAgentItemId, parseAgentOperationId,
   parseAgentOperationInvocationId, parseAgentSessionDecisionChoiceId, parseAgentSessionDecisionRequest,
-  parseAgentSessionId, parseAgentTurnId, type AgentError,
+  parseAgentSessionId, parseAgentTurnId, parseAgentRequest,
 } from "@agen-ai/agent-protocol";
 import {
   AgentProviderSessionCleanupError, createAgentEventOutput,
   createAgentProviderSessionCleanupError, isAgentProviderSessionCleanupErrorFor,
-  type AgentProviderCreateSessionInput, type AgentProviderOutput, type AgentProviderSession,
-  type AgentProviderSessionContext, type AgentRequestResolutionResult, type AgentSessionInteraction,
-  type AgentSessionInteractionContext, type AgentSessionInteractionSupport, type AgentSessionInteractionTerminal,
+  type AgentCreateSessionInput, type AgentProviderDirectSessionInteraction, type AgentProviderOutput,
+  type AgentRequestResolutionResult, type AgentSessionInteraction,
+  type AgentSessionInteractionContext, type AgentSessionInteractionTerminal,
 } from "../src/index.js";
-import { createHarness, deferred, hasContractCode, makeBinding, type OpeningKind } from "./fixtures/hostBindings/harness.js";
-
-const grant = parseAgentSessionDecisionChoiceId("trust-workspace");
-const decline = parseAgentSessionDecisionChoiceId("leave-gated");
-const refusal: AgentError = { category: "permission", code: "native_decision_refused", message: "Native decision refused.", recovery: { kind: "none" } };
-const uncertainty: AgentError = { category: "unknown", code: "native_delivery_uncertain", message: "Native answer acceptance is uncertain.", recovery: { kind: "unknown" } };
-const supported: AgentSessionInteractionSupport = {
-  kind: "supported", openingOperations: ["create", "resume", "branch"], requestKinds: ["decision"], producerOwnership: "exclusive",
-};
-const turnInput = { turnId: parseAgentTurnId("decision-turn"), interactionMode: "default" as const, parts: [{ type: "text" as const, text: "Continue the actual turn." }] };
-
-function decision(context: AgentProviderSessionContext, id = "session-decision", large = false, expiresAt?: string) {
-  const choices = large ? Array.from({ length: 16 }, (_, index) => ({
-    choiceId: `choice-${index}`, label: `Choice ${index}`, description: "d".repeat(1_000), consequence: { kind: "decline", configuration: "remains_gated" },
-  })) : [
-    { choiceId: grant, label: "Trust workspace", description: "Persist workspace configuration authority, including later and sibling sessions.",
-      consequence: { kind: "grant", scope: "workspace", persistence: { kind: "provider_managed", duration: "persistent", mayAffectOtherSessions: true } } },
-    { choiceId: decline, label: "Leave gated", description: "Keep the workspace configuration gated.", consequence: { kind: "decline", configuration: "remains_gated" } },
-  ];
-  return parseAgentSessionDecisionRequest({ kind: "decision", requestId: id, sessionId: context.sessionId,
-    title: "Workspace configuration", description: large ? "r".repeat(4_000) : "Choose how this workspace configuration is loaded.",
-    target: { kind: "workspace", path: "/configuration/workspace" }, expiresAt: expiresAt ?? new Date(Date.now() + 60_000).toISOString(), choices });
-}
-
-function nativeOffer(context: AgentProviderSessionContext, options: {
-  id?: string;
-  large?: boolean;
-  expiresAt?: string;
-  respond?: AgentSessionInteraction["respond"];
-} = {}) {
-  const controller = new AbortController();
-  const terminal = deferred<AgentSessionInteractionTerminal>();
-  const entered = deferred<void>();
-  const active = new Set<Promise<unknown>>();
-  const answers: string[] = [];
-  let terminalSettled = false;
-  let stopped = false;
-  const settle = (value: AgentSessionInteractionTerminal) => {
-    if (terminalSettled) return;
-    terminalSettled = true;
-    terminal.resolve(value);
-  };
-  const handle: AgentSessionInteraction = {
-    request: decision(context, options.id, options.large, options.expiresAt), signal: controller.signal, terminal: terminal.promise,
-    respond(input) {
-      answers.push(input.choiceId);
-      entered.resolve();
-      const work = (async () => {
-        try {
-          const result = await (options.respond?.(input) ?? { status: "delivered" as const });
-          if (result.status === "delivered") settle({ kind: "answered", choiceId: input.choiceId });
-          else if (result.status === "delivery_uncertain") settle({ kind: "delivery_uncertain", error: result.error });
-          else if (result.requestState === "unavailable") settle({ kind: "rejected", error: result.error });
-          else if (stopped) settle({ kind: "session_closed" });
-          return result;
-        } catch (error) {
-          settle({ kind: "delivery_uncertain", error: uncertainty });
-          throw error;
-        }
-      })();
-      active.add(work);
-      void work.finally(() => active.delete(work)).catch(() => {});
-      return work;
-    },
-  };
-  return {
-    context, handle, answers, entered: entered.promise, completion: Promise.resolve(),
-    settle,
-    withdraw() { controller.abort(); settle({ kind: "withdrawn" }); },
-    async stop() {
-      stopped = true;
-      controller.abort();
-      if (!active.size) settle({ kind: "session_closed" });
-      await Promise.allSettled([...active]);
-    },
-  };
-}
-
-async function scenario(options: {
-  openingOffer?: boolean;
-  openingOfferOptions?: Parameters<typeof nativeOffer>[1];
-  publication?: Promise<void>;
-  support?: AgentSessionInteractionSupport | null;
-  beforeOpen?: (context: AgentProviderSessionContext, kind: OpeningKind) => void | Promise<void>;
-  transformSession?: (session: AgentProviderSession, context: AgentProviderSessionContext) => AgentProviderSession;
-  cleanup?: () => void;
-} = {}) {
-  const offers: ReturnType<typeof nativeOffer>[] = [];
-  const events: string[] = [];
-  const nativeCloseEntered = deferred<void>();
-  let closes = 0;
-  const offer = (context: AgentProviderSessionContext, input: Parameters<typeof nativeOffer>[1] = {}) => {
-    const candidate = nativeOffer(context, input);
-    offers.push(candidate);
-    assert.ok(context.interactions, "The provider must receive the public interaction facade.");
-    try { candidate.completion = Promise.resolve(context.interactions.onRequest(candidate.handle)); }
-    catch (error) { candidate.completion = Promise.reject(error); }
-    void candidate.completion.catch(() => {});
-    return candidate;
-  };
-  const harness = await createHarness({
-    transformAdapter(adapter) {
-      const prepared = { ...adapter, ...(options.support === null ? {} : { sessionInteractions: options.support ?? supported }) };
-      const open = adapter.createSession.bind(adapter);
-      if (!options.publication) return { ...prepared, createSession: open };
-      return { ...prepared, async createSession(input: AgentProviderCreateSessionInput) {
-        const candidate = await open(input);
-        await options.publication;
-        return candidate;
-      } };
-    },
-    async beforeOpen(context, kind) {
-      if (options.openingOffer !== false) offer(context, options.openingOfferOptions);
-      await options.beforeOpen?.(context, kind);
-    },
-    transformSession(session, context) {
-      const transformed = options.transformSession?.(session, context) ?? session;
-      return { ...transformed, async close(input) {
-        closes += 1;
-        events.push("native_close_started");
-        nativeCloseEntered.resolve();
-        await Promise.all(offers.filter((candidate) => candidate.context === context).map((candidate) => candidate.stop()));
-        await transformed.close(input);
-        events.push("native_closed");
-      } };
-    },
-  });
-  return {
-    ...harness, offers, events, offer, nativeCloseEntered: nativeCloseEntered.promise, closes: () => closes,
-    async dispose() { options.cleanup?.(); await harness.registry.dispose(); },
-  };
-}
-
-function includesCause(error: unknown, cause: unknown): boolean {
-  return error === cause || (error instanceof AggregateError && error.errors.some((entry: unknown) => includesCause(entry, cause)))
-    || (error instanceof Error && error.cause !== undefined && includesCause(error.cause, cause));
-}
+import { deferred, hasContractCode, makeBinding, type OpeningKind } from "./fixtures/hostBindings/harness.js";
+import { decline, grant, includesCause, nativeOffer, refusal, scenario, turnInput, uncertainty } from "./fixtures/sessionInteractions.js";
 
 test("create, resume and branch publish pending decisions and accept immediate bound responses", async (t) => {
   for (const kind of ["create", "resume", "branch"] satisfies OpeningKind[]) await t.test(kind, async () => {
@@ -163,14 +28,16 @@ test("create, resume and branch publish pending decisions and accept immediate b
     let receipt: Promise<AgentRequestResolutionResult> | undefined;
     const session = await fixture.open(kind, undefined, { interactions: { onRequest(value) {
       interaction = value;
-      receipt = value.respond({ choiceId: grant });
+      receipt = value.respond({ kind: "decision", choiceId: grant });
     } } });
     assert.ok(interaction && receipt);
     assert.deepEqual(fixture.offers[0]!.answers, ["trust-workspace"], "The immediate response enters while the provider opening is in progress.");
     assert.deepEqual(await receipt, { status: "delivered" });
-    assert.deepEqual(await interaction.terminal, { kind: "answered", choiceId: grant });
+    assert.deepEqual(await interaction.terminal, { kind: "answered", response: { kind: "decision", choiceId: grant } });
     assert.deepEqual(fixture.offers[0]!.answers, ["trust-workspace"]);
     assert.notEqual(interaction, fixture.offers[0]!.handle);
+    assert.equal(interaction.request.kind, "decision");
+    if (interaction.request.kind !== "decision") throw new Error("Expected a workspace decision.");
     assert.equal(interaction.request.target.path, "/configuration/workspace");
     await session.close({ reason: "idle" });
   });
@@ -186,7 +53,7 @@ test("a callback awaiting publication remains pending after opening and opening 
   const session = await fixture.open("create", undefined, { signal: controller.signal, interactions: { async onRequest(value) {
     handle = value;
     await published.promise;
-    assert.deepEqual(await value.respond({ choiceId: decline }), { status: "delivered" });
+    assert.deepEqual(await value.respond({ kind: "decision", choiceId: decline }), { status: "delivered" });
     finished.resolve();
   } } });
   assert.ok(handle);
@@ -195,7 +62,7 @@ test("a callback awaiting publication remains pending after opening and opening 
   assert.equal(handle.signal.aborted, false);
   published.resolve();
   await finished.promise;
-  assert.deepEqual(await handle.terminal, { kind: "answered", choiceId: decline });
+  assert.deepEqual(await handle.terminal, { kind: "answered", response: { kind: "decision", choiceId: decline } });
   assert.deepEqual(fixture.offers[0]!.answers, ["leave-gated"]);
   await session.close({ reason: "idle" });
 });
@@ -211,12 +78,12 @@ test("malformed, pre-aborted and concurrent responses never enter a second nativ
   const abort = new AbortController();
   const reason = new DOMException("Response already aborted.", "AbortError");
   abort.abort(reason);
-  await assert.rejects(handle.respond({ choiceId: grant, signal: abort.signal }), (error: unknown) => error === reason);
-  await assert.rejects(handle.respond({ choiceId: parseAgentSessionDecisionChoiceId("unoffered") }), (error: unknown) => error instanceof AgentProtocolValidationError);
+  await assert.rejects(handle.respond({ kind: "decision", choiceId: grant, signal: abort.signal }), (error: unknown) => error === reason);
+  await assert.rejects(handle.respond({ kind: "decision", choiceId: parseAgentSessionDecisionChoiceId("unoffered") }), (error: unknown) => error instanceof AgentProtocolValidationError);
   assert.equal(candidate.answers.length, 0);
-  const first = handle.respond({ choiceId: grant });
+  const first = handle.respond({ kind: "decision", choiceId: grant });
   await candidate.entered;
-  const duplicate = await handle.respond({ choiceId: decline });
+  const duplicate = await handle.respond({ kind: "decision", choiceId: decline });
   assert.equal(duplicate.status, "rejected");
   if (duplicate.status !== "rejected") throw new Error("Expected bound duplicate rejection.");
   assert.equal(duplicate.requestState, "pending");
@@ -224,7 +91,7 @@ test("malformed, pre-aborted and concurrent responses never enter a second nativ
   acknowledgment.resolve({ status: "delivered" });
   assert.deepEqual(await first, { status: "delivered" });
   assert.deepEqual(candidate.answers, ["trust-workspace"]);
-  const late = await handle.respond({ choiceId: decline });
+  const late = await handle.respond({ kind: "decision", choiceId: decline });
   assert.equal(late.status, "rejected");
   if (late.status !== "rejected") throw new Error("Expected terminal rejection.");
   assert.equal(late.requestState, "unavailable");
@@ -240,15 +107,15 @@ test("stale bound handles cannot answer a fresh session generation with the same
   const first = await fixture.open("create", undefined, { interactions });
   await first.close({ reason: "idle" });
   const next = await fixture.open("resume", undefined, { interactions });
-  const stale = await handles[0]!.respond({ choiceId: grant });
+  const stale = await handles[0]!.respond({ kind: "decision", choiceId: grant });
   assert.equal(stale.status, "rejected");
   if (stale.status !== "rejected") throw new Error("Expected retired response authority.");
   assert.deepEqual([stale.requestState, stale.error.code], ["unavailable", "session_interaction_unavailable"]);
   assert.deepEqual(fixture.offers.map((candidate) => candidate.answers), [[], []]);
-  assert.deepEqual(await handles[1]!.respond({ choiceId: decline }), { status: "delivered" });
+  assert.deepEqual(await handles[1]!.respond({ kind: "decision", choiceId: decline }), { status: "delivered" });
   assert.deepEqual(fixture.offers.map((candidate) => candidate.answers), [[], ["leave-gated"]]);
   assert.deepEqual(await handles[0]!.terminal, { kind: "session_closed" });
-  assert.deepEqual(await handles[1]!.terminal, { kind: "answered", choiceId: decline });
+  assert.deepEqual(await handles[1]!.terminal, { kind: "answered", response: { kind: "decision", choiceId: decline } });
   await next.close({ reason: "idle" });
 });
 
@@ -261,12 +128,12 @@ test("close fences new answers while preserving the actual receipt of an already
     let handle: AgentSessionInteraction | undefined;
     const session = await fixture.open("create", host.binding, { interactions: { onRequest(value) { handle = value; } } });
     assert.ok(handle);
-    const answer = handle.respond({ choiceId: grant });
+    const answer = handle.respond({ kind: "decision", choiceId: grant });
     await fixture.offers[0]!.entered;
     let closed = false;
     const closing = Promise.resolve(session.close({ reason: "idle" })).then(() => { closed = true; });
     await fixture.nativeCloseEntered;
-    const late = await handle.respond({ choiceId: decline });
+    const late = await handle.respond({ kind: "decision", choiceId: decline });
     assert.equal(late.status, "rejected");
     if (late.status !== "rejected") throw new Error("Expected stopped response authority.");
     assert.deepEqual([late.requestState, late.error.code], ["unavailable", "session_interaction_unavailable"]);
@@ -275,11 +142,11 @@ test("close fences new answers while preserving the actual receipt of an already
     const result = await answer;
     if (outcome === "delivered") {
       assert.deepEqual(result, { status: "delivered" });
-      assert.deepEqual(await handle.terminal, { kind: "answered", choiceId: grant });
+      assert.deepEqual(await handle.terminal, { kind: "session_closed" });
     } else {
       assert.equal(result.status, "rejected");
       if (result.status !== "rejected") throw new Error("Expected refusal after stopping.");
-      assert.equal(result.requestState, "unavailable");
+      assert.deepEqual(result, { status: "rejected", requestState: "pending", error: refusal });
       assert.deepEqual(await handle.terminal, { kind: "session_closed" });
     }
     await closing;
@@ -295,7 +162,7 @@ test("native withdrawal leaves a healthy session usable without interpreting wit
   assert.ok(handle);
   fixture.offers[0]!.withdraw();
   assert.deepEqual(await handle.terminal, { kind: "withdrawn" });
-  const late = await handle.respond({ choiceId: grant });
+  const late = await handle.respond({ kind: "decision", choiceId: grant });
   assert.equal(late.status, "rejected");
   if (late.status !== "rejected") throw new Error("Expected withdrawn response authority.");
   assert.equal(late.requestState, "unavailable");
@@ -322,7 +189,7 @@ test("uncertain session answers fence future mutation while the entered output r
   const fixture = await scenario({ openingOffer: false, cleanup: () => continueOutput.resolve(), transformSession(session, context) {
     return { ...session, startTurn(input) {
       starts += 1;
-      const base = { protocolVersion: 11 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: parseAgentIsoDateTime("2026-10-13T00:00:00.000Z") };
+      const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: parseAgentIsoDateTime("2026-10-13T00:00:00.000Z") };
       const itemId = parseAgentItemId("decision-output");
       return { turnId: input.turnId, async resolveRequest() { throw new Error("This turn has no turn-scoped requests."); }, outputs: (async function* () {
         yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
@@ -343,7 +210,7 @@ test("uncertain session answers fence future mutation while the entered output r
   assert.deepEqual(first.map((entry) => !entry.done && entry.value.kind === "event" ? entry.value.event.type : null), ["turn.started", "item.started", "content.delta"]);
   const candidate = fixture.offer(fixture.contexts[0]!, { respond: async () => ({ status: "delivery_uncertain", error: uncertainty }) });
   assert.ok(handle);
-  assert.deepEqual(await handle.respond({ choiceId: grant }), { status: "delivery_uncertain", error: uncertainty });
+  assert.deepEqual(await handle.respond({ kind: "decision", choiceId: grant }), { status: "delivery_uncertain", error: uncertainty });
   assert.deepEqual(await handle.terminal, { kind: "delivery_uncertain", error: uncertainty });
   assert.throws(() => session.startTurn(turnInput), hasContractCode("session_unusable"));
   assert.deepEqual([starts, fixture.closes(), candidate.answers], [1, 0, ["trust-workspace"]]);
@@ -389,7 +256,7 @@ test("uncertainty during awaited inventory prevents configuration and operation 
     await inventoryEntered.promise;
     fixture.offer(fixture.contexts[0]!, { respond: async () => ({ status: "delivery_uncertain", error: uncertainty }) });
     assert.ok(handle);
-    assert.deepEqual(await handle.respond({ choiceId: grant }), { status: "delivery_uncertain", error: uncertainty });
+    assert.deepEqual(await handle.respond({ kind: "decision", choiceId: grant }), { status: "delivery_uncertain", error: uncertainty });
     releaseInventory.resolve();
     await refused;
     assert.deepEqual([mutations, boundaries], [0, 0]);
@@ -411,7 +278,8 @@ test("answered requests retain count and byte capacity until the actual host cal
         published.push(value);
         const receipt = deferred<void>();
         accepted.push(receipt);
-        assert.deepEqual(await value.respond({ choiceId: value.request.choices[0].choiceId }), { status: "delivered" });
+        if (value.request.kind !== "decision") throw new Error("Expected a workspace decision.");
+        assert.deepEqual(await value.respond({ kind: "decision", choiceId: value.request.choices[0].choiceId }), { status: "delivered" });
         receipt.resolve();
         await releaseCallbacks.promise;
       },
@@ -420,7 +288,9 @@ test("answered requests retain count and byte capacity until the actual host cal
     for (let index = 0; index < retained; index += 1) {
       fixture.offer(fixture.contexts[0]!, { id: `capacity-${index}`, large: capacity === "bytes" });
       await accepted[index]!.promise;
-      assert.deepEqual(await published[index]!.terminal, { kind: "answered", choiceId: published[index]!.request.choices[0].choiceId });
+      const handle = published[index]!;
+      if (handle.request.kind !== "decision") throw new Error("Expected a workspace decision.");
+      assert.deepEqual(await handle.terminal, { kind: "answered", response: { kind: "decision", choiceId: handle.request.choices[0].choiceId } });
     }
     const overflow = fixture.offer(fixture.contexts[0]!, { id: "capacity-overflow", large: capacity === "bytes" });
     if (capacity === "bytes") {
@@ -446,7 +316,7 @@ test("a callback ignoring abort retains cleanup and host binding until its real 
   const fixture = await scenario({ cleanup: () => releaseCallback.resolve() });
   t.after(() => fixture.dispose());
   const session = await fixture.open("create", host.binding, { interactions: {
-    limits: { cleanupTimeoutMs: 1_000 }, async onRequest(value) {
+    humanWait: { kind: "until_withdrawn_or_closed" }, limits: { cleanupTimeoutMs: 1_000 }, async onRequest(value) {
       handle = value;
       await releaseCallback.promise;
       callbackCompleted = true;
@@ -478,7 +348,7 @@ test("an asynchronous host failure after answering stays observable and retires 
   t.after(() => fixture.dispose());
   const session = await fixture.open("create", host.binding, { interactions: { async onRequest(value) {
     handle = value;
-    assert.deepEqual(await value.respond({ choiceId: grant }), { status: "delivered" });
+    assert.deepEqual(await value.respond({ kind: "decision", choiceId: grant }), { status: "delivered" });
     accepted.resolve();
     await failCallback.promise;
   } } });
@@ -486,7 +356,7 @@ test("an asynchronous host failure after answering stays observable and retires 
   assert.ok(handle);
   failCallback.reject(failure);
   await fixture.nativeCloseEntered;
-  assert.deepEqual(await handle.terminal, { kind: "answered", choiceId: grant });
+  assert.deepEqual(await handle.terminal, { kind: "answered", response: { kind: "decision", choiceId: grant } });
   assert.throws(() => session.startTurn(turnInput), (error: unknown) => includesCause(error, failure));
   await assert.rejects(async () => session.close({ reason: "idle" }), (error: unknown) => includesCause(error, failure));
   await session.close({ reason: "idle" });
@@ -514,7 +384,7 @@ test("a failed opening retains exact native cleanup and entered host work under 
       } });
   } });
   t.after(() => fixture.dispose());
-  const input: AgentProviderCreateSessionInput = {
+  const input: AgentCreateSessionInput = {
     sessionId: parseAgentSessionId("failed-decision-opening"), workingDirectory: "/host/workspace",
     configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("configuration:1"), catalogRevision: 1, selections: [] },
     onBindingCreated: () => undefined, hostBinding: host.binding,
@@ -545,21 +415,27 @@ test("a failed opening retains exact native cleanup and entered host work under 
 
 test("contradictory native terminal evidence cannot promote a response to accepted delivery", async (t) => {
   for (const conflict of ["different-choice", "rejected-delivery", "rejected-pending", "rejected-uncertainty"] as const) await t.test(conflict, async () => {
-    const fixture = await scenario({ openingOffer: false });
+    let starts = 0;
+    const fixture = await scenario({ openingOffer: false, transformSession(session) {
+      return { ...session, startTurn(input) { starts += 1; return session.startTurn(input); } };
+    } });
     t.after(() => fixture.dispose());
     let handle: AgentSessionInteraction | undefined;
     const session = await fixture.open("create", undefined, { interactions: { onRequest(value) { handle = value; } } });
     const candidate = fixture.offer(fixture.contexts[0]!, { async respond() {
-      candidate.settle(conflict === "different-choice" ? { kind: "answered", choiceId: decline } : { kind: "rejected", error: refusal });
+      candidate.settle(conflict === "different-choice" ? { kind: "answered", response: { kind: "decision", choiceId: decline } } : { kind: "rejected", error: refusal });
       return conflict === "rejected-pending" ? { status: "rejected", requestState: "pending", error: refusal }
         : conflict === "rejected-uncertainty" ? { status: "delivery_uncertain", error: uncertainty } : { status: "delivered" };
     } });
     assert.ok(handle);
-    const result = await handle.respond({ choiceId: grant });
+    const result = await handle.respond({ kind: "decision", choiceId: grant });
     assert.equal(result.status, "delivery_uncertain");
     if (result.status !== "delivery_uncertain") throw new Error("Expected contradictory native evidence to remain uncertain.");
     assert.equal(result.error.code, "session_interaction_delivery_uncertain");
-    assert.deepEqual(await handle.terminal, { kind: "delivery_uncertain", error: result.error });
+    assert.deepEqual(await handle.terminal, conflict === "different-choice"
+      ? { kind: "delivery_uncertain", error: result.error } : { kind: "rejected", error: refusal });
+    assert.throws(() => session.startTurn(turnInput), hasContractCode("invalid_session_interaction"));
+    assert.equal(starts, 0);
     await assert.rejects(async () => session.close({ reason: "idle" }), hasContractCode("invalid_session_interaction"));
     await session.close({ reason: "idle" });
     assert.deepEqual([fixture.closes(), candidate.answers], [1, ["trust-workspace"]]);
@@ -571,20 +447,20 @@ test("a late native acceptance after response timeout cannot restore reply or mu
   const fixture = await scenario({ openingOfferOptions: { respond: () => acknowledgment.promise }, cleanup: () => acknowledgment.resolve({ status: "delivered" }) });
   t.after(() => fixture.dispose());
   let handle: AgentSessionInteraction | undefined;
-  const session = await fixture.open("create", undefined, { interactions: { limits: { responseTimeoutMs: 1_000 }, onRequest(value) { handle = value; } } });
+  const session = await fixture.open("create", undefined, { interactions: { humanWait: { kind: "until_withdrawn_or_closed" }, limits: { responseTimeoutMs: 1_000 }, onRequest(value) { handle = value; } } });
   assert.ok(handle);
-  const result = await handle.respond({ choiceId: grant });
+  const result = await handle.respond({ kind: "decision", choiceId: grant });
   assert.equal(result.status, "delivery_uncertain");
   if (result.status !== "delivery_uncertain") throw new Error("Expected lost acceptance to remain uncertain.");
   assert.equal(result.error.code, "session_interaction_delivery_uncertain");
   const firstTerminal = await handle.terminal;
   assert.deepEqual(firstTerminal, { kind: "delivery_uncertain", error: result.error });
   acknowledgment.resolve({ status: "delivered" });
-  assert.deepEqual(await fixture.offers[0]!.handle.terminal, { kind: "answered", choiceId: grant });
+  assert.deepEqual(await fixture.offers[0]!.handle.terminal, { kind: "answered", response: { kind: "decision", choiceId: grant } });
   await setImmediate();
   assert.deepEqual(await handle.terminal, firstTerminal);
   assert.throws(() => session.startTurn(turnInput), hasContractCode("session_unusable"));
-  const late = await handle.respond({ choiceId: decline });
+  const late = await handle.respond({ kind: "decision", choiceId: decline });
   assert.equal(late.status, "rejected");
   if (late.status !== "rejected") throw new Error("Expected uncertain reply authority to stay fenced.");
   assert.equal(late.requestState, "unavailable");
@@ -601,17 +477,17 @@ test("expiry retires the producer without inventing a decline or rewriting an en
     const session = await fixture.open("create", undefined, { interactions: { onRequest(value) { handle = value; } } });
     const candidate = fixture.offer(fixture.contexts[0]!, { expiresAt: new Date(Date.now() + 100).toISOString(), respond: () => acknowledgment.promise });
     assert.ok(handle);
-    const answer = entered ? handle.respond({ choiceId: grant }) : undefined;
+    const answer = entered ? handle.respond({ kind: "decision", choiceId: grant }) : undefined;
     if (entered) await candidate.entered;
     await fixture.nativeCloseEntered;
     assert.equal(handle.signal.aborted, true);
-    const late = await handle.respond({ choiceId: decline });
+    const late = await handle.respond({ kind: "decision", choiceId: decline });
     assert.equal(late.status, "rejected");
     if (late.status !== "rejected") throw new Error("Expected expired response authority.");
     assert.equal(late.requestState, "unavailable");
     acknowledgment.resolve({ status: "delivered" });
     if (answer) assert.deepEqual(await answer, { status: "delivered" });
-    assert.deepEqual(await handle.terminal, entered ? { kind: "answered", choiceId: grant } : { kind: "expired" });
+    assert.deepEqual(await handle.terminal, { kind: "expired", source: "provider" });
     await assert.rejects(async () => session.close({ reason: "idle" }), hasContractCode("invalid_session_interaction"));
     await session.close({ reason: "idle" });
     assert.deepEqual([fixture.closes(), candidate.answers], [1, entered ? ["trust-workspace"] : []]);
@@ -644,7 +520,7 @@ test("a late candidate after opening abort retains failed native cleanup and the
     } };
   } });
   t.after(() => fixture.dispose());
-  const input: AgentProviderCreateSessionInput = {
+  const input: AgentCreateSessionInput = {
     sessionId: parseAgentSessionId("late-decision-opening"), workingDirectory: "/host/workspace", signal: controller.signal,
     configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("configuration:1"), catalogRevision: 1, selections: [] },
     onBindingCreated: () => undefined, hostBinding: host.binding,
@@ -698,8 +574,8 @@ test("invalid candidate admission and terminal evidence retire the owner while p
       } } });
       const context = fixture.contexts[0]!;
       const retained = fixture.offer(context, { id: "retained-candidate" });
-      assert.deepEqual(await handles[0]!.respond({ choiceId: decline }), { status: "delivered" });
-      assert.deepEqual(await handles[0]!.terminal, { kind: "answered", choiceId: decline });
+      assert.deepEqual(await handles[0]!.respond({ kind: "decision", choiceId: decline }), { status: "delivered" });
+      assert.deepEqual(await handles[0]!.terminal, { kind: "answered", response: { kind: "decision", choiceId: decline } });
 
       const candidate = nativeOffer(context, { id: fault === "retained-id" ? "retained-candidate" : "invalid-candidate" });
       fixture.offers.push(candidate);
@@ -711,7 +587,7 @@ test("invalid candidate admission and terminal evidence retire the owner while p
         ...supplied.request, target: { kind: "workspace", path: "relative/workspace" },
       }) };
       // Deliberately invalid provider envelopes cross the public adapter boundary as unknown data.
-      if (fault === "malformed-handle") supplied = { ...supplied, respond: undefined } as unknown as AgentSessionInteraction;
+      if (fault === "malformed-handle") supplied = { ...supplied, respond: undefined } as unknown as AgentProviderDirectSessionInteraction;
       const terminalFault = fault === "rejected-terminal" || fault === "malformed-terminal";
       if (terminalFault) supplied = { ...supplied, terminal: nativeTerminal.promise as Promise<AgentSessionInteractionTerminal> };
       assert.ok(context.interactions);
@@ -727,13 +603,13 @@ test("invalid candidate admission and terminal evidence retire the owner while p
       await fixture.nativeCloseEntered;
       assert.deepEqual([handles.length, candidate.answers, retained.answers, host.releaseCount()],
         [terminalFault ? 2 : 1, [], ["leave-gated"], 0]);
-      assert.deepEqual(await handles[0]!.terminal, { kind: "answered", choiceId: decline });
+      assert.deepEqual(await handles[0]!.terminal, { kind: "answered", response: { kind: "decision", choiceId: decline } });
       if (terminalFault) {
         const terminal = await handles[1]!.terminal;
         assert.equal(terminal.kind, "failed");
         if (terminal.kind !== "failed") throw new Error("Expected invalid native terminal evidence to fail the host interaction.");
         assert.equal(terminal.error.code, "session_interaction_failed");
-        const late = await handles[1]!.respond({ choiceId: grant });
+        const late = await handles[1]!.respond({ kind: "decision", choiceId: grant });
         assert.equal(late.status, "rejected");
         if (late.status !== "rejected") throw new Error("Expected failed candidate reply authority to be unavailable.");
         assert.equal(late.requestState, "unavailable");
@@ -772,11 +648,11 @@ test("native uncertainty fences mutation when observed before or after a refusal
       assert.ok(context.interactions);
       await context.interactions.onRequest({ ...candidate.handle, terminal: nativeTerminal.promise });
       assert.ok(handle);
-      const response = handle.respond({ choiceId: grant });
+      const response = handle.respond({ kind: "decision", choiceId: grant });
       await candidate.entered;
       if (timing === "early") {
         nativeTerminal.resolve({ kind: "delivery_uncertain", error: uncertainty });
-        await setImmediate();
+        assert.deepEqual(await handle.terminal, { kind: "delivery_uncertain", error: uncertainty });
       }
       nativeReceipt.resolve({ status: "rejected", requestState, error: refusal });
       const receipt = await response;
@@ -791,7 +667,7 @@ test("native uncertainty fences mutation when observed before or after a refusal
         assert.equal(receipt.status, "delivery_uncertain");
         if (receipt.status !== "delivery_uncertain") throw new Error("Expected conflicting native evidence to remain uncertain.");
         assert.equal(receipt.error.code, "session_interaction_delivery_uncertain");
-        assert.deepEqual(terminal, { kind: "delivery_uncertain", error: receipt.error });
+        assert.deepEqual(terminal, { kind: "delivery_uncertain", error: uncertainty });
       } else {
         assert.deepEqual(receipt, { status: "rejected", requestState, error: refusal });
         assert.deepEqual(terminal, requestState === "pending" ? { kind: "delivery_uncertain", error: uncertainty } : { kind: "rejected", error: refusal });
@@ -804,6 +680,7 @@ test("native uncertainty fences mutation when observed before or after a refusal
 });
 
 test("elapsed request expiry refuses native entry before a delayed timer can run", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-16T12:00:00.000Z") });
   const fixture = await scenario({ openingOffer: false });
   t.after(() => fixture.dispose());
   let handle: AgentSessionInteraction | undefined;
@@ -813,19 +690,58 @@ test("elapsed request expiry refuses native entry before a delayed timer can run
   const abort = new AbortController();
   const reason = new DOMException("The response was already canceled.", "AbortError");
   abort.abort(reason);
-  const untilExpired = Math.max(0, Date.parse(handle.request.expiresAt) - Date.now()) + 20;
-  assert.ok(untilExpired <= 100);
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, untilExpired);
-  await assert.rejects(handle.respond({ choiceId: parseAgentSessionDecisionChoiceId("unoffered") }), (error: unknown) => error instanceof AgentProtocolValidationError);
-  await assert.rejects(handle.respond({ choiceId: grant, signal: abort.signal }), (error: unknown) => error === reason);
-  const receipt = await handle.respond({ choiceId: grant });
+  const providerExpiry = handle.request.expiresAt;
+  assert.ok(providerExpiry);
+  t.mock.timers.setTime(Date.parse(providerExpiry) + 1);
+  await assert.rejects(handle.respond({ kind: "decision", choiceId: parseAgentSessionDecisionChoiceId("unoffered") }), (error: unknown) => error instanceof AgentProtocolValidationError);
+  await assert.rejects(handle.respond({ kind: "decision", choiceId: grant, signal: abort.signal }), (error: unknown) => error === reason);
+  assert.equal(handle.signal.aborted, false, "Advancing Date alone must leave the native expiry timer unobserved.");
+  const receipt = await handle.respond({ kind: "decision", choiceId: grant });
   assert.deepEqual(candidate.answers, [], "Elapsed authority cannot enter native response while its timer is delayed.");
   assert.equal(receipt.status, "rejected");
   if (receipt.status !== "rejected") throw new Error("Expected an expired request to refuse delivery.");
   assert.deepEqual([receipt.requestState, receipt.error.code], ["unavailable", "session_interaction_unavailable"]);
-  assert.deepEqual(await handle.terminal, { kind: "expired" });
+  assert.deepEqual(await handle.terminal, { kind: "expired", source: "provider" });
   await fixture.nativeCloseEntered;
   await assert.rejects(async () => session.close({ reason: "idle" }), hasContractCode("invalid_session_interaction"));
   await session.close({ reason: "idle" });
   assert.deepEqual([fixture.closes(), candidate.answers], [1, []]);
+});
+
+test("retired opening request identities cannot be reused by a later turn in the same session generation", async (t) => {
+  const handled = deferred<void>();
+  const fixture = await scenario({ transformSession(session, context) {
+    return { ...session, startTurn(input) {
+      return { turnId: input.turnId, outputs: { async *[Symbol.asyncIterator]() {
+        const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId: input.turnId,
+          occurredAt: parseAgentIsoDateTime("2026-10-16T00:00:00.000Z") };
+        const itemId = parseAgentItemId("reused-request-item");
+        yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
+        yield createAgentEventOutput({ ...base, type: "item.started", payload: { itemId, itemKind: "assistant_message", status: "in_progress" } });
+        yield createAgentEventOutput({ ...base, type: "request.opened", payload: { request: parseAgentRequest({
+          requestKind: "approval", requestId: "session-decision", prompt: "Duplicate opening request identity",
+          subject: { kind: "other", itemId, title: "Controlled operation" },
+          options: [{ optionId: "allow", label: "Allow", decision: "approved", consequence: { kind: "scoped", persistence: "once", scope: { kind: "exact_action" } } }],
+        }) } });
+      } }, resolveRequest: async () => { throw new Error("Duplicate request must never become answerable."); } };
+    } };
+  } });
+  t.after(() => fixture.dispose());
+  const session = await fixture.open("create", undefined, { interactions: {
+    onRequest: async (interaction) => {
+      assert.deepEqual(await interaction.respond({ kind: "decision", choiceId: grant }), { status: "delivered" });
+      assert.deepEqual(await interaction.terminal, { kind: "answered", response: { kind: "decision", choiceId: grant } });
+      handled.resolve();
+    },
+  } });
+  await handled.promise;
+  await fixture.offers[0]!.completion;
+  assert.deepEqual(fixture.offers[0]!.answers, ["trust-workspace"]);
+  const execution = session.startTurn(turnInput);
+  const observed: string[] = [];
+  await assert.rejects(async () => {
+    for await (const output of execution.outputs) if (output.kind === "event") observed.push(output.event.type);
+  }, hasContractCode("invalid_turn_sequence"));
+  assert.deepEqual(observed, ["turn.started", "item.started"]);
+  await session.close({ reason: "error" });
 });

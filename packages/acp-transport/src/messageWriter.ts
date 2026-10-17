@@ -8,7 +8,7 @@ import { AcpClientError } from './errors.js';
 import type { AcpMessage } from './protocol.js';
 
 export interface AcpMessageWriter {
-  readonly write: (message: AcpMessage) => Promise<void>;
+  readonly write: (message: AcpMessage, observeSettlement?: (settled: Promise<void>) => void) => Promise<void>;
   readonly dispose: (drainMs: number) => Promise<void>;
 }
 
@@ -22,8 +22,9 @@ export function createAcpMessageWriter(input: {
   let queue: Promise<void> = Promise.resolve();
   const activeRejectors = new Set<(error: Error) => void>();
 
-  const writeNow = (frame: Buffer): Promise<void> => new Promise((resolve, reject) => {
+  const writeNow = (frame: Buffer, settled?: () => void): Promise<void> => new Promise((resolve, reject) => {
     if (disposed) {
+      settled?.();
       reject(new AcpClientError('acp_client_disposed', 'The ACP client is disposed.'));
       return;
     }
@@ -32,7 +33,7 @@ export function createAcpMessageWriter(input: {
     let writeCompleted = false;
     let drainRequired = false;
     let drainObserved = false;
-    let settled = false;
+    let observed = false;
     const cleanupListeners = () => {
       if (!listenersAttached) return;
       listenersAttached = false;
@@ -41,8 +42,8 @@ export function createAcpMessageWriter(input: {
       input.writable.off('close', onClose);
     };
     const settle = (error?: Error) => {
-      if (settled) return;
-      settled = true;
+      if (observed) return;
+      observed = true;
       activeRejectors.delete(rejectActive);
       if (error) reject(error);
       else resolve();
@@ -50,6 +51,7 @@ export function createAcpMessageWriter(input: {
     const complete = (error?: Error) => {
       cleanupListeners();
       settle(error);
+      settled?.();
     };
     const completeSuccessfulWrite = () => {
       if (!returnObserved || !writeCompleted || (drainRequired && !drainObserved)) return;
@@ -60,7 +62,7 @@ export function createAcpMessageWriter(input: {
       input.writable.off('drain', onDrain);
       // Rejecting the caller does not settle an entered Node write. Its callback may still fail
       // and emit an error; retain observation until that write settles or the stream closes.
-      if (writeCompleted) cleanupListeners();
+      if (writeCompleted) { cleanupListeners(); settled?.(); }
     };
     const onDrain = () => {
       drainObserved = true;
@@ -83,7 +85,7 @@ export function createAcpMessageWriter(input: {
       const admitted = input.writable.write(frame, (error) => {
         if (error) return;
         writeCompleted = true;
-        if (disposed) cleanupListeners();
+        if (disposed) { cleanupListeners(); settled?.(); }
         else completeSuccessfulWrite();
       });
       drainRequired = !admitted;
@@ -99,7 +101,7 @@ export function createAcpMessageWriter(input: {
   });
 
   const writer: AcpMessageWriter = {
-    write: (message) => {
+    write: (message, observeSettlement) => {
       if (disposed) {
         return Promise.reject(new AcpClientError(
           'acp_client_disposed',
@@ -121,7 +123,9 @@ export function createAcpMessageWriter(input: {
       }
 
       queuedBytes += frame.byteLength;
-      const operation = queue.then(() => writeNow(frame));
+      const actual = observeSettlement ? Promise.withResolvers<void>() : undefined;
+      if (actual) observeSettlement?.(actual.promise);
+      const operation = queue.then(() => writeNow(frame, actual?.resolve));
       queue = operation.then(
         () => { queuedBytes -= frame.byteLength; },
         () => { queuedBytes -= frame.byteLength; },

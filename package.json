@@ -1,6 +1,6 @@
 {
   "name": "agenai-agent-sdk",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Provider-neutral TypeScript contracts for hosting coding agents.",
   "type": "module",
@@ -18,11 +18,13 @@
     "examples:local": "tsx examples/local-command.ts",
     "examples:live-request-output": "tsx examples/live-request-output.ts",
     "examples:lifecycle-interactions": "tsx examples/lifecycle-interactions.ts",
+    "examples:session-continuations": "tsx examples/session-continuations.ts",
+    "examples:session-continuations:acp": "tsx examples/session-continuations-acp.ts",
     "examples:remembered-approvals": "tsx examples/remembered-approvals.ts",
     "examples:remembered-approvals:acp": "tsx examples/remembered-approvals-acp.ts",
     "examples:registry": "tsx examples/registry-install-run.ts",
     "test": "pnpm test:release && pnpm build && pnpm test:unit && pnpm test:examples && pnpm test:external-consumer",
-    "test:examples": "pnpm typecheck:examples && pnpm examples:local && pnpm examples:live-request-output && pnpm examples:lifecycle-interactions && pnpm examples:remembered-approvals && pnpm examples:remembered-approvals:acp && pnpm examples:registry && pnpm examples:delegation && pnpm examples:delegation:acp && pnpm test:examples:native",
+    "test:examples": "pnpm typecheck:examples && pnpm examples:local && pnpm examples:live-request-output && pnpm examples:lifecycle-interactions && pnpm examples:session-continuations && pnpm examples:session-continuations:acp && pnpm examples:remembered-approvals && pnpm examples:remembered-approvals:acp && pnpm examples:registry && pnpm examples:delegation && pnpm examples:delegation:acp && pnpm test:examples:native",
     "test:examples:native": "node --import tsx --test examples/delegation/native/tests/*.test.ts",
     "test:examples:durable": "node --import tsx --test examples/delegation/tests/*.test.ts && pnpm examples:delegation:failures",
     "test:external-consumer": "node scripts/architecture/check-agent-sdk-external-consumer.mjs",
@@ -47,6 +49,7 @@
     "rimraf": "^5.0.10",
     "tsx": "^4.19.3",
     "typescript": "5.9.3",
+    "yaml": "2.8.1",
     "zod": "catalog:"
   }
 }

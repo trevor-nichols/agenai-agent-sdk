@@ -30,6 +30,8 @@ export interface AcpNegotiatedAgent {
 }
 
 export interface AcpSessionIngress {
+  readonly joinCallbacks: () => Promise<void>;
+  readonly onExtensionNotification?: (input: AcpNotificationContext) => void | Promise<void>;
   readonly onNotification: (input: AcpNotificationContext) => void | Promise<void>;
   readonly onPermissionRequest: (input: AcpReverseRequestContext) => Promise<AcpJsonValue>;
   readonly onElicitationRequest: (input: AcpReverseRequestContext) => Promise<AcpJsonValue>;
@@ -44,6 +46,6 @@ export interface AcpInitializedConnection {
   readonly attachSession: (ingress: AcpSessionIngress) => () => void;
   readonly bindSession: (binding: AcpBoundSession) => void;
   readonly requestWithScope: (method: string, params: AcpJsonValue, scope: AcpHostInteractionScope, options?: AcpRequestOptions) => Promise<AcpJsonValue>;
-  readonly hostElicitation?: (context: AcpReverseRequestContext) => Promise<AcpJsonValue>;
+  readonly hostElicitation?: (context: AcpReverseRequestContext, observeCallback?: (work: Promise<void>) => void) => Promise<AcpJsonValue>;
   readonly close: () => Promise<void>;
 }

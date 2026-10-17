@@ -28,7 +28,7 @@ export function deferred<Value>() {
 
 export function eventBase(context: AgentProviderSessionContext, turnId: AgentTurnId) {
   return {
-    protocolVersion: 11 as const,
+    protocolVersion: 12 as const,
     sessionId: context.sessionId,
     turnId,
     occurredAt: parseAgentIsoDateTime("2026-10-10T12:00:00.000Z"),

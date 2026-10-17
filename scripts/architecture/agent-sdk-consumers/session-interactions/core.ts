@@ -59,13 +59,14 @@ for (const mode of ['pending-close', 'returned-cleanup', 'opening-cleanup'] as c
     const adapter = instance.adapter;
     return { ...instance, adapter: { ...adapter, hostBinding: { kind: 'supported' as const, toolTransport: 'callback' as const,
       instructionPlacements: ['tool_context'] as const }, sessionInteractions: { kind: 'supported' as const,
-      openingOperations: ['create'] as const, requestKinds: ['decision'] as const, producerOwnership: 'exclusive' as const },
+      mappings: [{ openingOperation: 'create', requestKind: 'decision' }] as const,
+      producerOwnership: 'exclusive' as const, humanWait: ['bounded'] as const },
       async createSession(input: Parameters<typeof adapter.createSession>[0]) {
         openings += 1;
         const candidate = await adapter.createSession(input);
         assert.ok(input.interactions);
         const callback = Promise.resolve(input.interactions.onRequest({
-          request: parseAgentSessionDecisionRequest({ kind: 'decision', requestId: 'packed-decision', sessionId: input.sessionId,
+          kind: 'direct', request: parseAgentSessionDecisionRequest({ kind: 'decision', requestId: 'packed-decision', sessionId: input.sessionId,
             title: 'Keep configuration gated?', target: { kind: 'workspace', path: '/packed-core/configuration' },
             expiresAt: new Date(Date.now() + 60_000).toISOString(), choices: [{ choiceId, label: 'Keep gated',
               description: 'Keep controlled configuration gated.', consequence: { kind: 'decline', configuration: 'remains_gated' } }] }),
@@ -135,7 +136,7 @@ for (const mode of ['pending-close', 'returned-cleanup', 'opening-cleanup'] as c
     }
     assert.ok(handle);
     assert.deepEqual(await handle.terminal, { kind: 'session_closed' });
-    const late = await handle.respond({ choiceId });
+    const late = await handle.respond({ kind: 'decision', choiceId });
     assert.equal(late.status, 'rejected');
     if (late.status !== 'rejected') throw new Error('Expected retired bound response authority.');
     assert.deepEqual([late.requestState, late.error.code], ['unavailable', 'session_interaction_unavailable']);

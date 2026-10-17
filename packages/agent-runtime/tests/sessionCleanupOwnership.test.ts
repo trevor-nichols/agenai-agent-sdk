@@ -8,7 +8,7 @@ import { parseAgentConfigurationRevisionId, parseAgentProviderConversationId, pa
 import {
   AgentProviderSessionCleanupError,
   isAgentProviderSessionCleanupErrorFor,
-  type AgentProviderCreateSessionInput,
+  type AgentCreateSessionInput,
   type AgentProviderSession,
 } from "../src/index.js";
 import { createHarness, deferred, makeBinding } from "./fixtures/hostBindings/harness.js";
@@ -20,7 +20,7 @@ test("failed candidate cleanup retains its exact opening owner with and without 
       const finish = deferred<void>();
       const harness = await createHarness({
         transformAdapter: (adapter) => ({ ...adapter, createSession: (input) => adapter.createSession(input), sessionInteractions: { kind: "supported",
-          openingOperations: ["create", "resume", "branch"], requestKinds: ["decision"], producerOwnership: "exclusive" } }),
+          mappings: [{ openingOperation: "create", requestKind: "decision" }, { openingOperation: "resume", requestKind: "decision" }, { openingOperation: "branch", requestKind: "decision" }], producerOwnership: "exclusive", humanWait: ["bounded"] } }),
         transformSession(session) {
         return Object.assign({ ...session, async close(input: Parameters<AgentProviderSession["close"]>[0]) {
           closes += 1;
@@ -29,7 +29,7 @@ test("failed candidate cleanup retains its exact opening owner with and without 
           await session.close(input);
         } }, { invalidExtraPort: true });
       } });
-      const context: AgentProviderCreateSessionInput = {
+      const context: AgentCreateSessionInput = {
         sessionId: parseAgentSessionId(`cleanup:${kind}`), workingDirectory: "/host/workspace",
         configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("cleanup-contract"), catalogRevision: 1, selections: [] }, onBindingCreated() {},
         ...(withBinding ? { hostBinding: makeBinding().binding } : {}),
@@ -81,7 +81,7 @@ test("a returned candidate without close remains retained until its exact candid
     restore = () => { Object.assign(candidate, { close: session.close }); };
     return candidate;
   } });
-  const input: AgentProviderCreateSessionInput = { sessionId: parseAgentSessionId("missing-close"),
+  const input: AgentCreateSessionInput = { sessionId: parseAgentSessionId("missing-close"),
     workingDirectory: "/host/workspace", configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("cleanup-contract"), catalogRevision: 1, selections: [] }, onBindingCreated() {} };
   const error = await Promise.resolve().then(() => harness.adapter.createSession(input)).catch((failure: unknown) => failure);
   assert.ok(isAgentProviderSessionCleanupErrorFor(error, input));
@@ -101,7 +101,7 @@ test("propagating another opening's retained error does not change its owner", a
       await session.close(input);
     } }, { invalidExtraPort: true });
   } });
-  const input: AgentProviderCreateSessionInput = { sessionId: parseAgentSessionId("first-opening"),
+  const input: AgentCreateSessionInput = { sessionId: parseAgentSessionId("first-opening"),
     workingDirectory: "/host/workspace", configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("cleanup-contract"), catalogRevision: 1, selections: [] }, onBindingCreated() {} };
   const error = await Promise.resolve().then(() => harness.adapter.createSession(input)).catch((failure: unknown) => failure);
   assert.ok(isAgentProviderSessionCleanupErrorFor(error, input));

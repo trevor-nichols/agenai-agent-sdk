@@ -11,7 +11,6 @@ import {
   createAgentProviderSessionCleanupError,
   isAgentProviderSessionCleanupErrorFor,
   throwIfAgentOperationAborted,
-  validateAgentProviderAdapter,
   AgentProviderContractError,
   DEFAULT_AGENT_SESSION_INTERACTION_LIMITS,
   type AgentProviderAdapter,
@@ -149,9 +148,10 @@ export async function createAcpProviderInstance(input: {
   const open = async (context: AgentProviderCreateSessionInput | AgentProviderResumeSessionInput, resume: boolean): Promise<AgentProviderSession> => {
     throwIfAgentOperationAborted(context.signal);
     throwIfAgentOperationAborted(lifetime.signal);
-    if (input.sessionInteractions && resume) throw new AgentProviderContractError(input.providerKey,
+    if (input.sessionInteractions?.mapping === 'grok-folder-trust-v1' && resume) throw new AgentProviderContractError(input.providerKey,
       'session_interactions_unsupported', 'The selected ACP session interaction mapping supports creation only.');
-    if (input.sessionInteractions && context.interactions === undefined) throw new AgentProviderContractError(input.providerKey,
+    if (input.sessionInteractions && (input.sessionInteractions.mapping === 'grok-folder-trust-v1' || resume)
+      && context.interactions === undefined) throw new AgentProviderContractError(input.providerKey,
       'invalid_session_interaction', 'The selected ACP session interaction mapping requires a handler before opening.');
     if (authentication.active) throw new AcpProviderConnectionError('acp_authentication_active', 'Authentication owns the ACP instance.');
     if (authentication.cleanupPending) throw new AcpProviderConnectionError('acp_authentication_cleanup_pending', 'Authentication terminal cleanup must complete before session mutation.');
@@ -198,7 +198,8 @@ export async function createAcpProviderInstance(input: {
           context: { ...context, sessionId: parsed.sessionId, configuration: parsed.configuration, signal },
           openingInput: context,
           ...(parsed.operation === 'resume' ? { resume: { binding: parsed.binding,
-            method: sessionCapabilities?.resume != null ? 'session/resume' as const : 'session/load' as const } } : {}),
+            method: input.sessionInteractions?.mapping === 'grok-build-1.0.60-session-requests-v1'
+              ? 'session/load' as const : sessionCapabilities?.resume != null ? 'session/resume' as const : 'session/load' as const } } : {}),
           mcpServers,
           connection, capabilities, limits: input.limits, now,
           permissionMapping: input.permissionMapping,
@@ -206,7 +207,7 @@ export async function createAcpProviderInstance(input: {
           closeResources,
         });
         throwIfAgentOperationAborted(signal);
-        connection.sessionInteractions?.adopt();
+        if (context.interactions) connection.sessionInteractions?.adopt();
         sessions.set(parsed.sessionId, opened.session);
         return opened.session;
       } catch (cause) {
@@ -232,7 +233,15 @@ export async function createAcpProviderInstance(input: {
 
   const adapter: AgentProviderAdapter = Object.freeze({
       ...(input.sessionInteractions ? { sessionInteractions: Object.freeze({ kind: 'supported' as const,
-        openingOperations: Object.freeze(['create'] as const), requestKinds: Object.freeze(['decision'] as const), producerOwnership: 'exclusive' as const }) } : {}),
+        mappings: input.sessionInteractions.mapping === 'grok-folder-trust-v1'
+          ? Object.freeze([Object.freeze({ openingOperation: 'create' as const, requestKind: 'decision' as const })] as const)
+          : Object.freeze([Object.freeze({ openingOperation: 'resume' as const, requestKind: 'plan_review' as const })] as const),
+        producerOwnership: 'exclusive' as const, humanWait: Object.freeze(['bounded', 'until_withdrawn_or_closed'] as const) }) } : {}),
+      ...(input.sessionInteractions?.mapping === 'grok-build-1.0.60-session-requests-v1' ? {
+        nativeContinuations: Object.freeze({ kind: 'supported' as const, producerOwnership: 'exclusive' as const,
+          mappings: Object.freeze([Object.freeze({ openingOperation: 'resume' as const,
+            requestKind: 'plan_review' as const, timing: 'after_open_return' as const })] as const) }),
+      } : {}),
       hostBinding: bindingSupported
         ? Object.freeze({ kind: 'supported' as const, toolTransport: 'mcp' as const, instructionPlacements: Object.freeze(['tool_context' as const]) })
         : Object.freeze({ kind: 'unsupported' as const }),
@@ -246,7 +255,7 @@ export async function createAcpProviderInstance(input: {
   return Object.freeze({
     instanceId: input.instanceId,
     capabilities,
-    adapter: input.sessionInteractions ? validateAgentProviderAdapter(capabilities, adapter) : adapter,
+    adapter,
     accountQuota: { kind: 'unsupported' as const },
     environment: { kind: 'unsupported' as const },
     checkReadiness(check: AgentProviderReadinessCheckInput = {}) {

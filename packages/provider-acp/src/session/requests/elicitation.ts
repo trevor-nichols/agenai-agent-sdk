@@ -10,7 +10,7 @@ export function prepareAcpSessionElicitation(input: {
   readonly params: AcpJsonObject;
   readonly lifetime: AbortSignal;
   readonly host: AcpInitializedConnection['hostElicitation'];
-}): Readonly<{ form?: PreparedAcpForm; host?: () => Promise<AcpJsonValue> }> {
+}): Readonly<{ form?: PreparedAcpForm; host?: (observeCallback: (work: Promise<void>) => void) => Promise<AcpJsonValue> }> {
   try {
     if (input.params.mode === 'form') {
       validateAcpFormSchema(nativeObject(input.params.requestedSchema, 'requested form schema'));
@@ -20,7 +20,7 @@ export function prepareAcpSessionElicitation(input: {
     const invoke = input.host;
     if (!invoke) throw new Error('This ACP elicitation requires an explicitly configured host UI.');
     const signal = AbortSignal.any([input.context.signal, input.lifetime]);
-    return { host: () => invoke({ ...input.context, signal }) };
+    return { host: (observeCallback) => invoke({ ...input.context, signal }, observeCallback) };
   } catch (error) {
     throw new AcpRpcHandlerError(-32602, error instanceof Error ? error.message : 'Unsupported ACP form.');
   }

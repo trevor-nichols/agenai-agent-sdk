@@ -92,7 +92,7 @@ test("durable execution rejects a process-local parent port before acquiring exe
 
 test("the coordinator refuses an older store contract before acquiring ownership or reading retained work", { timeout: 10_000 }, async () => {
   let calls = 0;
-  await assert.rejects(createHarness({ store: (store) => ({ ...store, contractVersion: 1,
+  await assert.rejects(createHarness({ store: (store) => ({ ...store, contractVersion: 3,
     acquireOwner() { calls += 1; return store.acquireOwner(); },
     read(input: Parameters<DelegationStore["read"]>[0]) { calls += 1; return store.read(input); },
     scan(input: Parameters<DelegationStore["scan"]>[0]) { calls += 1; return store.scan(input); },

@@ -54,7 +54,7 @@ async function pump(state: CoordinatorState): Promise<void> {
         continue;
       }
       const live: LiveRun = { taskId: run.taskId, runId: run.runId, scope: task.parent, target, ceiling,
-        lifetime: new AbortController(), controlAbort: new AbortController(), sessionId: parseAgentSessionId(createDelegationId()), turnId: parseAgentTurnId(createDelegationId()), controls: new Set(), pendingOperations: new Map(),
+        lifetime: new AbortController(), controlAbort: new AbortController(), sessionId: parseAgentSessionId(createDelegationId()), turnId: parseAgentTurnId(createDelegationId()), controls: new Set(), requestAttempts: new Map(), requestPresentations: new Map(), pendingOperations: new Map(),
         observedStart: false, recordedStart: false, controlTail: Promise.resolve(), summary: "", truncated: false, references: [], runtimeCleanupAttempts: 0,
         resourceReleaseAttempts: 0, executionReleaseAttempts: 0, runtimeClosed: false, resourcesReleased: false, executionReleased: false,
         schedule: () => schedule(state) };

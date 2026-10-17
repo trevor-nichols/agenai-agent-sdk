@@ -13,6 +13,8 @@ const overlaps = (left, right) => left === '/' || right === '/' || left === righ
 
 function settings(options) {
   const network = options.network ?? 'isolated';
+  const tasksMax = options.tasksMax === undefined ? 64 : options.tasksMax;
+  if (tasksMax !== 64 && tasksMax !== 128) throw new TypeError('Task limit must be 64 or 128.');
   if (!['isolated', 'host'].includes(network)) throw new TypeError('Network mode must be isolated or host.');
   if (!Array.isArray(options.mounts) || options.mounts.length > 32) throw new TypeError('Explicit bounded mounts are required.');
   const mounts = options.mounts.map(({ path, writable }) => {
@@ -31,7 +33,7 @@ function settings(options) {
     typeof networkInputs[key] === 'string' && isAbsolute(networkInputs[key])))) {
     throw new TypeError('Host networking requires explicit resolver, hosts and certificate inputs.');
   }
-  return Object.freeze({ network, mounts: Object.freeze(mounts), networkInputs: networkInputs ? Object.freeze({
+  return Object.freeze({ network, tasksMax, mounts: Object.freeze(mounts), networkInputs: networkInputs ? Object.freeze({
     resolver: networkInputs.resolver, hosts: networkInputs.hosts, certificates: networkInputs.certificates,
   }) : undefined });
 }
@@ -82,7 +84,7 @@ export function createLinuxExecutionHost(options) {
   let disposeWork;
   let reservation;
   let networkInputs = [];
-  const limits = Object.freeze({ tasksMax: 64, memoryMaxBytes: 536_870_912, runtimeMaxSec: 180 });
+  const limits = Object.freeze({ tasksMax: configuration.tasksMax, memoryMaxBytes: 536_870_912, runtimeMaxSec: 180 });
   const systemctl = (...args) => execute('/usr/bin/systemctl', ['--user', ...args], { env: hostEnvironment, timeout: 15_000, maxBuffer: 16_384 });
   const control = (message, timeoutMs) => {
     if (!operationRoot) throw new Error('The host supervisor has not started.');
@@ -125,7 +127,7 @@ export function createLinuxExecutionHost(options) {
       if (disposing) throw new Error('Host startup was fenced.');
       serviceStartEntered = true;
       await execute('/usr/bin/systemd-run', ['--user', `--unit=${unit}`, '--collect', '--no-block', '--service-type=exec',
-        '--property=Delegate=yes', '--property=DelegateSubgroup=manager', '--property=TasksMax=64',
+        '--property=Delegate=yes', '--property=DelegateSubgroup=manager', `--property=TasksMax=${limits.tasksMax}`,
         '--property=MemoryMax=512M', '--property=RuntimeMaxSec=180', '--property=KillMode=control-group',
         '--property=TimeoutStopSec=5', '--property=StandardOutput=null', '--property=StandardError=null',
         process.execPath, join(sourceDirectory, 'supervisor.mjs'), operationRoot],

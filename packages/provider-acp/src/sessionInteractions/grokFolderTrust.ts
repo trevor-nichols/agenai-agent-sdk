@@ -95,7 +95,6 @@ export function folderTrustDecision(input: Readonly<{
   native: NativeFolderTrustRequest;
   sessionId: AgentSessionId;
   requestNumber: number;
-  expiresAt: number;
 }>): AgentSessionDecisionRequest {
   const detected = input.native.configKinds.map((kind) => CONFIGURATION_EXPLANATIONS[kind]).join('; ');
   return parseAgentSessionDecisionRequest({
@@ -105,7 +104,6 @@ export function folderTrustDecision(input: Readonly<{
     title: 'Allow workspace configuration?',
     description: `Detected configuration: ${detected}. Workspace configuration can start tools or hooks and affect provider behavior. These detected categories do not restrict the scope of an authorization.`,
     target: { kind: 'workspace', path: input.native.workspace },
-    expiresAt: new Date(input.expiresAt).toISOString(),
     choices: [
       {
         choiceId: 'grant',

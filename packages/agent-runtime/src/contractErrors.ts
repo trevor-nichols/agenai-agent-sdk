@@ -37,6 +37,7 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "input_capability_mismatch",
   "invalid_turn_sequence",
   "request_resolution_mismatch",
+  "request_identity_limit_exceeded",
   "configuration_key_unsupported",
   "configuration_value_unsupported",
   "request_pending",
@@ -50,6 +51,11 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "host_tool_capacity_exhausted",
   "invalid_session_interaction",
   "session_interactions_unsupported",
+  "native_continuations_unsupported",
+  "native_continuation_preparation_failed",
+  "native_continuation_reader_not_ready",
+  "native_continuation_limit_exceeded",
+  "invalid_native_continuation",
 ] as const;
 
 export type AgentProviderContractErrorCode =

@@ -26,8 +26,10 @@ export function resolveAcpRequest(
     request.mapped = { ...mapped, request: mapped.flow.request };
   }
   if (reply !== undefined && !requests.answer(request, reply)) return requestUnavailable();
-  turn.waiting = undefined;
-  turn.transition = reply === undefined ? { nextRequest: request } : {};
+  if (reply === undefined) {
+    turn.waiting = undefined;
+    turn.transition = { nextRequest: request };
+  } else turn.transition = {};
   return { status: 'delivered' };
 }
 

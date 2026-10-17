@@ -5,10 +5,11 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import type { AgentRequestResolution } from '@agen-ai/agent-protocol';
-import { createDelegationCoordinator, type DelegationHostRequest, type DelegationOperationRecord } from '@agen-ai/agent-orchestration';
+import { parseAgentRequestResolutionFor, type AgentRequestResolution } from '@agen-ai/agent-protocol';
+import { createAgentEventOutput, type AgentRequestResolutionResult } from '@agen-ai/agent-runtime';
+import { createDelegationCoordinator, type DelegationHost, type DelegationHostRequest, type DelegationOperationRecord } from '@agen-ai/agent-orchestration';
 import { openSqliteDelegationStore } from '../sqlite/index.js';
-import { createReferenceHost, input, parent } from './host.js';
+import { createReferenceHost, eventBase, input, parent } from './host.js';
 import { barrier, invocationCount, persistJson, readJson, recordInvocation } from './journal.js';
 import { hasCode, withCommit } from './store.js';
 import { formatThreeFixture } from './migration/materialize.js';
@@ -82,6 +83,14 @@ export async function failRequestReceipt(root: string, loss: RequestReceiptLoss)
 }
 
 export async function recoverRequestReceipt(root: string, loss: RequestReceiptLoss) {
+  return { loss, ...await recoverRetainedRequest(root, loss === 'before_commit' ? 'intent' : 'delivered', 1) };
+}
+
+export async function recoverWithdrawnRequestReceipt(root: string) {
+  return recoverRetainedRequest(root, 'delivered', 2);
+}
+
+async function recoverRetainedRequest(root: string, disposition: 'intent' | 'delivered', expectedAnswers: number) {
   const retained = readJson<RetainedRequest>(root, 'request-receipt.json');
   const beforeOpen = inspectRequestHistory(root, retained.operation.operationId, retained.runId);
   assertRetainedRequestHistory(beforeOpen, retained.raw);
@@ -109,7 +118,7 @@ export async function recoverRequestReceipt(root: string, loss: RequestReceiptLo
     const operation = await opened.store.read({ kind: 'operation', parent, operationId: retained.operation.operationId });
     assert.equal(operation.kind, 'operation');
     assert.deepEqual(operation.operation, retained.operation, 'Recovery must preserve the complete exact historical receipt or unresolved intent.');
-    assert.equal(operation.operation?.disposition, loss === 'before_commit' ? 'intent' : 'delivered');
+    assert.equal(operation.operation?.disposition, disposition);
     assert.equal(operation.operation?.inputDigest, expectedResolutionDigest(retained.taskId, retained.runId, retained.resolution));
     for (const id of formatThreeFixture.ids) {
       const historical = await opened.store.read({ kind: 'operation', parent, operationId: id.operationId });
@@ -127,11 +136,93 @@ export async function recoverRequestReceipt(root: string, loss: RequestReceiptLo
     assert.deepEqual(recovered.pendingRun, { phase: 'settled', unsettled: 0 }, 'Only the interrupted live run is finalized during recovery.');
     assert.equal(requests, 0);
     assert.equal(invocationCount(root, 'child'), 1);
-    assert.equal(invocationCount(root, 'answer'), 1);
-    return { loss, processId: process.pid, childInvocations: invocationCount(root, 'child'), answerInvocations: invocationCount(root, 'answer'),
+    assert.equal(invocationCount(root, 'answer'), expectedAnswers);
+    return { processId: process.pid, childInvocations: invocationCount(root, 'child'), answerInvocations: invocationCount(root, 'answer'),
       disposition: operation.operation!.disposition, outcome: settled.task.runs.items[0]!.outcome };
   } finally {
     assert.equal((await coordinator.dispose({ mode: 'drain', timeoutMs: 1_000 })).status, 'closed');
     await reference.registry.dispose();
   }
+}
+
+function deferred<Value>() {
+  let resolve!: (value: Value) => void;
+  const promise = new Promise<Value>((settle) => { resolve = settle; });
+  return { promise, resolve };
+}
+
+export async function retainWithdrawnRequestReceipt(root: string) {
+  const opened = openSqliteDelegationStore({ root: join(root, 'database') });
+  assert.equal(opened.store.contractVersion, 4);
+  const first = rememberedApproval('durable-withdrawal:A');
+  const second = rememberedApproval('durable-withdrawal:B');
+  const presentedA = deferred<Parameters<DelegationHost['onRequest']>[0]>();
+  const presentedB = deferred<Parameters<DelegationHost['onRequest']>[0]>();
+  const retire = deferred<void>();
+  const enteredA = deferred<void>();
+  const receiptA = deferred<AgentRequestResolutionResult>();
+  const reference = await createReferenceHost({ root, fakeOptions: rememberedProviderOptions(), onInvoke: () => recordInvocation(root, 'child'),
+    onRequest(request) { (request.request.requestId === first.requestId ? presentedA : presentedB).resolve(request); },
+    execution(_session, context, turn) {
+      const base = eventBase(context, turn.turnId);
+      return { turnId: turn.turnId, outputs: (async function* () {
+        yield createAgentEventOutput({ ...base, type: 'turn.started', payload: {} });
+        yield createAgentEventOutput({ ...base, type: 'item.started', payload: { itemId: 'synthetic-edit', itemKind: 'dynamic_tool_call', status: 'in_progress' } });
+        yield createAgentEventOutput({ ...base, type: 'request.opened', payload: { request: first } });
+        await retire.promise;
+        yield createAgentEventOutput({ ...base, type: 'request.unavailable', payload: { requestId: first.requestId, reason: 'withdrawn' } });
+        yield createAgentEventOutput({ ...base, type: 'request.opened', payload: { request: second } });
+        await new Promise<void>(() => {});
+      })(), async resolveRequest(input) {
+        recordInvocation(root, 'answer');
+        parseAgentRequestResolutionFor(input.resolution.requestId === first.requestId ? first : second, input.resolution);
+        if (input.resolution.requestId === first.requestId) { enteredA.resolve(); return receiptA.promise; }
+        return { status: 'delivered' };
+      } };
+    },
+  });
+  const coordinator = await createDelegationCoordinator({ host: reference.host, store: opened.store, limits: opened.store.limits });
+  const client = await coordinator.bindParent({ scope: parent });
+  const admitted = await client.spawn({ operationId: randomUUID(), target: reference.target.reference, expectedPolicyRevision: 1, input });
+  const requestA = await presentedA.promise;
+  const resolution: AgentRequestResolution = { requestKind: 'approval', requestId: first.requestId, disposition: 'selected', optionId: first.options[1]!.optionId };
+  const operationId = randomUUID();
+  const answer = { handle: requestA.handle, operationId, resolution };
+  const answeringA = coordinator.resolveRequest(answer);
+  await enteredA.promise;
+  retire.resolve();
+  const requestB = await presentedB.promise;
+  assert.equal(requestA.signal.aborted, true);
+  assert.equal(requestB.signal.aborted, false);
+  const waiting = await opened.store.read({ kind: 'run', taskId: admitted.taskId, runId: admitted.runId });
+  assert.equal(waiting.kind, 'run');
+  assert.equal(waiting.run?.phase, 'waiting');
+  assert.equal(waiting.run?.pendingRequest?.requestId, second.requestId);
+  await assert.rejects(coordinator.resolveRequest({ ...answer, operationId: randomUUID() }), hasCode('request_unavailable'));
+  const secondOperationId = randomUUID();
+  assert.equal((await coordinator.resolveRequest({ handle: requestB.handle, operationId: secondOperationId, resolution: {
+    requestKind: 'approval', requestId: second.requestId, disposition: 'selected', optionId: second.options[0]!.optionId,
+  } })).status, 'delivered');
+  receiptA.resolve({ status: 'delivered' });
+  const delivered = await answeringA;
+  assert.equal(delivered.status, 'delivered');
+  assert.deepEqual(await coordinator.resolveRequest(answer), { ...delivered, duplicate: true });
+  const run = await opened.store.read({ kind: 'run', taskId: admitted.taskId, runId: admitted.runId });
+  assert.equal(run.kind, 'run');
+  assert.deepEqual([run.run?.phase, run.run?.pendingRequest?.requestId, run.run?.pendingRequest?.state], ['running', second.requestId, 'resolved']);
+  const operations = await opened.store.read({ kind: 'operations', taskId: admitted.taskId, runId: admitted.runId });
+  assert.equal(operations.kind, 'operations');
+  assert.deepEqual(operations.page.items.filter((operation) => operation.kind === 'request_resolution').map((operation) => operation.operationId).sort(),
+    [operationId, secondOperationId].sort());
+  const retained = await opened.store.read({ kind: 'operation', parent, operationId });
+  assert.equal(retained.kind, 'operation');
+  assert.ok(retained.operation);
+  assert.equal(retained.operation.inputDigest, expectedResolutionDigest(admitted.taskId, admitted.runId, resolution));
+  assert.deepEqual(retained.operation.request, { requestId: first.requestId, requestKind: 'approval' });
+  const raw = opened.database.read((database) => rawRequestHistory(database, operationId, admitted.runId));
+  assert.equal(raw.format, 3);
+  persistJson(root, 'request-receipt.json', { taskId: admitted.taskId, runId: admitted.runId, operation: retained.operation, resolution, raw } satisfies RetainedRequest);
+  await barrier('crash', { taskId: admitted.taskId, runId: admitted.runId, firstOperationId: operationId, secondOperationId,
+    firstRequestId: first.requestId, secondRequestId: second.requestId, disposition: retained.operation.disposition, firstPresentationAborted: requestA.signal.aborted });
+  throw new Error('Withdrawal receipt recovery qualification requires SIGKILL.');
 }

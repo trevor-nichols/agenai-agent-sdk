@@ -25,6 +25,7 @@ import {
   type AgentProviderInstanceDefinition,
   type AgentProviderReadinessCheckInput,
   type MaterializedAgentProviderInstance,
+  type ValidatedMaterializedAgentProviderInstance,
 } from "./providerDriver.js";
 import {
   type AgentProviderReadiness,
@@ -90,14 +91,14 @@ export class AgentProviderRegistryError extends Error {
 export interface AgentProviderRegistry {
   readonly listProviderCatalogEntries: () => readonly AgentProviderCatalogEntry[];
   readonly listInstanceCatalogEntries: () => readonly AgentProviderInstanceCatalogEntry[];
-  readonly listInstances: () => readonly MaterializedAgentProviderInstance[];
+  readonly listInstances: () => readonly ValidatedMaterializedAgentProviderInstance[];
   readonly getInstance: (
     instanceId: AgentInstanceId,
-  ) => MaterializedAgentProviderInstance | null;
+  ) => ValidatedMaterializedAgentProviderInstance | null;
   readonly hasInstance: (instanceId: AgentInstanceId) => boolean;
   readonly requireInstance: (
     instanceId: AgentInstanceId,
-  ) => MaterializedAgentProviderInstance;
+  ) => ValidatedMaterializedAgentProviderInstance;
   readonly checkReadiness: (
     instanceId: AgentInstanceId,
     input?: Readonly<{ signal?: AbortSignal }>,
@@ -213,7 +214,7 @@ type InstanceLifecycleStatus =
   | "disposed";
 
 interface ManagedInstance {
-  readonly instance: MaterializedAgentProviderInstance;
+  readonly instance: ValidatedMaterializedAgentProviderInstance;
   readonly lifecycle: {
     status: InstanceLifecycleStatus;
     disposePromise: Promise<void> | null;
@@ -246,7 +247,7 @@ function managedInstance(
   };
   const quotaLifetime = new AbortController();
   const environmentLifetime = new AbortController();
-  const instance: MaterializedAgentProviderInstance = Object.freeze({
+  const instance: ValidatedMaterializedAgentProviderInstance = Object.freeze({
     instanceId: parseAgentInstanceId(rawInstance.instanceId),
     capabilities,
     adapter: validateAgentProviderAdapter(capabilities, rawInstance.adapter),
@@ -407,7 +408,7 @@ export async function createAgentProviderRegistry(
 
   const getInstance = (
     instanceIdInput: AgentInstanceId,
-  ): MaterializedAgentProviderInstance | null => {
+  ): ValidatedMaterializedAgentProviderInstance | null => {
     if (registryStatus !== "active") return null;
     const instanceId = parseAgentInstanceId(instanceIdInput);
     const managed = instanceMap.get(instanceId);
@@ -437,7 +438,7 @@ export async function createAgentProviderRegistry(
 
   const requireInstance = (
     instanceId: AgentInstanceId,
-  ): MaterializedAgentProviderInstance => {
+  ): ValidatedMaterializedAgentProviderInstance => {
     const instance = getInstance(instanceId);
     if (!instance) throw lookupError(instanceId);
     return instance;

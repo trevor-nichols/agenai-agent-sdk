@@ -1,21 +1,33 @@
 import { AcpRequestError, type AcpJsonValue, type AcpReverseRequestContext } from '@agen-ai/acp-transport';
 import {
   parseAgentSessionDecisionResponseFor,
+  parseAgentSessionPlanReviewResponseFor,
   type AgentError,
   type AgentSessionDecisionRequest,
+  type AgentSessionPlanReviewRequest,
+  type AgentSessionPlanReviewResponse,
 } from '@agen-ai/agent-protocol';
 import {
   throwIfAgentOperationAborted,
   type AgentRequestResolutionResult,
-  type AgentSessionDecisionResponseInput,
-  type AgentSessionInteraction,
-  type AgentSessionInteractionHandler,
+  type AgentProviderSessionInteraction,
+  type AgentProviderPrepareSessionResponseInput,
+  type AgentPreparedSessionResponse,
+  type AgentProviderSessionInteractionContext,
+  type AgentSessionResponseInput,
   type AgentSessionInteractionTerminal,
 } from '@agen-ai/agent-runtime';
 
 import { AcpProviderSessionError } from '../session/errors.js';
 import { deferred } from '../session/queue.js';
-import type { NativeFolderTrustResult } from './grokFolderTrust.js';
+import { nativePlanReviewReply } from './grokPlanReview.js';
+
+export type PreparePlanContinuation = (input: Readonly<{
+  response: AgentSessionPlanReviewResponse;
+  signal: AbortSignal;
+  nativeSettled: Promise<void>;
+  dispatch: () => Promise<AgentRequestResolutionResult>;
+}>) => AgentPreparedSessionResponse;
 
 type RequestState =
   | Readonly<{ kind: 'pending' }>
@@ -26,9 +38,9 @@ export function sessionDecisionError(code: string, message: string): AgentError 
 }
 
 export class NativeSessionDecision {
-  readonly handle: AgentSessionInteraction;
+  readonly handle: AgentProviderSessionInteraction;
   readonly nativeReply: Promise<AcpJsonValue>;
-  private readonly answer = deferred<NativeFolderTrustResult>();
+  private readonly answer = deferred<AcpJsonValue>();
   private readonly terminal = deferred<AgentSessionInteractionTerminal>();
   private readonly presentation = new AbortController();
   private state: RequestState = { kind: 'pending' };
@@ -37,34 +49,34 @@ export class NativeSessionDecision {
   private nativeSettled = false;
   private presented = false;
   private retired = false;
-  private readonly timer: ReturnType<typeof setTimeout>;
+  private readonly timer: ReturnType<typeof setTimeout> | undefined;
   private readonly onNativeAbort = () => this.nativeAborted();
 
   constructor(private readonly input: Readonly<{
-    request: AgentSessionDecisionRequest;
-    nativeContext: Pick<AcpReverseRequestContext, 'id' | 'signal'>;
-    expiresAt: number;
+    request: AgentSessionDecisionRequest | AgentSessionPlanReviewRequest;
+    nativeContext: Pick<AcpReverseRequestContext, 'id' | 'signal' | 'settled'>;
+    hostDeadlineAt?: number;
+    prepareContinuation?: PreparePlanContinuation;
     accepting: () => boolean;
     fail: (cause: Error) => void;
     retire: () => void;
   }>) {
-    this.handle = Object.freeze({
+    const base = {
       request: input.request,
       signal: this.presentation.signal,
       terminal: this.terminal.promise,
-      respond: (response: AgentSessionDecisionResponseInput) => this.respond(response),
-    });
-    this.nativeReply = this.answer.promise.then((result) => {
+    };
+    this.handle = input.request.kind === 'plan_review'
+      ? Object.freeze({ ...base, kind: 'prepared', request: input.request,
+        prepareResponse: (response: AgentProviderPrepareSessionResponseInput) => this.prepareResponse(response) })
+      : Object.freeze({ ...base, kind: 'direct', respond: (response: AgentSessionResponseInput) => this.respond(response) });
+    this.nativeReply = this.answer.promise;
+    void input.nativeContext.settled.then(() => {
       this.nativeSettled = true;
       this.maybeRetire();
-      return result;
-    }, (cause: unknown) => {
-      this.nativeSettled = true;
-      this.maybeRetire();
-      throw cause;
     });
     void this.nativeReply.catch(() => {});
-    this.timer = setTimeout(() => this.expire(), Math.max(0, input.expiresAt - Date.now()));
+    if (input.hostDeadlineAt !== undefined) this.timer = setTimeout(() => this.expire(), Math.max(0, input.hostDeadlineAt - Date.now()));
     input.nativeContext.signal.addEventListener('abort', this.onNativeAbort, { once: true });
   }
 
@@ -72,11 +84,11 @@ export class NativeSessionDecision {
     if (this.input.nativeContext.signal.aborted) this.nativeAborted();
   }
 
-  present(handler: AgentSessionInteractionHandler): void {
+  present(handler: AgentProviderSessionInteractionContext['onRequest']): void {
     if (this.presented || this.state.kind !== 'pending') return;
     this.observeNativeSignal();
     if (this.state.kind !== 'pending' || !this.input.accepting()) return;
-    if (Date.now() >= this.input.expiresAt) { this.expire(); return; }
+    if (this.input.hostDeadlineAt !== undefined && Date.now() >= this.input.hostDeadlineAt) { this.expire(); return; }
     this.presented = true;
     this.callbackSettled = false;
     let synchronousFailure: { readonly cause: unknown } | undefined;
@@ -115,7 +127,7 @@ export class NativeSessionDecision {
   private expire(): void {
     if (this.state.kind === 'terminal') return;
     const cause = new AcpProviderSessionError('acp_session_interaction_expired', 'The session decision expired before acceptance.');
-    this.stop(Object.freeze({ kind: 'expired' }), cause);
+    this.stop(Object.freeze({ kind: 'expired', source: 'host_policy' }), cause);
     this.input.fail(cause);
   }
 
@@ -131,19 +143,37 @@ export class NativeSessionDecision {
       'acp_session_interaction_native_failed', 'The native session decision producer stopped.'));
   }
 
-  private async respond(input: AgentSessionDecisionResponseInput): Promise<AgentRequestResolutionResult> {
+  private async respond(input: AgentSessionResponseInput): Promise<AgentRequestResolutionResult> {
     throwIfAgentOperationAborted(input.signal);
-    const response = parseAgentSessionDecisionResponseFor(this.handle.request, { choiceId: input.choiceId });
+    if (this.input.request.kind !== 'decision') throw new TypeError('Plan review requires prepared response ownership.');
+    const response = parseAgentSessionDecisionResponseFor(this.input.request, { kind: input.kind, choiceId: input.choiceId });
     this.observeNativeSignal();
-    if (Date.now() >= this.input.expiresAt) this.expire();
+    if (this.input.hostDeadlineAt !== undefined && Date.now() >= this.input.hostDeadlineAt) this.expire();
     if (!this.input.accepting() || this.state.kind === 'terminal') {
       return Object.freeze({ status: 'rejected', requestState: 'unavailable', error: sessionDecisionError(
         'session_interaction_unavailable', 'The session decision is no longer available.') });
     }
     // Resolving this exact handler is local acceptance; serialization and native effects occur later.
     this.answer.resolve(Object.freeze({ outcome: response.choiceId === 'grant' ? 'trust' : 'reject' }));
-    this.finalize(Object.freeze({ kind: 'answered', choiceId: response.choiceId }));
+    this.finalize(Object.freeze({ kind: 'answered', response }));
     return Object.freeze({ status: 'delivered' });
+  }
+
+  private prepareResponse(input: AgentProviderPrepareSessionResponseInput): AgentPreparedSessionResponse {
+    throwIfAgentOperationAborted(input.signal);
+    if (this.input.request.kind !== 'plan_review' || !this.input.prepareContinuation) throw new TypeError('This request has no continuation mapping.');
+    const response = parseAgentSessionPlanReviewResponseFor(this.input.request, input.response);
+    return this.input.prepareContinuation({ response, signal: input.signal, nativeSettled: this.input.nativeContext.settled, dispatch: async () => {
+      throwIfAgentOperationAborted(input.signal);
+      this.observeNativeSignal();
+      if (this.input.hostDeadlineAt !== undefined && Date.now() >= this.input.hostDeadlineAt) this.expire();
+      if (!this.input.accepting() || this.state.kind === 'terminal') return Object.freeze({ status: 'rejected', requestState: 'unavailable',
+        error: sessionDecisionError('session_interaction_unavailable', 'The plan review is no longer available.') });
+      this.answer.resolve(nativePlanReviewReply(response));
+      this.finalize(Object.freeze({ kind: 'answered', response: Object.freeze({ kind: 'plan_review', action: response.action,
+        choiceId: response.choiceId, planId: response.planId, revision: response.revision }) }));
+      return Object.freeze({ status: 'delivered' });
+    } });
   }
 
   private maybeRetire(): void {
@@ -153,7 +183,7 @@ export class NativeSessionDecision {
   }
 
   async join(): Promise<void> {
-    await Promise.allSettled([this.nativeReply, ...(this.callback ? [this.callback] : [])]);
+    await Promise.allSettled([this.input.nativeContext.settled, ...(this.callback ? [this.callback] : [])]);
   }
 }
 

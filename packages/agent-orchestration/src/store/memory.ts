@@ -59,7 +59,7 @@ export function createInMemoryDelegationStore(options: {
     pageDelegationRows({ storeId, query, rows, key, limits, ...input, envelopeBytes });
 
   return Object.freeze({
-    contractVersion: 3 as const, persistence: "volatile" as const, storeId, limits,
+    contractVersion: 4 as const, persistence: "volatile" as const, storeId, limits,
     async acquireOwner() {
       if (owner) failDelegation("owner_lost", "This volatile store already has an active owner.");
       owner = parseDelegationOwnerToken({ storeId, epoch: ++epoch, nonce: createDelegationId() });

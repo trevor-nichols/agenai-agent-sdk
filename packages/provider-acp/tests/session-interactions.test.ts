@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseAgentSessionDecisionChoiceId, type AgentSessionDecisionRequest } from '@agen-ai/agent-protocol';
+import { parseAgentSessionDecisionChoiceId, type AgentSessionRequest } from '@agen-ai/agent-protocol';
 import { isAgentProviderSessionCleanupErrorFor, validateAgentProviderAdapter,
   type AgentProviderSessionCleanupError, type AgentRequestResolutionResult, type AgentSessionInteraction } from '@agen-ai/agent-runtime';
 import {
@@ -22,8 +22,10 @@ function hasReason(error: unknown, reason: string): boolean {
     || (error instanceof Error && error.cause !== undefined && hasReason(error.cause, reason));
 }
 
-function assertDecision(request: AgentSessionDecisionRequest, cwd: string): void {
+function assertDecision(request: AgentSessionRequest, cwd: string): void {
   assert.equal(request.kind, 'decision');
+  if (request.kind !== 'decision') throw new Error('Expected a workspace decision.');
+  assert.equal(Object.hasOwn(request, 'expiresAt'), false);
   assert.equal(request.sessionId, 'logical-session');
   assert.equal(request.title, 'Allow workspace configuration?');
   assert.deepEqual(request.target, { kind: 'workspace', path: `${cwd}/configuration-scope` });
@@ -49,13 +51,16 @@ test('early and late questions correlate exact native replies without dispatchin
       callbacks += 1;
       offeredBeforeReturn = !openingReturned;
       publication.resolve(handle);
-      receipts.push(handle.respond({ choiceId: choice }));
+      receipts.push(handle.respond({ kind: 'decision', choiceId: choice }));
     } } });
     openingReturned = true;
     const handle = await publication.promise;
     assertDecision(handle.request, fixture.cwd);
     assert.deepEqual(await receipts[0], { status: 'delivered' });
-    assert.deepEqual(await handle.terminal, { kind: 'answered', choiceId: choice });
+    assert.deepEqual(await handle.terminal, { kind: 'answered', response: { kind: 'decision', choiceId: choice } });
+    assert.equal(handle.deadline.kind, 'deadline');
+    if (handle.deadline.kind !== 'deadline') throw new Error('Expected a finite host deadline.');
+    assert.equal(handle.deadline.source, 'host_policy');
     const response = await waitFor(() => fixture.frames().find((frame) => frame.id === controlId), 'correlated native answer');
     assert.deepEqual(response, { jsonrpc: '2.0', id: controlId, result: { outcome: choice === grant ? 'trust' : 'reject' } });
     const initialize = fixture.frames().find((frame) => frame.method === 'initialize');
@@ -117,6 +122,8 @@ test('all admitted native configuration categories receive neutral effect explan
   const publication = fixtureDeferred<AgentSessionInteraction>();
   const session = await adapter.createSession({ ...context(fixture.cwd), interactions: { onRequest(value) { publication.resolve(value); } } });
   const handle = await publication.promise;
+  assert.equal(handle.request.kind, 'decision');
+  if (handle.request.kind !== 'decision') throw new Error('Expected a workspace decision.');
   for (const explanation of ['Project tool servers', 'Project plugins', 'Project tool-permission rules', 'Project language servers',
     'Project shell environment scripts', 'Imported compatibility settings', 'Project hooks', 'Project agent definitions',
     'Project role definitions', 'Project persona definitions', 'Project workflows', 'Project instructions', 'Project skills']) {
@@ -125,7 +132,7 @@ test('all admitted native configuration categories receive neutral effect explan
   assert.match(handle.request.choices[0].description, /future/iu);
   assert.match(handle.request.choices[0].description, /later|sibling/iu);
   assert.match(handle.request.choices[1].description, /suppressed/iu);
-  assert.deepEqual(await handle.respond({ choiceId: decline }), { status: 'delivered' });
+  assert.deepEqual(await handle.respond({ kind: 'decision', choiceId: decline }), { status: 'delivered' });
   await session.close({ reason: 'idle' });
   assertProcessGone(fixture.pid());
 });
@@ -149,7 +156,7 @@ test('registry revalidation keeps one owner and joins the actual callback before
     await releaseCallback.promise;
   } } });
   const handle = await published.promise;
-  assert.deepEqual(await handle.respond({ choiceId: grant }), { status: 'delivered' });
+  assert.deepEqual(await handle.respond({ kind: 'decision', choiceId: grant }), { status: 'delivered' });
   await waitFor(() => fixture.frames().find((frame) => frame.id === controlId && frame.result !== undefined), 'answer while callback is held');
   assert.deepEqual([callbacks, acquired, bridgeReleased, host.releases], [1, 1, 0, 0]);
   let closed = false;
@@ -171,7 +178,7 @@ test('peer withdrawal remains distinct from a disconnected producer', posix, asy
     fixture.signal();
     const terminal = await handle.terminal;
     assert.equal(terminal.kind, mode === 'withdrawal' ? 'withdrawn' : 'failed');
-    const late = await handle.respond({ choiceId: grant });
+    const late = await handle.respond({ kind: 'decision', choiceId: grant });
     assert.equal(late.status, 'rejected');
     if (late.status !== 'rejected') throw new Error('Expected retired native response authority.');
     assert.deepEqual([late.requestState, late.error.code], ['unavailable', 'session_interaction_unavailable']);
@@ -198,11 +205,11 @@ test('an answered request keeps accepted truth when a later malformed native fra
   const publication = fixtureDeferred<AgentSessionInteraction>();
   const session = await adapter.createSession({ ...context(fixture.cwd), interactions: { onRequest(value) { publication.resolve(value); } } });
   const handle = await publication.promise;
-  assert.deepEqual(await handle.respond({ choiceId: grant }), { status: 'delivered' });
+  assert.deepEqual(await handle.respond({ kind: 'decision', choiceId: grant }), { status: 'delivered' });
   await waitFor(() => fixture.frames().find((frame) => frame.id === controlId && frame.result !== undefined), 'accepted native reply');
   fixture.signal();
   await waitFor(() => { try { assertProcessGone(fixture.pid()); return true; } catch { return undefined; } }, 'late-fatal producer shutdown');
-  assert.deepEqual(await handle.terminal, { kind: 'answered', choiceId: grant });
+  assert.deepEqual(await handle.terminal, { kind: 'answered', response: { kind: 'decision', choiceId: grant } });
   await assert.rejects(async () => Array.fromAsync(session.startTurn(turnInput('after-late-fatal')).outputs), failure);
   await assert.rejects(async () => session.close({ reason: 'idle' }), (error: unknown) => hasReason(error, 'acp_json_invalid'));
   await session.close({ reason: 'idle' });
@@ -222,12 +229,12 @@ test('a terminal question with an unfinished callback still occupies the mapping
     await releaseCallback.promise;
   } } });
   const handle = await publication.promise;
-  assert.deepEqual(await handle.respond({ choiceId: decline }), { status: 'delivered' });
+  assert.deepEqual(await handle.respond({ kind: 'decision', choiceId: decline }), { status: 'delivered' });
   await waitFor(() => fixture.frames().find((frame) => frame.id === controlId && frame.result !== undefined), 'first native answer');
   fixture.signal();
   await waitFor(() => { try { assertProcessGone(fixture.pid()); return true; } catch { return undefined; } }, 'second retained request shutdown');
   assert.equal(callbacks, 1);
-  assert.deepEqual(await handle.terminal, { kind: 'answered', choiceId: decline });
+  assert.deepEqual(await handle.terminal, { kind: 'answered', response: { kind: 'decision', choiceId: decline } });
   releaseCallback.resolve();
   await assert.rejects(async () => session.close({ reason: 'idle' }), (error: unknown) => hasReason(error, 'acp_session_interaction_capacity'));
   await session.close({ reason: 'idle' });
@@ -251,7 +258,7 @@ test('a pending session question coexists with the caller real turn and does not
     ['Controlled output before the decision.', 'Controlled output after the decision.']);
   const completed = outputs.at(-1);
   assert.equal(completed?.kind === 'event' ? completed.event.type : null, 'turn.completed');
-  assert.deepEqual(await handle.respond({ choiceId: grant }), { status: 'delivered' });
+  assert.deepEqual(await handle.respond({ kind: 'decision', choiceId: grant }), { status: 'delivered' });
   assert.equal(fixture.frames().filter((frame) => frame.method === 'session/prompt').length, 1);
   releaseCallback.resolve();
   await session.close({ reason: 'idle' });
@@ -276,13 +283,14 @@ test('pending close, expiry and host failure stop the producer without an implic
     if (stop === 'close') await session.close({ reason: 'idle' });
     const terminal = await handle.terminal;
     assert.equal(terminal.kind, stop === 'close' ? 'session_closed' : stop === 'expiry' ? 'expired' : 'failed');
+    if (stop === 'expiry') assert.deepEqual(terminal, { kind: 'expired', source: 'host_policy' });
     if (stop !== 'close') {
       await assert.rejects(async () => session.close({ reason: 'idle' }), (error: unknown) => stop === 'handler-failure' ? retains(error, hostFailure) : failure(error));
       await session.close({ reason: 'idle' });
     }
     assertProcessGone(fixture.pid());
     assert.equal(fixture.frames().some((frame) => frame.id === controlId && frame.result !== undefined), false);
-    const late = await handle.respond({ choiceId: decline });
+    const late = await handle.respond({ kind: 'decision', choiceId: decline });
     assert.equal(late.status, 'rejected');
     if (late.status !== 'rejected') throw new Error('Expected stopped native response authority.');
     assert.equal(late.requestState, 'unavailable');
@@ -333,7 +341,8 @@ test('instance disposal retains its pending callback and retries the same produc
     return { mcpServers: [server('instance-disposal')], release() { bridgeReleases += 1; } };
   } } });
   const publication = fixtureDeferred<AgentSessionInteraction>();
-  const session = await instance.adapter.createSession({ ...context(fixture.cwd), hostBinding: host.binding, interactions: {
+  const adapter = validateAgentProviderAdapter(instance.capabilities, instance.adapter);
+  const session = await adapter.createSession({ ...context(fixture.cwd), hostBinding: host.binding, interactions: {
     limits: { cleanupTimeoutMs: 1_000 }, async onRequest(handle) { publication.resolve(handle); await releaseCallback.promise; },
   } });
   const handle = await publication.promise;

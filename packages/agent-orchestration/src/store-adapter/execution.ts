@@ -97,8 +97,9 @@ export function operationReceipt(context: CommitContext, command: Extract<Delega
     const run = requireRun(context);
     if (!prior.request) failDelegation("operation_conflict", "Request delivery requires its exact retained request identity.");
     if (run.pendingRequest?.requestId === prior.request.requestId && run.pendingRequest.requestKind === prior.request.requestKind) {
-      if (run.pendingRequest.state !== "resolution_intended") failDelegation("request_unavailable", "The exact request has no entered resolution intent.");
-      const state = command.disposition === "delivered" ? "resolved" : command.requestState === "pending" ? "waiting" : "unavailable";
+      if (run.pendingRequest.state !== "resolution_intended" && run.pendingRequest.state !== "unavailable") failDelegation("request_unavailable", "The exact request has no entered resolution intent.");
+      const state = run.pendingRequest.state === "unavailable" ? "unavailable"
+        : command.disposition === "delivered" ? "resolved" : command.requestState === "pending" ? "waiting" : "unavailable";
       setRun(context, { phase: run.phase === "settled" ? "settled" : state === "waiting" ? "waiting" : "running",
         pendingRequest: { ...run.pendingRequest, state } });
     }
@@ -136,7 +137,8 @@ export function requestState(context: CommitContext, command: Extract<Delegation
       setRun(context, { phase: "running", pendingRequest: { ...run.pendingRequest, state: "resolution_intended" } });
     } else {
       if (command.state === "resolved" && run.pendingRequest.state !== "resolution_intended") failDelegation("request_unavailable", "Resolution requires its prior intent.");
-      setRun(context, { pendingRequest: { ...run.pendingRequest, state: command.state } });
+      setRun(context, { ...(command.state === "unavailable" && run.phase === "waiting" ? { phase: "running" as const } : {}),
+        pendingRequest: { ...run.pendingRequest, state: command.state } });
     }
   }
   context.receipt = { ...context.receipt, status: requireRun(context).phase };

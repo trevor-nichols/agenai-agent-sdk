@@ -49,12 +49,12 @@ export function resolveNodeAcpSessionInteractions(
   if (selection === undefined && !Object.hasOwn(options, 'sessionInteractions')) return undefined;
   if (!selection || typeof selection !== 'object' || Array.isArray(selection)
     || Reflect.ownKeys(selection).length !== 1 || !Object.hasOwn(selection, 'mapping')
-    || selection.mapping !== 'grok-folder-trust-v1') {
+    || !['grok-folder-trust-v1', 'grok-build-1.0.60-session-requests-v1'].includes(selection.mapping)) {
     throw new TypeError('ACP session interaction selection must name the supported mapping without additional fields.');
   }
   if (launch.args.length !== 3 || launch.args[0] !== 'agent'
     || launch.args[1] !== '--no-leader' || launch.args[2] !== 'stdio') {
-    throw new TypeError('The Grok folder-trust mapping requires exact direct arguments: agent --no-leader stdio.');
+    throw new TypeError('Selected Grok session mappings require exact direct arguments: agent --no-leader stdio.');
   }
-  return Object.freeze({ mapping: 'grok-folder-trust-v1' });
+  return Object.freeze({ mapping: selection.mapping });
 }

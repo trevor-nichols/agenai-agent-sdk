@@ -144,7 +144,7 @@ export type DelegationStoreScanPage =
   | Readonly<{ kind: "eligible_notifications"; page: DelegationPage<DelegationNotificationRecord> }>;
 
 export interface DelegationStore {
-  readonly contractVersion: 3;
+  readonly contractVersion: 4;
   readonly persistence: DelegationPersistence;
   readonly storeId: string;
   readonly limits: DelegationLimits;

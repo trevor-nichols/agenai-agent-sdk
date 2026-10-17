@@ -16,7 +16,7 @@ export type { AgentError, AgentErrorContext } from '../failures/types.js';
 //                Protocol Version and Limits
 // ------------------------------------------------------------------------------------------------
 
-export const AGENT_PROTOCOL_VERSION = 11 as const;
+export const AGENT_PROTOCOL_VERSION = 12 as const;
 export const AGENT_PROTOCOL_ID_MAX_LENGTH = 256;
 export const AGENT_PROTOCOL_PROVIDER_REFERENCE_MAX_LENGTH = 512;
 export const AGENT_PROTOCOL_PROVIDER_KEY_MAX_LENGTH = 100;

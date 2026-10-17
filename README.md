@@ -2,8 +2,10 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> All seven packages are published at coordinated version `0.4.1` with Agent Protocol V11.
-> npm `latest` and `beta` select this release.
+> Current source is the coordinated `0.4.2` candidate with Agent Protocol V12.
+> Published `0.4.1` retains Agent Protocol V11; source preparation does not publish a release.
+> The retained publication record places `latest` and `beta` on `0.4.1`; this candidate does not change those tags.
+> See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
 > and [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
@@ -44,7 +46,8 @@ Write the host once. Adapt each agent once.
 
 All seven packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All seven source and published package versions are coordinated at `0.4.1`.
+schema assets. All seven source package versions are coordinated at `0.4.2`; published `0.4.1`
+retains its historical qualification and archive identities.
 
 The dependency chain is intentionally narrow:
 
@@ -105,9 +108,13 @@ pnpm add @agen-ai/validation@0.4.1 @agen-ai/agent-protocol@0.4.1
 ```
 
 Keep every SDK package you install at the same coordinated version, including optional packages.
-The source Agent Protocol V11 directly replaces V10 at the live boundary; the current parser has no
-V10 compatibility mode. The published `0.4.0` release retains V10.
-The session-lifetime and remembered-approval APIs below are available in published `0.4.1`.
+The source Agent Protocol V12 directly replaces V11 at the live boundary; the current parser has no
+V11 compatibility mode. Published `0.4.1` retains V11 and `0.4.0` retains V10. Current source
+examples require matching built `0.4.2` packages; their decision responses carry
+`{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
+documents the implemented generic lifecycle and exact native qualification limits.
+Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
+the generalized source API described below requires matching `0.4.2` packages.
 Run the examples from a built source checkout or use the matching npm package family.
 Installing the earlier `0.4.0` release does not provide these APIs.
 
@@ -123,24 +130,27 @@ pnpm examples:lifecycle-interactions
 ```
 
 Inspect `adapter.sessionInteractions` before choosing this path. Supported adapters declare the
-exact opening operations, currently supported `decision` request kind and exclusive producer
-ownership. Install `interactions: { onRequest }` in the create, resume or branch input before native
+exact `(openingOperation, requestKind)` mappings, supported human-wait modes and exclusive
+producer ownership. Core request kinds are `decision`, `form` and `plan_review`; each provider
+must explicitly support the selected combination. Install `interactions: { onRequest }` in the create, resume or branch input before native
 admission. The callback receives a bound `AgentSessionInteraction`; opening can return while the
 question is still live, and the host can answer that same handle later. Registering a UI after
 opening is too late. The handler may return immediately after retaining a handle, or keep
 signal-aware UI work pending; the provider must not wait for a human answer merely to return an
 otherwise opened session.
 
-Present the request's title, workspace target, descriptions and every offered consequence. Select
-an offered `choiceId` through `interaction.respond`, observe its independent receipt, and observe
+Narrow `interaction.request.kind` before reading the request-specific fields. For a workspace
+decision, present its title, target, descriptions and every offered consequence. Select an offered
+`choiceId` through `interaction.respond({ kind: 'decision', choiceId })`, observe its independent receipt, and observe
 `interaction.terminal` and `interaction.signal` to retire the question. A workspace grant authorizes
 current and future workspace configuration, is persistently managed by the provider and may affect
 sibling or later sessions sharing its profile. Declining keeps configuration gated; it does not
 revoke an earlier grant or promise a persisted denial. The SDK does not remember grants itself.
 
-`delivered` records acceptance by the adapter and produces an `answered` terminal. It does not
+`delivered` records acceptance by the adapter; `answered.response` retains the accepted response
+projection. A racing withdrawal may already have settled the terminal without rewriting that receipt. It does not
 attest a remote acknowledgment, immediate configuration loading or persistent native effect.
-`rejected` with `requestState: 'pending'` leaves the handle eligible for a fresh valid answer;
+`rejected` with `requestState: 'pending'` permits a fresh valid answer only while the request remains live;
 `'unavailable'` ends that eligibility. `delivery_uncertain` fences session mutation and must never
 be replayed. Local validation and a response signal aborted before provider entry remain errors
 before delegation. A response that fails or times out after provider entry becomes uncertain.
@@ -148,8 +158,25 @@ before delegation. A response that fails or times out after provider entry becom
 Close the session to stop producers and join entered handlers and responses, then dispose the
 registry. Request terminality and signal abortion are eligibility boundaries; neither establishes
 callback drain or native-process quiescence. A rejected cleanup retains its exact callable owner
-and resources for retry. The [migration guide](MIGRATING-TO-0.4.1.md) includes no-handler behavior,
-bounded limits, opening cancellation and failed-startup cleanup through the registry cause.
+and resources for retry. The [runtime contract](packages/agent-runtime/README.md#session-lifetime-interactions)
+details current no-handler behavior, limits, opening cancellation and retained cleanup.
+
+Forms carry typed fields and submit/cancel choices. Plan reviews carry the complete exact plan
+snapshot and revision, with offered approve/revise/abandon actions. Their tagged responses cannot
+substitute one action or revision for another. The accepted terminal omits submitted form values
+and revision feedback.
+
+When a response may start native work, also install `nativeContinuations.onExecution` before
+opening. Consume its ordinary execution immediately: an actual pending `next()` establishes
+output ownership before dispatch. The runtime shares one slot with caller turns and creates no
+synthetic prompt. The continuation's `outcome` is independent of response delivery. Select only
+explicitly supported provider timing; core support does not qualify native semantics.
+
+Human waiting defaults to five minutes. A provider supporting
+`humanWait: { kind: 'until_withdrawn_or_closed' }` can omit the SDK human deadline; supplying
+`limits.requestTimeoutMs` in that mode is invalid. The handle reports an effective deadline and
+its provider/host source, or `no_deadline`. Provider expiry, response/cleanup deadlines and
+retained-work ceilings still apply. Select the human-wait modes explicitly supported by the configured ACP mapping.
 
 Existing adapters may omit `sessionInteractions`; that means unsupported. Ordinary openings
 without an `interactions` context keep their existing behavior. Supplying a context for an
@@ -158,9 +185,27 @@ surface retains the continuously owned turn output reader and authentication and
 APIs. V11 separately changes turn approval options to carry an explicit `consequence`; see the
 [migration guide](MIGRATING-TO-0.4.1.md#use-v11-approval-consequences).
 
+## Run typed session continuations
+
+[`examples/session-continuations.ts`](examples/session-continuations.ts) uses only core packages
+to demonstrate a typed form response, an already active continuation reader, explicit human
+waiting without an SDK deadline, and an offered plan abandonment that starts no work. It also
+shows unsupported configuration and cleanup ownership.
+
+[`examples/session-continuations-acp.ts`](examples/session-continuations-acp.ts) adds the optional
+Node provider's selected session-review mapping and a controlled executable peer. It resumes a
+review, answers the exact offered plan revision, and observes continuation output without a new
+caller prompt. Both examples report synthetic evidence and require no credentials:
+
+```sh
+pnpm build
+pnpm examples:session-continuations
+pnpm examples:session-continuations:acp
+```
+
 ## Handle remembered turn approvals
 
-[`examples/remembered-approvals.ts`](examples/remembered-approvals.ts) is a core-only V11 walkthrough
+[`examples/remembered-approvals.ts`](examples/remembered-approvals.ts) is a core-only V12 walkthrough
 using a synthetic adapter and ordinary protocol/runtime imports. It displays each offered decision
 and consequence, including explicit unknown duration and applicability, then selects the exact
 offered remembered option ID. Its answer handler waits for unrelated progress while the original
@@ -434,7 +479,7 @@ registration and user experience remain application follow-up work.
 ## ACP support
 
 The transport validates the selected wire schema. The provider separately maps the semantics it
-can faithfully express through Agent Protocol V11. Initialization fixes one capability envelope per
+can faithfully express through Agent Protocol V12. Initialization fixes one capability envelope per
 instance, and later connections must match it.
 
 `createAcpProviderDriver` and `createNodeAcpProviderDriver` default
@@ -448,14 +493,14 @@ correlation and cleanup limits. Known or registered methods still use their exac
 validators. A vendor feature that needs an extension requires an explicit mapping
 and separate behavior evidence.
 
-| Surface | Provider support in `0.4.1` source |
+| Surface | Provider support in `0.4.2` source |
 | --- | --- |
 | Sessions and turns | Create, default text turns, streamed text/reasoning/tool progress, and settlement-backed interruption. Exact resume requires advertised `session/resume` or `session/load`; load replay is bounded and suppressed. |
 | Turn permissions | Once-only, exact-action choices; one native prompt survives each canonical request continuation. Persistent turn grants are unsupported; the explicitly selected workspace decision below is separate. |
 | Session-lifetime decisions | Unsupported by default. The selected Node `grok-folder-trust-v1` mapping supports workspace decisions for create only and requires a handler and host-supplied execution boundary. |
 | Configuration | Managed by default; explicitly selected boolean/select catalogs with offered revision checks. ACP has no remote compare-and-set guarantee. |
 | Session-local MCP tools | Explicit `sessionMcpBinding` factory after the requested HTTP/SSE transport is negotiated. Instructions use tool context; setup alone does not certify native tool discovery or invocation. |
-| Forms | Boolean, single-select and multi-select forms within V11 bounds, preserving accept/decline/cancel. Broader forms need an explicit host facility; unsupported constraints fail before presentation. |
+| Forms | Boolean, single-select and multi-select forms within V12 bounds, preserving accept/decline/cancel. Broader forms need an explicit host facility; unsupported constraints fail before presentation. |
 | Images | Advertised inline PNG/JPEG/WebP input within fixed image and turn budgets. No implicit file reads, URL fetching or media output. |
 | Observations | Plans, partial structured file changes, and session command catalogs. Missing metadata stays unknown. These observations do not establish a final workspace Review. |
 | Host facilities | Explicit authentication, URL/form, filesystem and complete terminal callbacks. Paths, commands and method labels do not authorize an effect. |
@@ -618,7 +663,7 @@ provider mechanics inside the adapter.
 
 ## Environment and effective content
 
-Agent Protocol V11 retains the distinction between content a host manages and content a selected native harness actually
+Agent Protocol V12 retains the distinction between content a host manages and content a selected native harness actually
 reports:
 
 - `managedContent` is the caller-managed inventory used for distribution and product workflows.
@@ -689,6 +734,22 @@ ACP-delegation workflows, hermetic native-runner tests and package tests, then p
 each package for a separately installed consumer proof. The packed consumer also
 executes those hermetic runner tests and verifies default and strict extension
 policies through installed providers. Nothing is published by that command.
+
+For qualification that must retain an existing dependency set, first retain a successful
+consumer, then pass its output directory explicitly when checking a later candidate:
+
+```sh
+pnpm test:external-consumer --output /absolute/new-consumer
+pnpm test:external-consumer --output /absolute/new-frozen-consumer --dependency-baseline /absolute/new-consumer
+```
+
+The baseline mode creates a new installation from the new SDK archives and the baseline's
+locked third-party versions. It rejects incompatible SDK dependency declarations or altered
+consumer configuration, disables installation scripts, and verifies that the frozen lock remains
+unchanged. It reads the baseline hook as data and does not reuse its installed modules. Without
+this option, each consumer resolves dependency ranges afresh. A matching dependency baseline
+supports reproducibility; native qualification still requires the exact artifact and source checks.
+
 Durable reference qualification is a separate `pnpm test:examples:durable` lane with the exact
 environment described above. Set `AGENT_SDK_DURABLE_TEST_ROOT` to a qualified absolute directory
 to include that lane in the packed external-consumer proof.

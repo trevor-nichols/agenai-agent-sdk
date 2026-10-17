@@ -40,6 +40,7 @@ export const AGENT_EVENT_TYPES = [
   'turn.plan.proposed',
   'turn.diff.updated',
   'request.opened',
+  'request.unavailable',
   'progress.updated',
   'context.usage.updated',
   'artifact.referenced',
@@ -55,7 +56,7 @@ export const AGENT_EVENT_TYPES = [
 export type AgentEventType = (typeof AGENT_EVENT_TYPES)[number];
 
 interface AgentEventBase<Type extends AgentEventType, Payload> {
-  readonly protocolVersion: 11;
+  readonly protocolVersion: 12;
   readonly type: Type;
   readonly sessionId: AgentSessionId;
   readonly providerRefs?: AgentProviderRefs;
@@ -144,6 +145,15 @@ export type AgentRequestOpenedEvent = AgentTurnEventBase<
   Readonly<{ request: AgentRequest }>
 >;
 
+export const AGENT_REQUEST_UNAVAILABLE_REASONS = ['withdrawn', 'expired', 'unknown'] as const;
+
+export type AgentRequestUnavailableReason = (typeof AGENT_REQUEST_UNAVAILABLE_REASONS)[number];
+
+export type AgentRequestUnavailableEvent = AgentTurnEventBase<
+  'request.unavailable',
+  Readonly<{ requestId: AgentRequestId; reason: AgentRequestUnavailableReason }>
+>;
+
 export type AgentProgressUpdatedEvent = AgentTurnEventBase<
   'progress.updated',
   Readonly<{
@@ -230,6 +240,7 @@ export type AgentEvent =
   | AgentPlanProposedEvent
   | AgentDiffUpdatedEvent
   | AgentRequestOpenedEvent
+  | AgentRequestUnavailableEvent
   | AgentProgressUpdatedEvent
   | AgentContextUsageUpdatedEvent
   | AgentArtifactReferencedEvent

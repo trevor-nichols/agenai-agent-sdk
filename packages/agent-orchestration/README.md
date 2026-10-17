@@ -1,10 +1,15 @@
 # @agen-ai/agent-orchestration
 
 Optional managed delegation for applications using the AgenAI coding-agent SDK, at coordinated
-release version `0.4.1`. This package sits above
+unpublished source version `0.4.2` (published `0.4.1`). This package sits above
 `@agen-ai/agent-runtime`. Core runtime consumers do not depend on it. Current source uses Agent
-Protocol V11; the earlier `0.4.0` release uses V10. Managed store contract and SQLite format
-remain 3; retained historical requests cannot reconstruct live reply authority.
+Protocol V12; published `0.4.1` uses V11 and the earlier `0.4.0` release uses V10. Managed store
+contract is 4; the reference SQLite format remains 3; retained historical requests cannot reconstruct live reply authority.
+
+External stores must implement the contract-4 transitions, including exact request retirement
+while an entered answer retains its own receipt. Declaring version 4 alone is insufficient.
+The unchanged SQLite format needs no format-3-to-4 migration. Keep every installed SDK package
+at one coordinated version and follow the [0.4.2 migration guide](../../MIGRATING-TO-0.4.2.md).
 
 The current implementation provides bounded target catalogs, a pure developer/user policy resolver,
 managed task coordination, a volatile store and host-injected completion delivery. A separately
@@ -179,17 +184,30 @@ runs independently from the sole child output reader, so output continues while 
 `resolveRequest` delivers through the retained turn execution and returns `delivered`, `rejected` with
 `requestState: "pending" | "unavailable"`, or `delivery_uncertain`. A delivered receipt confirms provider-owned
 acceptance of that exact canonical answer or form step; it does not claim native transport acknowledgment,
-turn completion or approved effect completion. Only a definitive pending rejection restores answerability;
+turn completion or approved effect completion. Only a definitive pending rejection for a request that remains live restores answerability;
 uncertainty forbids replay. The receipt settles without waiting for a later output, request or terminal.
 An unavailable rejection removes only that exact request's eligibility; it does not complete the
 child or its parent. Request expiry, accepted interruption and terminality fence fresh answers.
 Local malformed, stale or pre-aborted answers reject before provider entry; entered provider
 exceptions and uncertain receipts retain the child output/cleanup owner and prohibit resending.
-Raw request answers and native diagnostics are not stored in observations.
+Canonical `request.unavailable` retires the exact request and aborts its host presentation signal,
+leaving the child run alive. A new request can be presented and answered while an already entered
+answer to the retired request remains unsettled. That original attempt retains its actual receipt,
+including a late `delivered` or `rejected`/`pending`; retirement never restores its eligibility or
+transfers its receipt to the new request. Retirement creates no response operation. Exact duplicate
+operation lookup still returns the original receipt under current host access checks.
+
+Returning from `onRequest` does not retire its signal. The coordinator retains only each request's
+historical identity and presentation controller until canonical retirement or run cleanup, bounded
+by the validated runtime's session-generation request census. It retains actual presentation
+callbacks independently even when they ignore their abort signal.
+Terminal output can initiate native quiescence before joining outstanding answers; the original
+reader, callbacks and controls all finish before host resources are released. Raw request answers
+and native diagnostics are not stored in observations.
 
 ## Store and capacity contract
 
-The in-memory store is explicitly volatile. Store port contract version 3 provides owner fencing, immutable outcomes,
+The in-memory store is explicitly volatile. Store port contract version 4 provides owner fencing, immutable outcomes,
 operation idempotency, bounded records and independent settlement/control capacity. The explicit
 `@agen-ai/agent-orchestration/store-adapter` entrypoint supplies a pure transition planner and closed
 row mutations for storage adapters. It does not provide a database, arbitrary transaction callback,
@@ -228,7 +246,12 @@ failure. V10 rejects a malformed `failed` terminal without its required error be
 An exception after observed dispatch remains `recovery_required` with `dispatch_uncertain`, and
 unresolved cleanup or control uncertainty still overrides an apparent definitive failure.
 An old store-port contract is rejected before ownership acquisition; persistence adapters must
-explicitly migrate their independent record format before presenting contract version 3.
+explicitly implement contract 4 before presenting that version. Contract 4 requires request retirement
+to change a waiting run to running and to preserve independently entered receipts without reviving
+retired eligibility or replacing a newer request. The reference SQLite format stays 3: SQL, headers,
+slots, record shapes and settled historical meanings are unchanged, and committed historical receipt
+bytes remain intact. Formats 1 and 2 retain their explicit offline migration path; startup does not
+rewrite them or recreate callbacks.
 
 ## Completion and restart
 

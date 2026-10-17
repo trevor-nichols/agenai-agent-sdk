@@ -11,7 +11,7 @@ import {
 import {
   createAgentProviderRegistry,
   isAgentProviderSessionCleanupErrorFor,
-  type AgentProviderCreateSessionInput,
+  type AgentCreateSessionInput,
   type AgentProviderSession,
   type AgentProviderDriver,
 } from '@agen-ai/agent-runtime';
@@ -34,7 +34,7 @@ export async function runExampleSession(
     drivers: [driver],
     definitions: [{ providerKey: driver.providerKey, instanceId, driverConfiguration: {} }],
   });
-  const openingInput: AgentProviderCreateSessionInput = {
+  const openingInput: AgentCreateSessionInput = {
     sessionId: parseAgentSessionId('example:session'),
     workingDirectory,
     configuration: { kind: 'managed', revision: parseAgentConfigurationRevisionId('example:configuration:1') },

@@ -56,7 +56,7 @@ async function scenario(options: Readonly<{
         starts += 1;
         options.constructing?.();
         input.signal?.addEventListener("abort", () => terminal.resolve(), { once: true });
-        const base = { protocolVersion: 11 as const, sessionId: context.sessionId,
+        const base = { protocolVersion: 12 as const, sessionId: context.sessionId,
           turnId: input.turnId, occurredAt: parseAgentIsoDateTime("2026-10-12T00:00:00.000Z") };
         const outputs: AsyncIterable<AgentProviderOutput> = (async function* () {
           await options.firstPull;
@@ -429,7 +429,7 @@ test("A08: interruption cannot transfer terminal or content output away from the
     const iterator = await openedRequest(execution);
     const context = fixture.harness.contexts[0];
     if (context === undefined) throw new Error("Missing native session context.");
-    const base = { protocolVersion: 11 as const, sessionId: context.sessionId, turnId,
+    const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId,
       occurredAt: parseAgentIsoDateTime("2026-10-12T00:00:00.000Z") };
     const unexpectedOutput = kind === "terminal"
       ? createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "canceled" } })

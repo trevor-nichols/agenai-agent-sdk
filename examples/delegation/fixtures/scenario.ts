@@ -6,13 +6,17 @@ import { crashAt, recoverCrash } from "./crash.js";
 import { ownershipScenario } from "./ownership.js";
 import { crashInbox, recoverInbox } from "./inboxCrash.js";
 import { reopenDurableFailure, settleDurableFailure } from "./failure.js";
-import { failRequestReceipt, recoverRequestReceipt } from "./requestRecovery.js";
+import { failRequestReceipt, recoverRequestReceipt, retainWithdrawnRequestReceipt, recoverWithdrawnRequestReceipt } from "./requestRecovery.js";
 
 const [root, mode, encoded] = process.argv.slice(2);
 if (!root || !mode) throw new Error("A qualification root and scenario are required.");
 const options = JSON.parse(encoded ?? "{}") as Record<string, unknown>;
 try {
-  if (mode === "request_receipt_failure" || mode === "recover_request_receipt") {
+  if (mode === "request_withdrawal" || mode === "recover_request_withdrawal") {
+    const detail = mode === 'request_withdrawal' ? await retainWithdrawnRequestReceipt(root) : await recoverWithdrawnRequestReceipt(root);
+    process.send?.({ event: 'complete', detail });
+    process.disconnect?.();
+  } else if (mode === "request_receipt_failure" || mode === "recover_request_receipt") {
     const loss = options.loss;
     if (loss !== 'before_commit' && loss !== 'after_commit') throw new Error('A request receipt loss boundary is required.');
     const detail = mode === 'request_receipt_failure' ? await failRequestReceipt(root, loss) : await recoverRequestReceipt(root, loss);

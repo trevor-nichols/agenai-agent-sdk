@@ -36,6 +36,12 @@ import {
   safeParseAgentSessionConfiguration,
   safeParseAgentSessionDecisionRequest,
   safeParseAgentSessionDecisionResponse,
+  safeParseAgentSessionFormRequest,
+  safeParseAgentSessionFormResponse,
+  safeParseAgentSessionPlanReviewRequest,
+  safeParseAgentSessionPlanReviewResponse,
+  safeParseAgentSessionRequest,
+  safeParseAgentSessionResponse,
   safeParseAgentSessionOpenInput,
   safeParseAgentTurnInputContent,
   safeParseAgentTurnRunInput,
@@ -46,7 +52,7 @@ import {
   protocolTimestamp,
   providerCapabilityFixtures,
 } from './fixtures.js';
-import { sessionDecisionFixture } from './sessionInteractions.fixture.js';
+import { sessionDecisionFixture, sessionFormFixture, sessionFormResponseFixture, sessionPlanReviewFixture, sessionPlanReviewResponseFixture } from './sessionInteractions.fixture.js';
 
 const packageManifest = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -96,12 +102,12 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 29);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 35);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 11);
+    assert.equal(artifact.protocolVersion, 12);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -138,8 +144,68 @@ test('JSON Schemas compile and agree with the ordinary parsers on shared fixture
     {
       contractId: 'agenai.agent-protocol.session-decision-response',
       parser: safeParseAgentSessionDecisionResponse,
-      accepted: { choiceId: 'grant' },
-      rejected: { choiceId: 'grant', native: 'trust' },
+      accepted: { kind: 'decision', choiceId: 'grant' },
+      rejected: { kind: 'decision', choiceId: 'grant', native: 'trust' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-form-request',
+      parser: safeParseAgentSessionFormRequest,
+      accepted: sessionFormFixture(),
+      rejected: { ...sessionFormFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-form-response',
+      parser: safeParseAgentSessionFormResponse,
+      accepted: sessionFormResponseFixture(),
+      rejected: { ...sessionFormResponseFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-plan-review-request',
+      parser: safeParseAgentSessionPlanReviewRequest,
+      accepted: sessionPlanReviewFixture(),
+      rejected: { ...sessionPlanReviewFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-plan-review-response',
+      parser: safeParseAgentSessionPlanReviewResponse,
+      accepted: sessionPlanReviewResponseFixture(),
+      rejected: { ...sessionPlanReviewResponseFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-request',
+      parser: safeParseAgentSessionRequest,
+      accepted: sessionDecisionFixture(),
+      rejected: { ...sessionDecisionFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-request',
+      parser: safeParseAgentSessionRequest,
+      accepted: sessionFormFixture(),
+      rejected: { ...sessionFormFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-request',
+      parser: safeParseAgentSessionRequest,
+      accepted: sessionPlanReviewFixture(),
+      rejected: { ...sessionPlanReviewFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-response',
+      parser: safeParseAgentSessionResponse,
+      accepted: { kind: 'decision', choiceId: 'grant' },
+      rejected: { ...{ kind: 'decision', choiceId: 'grant' }, native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-response',
+      parser: safeParseAgentSessionResponse,
+      accepted: sessionFormResponseFixture(),
+      rejected: { ...sessionFormResponseFixture(), native: 'unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-response',
+      parser: safeParseAgentSessionResponse,
+      accepted: sessionPlanReviewResponseFixture(),
+      rejected: { ...sessionPlanReviewResponseFixture(), native: 'unadmitted' },
     },
     {
       contractId: 'agenai.agent-protocol.error',
@@ -799,7 +865,7 @@ test('event JSON Schema declares residual semantic parser invariants', () => {
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 11,
+    protocolVersion: 12,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -905,4 +971,50 @@ test('failure JSON Schema declares evidence refinements while enforcing the clos
   const invalidApplicability = { ...failure, category: 'budget_exhausted' };
   assert.equal(validate(invalidApplicability), true);
   assert.equal(safeParseAgentError(invalidApplicability).success, false);
+});
+
+test('session JSON Schemas enforce action payloads while declaring response correlation refinements', () => {
+  const ajv = new Ajv2020({ allErrors: true, strict: true, validateFormats: false });
+  const fixtures = [
+    {
+      contractId: 'agenai.agent-protocol.session-form-response',
+      parser: safeParseAgentSessionFormResponse,
+      accepted: { kind: 'form', action: 'cancel', choiceId: 'cancel' },
+      rejected: { kind: 'form', action: 'cancel', choiceId: 'cancel', answers: [] },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-form-response',
+      parser: safeParseAgentSessionFormResponse,
+      accepted: sessionFormResponseFixture(),
+      rejected: { kind: 'form', action: 'submit', choiceId: 'submit' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-plan-review-response',
+      parser: safeParseAgentSessionPlanReviewResponse,
+      accepted: { kind: 'plan_review', action: 'approve', choiceId: 'approve', planId: 'plan:1', revision: 'revision:1' },
+      rejected: { kind: 'plan_review', action: 'approve', choiceId: 'approve', planId: 'plan:1', revision: 'revision:1', feedback: 'Unadmitted' },
+    },
+    {
+      contractId: 'agenai.agent-protocol.session-plan-review-response',
+      parser: safeParseAgentSessionPlanReviewResponse,
+      accepted: { kind: 'plan_review', action: 'abandon', choiceId: 'abandon', planId: 'plan:1', revision: 'revision:1' },
+      rejected: { kind: 'plan_review', action: 'revise', choiceId: 'revise', planId: 'plan:1', revision: 'revision:1' },
+    },
+  ];
+  for (const fixture of fixtures) {
+    const artifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find((entry) => entry.contractId === fixture.contractId);
+    assert.ok(artifact);
+    const validate = ajv.compile(artifact.schema);
+    assert.equal(validate(fixture.accepted), true);
+    assert.equal(fixture.parser(fixture.accepted).success, true);
+    assert.equal(validate(fixture.rejected), false);
+    assert.equal(fixture.parser(fixture.rejected).success, false);
+  }
+  const requestArtifact = AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.find((entry) => entry.contractId === 'agenai.agent-protocol.session-plan-review-request');
+  assert.ok(requestArtifact);
+  assert.ok(requestArtifact.parserInvariants.some((entry) => entry === 'unique_choice_actions'));
+  const request = sessionPlanReviewFixture();
+  const duplicateActions = { ...request, choices: [request.choices[0], { ...request.choices[0], choiceId: 'second-approve' }] };
+  assert.equal(ajv.compile(requestArtifact.schema)(duplicateActions), true);
+  assert.equal(safeParseAgentSessionPlanReviewRequest(duplicateActions).success, false);
 });

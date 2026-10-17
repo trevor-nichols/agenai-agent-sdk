@@ -4,6 +4,62 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 `0.4.0`, the three core packages and four optional packages (orchestration, ACP transport, ACP provider
 and ACP registry) share one source version and a seven-package release inventory.
 
+## 0.4.2 - 2026-10-17
+
+This coordinated release advances all seven packages to `0.4.2` and Agent Protocol
+to V12. Review [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for the protocol and
+session-response changes before upgrading the installed package family together.
+
+### Added
+
+- Add `request.unavailable` to retire an exact turn request while preserving the
+  original output reader, unrelated work and independently entered answer receipts.
+- Add typed session forms and plan reviews alongside decisions, with tagged
+  responses, exact offered actions and plan identity/revision validation.
+- Add explicitly supported native continuations that share the caller-turn
+  execution slot. A host must install an execution owner and start reading output
+  before the work-starting response is dispatched; no extra prompt is synthesized.
+- Add bounded adapter FIFO ownership for native callbacks, including withdrawal
+  of displayed or queued requests and retained callback/write settlement.
+- Add explicit `until_withdrawn_or_closed` human waiting for supporting adapters.
+  The default remains five minutes; provider expiry, response/cleanup deadlines
+  and retained-work limits remain independent.
+- Add core-only and ACP session-continuation examples, updated live-request
+  examples, and matching packed-consumer coverage through public entrypoints.
+
+### Changed
+
+- Advance current protocol envelopes to V12 and managed store contracts to 4.
+  SQLite physical format remains 3. Historical records retain their original
+  decoder and delivery evidence; changing a version field is not a migration.
+- Require tagged session decision responses and exact support declarations for
+  opening operation, request kind and continuation timing. Missing support remains
+  unsupported. Core packages retain their existing dependency boundaries.
+
+### Fixed
+
+- Keep request availability separate from response delivery, continuation outcome
+  and cleanup. Withdrawal never rewrites an entered receipt or permits answer replay.
+- Fence retired IDs through a shared bounded session-generation census and retain
+  actual producer, callback and response ownership until cleanup has joined them.
+
+### Qualification
+
+- Retain 15 selected genuine vendor-executable cases with scripted local model
+  responses and fixture credentials. These establish their recorded native/SDK
+  compositions, not real backend authentication, inference or billing.
+- Qualify the exact selected Grok Build `1.0.60` resume/plan-review continuation
+  after opening, with automatic parent wake disabled and the recorded single-worker
+  limits. Simultaneous native Grok callbacks entering the SDK FIFO remain
+  unqualified under the accepted qualification amendment; controlled generic FIFO
+  and genuine Claude FIFO evidence are separate.
+- The Claude SDK `0.3.301` / Claude Code `2.1.301` composition is diagnostic and
+  does not add a public Claude provider. Native human-wait observation is bounded
+  to 250 ms and does not qualify arbitrary native waiting.
+- Preserve the exact earlier Grok `1.0.50` trust/remembrance evidence and recorded
+  resource-limit warnings. Publication does not expand those scopes or deploy the
+  private V25 host source.
+
 ## 0.4.1 - 2026-10-15
 
 This coordinated release advances Agent Protocol to V11. All seven packages are published

@@ -9,7 +9,7 @@ import type { CreateDelegationCoordinatorOptions } from "../coordinator/types.js
 import type { DelegationChildResources, DelegationContinuation, DelegationExecutionLease, DelegationHostRequestHandle } from "../host/types.js";
 import { DelegationOperationError, failDelegation } from "../shared/operational-errors.js";
 import type { DelegationCommitReceipt, DelegationMutationFence, DelegationStoreCommand } from "../store/types.js";
-import type { DelegationOwnerToken, DelegationParentScope, DelegationPolicyCeiling, DelegationResultReference, DelegationRunOutcome, DelegationRunRecord, DelegationTaskRecord, DelegationTaskView } from "../tasks/types.js";
+import type { DelegationHistoricalRequest, DelegationOwnerToken, DelegationParentScope, DelegationPolicyCeiling, DelegationResultReference, DelegationRunOutcome, DelegationRunRecord, DelegationTaskRecord, DelegationTaskView } from "../tasks/types.js";
 
 export interface ParentBinding {
   readonly scope: DelegationParentScope;
@@ -22,6 +22,15 @@ export interface LiveRequest {
   readonly handle: DelegationHostRequestHandle;
   readonly live: LiveRun;
   readonly request: AgentRequest;
+  readonly history: DelegationHistoricalRequest;
+  readonly signal: AbortSignal;
+  eligibility: "waiting" | "claimed" | "retired";
+  resolution?: Promise<unknown>;
+}
+
+export interface RequestPresentation {
+  readonly history: DelegationHistoricalRequest;
+  readonly abort: AbortController;
 }
 
 export interface LiveRun {
@@ -35,6 +44,8 @@ export interface LiveRun {
   readonly sessionId: AgentSessionId;
   readonly turnId: AgentTurnId;
   readonly controls: Set<Promise<unknown>>;
+  readonly requestAttempts: Map<string, LiveRequest>;
+  readonly requestPresentations: Map<AgentRequest["requestId"], RequestPresentation>;
   readonly pendingOperations: Map<string, Readonly<{ digest: string; promise: Promise<unknown> }>>;
   execution?: DelegationExecutionLease;
   resources?: DelegationChildResources;
@@ -42,8 +53,8 @@ export interface LiveRun {
   turn?: AgentProviderTurnExecution;
   rejectedOpening?: AgentProviderSessionCleanupError;
   stream?: Promise<void>;
+  outputDrained?: Promise<void>;
   request?: LiveRequest;
-  requestResolution?: Promise<unknown>;
   observedStart: boolean;
   recordedStart: boolean;
   controlTail: Promise<void>;
@@ -62,7 +73,6 @@ export interface LiveRun {
   cancellation?: Promise<unknown>;
   finishing?: Promise<void>;
   ready?: Promise<void>;
-  requestHistory?: DelegationRunRecord["pendingRequest"];
   schedule?: () => void;
   deadline?: ReturnType<typeof setTimeout>;
   removeRevocation?: () => void;

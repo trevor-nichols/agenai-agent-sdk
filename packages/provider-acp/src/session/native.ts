@@ -16,6 +16,13 @@ export function nativeString(value: AcpJsonValue | undefined, field: string): st
   return value;
 }
 
+export function nativeIdentity(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !value || value !== value.trim() || Buffer.byteLength(value, 'utf8') > 256
+    || /[\p{Cc}\p{Cf}]/u.test(value)) throw new AcpProviderSessionError(
+    'acp_descendant_identity_invalid', `The selected native ${field} is invalid.`);
+  return value;
+}
+
 export function displayText(value: AcpJsonValue | undefined, fallback: string, limit = 120): string {
   const text = typeof value === 'string' ? value.trim() : '';
   return (text || fallback).slice(0, limit).trimEnd();

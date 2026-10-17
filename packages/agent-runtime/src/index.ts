@@ -18,5 +18,6 @@ export * from "./providerInstanceRegistry.js";
 export * from "./readiness.js";
 export * from "./sessions.js";
 export * from "./sessionInteractions/index.js";
+export * from "./nativeContinuations/index.js";
 export { createAgentProviderSessionCleanupError, isAgentProviderSessionCleanupErrorFor } from "./sessionCleanup.js";
 export * from "./text.js";

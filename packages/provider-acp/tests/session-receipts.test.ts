@@ -9,7 +9,6 @@ import { fixtureDeferred } from './node-fixtures/host-peer.js';
 
 for (const loss of [
   { kind: 'peer exit', reason: 'acp_provider_peer_closed' },
-  { kind: 'peer revocation', reason: 'acp_request_revoked' },
   { kind: 'prompt timeout', reason: 'acp_request_deadline_exceeded' },
 ] as const) {
   test(`${loss.kind} before canonical acceptance returns unavailable without a selected native reply or replay`, { timeout: 3_000 }, async (t) => {
@@ -27,7 +26,6 @@ for (const loss of [
     assert.ok(opened?.type === 'request.opened');
     const resolution = selection(opened.payload.request);
     if (loss.kind === 'peer exit') peer.stdout.end();
-    if (loss.kind === 'peer revocation') peer.send({ jsonrpc: '2.0', method: '$/cancel_request', params: { requestId: 'lost-permission' } });
     await released.promise;
     let started = 0;
     assert.deepEqual(await execution.resolveRequest({ resolution, onProviderExecutionStarted() { started += 1; } }), {

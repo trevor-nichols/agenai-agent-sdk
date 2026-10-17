@@ -40,7 +40,7 @@ export function openSqliteDelegationStore(options: {
     const reads = createReferenceReads(reference, storeId, limits);
     const commit = createReferenceCommit(reference, storeId, limits);
     const store: DelegationStore = Object.freeze({
-      contractVersion: 3, persistence: 'durable', storeId, limits,
+      contractVersion: 4, persistence: 'durable', storeId, limits,
       async acquireOwner() { return reference.acquireOwner(); },
       async releaseOwner(owner: DelegationOwnerToken) { reference.releaseOwner(owner); },
       async commit(command: DelegationStoreCommand) { return commit(command); },

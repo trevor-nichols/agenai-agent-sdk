@@ -147,9 +147,13 @@ provide their own lifecycle admission before deleting their storage.
 
 ## Upgrade a retained durable store offline
 
-The current reference uses task database **format 3** and store-port **contract 3**. The separate
+The current reference uses task database **format 3** and store-port **contract 4**. The separate
 `owner.sqlite` ownership database stays at format 1. Ordinary construction refuses older task formats;
-it never upgrades records during coordinator startup.
+it never upgrades records during coordinator startup. Contract 4 adds exact request-retirement and
+late-receipt transitions through the existing format-3 shapes. Retiring A creates no answer operation,
+permits B to run, and preserves A's entered receipt under its original operation identity. Current
+construction leaves the SQL layout, header, fixed slots and retained settled receipt bytes unchanged;
+contract-3 ports are refused before coordinator ownership or provider entry.
 
 Stop the application and quiesce every child and parent producer. The matched old owner must settle
 or retire active runs and outstanding request-resolution intents, and resolve claimed notifications

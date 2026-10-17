@@ -24,7 +24,7 @@ import { withAgentSessionHostBinding } from "./hostBindings/lifetime.js";
 import { invokeAgentSessionOpening } from "./hostBindings/opening.js";
 import { validateAgentSessionHostBindingSupport } from "./hostBindings/validation.js";
 import { createSessionInteractionOwner } from "./sessionInteractions/lifetime.js";
-import { validateSessionInteractionSupport } from "./sessionInteractions/validation.js";
+import { validateSessionInteractionSupport, validateNativeContinuationSupport } from "./sessionInteractions/validation.js";
 import {
   validateAgentProviderOperationResult,
   validateAgentProviderOutputForContext,
@@ -33,18 +33,23 @@ import {
   closeRejectedAgentProviderSession,
   openIdentityCreatingAgentProviderSession,
   validateAgentProviderSession,
+  createAgentSessionValidationOwner,
 } from "./sessionValidation.js";
 import type {
   AgentProviderAdapter,
-  AgentProviderBranchSessionInput,
-  AgentProviderCreateSessionInput,
-  AgentProviderResumeSessionInput,
+  AgentBranchSessionInput,
+  AgentCreateSessionInput,
+  AgentResumeSessionInput,
+  AgentValidatedProviderAdapter,
 } from "./sessions.js";
 
 //                Adapter Validation
 // ------------------------------------------------------------------------------------------------
 
-const validatedAdapters = new WeakMap<AgentProviderAdapter, AgentProviderAdapter>();
+const validatedAdapters = new WeakMap<object, AgentProviderAdapter>();
+function isCandidateAdapter(adapter: AgentProviderAdapter | AgentValidatedProviderAdapter): adapter is AgentProviderAdapter {
+  return !validatedAdapters.has(adapter);
+}
 
 function parseWorkingDirectory(value: string): string {
   if (
@@ -75,12 +80,21 @@ function assertAuthenticationOutputKind(
   );
 }
 
+export function validateAgentProviderAdapter(capabilities: AgentCapabilities, candidate: AgentProviderAdapter): AgentValidatedProviderAdapter;
+export function validateAgentProviderAdapter(capabilities: AgentCapabilities, candidate: AgentValidatedProviderAdapter): AgentValidatedProviderAdapter;
+export function validateAgentProviderAdapter(capabilities: AgentCapabilities, candidate: AgentProviderAdapter | AgentValidatedProviderAdapter): AgentValidatedProviderAdapter;
 export function validateAgentProviderAdapter(
   capabilityInput: AgentCapabilities,
-  adapterInput: AgentProviderAdapter,
-): AgentProviderAdapter {
+  adapterInput: AgentProviderAdapter | AgentValidatedProviderAdapter,
+): AgentValidatedProviderAdapter {
   const capabilities = parseAgentCapabilities(capabilityInput);
-  const adapter = validatedAdapters.get(adapterInput) ?? adapterInput;
+  if (!isCandidateAdapter(adapterInput)) return validateAgentProviderAdapter(capabilities, validatedAdapters.get(adapterInput)!);
+  const adapter = adapterInput;
+  type OpeningInvocation = { owner?: import("./sessionInteractions/lifetime.js").SessionInteractionOwner };
+  const returnedOpening = (promise: Promise<import("./sessions.js").AgentProviderSession>, opening: OpeningInvocation) => {
+    void promise.then(() => { queueMicrotask(() => opening.owner?.markReturned()); }, () => {});
+    return promise;
+  };
   if (
     adapter === null ||
     typeof adapter !== "object" ||
@@ -123,6 +137,7 @@ export function validateAgentProviderAdapter(
 
   const declaredResumption = adapter.resumption;
   const sessionInteractions = validateSessionInteractionSupport(capabilities, adapter);
+  const nativeContinuations = validateNativeContinuationSupport(capabilities, adapter, sessionInteractions);
   let hostBinding: ReturnType<typeof validateAgentSessionHostBindingSupport>;
   try {
     hostBinding = validateAgentSessionHostBindingSupport(adapter.hostBinding);
@@ -139,7 +154,8 @@ export function validateAgentProviderAdapter(
       : Object.freeze({
           kind: "supported" as const,
           resumeSession: async (
-            resumeInput: AgentProviderResumeSessionInput,
+            resumeInput: AgentResumeSessionInput,
+            invocation: OpeningInvocation = {},
           ) => withAgentSessionHostBinding({
             providerKey: capabilities.providerKey,
             binding: resumeInput.hostBinding,
@@ -164,10 +180,14 @@ export function validateAgentProviderAdapter(
                 resumeInput.workingDirectory,
               );
               const binding = parsed.binding;
+              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId);
               const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
-                sessionId: parsed.sessionId, operation: "resume", support: sessionInteractions,
+                sessionId: parsed.sessionId, operation: "resume", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
+                ...(resumeInput.nativeContinuations === undefined ? {} : { continuations: resumeInput.nativeContinuations }),
                 ...(resumeInput.interactions === undefined ? {} : { context: resumeInput.interactions }),
                 ...(resumeInput.signal === undefined ? {} : { signal: resumeInput.signal }) });
+              if (interactions) invocation.owner = interactions;
+              interactions?.bind();
               const candidate = await invokeAgentSessionOpening({
                 providerKey: capabilities.providerKey, openingInput: resumeInput, lease,
                 ...(interactions === undefined ? {} : { interactions }),
@@ -187,6 +207,7 @@ export function validateAgentProviderAdapter(
               try {
                 const session = validateAgentProviderSession({
                   capabilities,
+                  validationOwner,
                   sessionId: parsed.sessionId,
                   candidate,
                   expectedBinding: binding,
@@ -211,7 +232,8 @@ export function validateAgentProviderAdapter(
       : Object.freeze({
           kind: "through_turn" as const,
           branchSession: async (
-            branchInput: AgentProviderBranchSessionInput,
+            branchInput: AgentBranchSessionInput,
+            invocation: OpeningInvocation = {},
           ) => withAgentSessionHostBinding({
             providerKey: capabilities.providerKey,
             binding: branchInput.hostBinding,
@@ -236,12 +258,16 @@ export function validateAgentProviderAdapter(
                 branchInput.workingDirectory,
               );
               const sourceBinding = parsed.source.binding;
+              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId);
               const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
-                sessionId: parsed.sessionId, operation: "branch", support: sessionInteractions,
+                sessionId: parsed.sessionId, operation: "branch", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
+                ...(branchInput.nativeContinuations === undefined ? {} : { continuations: branchInput.nativeContinuations }),
                 ...(branchInput.interactions === undefined ? {} : { context: branchInput.interactions }),
                 ...(branchInput.signal === undefined ? {} : { signal: branchInput.signal }) });
+              if (interactions) invocation.owner = interactions;
               return openIdentityCreatingAgentProviderSession({
                 capabilities,
+                  validationOwner,
                 sessionId: parsed.sessionId,
                 observer: branchInput.onBindingCreated,
                 sourceBinding,
@@ -367,10 +393,7 @@ export function validateAgentProviderAdapter(
           },
         });
 
-  const validated: AgentProviderAdapter = Object.freeze({
-    hostBinding,
-    sessionInteractions,
-    createSession: async (createInput: AgentProviderCreateSessionInput) => withAgentSessionHostBinding({
+  const createSession = async (createInput: AgentCreateSessionInput, invocation: OpeningInvocation = {}) => withAgentSessionHostBinding({
       providerKey: capabilities.providerKey,
       binding: createInput.hostBinding,
       openingInput: createInput,
@@ -389,12 +412,16 @@ export function validateAgentProviderAdapter(
         const workingDirectory = parseWorkingDirectory(
           createInput.workingDirectory,
         );
-        const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
-          sessionId: parsed.sessionId, operation: "create", support: sessionInteractions,
+        const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId);
+              const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
+          sessionId: parsed.sessionId, operation: "create", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
+                ...(createInput.nativeContinuations === undefined ? {} : { continuations: createInput.nativeContinuations }),
           ...(createInput.interactions === undefined ? {} : { context: createInput.interactions }),
           ...(createInput.signal === undefined ? {} : { signal: createInput.signal }) });
+              if (interactions) invocation.owner = interactions;
         return openIdentityCreatingAgentProviderSession({
           capabilities,
+                  validationOwner,
           sessionId: parsed.sessionId,
           observer: createInput.onBindingCreated,
           openingInput: createInput,
@@ -419,10 +446,21 @@ export function validateAgentProviderAdapter(
             }),
         });
       },
-    }),
+    });
+
+  const openingAdapter: AgentValidatedProviderAdapter = Object.freeze({
+    hostBinding,
+    sessionInteractions,
+    nativeContinuations,
+    createSession,
     resumption,
     branching,
     authentication,
+  });
+  const validated: AgentValidatedProviderAdapter = Object.freeze({ ...openingAdapter,
+    createSession: (input: AgentCreateSessionInput) => { const invocation: OpeningInvocation = {}; return returnedOpening(createSession(input, invocation), invocation); },
+    resumption: resumption.kind === "unsupported" ? resumption : Object.freeze({ kind: "supported", resumeSession: (input: AgentResumeSessionInput) => { const invocation: OpeningInvocation = {}; return returnedOpening(resumption.resumeSession(input, invocation), invocation); } }),
+    branching: branching.kind === "unsupported" ? branching : Object.freeze({ kind: "through_turn", branchSession: (input: AgentBranchSessionInput) => { const invocation: OpeningInvocation = {}; return returnedOpening(branching.branchSession(input, invocation), invocation); } }),
   });
   validatedAdapters.set(validated, adapter);
   return validated;

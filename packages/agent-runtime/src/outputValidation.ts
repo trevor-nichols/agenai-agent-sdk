@@ -206,6 +206,7 @@ function isEventCapabilitySupported(
     case "context.usage.updated":
       return isContextUsageCapabilitySupported(capabilities, event);
     case "turn.started":
+    case "request.unavailable":
     case "turn.state_changed":
     case "turn.completed":
     case "progress.updated":

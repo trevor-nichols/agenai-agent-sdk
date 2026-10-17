@@ -5,10 +5,16 @@ This optional AgenAI Agent SDK package connects a host to streams supplied by th
 host. It validates messages against packaged, hash-pinned ACP schemas and owns
 framing, correlation, reverse requests, deadlines and connection cleanup.
 
-The coordinated SDK release is `0.4.1`. The package is ESM, MIT
+The coordinated source candidate is unpublished `0.4.2`; published `0.4.1` keeps its original
+archives and qualification. The package is ESM, MIT
 licensed and side-effect-free on import, with exact Ajv `8.17.1` as its sole runtime
 dependency. It is independent of the provider-neutral `@agen-ai/agent-protocol`
 and `@agen-ai/agent-runtime` packages.
+
+Keep installed SDK packages at one coordinated version. Exact reverse-request cancellation and
+actual response-write settlement are transport facts; the provider maps them to V12 request
+availability and independent delivery receipts. Controlled transport FIFO proof does not qualify
+simultaneous vendor callbacks. See the [0.4.2 migration guide](../../MIGRATING-TO-0.4.2.md).
 
 ## Connect existing streams
 
@@ -56,7 +62,7 @@ bounded protocol limits, typed errors and explicit extension registration.
 No internal file path is a supported import.
 
 Transport errors and validated remote JSON-RPC errors retain their ACP meanings. Provider adapters
-own translation into Agent Protocol V11 failures and any provider-owned retry observation; the
+own translation into Agent Protocol V12 failures and any provider-owned retry observation; the
 transport has no dependency on that protocol and grants no turn replay or quota authority.
 
 An adapter migrating from a private transport import should use these public
@@ -86,6 +92,14 @@ and retain cleanup ownership when that fails.
 A reverse-request handler fulfills before its validated JSON-RPC response is serialized and written.
 Successful local writing does not establish peer receipt: the transport tracks no acknowledgment
 of a reverse response. A provider's canonical answer receipt must state its own acceptance boundary.
+
+Each reverse handler receives `context.settled`, a nonrejecting promise that fulfills after that
+handler and its actual response-write obligation settle. Register reservation release against it
+when callback material must remain charged through writing. Do not await it inside the handler:
+the transport must first receive the handler's result before it can write the response. The promise
+also remains pending when disposal rejects an entered write early; an actual write callback or
+stream termination must settle the underlying obligation. Fulfillment observes completion, not
+successful delivery or peer acceptance, and does not authorize answer replay.
 
 Requests can set `onResponseReceived` to admit a validated result or remote error
 synchronously before the request promise settles and before the next frame is

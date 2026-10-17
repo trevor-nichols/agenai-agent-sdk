@@ -21,7 +21,12 @@ assert.throws(() => {
   createLinuxExecutionHost({ network: 'host', mounts, networkInputs: { resolver: inputs.resolver, hosts: inputs.hosts } });
 }, TypeError);
 
-const hosts = [createLinuxExecutionHost({ mounts }), createLinuxExecutionHost({ network: 'host', mounts, networkInputs: inputs })];
+assert.throws(() => {
+  // @ts-expect-error The host admits only its two explicit task ceilings.
+  createLinuxExecutionHost({ mounts, tasksMax: 65 });
+}, TypeError);
+const hosts = [createLinuxExecutionHost({ mounts }),
+  createLinuxExecutionHost({ network: 'host', mounts, networkInputs: inputs, tasksMax: 128 })];
 const recipe: NodeAcpExecutionInput = Object.freeze({
   executable: '/unavailable/agent', args: Object.freeze(['--acp']), cwd: '/unavailable/workspace',
   env: Object.freeze({ HOME: '/unavailable/profile' }), shutdownTimeoutMs: 10,
@@ -36,6 +41,10 @@ for (const host of hosts) {
   assert.equal(host.hostIdentity().externalIntervention, null);
 }
 assert.deepEqual(hosts.map((host) => host.hostIdentity().network), ['isolated', 'host']);
+assert.deepEqual(hosts.map((host) => host.hostIdentity().limits), [
+  { tasksMax: 64, memoryMaxBytes: 536870912, runtimeMaxSec: 180 },
+  { tasksMax: 128, memoryMaxBytes: 536870912, runtimeMaxSec: 180 },
+]);
 process.stdout.write(JSON.stringify({ proof: 'packed-linux-execution-reference', evidence: 'inert-public-composition',
   hostInputsRequired: true, publicBoundaryCompatible: true, hostsConstructed: hosts.length,
   hostStarts: 0, nativeStarts: 0, operationRootsCreated: 0, unusedHostsDisposed: hosts.length }) + '\n');

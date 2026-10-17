@@ -16,6 +16,8 @@ export interface AcpReverseRequestContext {
   readonly method: string;
   readonly params: AcpJsonValue | undefined;
   readonly signal: AbortSignal;
+  /** Fulfills after this handler and its actual response write settle. Observe without awaiting inside the handler. */
+  readonly settled: Promise<void>;
 }
 
 export type AcpReverseRequestHandler = (

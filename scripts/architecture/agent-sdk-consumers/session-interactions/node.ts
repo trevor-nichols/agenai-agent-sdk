@@ -60,12 +60,13 @@ for (const mode of ['answer', 'pending'] as const) {
       })]);
     } finally { if (publicationTimer) clearTimeout(publicationTimer); }
     assert.ok(handle);
+    assert.ok(handle.request.kind === 'decision', 'The folder-trust mapping must offer a decision.');
     assert.deepEqual(handle.request.target, { kind: 'workspace', path: `${root}/configuration` });
     assert.notEqual(handle.request.requestId, 'packed-native-question');
     if (mode === 'answer') {
       const choiceId = parseAgentSessionDecisionChoiceId('grant');
-      assert.deepEqual(await handle.respond({ choiceId }), { status: 'delivered' });
-      assert.deepEqual(await handle.terminal, { kind: 'answered', choiceId });
+      assert.deepEqual(await handle.respond({ kind: 'decision', choiceId }), { status: 'delivered' });
+      assert.deepEqual(await handle.terminal, { kind: 'answered', response: { kind: 'decision', choiceId } });
       const deadline = Date.now() + 3_000;
       while (!(await entries()).some((entry) => entry.direction === 'inbound' && entry.frame?.id === 'packed-native-question')) {
         if (Date.now() >= deadline) throw new Error('Controlled peer did not observe its correlated reply.');
@@ -80,7 +81,7 @@ for (const mode of ['answer', 'pending'] as const) {
     assert.deepEqual(owner.observations(), { reservations: 1, starts: 1, joinedReleases: 1 });
     if (mode === 'pending') {
       assert.deepEqual(await handle.terminal, { kind: 'session_closed' });
-      const late = await handle.respond({ choiceId: parseAgentSessionDecisionChoiceId('decline') });
+      const late = await handle.respond({ kind: 'decision', choiceId: parseAgentSessionDecisionChoiceId('decline') });
       assert.equal(late.status, 'rejected');
       if (late.status !== 'rejected') throw new Error('A closed session must refuse late answers.');
       assert.deepEqual([late.requestState, late.error.code], ['unavailable', 'session_interaction_unavailable']);

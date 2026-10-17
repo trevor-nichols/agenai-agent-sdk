@@ -4,47 +4,12 @@
 
 import assert from 'node:assert/strict';
 import { PassThrough, Writable } from 'node:stream';
-import { test, type TestContext } from 'node:test';
+import { test } from 'node:test';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 
-import { AcpClientError, createAcpClient, createAcpExtensionRegistry, type CreateAcpClientOptions } from '../src/index.js';
+import { AcpClientError, createAcpClient, createAcpExtensionRegistry } from '../src/index.js';
 import { createAcpTestHarness, INITIALIZE_PARAMS, INITIALIZE_RESULT, withTestDeadline } from './harness.js';
-
-interface HeldWrite {
-  readonly message: Record<string, unknown>;
-  readonly finish: () => void;
-}
-
-function heldPeer(t: TestContext, options: Partial<CreateAcpClientOptions> = {}) {
-  const stdout = new PassThrough();
-  const callbacks = new Set<() => void>();
-  const writes: HeldWrite[] = [];
-  const waiters: ((write: HeldWrite) => void)[] = [];
-  const stdin = new Writable({ highWaterMark: 1,
-    write(chunk: Buffer, _encoding, callback) {
-      const finish = () => { callbacks.delete(finish); callback(); };
-      callbacks.add(finish);
-      const write = { message: JSON.parse(chunk.toString('utf8')) as Record<string, unknown>, finish };
-      const waiter = waiters.shift();
-      if (waiter) waiter(write);
-      else writes.push(write);
-    },
-  });
-  const client = createAcpClient({ ...options, stdout, stdin, schemaChannel: 'unstable',
-    unknownExtensionPolicy: 'standard', limits: { shutdownDrainMs: 0, ...options.limits } });
-  t.after(async () => {
-    await client.dispose();
-    for (const finish of callbacks) finish();
-    stdout.destroy(); stdin.destroy();
-  });
-  return { client, stdin,
-    send: (message: unknown) => stdout.write(JSON.stringify(message) + '\n'),
-    nextWrite: () => {
-      const write = writes.shift();
-      return write ? Promise.resolve(write) : new Promise<HeldWrite>((resolve) => waiters.push(resolve));
-    },
-  };
-}
+import { heldPeer } from './fixtures/heldPeer.js';
 
 function hasReason(expected: string) {
   return (error: unknown) => error instanceof AcpClientError && error.reasonCode === expected;

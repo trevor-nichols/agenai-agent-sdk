@@ -157,7 +157,7 @@ const AgentElicitationOptionsSchema = z
   .max(AGENT_ELICITATION_OPTIONS_MAX_LENGTH)
   .readonly();
 
-const AgentElicitationFieldSchema = z.discriminatedUnion('kind', [
+export const AgentElicitationFieldSchema = z.discriminatedUnion('kind', [
   z
     .object({
       ...AgentElicitationFieldBase,
@@ -226,43 +226,50 @@ export const AgentElicitationRequestPortableSchema = z
   .strict()
   .readonly();
 
+export function refineAgentElicitationFields(
+  fields: readonly z.output<typeof AgentElicitationFieldSchema>[],
+  context: z.RefinementCtx,
+): void {
+  const fieldIds = new Set<string>();
+  fields.forEach((field, fieldIndex) => {
+    if (fieldIds.has(field.fieldId)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['fields', fieldIndex, 'fieldId'],
+        message: 'Request field IDs must be unique.',
+      });
+    }
+    fieldIds.add(field.fieldId);
+    if (field.kind !== 'single_select' && field.kind !== 'multi_select') {
+      return;
+    }
+    const optionValues = new Set<string>();
+    field.options.forEach((option, optionIndex) => {
+      if (optionValues.has(option.value)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['fields', fieldIndex, 'options', optionIndex, 'value'],
+          message: 'Choice option values must be unique within a field.',
+        });
+      }
+      optionValues.add(option.value);
+    });
+    if (
+      field.kind === 'multi_select'
+      && field.maxSelections > field.options.length + (field.allowOther ? 1 : 0)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['fields', fieldIndex, 'maxSelections'],
+        message: 'Maximum selections cannot exceed the available choices.',
+      });
+    }
+  });
+}
+
 export const AgentElicitationRequestSchema: z.ZodType<AgentElicitationRequest> =
   AgentElicitationRequestPortableSchema.superRefine((request, context) => {
-    const fieldIds = new Set<string>();
-    request.fields.forEach((field, fieldIndex) => {
-      if (fieldIds.has(field.fieldId)) {
-        context.addIssue({
-          code: 'custom',
-          path: ['fields', fieldIndex, 'fieldId'],
-          message: 'Request field IDs must be unique.',
-        });
-      }
-      fieldIds.add(field.fieldId);
-      if (field.kind !== 'single_select' && field.kind !== 'multi_select') {
-        return;
-      }
-      const optionValues = new Set<string>();
-      field.options.forEach((option, optionIndex) => {
-        if (optionValues.has(option.value)) {
-          context.addIssue({
-            code: 'custom',
-            path: ['fields', fieldIndex, 'options', optionIndex, 'value'],
-            message: 'Choice option values must be unique within a field.',
-          });
-        }
-        optionValues.add(option.value);
-      });
-      if (
-        field.kind === 'multi_select'
-        && field.maxSelections > field.options.length + (field.allowOther ? 1 : 0)
-      ) {
-        context.addIssue({
-          code: 'custom',
-          path: ['fields', fieldIndex, 'maxSelections'],
-          message: 'Maximum selections cannot exceed the available choices.',
-        });
-      }
-    });
+    refineAgentElicitationFields(request.fields, context);
   });
 
 export const AgentRequestPortableSchema = z.discriminatedUnion('requestKind', [
@@ -294,7 +301,7 @@ const AgentElicitationFreeformAnswerSchema = z
   .max(AGENT_ELICITATION_TEXT_VALUE_MAX_LENGTH)
   .regex(/\S/u, 'Free-form answers must contain non-whitespace content.');
 
-const AgentElicitationAnswerSchema = z.discriminatedUnion('kind', [
+export const AgentElicitationAnswerSchema = z.discriminatedUnion('kind', [
   z
     .object({
       fieldId: AgentRequestFieldIdSchema,
@@ -387,6 +394,34 @@ export const AgentRequestResolutionPortableSchema = z.union([
     .readonly(),
 ]);
 
+export function refineAgentElicitationAnswers(
+  answers: readonly z.output<typeof AgentElicitationAnswerSchema>[],
+  context: z.RefinementCtx,
+): void {
+  answers.forEach((answer, answerIndex) => {
+    if (
+      answer.kind === 'multi_select'
+      && new Set(answer.values).size !== answer.values.length
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['answers', answerIndex, 'values'],
+        message: 'Multi-select answers cannot select the same option more than once.',
+      });
+    }
+    if (
+      answer.kind === 'single_select'
+      && (answer.value === undefined) === (answer.other === undefined)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['answers', answerIndex],
+        message: 'Single-select answers require exactly one declared or custom choice.',
+      });
+    }
+  });
+}
+
 export const AgentRequestResolutionSchema: z.ZodType<AgentRequestResolution> =
   AgentRequestResolutionPortableSchema.superRefine((resolution, context) => {
     if (
@@ -395,26 +430,5 @@ export const AgentRequestResolutionSchema: z.ZodType<AgentRequestResolution> =
     ) {
       return;
     }
-    resolution.answers.forEach((answer, answerIndex) => {
-      if (
-        answer.kind === 'multi_select'
-        && new Set(answer.values).size !== answer.values.length
-      ) {
-        context.addIssue({
-          code: 'custom',
-          path: ['answers', answerIndex, 'values'],
-          message: 'Multi-select answers cannot select the same option more than once.',
-        });
-      }
-      if (
-        answer.kind === 'single_select'
-        && (answer.value === undefined) === (answer.other === undefined)
-      ) {
-        context.addIssue({
-          code: 'custom',
-          path: ['answers', answerIndex],
-          message: 'Single-select answers require exactly one declared or custom choice.',
-        });
-      }
-    });
+    refineAgentElicitationAnswers(resolution.answers, context);
   });

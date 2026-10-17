@@ -28,11 +28,12 @@ import type {
   AgentTurnInterruptionReason,
 } from "@agen-ai/agent-protocol";
 
+import type { AgentNativeContinuationContext, AgentNativeContinuationSupport } from "./nativeContinuations/types.js";
 import type { MaybePromise } from "./foundation.js";
 import type { AgentSessionHostBinding, AgentSessionHostBindingSupport } from "./hostBindings/types.js";
 import type { AgentProviderOutput } from "./outputs.js";
 import type { AgentArtifactCandidate } from "./artifacts.js";
-import type { AgentSessionInteractionContext, AgentSessionInteractionSupport } from "./sessionInteractions/types.js";
+import type { AgentProviderSessionInteractionContext, AgentSessionInteractionContext, AgentSessionInteractionSupport } from "./sessionInteractions/types.js";
 import type {
   AgentEnvironmentObservationPort,
 } from "./environment/types.js";
@@ -47,7 +48,7 @@ export interface AgentProviderSessionContext {
   readonly configuration: AgentSessionConfiguration;
   readonly signal?: AbortSignal;
   readonly hostBinding?: AgentSessionHostBinding;
-  readonly interactions?: AgentSessionInteractionContext;
+  readonly interactions?: AgentProviderSessionInteractionContext;
 }
 
 export type AgentSessionBindingCreatedObserver = (
@@ -340,6 +341,7 @@ export type AgentProviderAuthentication =
 export interface AgentProviderAdapter {
   readonly sessionInteractions?: AgentSessionInteractionSupport;
   readonly hostBinding?: AgentSessionHostBindingSupport;
+  readonly nativeContinuations?: AgentNativeContinuationSupport;
   readonly createSession: (
     input: AgentProviderCreateSessionInput,
   ) => MaybePromise<AgentProviderSession>;
@@ -347,3 +349,15 @@ export interface AgentProviderAdapter {
   readonly branching: AgentSessionBranching;
   readonly authentication: AgentProviderAuthentication;
 }
+
+export type AgentSessionOpenContext = Omit<AgentProviderSessionContext, "interactions"> & Readonly<{
+  interactions?: AgentSessionInteractionContext; nativeContinuations?: AgentNativeContinuationContext;
+}>;
+export type AgentCreateSessionInput = AgentSessionOpenContext & Readonly<{ onBindingCreated: AgentSessionBindingCreatedObserver }>;
+export type AgentResumeSessionInput = AgentSessionOpenContext & Readonly<{ binding: AgentSessionBinding }>;
+export type AgentBranchSessionInput = AgentSessionOpenContext & Readonly<{ source: AgentSessionBranchSource; onBindingCreated: AgentSessionBindingCreatedObserver }>;
+export type AgentValidatedProviderAdapter = Omit<AgentProviderAdapter, "createSession" | "resumption" | "branching"> & Readonly<{
+  createSession: (input: AgentCreateSessionInput) => MaybePromise<AgentProviderSession>;
+  resumption: Readonly<{ kind: "unsupported" }> | Readonly<{ kind: "supported"; resumeSession: (input: AgentResumeSessionInput) => MaybePromise<AgentProviderSession> }>;
+  branching: Readonly<{ kind: "unsupported" }> | Readonly<{ kind: "through_turn"; branchSession: (input: AgentBranchSessionInput) => MaybePromise<AgentProviderSession> }>;
+}>;

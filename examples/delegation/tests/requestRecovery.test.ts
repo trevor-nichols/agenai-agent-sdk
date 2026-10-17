@@ -53,3 +53,34 @@ for (const loss of ['before_commit', 'after_commit'] as const) {
     t.diagnostic(JSON.stringify({ tuple: directory.tuple, writer: writer.child.pid, ...result }));
   });
 }
+
+test('a late delivered answer to retired A survives SQLite restart after B has answered, preserving exact original history', { timeout: 20_000 }, async (t) => {
+  const directory = await temporaryRoot();
+  materializeFormatThreeStore(join(directory.root, 'database'));
+  const historicalId = formatThreeFixture.ids[0]!;
+  const original = inspectRequestHistory(directory.root, historicalId.operationId, historicalId.runId);
+  const writer = startScenario(directory.root, 'request_withdrawal');
+  const children = [writer];
+  t.after(async () => { for (const child of children) await child.stop(); await directory.remove(); });
+  const crashed = await writer.wait('crash');
+  assert.ok(crashed.detail && typeof crashed.detail === 'object' && 'firstOperationId' in crashed.detail && 'runId' in crashed.detail);
+  assert.ok(typeof crashed.detail.firstOperationId === 'string' && typeof crashed.detail.runId === 'string');
+  assert.ok('firstPresentationAborted' in crashed.detail && crashed.detail.firstPresentationAborted === true);
+  assert.equal(invocationCount(directory.root, 'child'), 1);
+  assert.equal(invocationCount(directory.root, 'answer'), 2);
+  const retained = inspectRequestHistory(directory.root, crashed.detail.firstOperationId, crashed.detail.runId);
+  assert.equal(retained.requestOperations.length, 2);
+  assertRetainedRequestHistory(inspectRequestHistory(directory.root, historicalId.operationId, historicalId.runId), original);
+  await writer.kill();
+  const reader = startScenario(directory.root, 'recover_request_withdrawal');
+  children.push(reader);
+  const result = await reader.complete() as Awaited<ReturnType<typeof import('../fixtures/requestRecovery.js').recoverWithdrawnRequestReceipt>>;
+  assert.notEqual(result.processId, writer.child.pid);
+  assert.equal(result.disposition, 'delivered');
+  assert.equal(result.outcome?.kind, 'recovery_required');
+  assert.equal(result.childInvocations, 1);
+  assert.equal(result.answerInvocations, 2);
+  assertRetainedRequestHistory(inspectRequestHistory(directory.root, crashed.detail.firstOperationId, crashed.detail.runId), retained);
+  assertRetainedRequestHistory(inspectRequestHistory(directory.root, historicalId.operationId, historicalId.runId), original);
+  t.diagnostic(JSON.stringify({ tuple: directory.tuple, writer: writer.child.pid, ...result }));
+});

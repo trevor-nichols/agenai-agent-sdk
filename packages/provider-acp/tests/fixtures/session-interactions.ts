@@ -46,11 +46,12 @@ export async function waitFor<Value>(read: () => Value | undefined, description:
   throw new Error(`Controlled ACP peer did not reach ${description}.`);
 }
 
-export function sessionInteractionFixture(t: TestContext, mode = 'late', cleanup: () => void = () => {}) {
+export function sessionInteractionFixture(t: TestContext, scenario: string | Readonly<{ mode: string; source: URL }> = 'late', cleanup: () => void = () => {}) {
+  const mode = typeof scenario === 'string' ? scenario : scenario.mode;
   const cwd = mkdtempSync(path.join(tmpdir(), 'agenai-session-interactions-'));
   const executable = path.join(cwd, 'controlled-peer.mjs');
   const log = path.join(cwd, 'events.jsonl');
-  const source = readFileSync(new URL('../node-fixtures/session-interaction-peer.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(typeof scenario === 'string' ? new URL('../node-fixtures/session-interaction-peer.mjs', import.meta.url) : scenario.source, 'utf8');
   writeFileSync(executable, `#!${process.execPath}\n${source}`);
   chmodSync(executable, 0o700);
   writeFileSync(log, '');

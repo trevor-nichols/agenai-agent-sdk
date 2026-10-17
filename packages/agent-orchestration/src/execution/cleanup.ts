@@ -46,11 +46,14 @@ export function cleanupRun(state: CoordinatorState, live: LiveRun): Promise<bool
       live.request = undefined;
     }
     const reason = new DOMException("The managed run is closing.", "AbortError");
+    for (const presentation of live.requestPresentations.values()) presentation.abort.abort(reason);
+    live.requestPresentations.clear();
     live.controlAbort.abort(reason);
     const runtimeClosing = runtimeCleanup(state, live);
     live.lifetime.abort(reason);
     while (live.controls.size > 0) await Promise.allSettled(live.controls);
     if (!await runtimeClosing) return false;
+    await live.outputDrained;
     while (!live.resourcesReleased && live.resourceReleaseAttempts < 2) {
       live.resourceReleaseAttempts += 1;
       try { await live.resources?.release(); live.resourcesReleased = true; } catch { /* Retain this exact resource lease for the bounded second attempt. */ }

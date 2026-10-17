@@ -3,11 +3,13 @@
 // ------------------------------------------------------------------------------------------------
 
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import test from "node:test";
 import {
   createInMemoryDelegationStore,
   type DelegationStoreCommand,
+  type DelegationHistoricalRequest,
 } from "@agen-ai/agent-orchestration";
 import { delegationSubordinateId } from "@agen-ai/agent-orchestration/store-adapter";
 import { openSqliteDelegationStore } from "../sqlite/index.js";
@@ -15,7 +17,7 @@ import { createSqliteParentInbox, sqliteParentInboxSchema } from "../inbox/index
 import { parent } from "../fixtures/host.js";
 import { temporaryRoot } from "../fixtures/journal.js";
 import { createParentHost, idleParent, setParent } from "../fixtures/parent.js";
-import { admission, fence, hasCode, settleRun } from "../fixtures/store.js";
+import { admission, fence, hasCode, prepareAndDispatch, settleRun } from "../fixtures/store.js";
 
 for (const persistence of ["volatile", "durable"] as const) {
   test(`${persistence} delivery commits retain bounded retry identities and fence old owners`, { timeout: 10_000 }, async (t) => {
@@ -131,4 +133,67 @@ test("reference inbox transactions roll back partial writes and durable pages re
   } while (cursor);
   assert.equal(seen.length, ids.size);
   assert.deepEqual(new Set(seen), ids);
+});
+
+for (const persistence of ["volatile", "durable"] as const) test(`${persistence} contract four retires eligibility independently of exact late receipts`, { timeout: 10_000 }, async (t) => {
+  const directory = await temporaryRoot();
+  const store = persistence === "volatile" ? createInMemoryDelegationStore() : openSqliteDelegationStore({ root: join(directory.root, "database") }).store;
+  assert.equal(store.contractVersion, 4);
+  const owner = await store.acquireOwner();
+  t.after(async () => { await store.releaseOwner(owner); await directory.remove(); });
+  const admitted = admission(owner);
+  await store.commit(admitted);
+  const taskId = admitted.taskId;
+  const runId = admitted.admission.runId;
+  await prepareAndDispatch(store, owner, taskId, runId);
+  const at = new Date().toISOString();
+  const request = (requestId: string): DelegationHistoricalRequest => ({ requestId, requestKind: "approval", openedAt: at, state: "waiting" });
+  async function change(state: "opened" | "resolution_intended" | "unavailable", history: DelegationHistoricalRequest, operationId = randomUUID()) {
+    return store.commit({ ...await fence(store, owner, taskId, runId, operationId), kind: "request_state", state,
+      request: { ...history, state: state === "opened" ? "waiting" : state }, at });
+  }
+  async function run() {
+    const result = await store.read({ kind: "run", taskId, runId });
+    assert.equal(result.kind, "run");
+    assert.ok(result.run);
+    return result.run;
+  }
+  const unopenedAnswer = request("unanswered");
+  await change("opened", unopenedAnswer);
+  await change("unavailable", unopenedAnswer);
+  assert.deepEqual([(await run()).phase, (await run()).pendingRequest?.state], ["running", "unavailable"]);
+  await assert.rejects(change("resolution_intended", unopenedAnswer), hasCode("request_unavailable"));
+
+  const first = request("late-refusal");
+  const firstOperationId = randomUUID();
+  await change("opened", first);
+  await change("resolution_intended", first, firstOperationId);
+  await change("unavailable", first);
+  await store.commit({ ...await fence(store, owner, taskId, runId, firstOperationId), kind: "operation_receipt", disposition: "rejected", requestState: "pending", at });
+  assert.deepEqual([(await run()).phase, (await run()).pendingRequest?.state], ["running", "unavailable"], "A truthful pending refusal cannot restore retired eligibility.");
+  const refusal = await store.read({ kind: "operation", parent, operationId: firstOperationId });
+  assert.equal(refusal.kind, "operation");
+  assert.deepEqual([refusal.operation?.disposition, refusal.operation?.requestState], ["rejected", "pending"]);
+  assert.deepEqual(refusal.operation?.request, { requestId: first.requestId, requestKind: "approval" });
+  await assert.rejects(store.commit({ ...await fence(store, owner, taskId, runId, firstOperationId), kind: "operation_receipt", disposition: "delivered", at }), hasCode("operation_conflict"));
+
+  const second = request("late-delivery");
+  const secondOperationId = randomUUID();
+  await change("opened", second);
+  await change("resolution_intended", second, secondOperationId);
+  await change("unavailable", second);
+  const current = request("surviving-request");
+  await change("opened", current);
+  const beforeReceipt = await run();
+  await store.commit({ ...await fence(store, owner, taskId, runId, secondOperationId), kind: "operation_receipt", disposition: "delivered", at });
+  assert.equal((await run()).phase, "waiting");
+  assert.deepEqual((await run()).pendingRequest, beforeReceipt.pendingRequest, "A late receipt belongs only to its original request.");
+  const delivery = await store.read({ kind: "operation", parent, operationId: secondOperationId });
+  assert.equal(delivery.kind, "operation");
+  assert.equal(delivery.operation?.disposition, "delivered");
+  assert.deepEqual(delivery.operation?.request, { requestId: second.requestId, requestKind: "approval" });
+  const operations = await store.read({ kind: "operations", taskId, runId });
+  assert.equal(operations.kind, "operations");
+  assert.deepEqual(operations.page.items.filter((operation) => operation.kind === "request_resolution").map((operation) => operation.operationId).sort(),
+    [firstOperationId, secondOperationId].sort(), "Retirement cannot synthesize a response operation.");
 });

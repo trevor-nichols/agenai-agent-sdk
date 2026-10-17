@@ -11,12 +11,12 @@ ACP registry) ship together at one version. Publish the complete seven-package s
 6. `@agen-ai/provider-acp` (optional local-process and injected-stream provider)
 7. `@agen-ai/acp-registry` (optional catalog planning, verified installation and retained launch)
 
-The coordinated source and published release are `0.4.1`; all seven packages select it on
-`latest` and `beta`. Preserve the earlier `0.4.0` release and its historical evidence. Verify current
+The coordinated source candidate is `0.4.2` with Agent Protocol V12. Published `0.4.1` retains
+Agent Protocol V11; all seven packages select that published release on `latest` and `beta`. Preserve the earlier `0.4.0` release and its historical evidence. Verify current
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before adopting this release and
+[MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before adopting this release and
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
 The public repository uses npm trusted publishing. GitHub Actions receives a short-lived npm

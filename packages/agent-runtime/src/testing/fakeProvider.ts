@@ -142,7 +142,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
@@ -272,7 +272,7 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 11 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 12 as const, sessionId, turnId, occurredAt };
 }
 
 function fakeEnvironmentSnapshot(

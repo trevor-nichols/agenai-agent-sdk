@@ -20,7 +20,7 @@ import { exampleGate, independentApprovalProgress, runApprovalWalkthrough, selec
 const approval: AgentApprovalCapability = { kind: 'supported', providerManagedRemembrance: true,
   modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }] };
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 11, providerKey: 'example-remembered-approvals',
+  protocolVersion: 12, providerKey: 'example-remembered-approvals',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
   turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
   requests: { approval, elicitation: { kind: 'unsupported' } },
@@ -62,7 +62,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
           ],
         });
         let accepted = false;
-        const base = { protocolVersion: 11 as const, sessionId: context.sessionId, turnId: input.turnId,
+        const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime('2026-10-14T12:00:00.000Z') };
         async function* outputs(): AsyncGenerator<AgentProviderOutput, void> {
           signal.throwIfAborted();

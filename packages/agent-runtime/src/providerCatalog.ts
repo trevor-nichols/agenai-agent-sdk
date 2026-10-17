@@ -55,7 +55,7 @@ export function createAgentProviderCatalogEntries(
 }
 
 export function createAgentProviderInstanceCatalogEntries(
-  instances: readonly MaterializedAgentProviderInstance[],
+  instances: readonly Pick<MaterializedAgentProviderInstance, "instanceId" | "capabilities">[],
 ): readonly AgentProviderInstanceCatalogEntry[] {
   return Object.freeze(
     instances

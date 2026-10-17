@@ -16,7 +16,7 @@ export function createNodeAcpProviderDriver(options: CreateNodeAcpProviderDriver
   if (boundary === undefined && Object.hasOwn(options, 'executionBoundary')) throw new TypeError('An explicitly supplied execution boundary must be valid.');
   const reserve = boundary === undefined ? undefined : executionReservationSource(boundary, launch);
   const sessionInteractions = resolveNodeAcpSessionInteractions(options, launch);
-  if (sessionInteractions && !reserve) throw new TypeError('The Grok folder-trust mapping requires an exclusive descendant-owning execution boundary.');
+  if (sessionInteractions && !reserve) throw new TypeError('Selected Grok session mappings require an exclusive descendant-owning execution boundary.');
   return createAcpProviderDriverInternal({
     providerKey: options.providerKey,
     connectionSource: reserve ? { kind: 'reserved', reserve }

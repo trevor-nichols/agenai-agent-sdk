@@ -71,6 +71,19 @@ const host: DelegationHost = {
   onRequest: () => { throw new Error("This fixture exposes no request capability."); },
 };
 const store = createInMemoryDelegationStore();
+let obsoleteOwnerEntries = 0;
+const obsoleteStore = {
+  ...store,
+  contractVersion: 3 as const,
+  acquireOwner: () => { obsoleteOwnerEntries += 1; return store.acquireOwner(); },
+};
+await assert.rejects(createDelegationCoordinator({
+  host, limits: store.limits,
+  // @ts-expect-error Contract 3 must also fail against installed declarations.
+  store: obsoleteStore,
+}), { name: "DelegationOperationError", code: "store_failed" });
+assert.equal(obsoleteOwnerEntries, 0);
+assert.equal(fake.snapshot().createdSessionIds.length, 0);
 const coordinator = await createDelegationCoordinator({ host, store, limits: store.limits });
 const client = await coordinator.bindParent({ scope });
 try {
@@ -144,4 +157,9 @@ try {
 assert.equal(resourceReleases, 1);
 assert.equal(grantReleases, 1);
 assert.equal(Object.values(fake.snapshot().closeCounts).reduce((sum, count) => sum + count, 0), 1);
+process.stdout.write(`${JSON.stringify({
+  proof: "packed-store-contract", evidence: "synthetic", contractVersion: store.contractVersion,
+  obsoleteOwnerEntries, childStarts: fake.snapshot().turnIds.length,
+  resourceReleases, grantReleases, cleanup: "closed",
+})}\n`);
 process.stdout.write("External packed managed delegation execution consumer passed.\n");

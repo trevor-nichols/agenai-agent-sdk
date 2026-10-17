@@ -46,7 +46,7 @@ export async function openAcpNativeSession(input: CreateAcpProviderSessionInput,
   const client = acpSessionControlClient(input);
   const operations = createAcpStandardSessionOperations(client);
   const resumed = input.resume;
-  const sessionInteractions = input.connection.sessionInteractions;
+  const sessionInteractions = input.context.interactions ? input.connection.sessionInteractions : undefined;
   if (resumed) {
     hooks.bind(resumed.binding);
     hooks.replay.active = resumed.method === 'session/load';

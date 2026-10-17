@@ -17,7 +17,8 @@ test("a provider requiring session setup rejects managed preparation without a h
   const harness: Awaited<ReturnType<typeof createExecutionHarness>> = await createExecutionHarness({ binding: () => binding.binding,
     provider: { transformAdapter(adapter) {
       return { ...adapter, hostBinding: bindingSupport, sessionInteractions: {
-        kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+        kind: "supported", mappings: [{ openingOperation: "create", requestKind: "decision" }],
+        producerOwnership: "exclusive", humanWait: ["bounded"],
       }, createSession(input: AgentProviderCreateSessionInput) {
         openings.push(input);
         if (input.interactions === undefined) throw new AgentProviderContractError(harness.provider.definition.providerKey,

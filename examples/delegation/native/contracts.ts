@@ -79,7 +79,7 @@ export function parseSdkIdentity(value: unknown): NativeSdkIdentity {
     const files = fileList(pkg.runtimeFiles);
     const tree = digest(pkg.runtimeTreeSha256);
     if (semanticDigest(files) !== tree) throw new NativeInputError('sdk_inventory_digest_invalid');
-    return { name: name as typeof SDK_PACKAGE_NAMES[number], version: exact(pkg.version, '0.4.1'), sourceGitTree: gitHash(pkg.sourceGitTree),
+    return { name: name as typeof SDK_PACKAGE_NAMES[number], version: exact(pkg.version, '0.4.2'), sourceGitTree: gitHash(pkg.sourceGitTree),
       manifestSha256: digest(pkg.manifestSha256), runtimeFiles: files, runtimeTreeSha256: tree };
   });
   if (packages.length !== 7 || new Set(packages.map((pkg) => pkg.name)).size !== 7) throw new NativeInputError('sdk_inventory_invalid');

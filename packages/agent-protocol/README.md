@@ -6,8 +6,12 @@ capabilities, typed operations, safe configuration and managed-content inventori
 observations, effective harness content and package catalogs, environment observations, account-quota observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
-The coordinated release is `0.4.1` and uses Agent Protocol V11, including session-decision data.
-The earlier `0.4.0` release retains V10.
+The coordinated unpublished source candidate is `0.4.2` and uses Agent Protocol V12, including exact request
+unavailability and session decisions, forms and plan reviews. Published `0.4.1` retains V11;
+`0.4.0` retains V10. Source versioning does not establish registry publication.
+Keep all installed SDK packages at one coordinated version. The [0.4.2 migration
+guide](../../MIGRATING-TO-0.4.2.md) covers V12 envelopes, tagged session responses and
+the separate ownership of request eligibility, entered receipts and continuation output.
 
 ## Ownership boundary
 
@@ -52,7 +56,7 @@ import {
 } from '@agen-ai/agent-protocol';
 
 const event: AgentEvent = parseAgentEvent({
-  protocolVersion: 11,
+  protocolVersion: 12,
   type: 'content.delta',
   sessionId: parseAgentSessionId('external-session:42'),
   turnId: parseAgentTurnId('external-turn:9'),
@@ -67,7 +71,7 @@ const event: AgentEvent = parseAgentEvent({
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 ```
 
-Serialized values carry `protocolVersion: 11`; TypeScript API names remain unsuffixed. Unknown
+Serialized values carry `protocolVersion: 12`; TypeScript API names remain unsuffixed. Unknown
 fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
@@ -84,7 +88,7 @@ Approval requests correlate to one live item or exact proposed-plan artifact and
 bounded list of typed options. Every option declares its decision and a closed `consequence`.
 `scoped` contains precise `persistence` and `scope`; `provider_managed_remembrance` contains explicit
 unknown duration and applicability and a required bounded explanation. Flat persistence/scope
-fields are rejected in V11. Neither approval nor a delivered answer proves the provider wrote a rule.
+fields are rejected in V12. Neither approval nor a delivered answer proves the provider wrote a rule.
 Resolutions select one exact offered `optionId` or explicitly cancel. Supported approval capability
 requires `providerManagedRemembrance`: false requires a nonempty readonly precise-mode tuple; true
 allows a bounded readonly array, including empty for a remembered-only provider. Scoped options
@@ -113,44 +117,80 @@ collapse unrelated pools into one percentage. Quantity units remain distinct fro
 which uses integer minor units with an explicit scale. None of these domains has a generic
 extension or metadata bag.
 
-## Session-decision data
+## Request lifecycle and session interactions
 
-`AgentSessionDecisionRequest` describes a bounded decision outside any model turn. It carries
-`requestId`, `sessionId`, a title, optional description, a workspace target, `expiresAt` and
-one to sixteen uniquely identified choices. It has no `turnId`, provider-native request ID,
-open metadata bag or transport correlation field. Use the root entrypoint or the focused
-`@agen-ai/agent-protocol/session-interactions` entrypoint for its plain types and parsers.
-Only `/zod` exposes the corresponding schemas; the deterministic JSON Schema surface retains
-the same portable data boundary.
+`request.unavailable` is a turn event with the existing session, turn and timestamp envelope.
+Its strict payload contains the exact `requestId` and a reason: `withdrawn`, `expired` or
+`unknown`. Each reason requires authoritative unavailability of that exact native callback;
+`expired` describes a provider observation. The event ends answer eligibility. It does not
+complete the execution or rewrite an entered response's delivery receipt. Runtime validation
+owns once-only retirement, original execution correlation and same-session request-ID uniqueness.
 
-Every choice describes its consequence. A workspace `grant` is provider-managed, persistent
-and may affect other sessions; it authorizes the workspace rather than only the categories
-detected when the question was created. A `decline` leaves configuration gated and does not
-promise revocation of existing trust, persisted denial or suppression of future questions.
-Hosts must present the target and consequences before applying their decision policy.
-Descriptions and opaque IDs are data, not execution authority.
+`AgentSessionRequest` is a closed union of `decision`, `form` and `plan_review` descriptors
+outside a model turn. Each carries `requestId`, `sessionId`, a title, optional description,
+explicit offered choices and optional `expiresAt`. That expiry is only a provider-reported fact;
+the host's effective deadline is a separate runtime observation. Descriptors have no `turnId`,
+provider-native request ID, metadata bag or transport correlation field. The root and focused
+`@agen-ai/agent-protocol/session-interactions` entrypoints expose plain types and parsers.
+Only `/zod` exposes schemas. The `/json-schema` registry contains 35 deterministic contracts,
+including request/response schemas for each session kind and their complete unions.
 
-`parseAgentSessionDecisionResponseFor(request, { choiceId })` validates that the response
-selects a choice offered by that exact request. The response has no free-form answer or
-caller-supplied request/session correlation. Actual response authority belongs to the runtime's
-bound `AgentSessionInteraction.respond` capability. The protocol defines portable data;
-callback lifetime, deadlines, delivery receipts, terminal settlement and cleanup are documented
-by [`@agen-ai/agent-runtime`](../agent-runtime/README.md#session-lifetime-interactions).
+A workspace decision preserves its exact target and grant/decline consequences. A workspace
+`grant` is provider-managed, persistent and may affect other sessions; it covers the workspace
+rather than only the categories detected when the question was created. A `decline` leaves
+configuration gated without promising revocation, persisted denial or suppression of future
+questions. Present the target and consequences before applying a decision policy. V12 responses
+are tagged: `parseAgentSessionDecisionResponseFor(request, { kind: 'decision', choiceId })`.
+The earlier untagged `{ choiceId }` argument is rejected.
+
+Forms reuse the exact `AgentElicitationField` and `AgentElicitationAnswer` semantics from turn
+elicitation. A form offers exactly one `submit` action and optionally one `cancel` action, with
+unique choice IDs and distinct actions. Submitted responses carry `answers`; canceled responses
+carry no answers. Required fields, kinds, declared select values, custom-choice permission and
+selection limits are checked against the offered descriptor. Cancellation is an explicit offered
+human action and is never synthesized by timeout or cleanup.
+
+Plan reviews contain the complete actual offered text in an immutable `AgentSessionPlanSnapshot`,
+with a neutral `planId`, exact `revision`, title and `plain_text` or `markdown` content. They do
+not dereference paths or URLs. Each offered action is `approve`, `revise` or `abandon`, with unique
+choice IDs and distinct actions; a mapping must offer the action explicitly. Every response
+identifies the exact plan and revision. Only revision responses carry nonblank `feedback`.
+Content changes require a fresh revision and request ID. These identities grant no execution
+or replay authority.
+
+`parseAgentSessionResponseFor(request, response)` and the kind-specific helpers reject a wrong
+kind, unoffered choice, mismatched action, invalid field answer and stale plan identity/revision.
+Throwing parsers and their `safeParse...` counterparts use validator-neutral issues. Parsing
+creates detached readonly snapshots and rejects unknown fields, cyclic material, accessors and
+non-JSON values before invoking a getter. The nominal decision/form/review choice IDs, plan ID
+and plan revision are distinct TypeScript types granted only after canonical string validation.
+
+`AgentSessionAcceptedResponse` is the bounded accepted-response projection: it retains kind,
+choice and action, plus plan identity/revision when applicable. It omits sensitive form answers
+and revision feedback. Actual response authority belongs to the runtime's bound
+`AgentSessionInteraction.respond` capability. Process-local callbacks, human-wait policy,
+delivery receipts, terminal settlement and cleanup are documented by
+[`@agen-ai/agent-runtime`](../agent-runtime/README.md#session-lifetime-interactions).
 
 | Portable bound | Maximum |
 | --- | --- |
-| Serialized request | 65,536 UTF-8 bytes |
-| Serialized response | 1,024 UTF-8 bytes |
-| Offered choices | 16, with unique IDs |
-| Choice ID | 128 UTF-8 bytes |
-| Request title and choice label | 120 characters |
+| Every serialized session request | 65,536 UTF-8 bytes |
+| Serialized decision response | 1,024 UTF-8 bytes |
+| Serialized form or plan-review response | 65,536 UTF-8 bytes |
+| Offered choices | 16, with unique IDs and distinct form/review actions |
+| Choice ID, plan ID and plan revision | 128 UTF-8 bytes each |
+| Request/plan title and choice label | 120 characters |
 | Request description | 4,000 characters |
 | Choice description | 1,000 characters |
 | Workspace target path | 4,096 UTF-8 bytes |
+| Form fields / options per select / text value | 16 / 100 / 4,000 characters |
+| Complete plan text | 49,152 UTF-8 bytes within the request bound |
+| Revision feedback | 4,000 characters and 16,384 UTF-8 bytes |
 
-Throwing parsers and `safeParse...` variants use the existing validator-neutral issue contract.
-Unknown fields, duplicate choice IDs and unsupported consequence shapes reject. These values
-remain separate from turn approval/elicitation data and introduce no protocol-version change.
+The JSON Schema artifacts name residual parser invariants, including serialized UTF-8 bytes,
+identity/action uniqueness, exact offered-choice membership, form-field correlation and exact
+plan/revision matching. Portable session opening, configuration and turn input do not carry
+runtime human-wait policy or callbacks.
 
 ## Errors and trust
 
@@ -246,19 +286,19 @@ before delegation; a composer can use the same pure functions to preserve and ex
 
 ## Versioning and release
 
-Agent Protocol V11 defines the contract shared by this package, `@agen-ai/validation`, and
-`@agen-ai/agent-runtime`. The coordinated SDK release is `0.4.1`; the earlier
-`0.4.0` release retains V10. Registry publication and dist-tag state are
-release metadata outside this contract. The earlier public `0.3.0` and `0.3.1` releases remain historical.
-The complete seven-package public release inventory must use one coordinated source version. Protocol V11 is
-independent of private transport and product
-persistence versions and directly replaces V10 at live boundaries. There is one current parser. V10
-and older serialized data require the historical owner's frozen decoder and are rejected by the live V11 parser. The
-environment and account-quota namespaces each use their own schema version 1.
+Agent Protocol V12 defines the contract shared by this package, `@agen-ai/validation`, and
+`@agen-ai/agent-runtime`. The coordinated source release is `0.4.2`; published `0.4.1` retains
+V11 and `0.4.0` retains V10. Registry publication and dist-tag state are release metadata outside
+this contract. Earlier public releases remain historical. The complete seven-package public
+release inventory must use one coordinated source version.
 
-The repository release proof builds and packs `@agen-ai/validation`, this package, and
-`@agen-ai/agent-runtime`; rejects workspace-only or private references; then typechecks and runs a
-consumer outside the monorepo:
+Protocol V12 is independent of private transport and product persistence versions and replaces
+V11 at live boundaries. There is one current parser. V11 and older serialized data require the
+historical owner's frozen decoder and are rejected by the live V12 parser where versioned.
+The environment and account-quota namespaces each retain their own schema version 1.
+
+The repository release proof builds and packs the exact seven-package release set, rejects
+workspace-only or private references, then typechecks and runs a consumer outside the monorepo.
 
 From the public repository root, run `pnpm check` to execute the same packed-consumer proof.
 

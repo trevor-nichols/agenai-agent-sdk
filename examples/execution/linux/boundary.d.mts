@@ -1,18 +1,20 @@
 import type { NodeAcpExecutionBoundary } from '@agen-ai/provider-acp/node';
 
-interface LinuxExecutionHostMounts {
+interface LinuxExecutionHostConfiguration {
   /** Physical canonical sources, mounted at the same absolute path inside the target. */
   readonly mounts: readonly Readonly<{ path: string; writable: boolean }>[];
+  /** Whole-service task ceiling, including the supervisor; defaults to 64. */
+  readonly tasksMax?: 64 | 128;
 }
 
 /** Host mode shares the host network/abstract Unix socket namespace and requires explicit inputs. */
-export type LinuxExecutionHostOptions = LinuxExecutionHostMounts & (
+export type LinuxExecutionHostOptions = LinuxExecutionHostConfiguration & (
   | Readonly<{ network?: 'isolated'; networkInputs?: never }>
   | Readonly<{ network: 'host'; networkInputs: Readonly<{ resolver: string; hosts: string; certificates: string }> }>
 );
 
 export interface LinuxExecutionLimits {
-  readonly tasksMax: 64;
+  readonly tasksMax: 64 | 128;
   readonly memoryMaxBytes: 536870912;
   readonly runtimeMaxSec: 180;
 }

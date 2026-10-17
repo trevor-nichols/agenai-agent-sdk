@@ -19,6 +19,19 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertLiveRequestExample,
+  assertSessionContinuationExample,
+  assertAcpContinuationExample,
+} from "./agent-sdk-consumers/request-lifecycle/reports.mjs";
+import {
+  CORE_CONSUMER_PACKAGES,
+  consumerPackageManifest,
+  packedOverridesSource,
+  readDependencyBaseline,
+  seedDependencyBaseline,
+  verifyDependencyBaselineInstall,
+} from "./agent-sdk-consumers/dependency-baseline.mjs";
 
 // ------------------------------------------------------------------------------------------------
 //                Release Policy
@@ -59,6 +72,11 @@ const PUBLIC_REPOSITORY_URL = "git+https://github.com/trevor-nichols/agenai-agen
 const PUBLIC_HOMEPAGE_URL = "https://github.com/trevor-nichols/agenai-agent-sdk#readme";
 const PUBLIC_BUGS_URL = "https://github.com/trevor-nichols/agenai-agent-sdk/issues";
 const PUBLIC_EXAMPLES_ROOT = "examples";
+const CORE_CONTINUATION_FILES = [
+  "session-continuations.ts",
+  "fixtures/session-continuations/provider.ts",
+  "fixtures/session-continuations/shared.ts",
+];
 const PACKAGES = [
   {
     name: "@agen-ai/validation",
@@ -70,22 +88,22 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.4.1", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.2", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.1" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.2" },
   },
   {
     name: "@agen-ai/agent-orchestration",
     root: "packages/agent-orchestration",
     directory: "packages/agent-orchestration",
     dependencies: {
-      "@agen-ai/agent-runtime": "^0.4.1",
-      "@agen-ai/agent-protocol": "^0.4.1",
-      "@agen-ai/validation": "^0.4.1",
+      "@agen-ai/agent-runtime": "^0.4.2",
+      "@agen-ai/agent-protocol": "^0.4.2",
+      "@agen-ai/validation": "^0.4.2",
       zod: "4.4.3",
       "@modelcontextprotocol/sdk": "1.29.0",
     },
@@ -108,16 +126,16 @@ const PACKAGES = [
     root: "packages/provider-acp",
     directory: "packages/provider-acp",
     dependencies: {
-      "@agen-ai/acp-transport": "^0.4.1",
-      "@agen-ai/agent-runtime": "^0.4.1",
-      "@agen-ai/agent-protocol": "^0.4.1",
+      "@agen-ai/acp-transport": "^0.4.2",
+      "@agen-ai/agent-runtime": "^0.4.2",
+      "@agen-ai/agent-protocol": "^0.4.2",
     },
   },
   {
     name: "@agen-ai/acp-registry",
     root: "packages/acp-registry",
     directory: "packages/acp-registry",
-    dependencies: { "@agen-ai/validation": "^0.4.1", zod: "4.4.3",
+    dependencies: { "@agen-ai/validation": "^0.4.2", zod: "4.4.3",
       "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
@@ -239,7 +257,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.4.1");
+  assert.equal(manifest.version, "0.4.2");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -411,6 +429,9 @@ import {
   parseAgentSessionDecisionChoiceId,
   parseAgentSessionDecisionRequest,
   parseAgentSessionDecisionResponseFor,
+  parseAgentSessionFormRequest,
+  parseAgentSessionPlanReviewRequest,
+  parseAgentSessionResponseFor,
   type AgentSessionDecisionRequest,
 } from "@agen-ai/agent-protocol/session-interactions";
 import { parseAgentEnvironmentSnapshot, type AgentEnvironmentSnapshot } from "@agen-ai/agent-protocol/environment";
@@ -429,8 +450,12 @@ import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
 import { parseAgentEvent } from "@agen-ai/agent-protocol/events";
 import { parseAgentCapabilities } from "@agen-ai/agent-protocol/capabilities";
 import { parseAgentArtifactDescriptor } from "@agen-ai/agent-protocol/artifacts";
-import { AgentErrorSchema, AgentEventSchema, AgentSessionDecisionRequestSchema } from "@agen-ai/agent-protocol/zod";
-import { AGENT_ERROR_JSON_SCHEMA, AGENT_EVENT_JSON_SCHEMA, AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA } from "@agen-ai/agent-protocol/json-schema";
+import { AgentErrorSchema, AgentEventSchema, AgentSessionDecisionRequestSchema, AgentSessionRequestSchema, AgentSessionResponseSchema } from "@agen-ai/agent-protocol/zod";
+import { AGENT_ERROR_JSON_SCHEMA, AGENT_EVENT_JSON_SCHEMA, AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA,
+  AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA, AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA,
+  AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA, AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA,
+  AGENT_SESSION_REQUEST_JSON_SCHEMA, AGENT_SESSION_RESPONSE_JSON_SCHEMA,
+  AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY } from "@agen-ai/agent-protocol/json-schema";
 import {
   AGENT_PROVIDER_CONTRACT_ERROR_CODES,
   createAgentEventOutput,
@@ -443,6 +468,12 @@ import {
   type AgentSessionInteraction,
   type AgentSessionInteractionContext,
   type AgentSessionInteractionTerminal,
+  type AgentProviderSessionInteractionContext,
+  type AgentProviderAdapter,
+  type AgentValidatedProviderAdapter,
+  type AgentCreateSessionInput,
+  type AgentNativeContinuationContext,
+  type AgentSessionInteractionOptions,
   type AgentProviderSession,
   type AgentTurnSteeringResult,
 } from "@agen-ai/agent-runtime";
@@ -454,7 +485,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.4.1");
+assert.equal(protocolManifest.version, "0.4.2");
 
 const packedFailure: AgentError = {
   category: "quota_exhausted", code: "allowance_unavailable", message: "The observed allowance is exhausted.",
@@ -468,15 +499,15 @@ const packedFailure: AgentError = {
 assert.deepEqual(parseAgentError(JSON.parse(JSON.stringify(packedFailure))), packedFailure);
 assert.deepEqual(AgentErrorSchema.parse(packedFailure), packedFailure);
 assert.equal(safeParseAgentError({ code: "legacy", message: "Legacy failure.", retryable: false }).success, false);
-assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 11);
+assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 12);
 const packedRetry: AgentRuntimeRetryingEvent = {
-  protocolVersion: 11, sessionId: parseAgentSessionId("packed-retry-session"),
+  protocolVersion: 12, sessionId: parseAgentSessionId("packed-retry-session"),
   turnId: parseAgentTurnId("packed-retry-turn"), occurredAt: parseAgentIsoDateTime("2026-10-11T12:00:00.000Z"),
   type: "runtime.retrying", payload: { owner: "provider", error: packedFailure, attempt: 1, maxAttempts: 2, delayMs: 0 },
 };
 assert.deepEqual(parseAgentEvent(JSON.parse(JSON.stringify(packedRetry))), packedRetry);
 assert.deepEqual(AgentEventSchema.parse(packedRetry), packedRetry);
-assert.throws(() => parseAgentEvent({ ...packedRetry, protocolVersion: 10 }));
+assert.throws(() => parseAgentEvent({ ...packedRetry, protocolVersion: 11 }));
 
 const quotaSnapshot: AgentAccountQuotaSnapshot = parseAgentAccountQuotaSnapshot({
   schemaVersion: 1, sourceId: "packed-source", observedAt: "2026-09-07T12:00:00.000Z",
@@ -774,7 +805,7 @@ assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 11);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 12);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -820,7 +851,7 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 11,
+  protocolVersion: 12,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -867,7 +898,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
     outputs: (async function* () {
       packedRunCount += 1;
       yield createAgentEventOutput({
-        protocolVersion: 11,
+        protocolVersion: 12,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -875,7 +906,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 11,
+        protocolVersion: 12,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -912,15 +943,77 @@ const decision: AgentSessionDecisionRequest = parseAgentSessionDecisionRequest({
     consequence: { kind: "decline", configuration: "remains_gated" } }],
 });
 assert.deepEqual(AgentSessionDecisionRequestSchema.parse(decision), decision);
-assert.equal(AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA.protocolVersion, 11);
-assert.throws(() => parseAgentSessionDecisionResponseFor(decision, { choiceId: "unoffered" }));
+assert.equal(AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA.protocolVersion, 12);
+assert.throws(() => parseAgentSessionDecisionResponseFor(decision, { kind: "decision", choiceId: "unoffered" }));
+// The installed portable graph includes forms and exact plan snapshots independently of runtime support.
+const packedForm = parseAgentSessionFormRequest({
+  kind: "form", requestId: "packed-form", sessionId: decision.sessionId, title: "Choose a workspace name",
+  fields: [{ kind: "text", fieldId: "name", label: "Name", required: true,
+    sensitivity: "ordinary", multiline: false, maxLength: 40 }],
+  choices: [{ choiceId: "submit", action: "submit", label: "Submit" }],
+});
+const packedFormResponse = parseAgentSessionResponseFor(packedForm, {
+  kind: "form", action: "submit", choiceId: "submit", answers: [{ kind: "text", fieldId: "name", value: "Packed workspace" }],
+});
+assert.deepEqual(AgentSessionRequestSchema.parse(packedForm), packedForm);
+assert.deepEqual(AgentSessionResponseSchema.parse(packedFormResponse), packedFormResponse);
+assert.throws(() => parseAgentSessionResponseFor(packedForm, {
+  kind: "form", action: "submit", choiceId: "submit", answers: [],
+}));
+const packedReview = parseAgentSessionPlanReviewRequest({
+  kind: "plan_review", requestId: "packed-review", sessionId: decision.sessionId, title: "Review the exact plan",
+  plan: { planId: "packed-plan", revision: "revision:1", title: "Implementation",
+    content: { kind: "text", format: "markdown", text: "Inspect the workspace, then apply the approved change." } },
+  choices: [{ choiceId: "revise", action: "revise", label: "Request changes" }],
+});
+const packedReviewResponse = parseAgentSessionResponseFor(packedReview, {
+  kind: "plan_review", action: "revise", choiceId: "revise", planId: "packed-plan", revision: "revision:1",
+  feedback: "Inspect failure handling first.",
+});
+assert.deepEqual(AgentSessionRequestSchema.parse(packedReview), packedReview);
+assert.deepEqual(AgentSessionResponseSchema.parse(packedReviewResponse), packedReviewResponse);
+assert.throws(() => parseAgentSessionResponseFor(packedReview, { ...packedReviewResponse, revision: "revision:2" }));
+assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 35);
+for (const artifact of [AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA, AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA,
+  AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA, AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA,
+  AGENT_SESSION_REQUEST_JSON_SCHEMA, AGENT_SESSION_RESPONSE_JSON_SCHEMA]) {
+  assert.equal(artifact.protocolVersion, 12);
+  assert.ok(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.includes(artifact));
+}
+// Installed declarations must keep producer authority separate from application handlers.
+// This compile-only consumer has no candidate/native effects.
+export function installedSessionRoles(
+  candidate: AgentProviderAdapter,
+  validated: AgentValidatedProviderAdapter,
+  producer: AgentProviderSessionInteractionContext,
+  consumer: AgentSessionInteractionContext,
+  continuation: AgentNativeContinuationContext,
+  opening: AgentCreateSessionInput,
+): void {
+  const applicationOpening: AgentCreateSessionInput = {
+    ...opening, interactions: consumer, nativeContinuations: continuation,
+  };
+  const producerOpening: Parameters<AgentProviderAdapter["createSession"]>[0] = {
+    sessionId: opening.sessionId, workingDirectory: opening.workingDirectory,
+    configuration: opening.configuration, onBindingCreated: opening.onBindingCreated,
+    interactions: producer,
+  };
+  // @ts-expect-error A raw provider cannot receive application interaction/continuation handlers.
+  const candidateAsValidated: AgentValidatedProviderAdapter = candidate;
+  // @ts-expect-error A consumer adapter cannot be substituted for a producer adapter.
+  const validatedAsCandidate: AgentProviderAdapter = validated;
+  // @ts-expect-error Unbounded human waiting cannot carry a conflicting finite timeout.
+  const conflictingWait: AgentSessionInteractionOptions = { humanWait: { kind: "until_withdrawn_or_closed" }, limits: { requestTimeoutMs: 300_000 } };
+  void [applicationOpening, producerOpening, candidateAsValidated, validatedAsCandidate, conflictingWait];
+}
+
 const presented: AgentSessionInteraction[] = [];
 const interactions: AgentSessionInteractionContext = { onRequest: (handle) => { presented.push(handle); } };
 let decisionEntries = 0;
 let interactionCloses = 0;
 const interactionAdapter = validateAgentProviderAdapter(steeringCapabilities, {
-  sessionInteractions: { kind: "supported", openingOperations: ["create"],
-    requestKinds: ["decision"], producerOwnership: "exclusive" },
+  sessionInteractions: { kind: "supported", mappings: [{ openingOperation: "create", requestKind: "decision" }],
+    producerOwnership: "exclusive", humanWait: ["bounded"] },
   createSession(input) {
     const native = packedSession(input.sessionId);
     input.onBindingCreated(native.binding);
@@ -928,11 +1021,12 @@ const interactionAdapter = validateAgentProviderAdapter(steeringCapabilities, {
     const terminal = new Promise<AgentSessionInteractionTerminal>((resolve) => { settleTerminal = resolve; });
     const lifetime = new AbortController();
     const callback = Promise.resolve(input.interactions?.onRequest({
-      request: decision, signal: lifetime.signal, terminal,
-      respond: async ({ choiceId }) => {
+      kind: "direct", request: decision, signal: lifetime.signal, terminal,
+      respond: async ({ signal: _signal, ...value }) => {
+        const response = parseAgentSessionDecisionResponseFor(decision, value);
         decisionEntries += 1;
         assert.ok(settleTerminal);
-        settleTerminal({ kind: "answered", choiceId });
+        settleTerminal({ kind: "answered", response });
         return { status: "delivered" };
       },
     }));
@@ -955,9 +1049,9 @@ assert.equal(presented.length, 1);
 const interaction = presented[0];
 assert.ok(interaction);
 assert.equal(decisionEntries, 0);
-const answer = { choiceId: decision.choices[0].choiceId };
+const answer = { kind: "decision" as const, choiceId: decision.choices[0].choiceId };
 assert.deepEqual(await interaction.respond(answer), { status: "delivered" });
-assert.deepEqual(await interaction.terminal, { kind: "answered", choiceId: answer.choiceId });
+assert.deepEqual(await interaction.terminal, { kind: "answered", response: answer });
 const repeatAnswer = await interaction.respond(answer);
 assert.equal(repeatAnswer.status, "rejected");
 if (repeatAnswer.status === "rejected") assert.equal(repeatAnswer.requestState, "unavailable");
@@ -1140,7 +1234,9 @@ const report = await runAgentProviderConformance({
     interactionMode: "default",
     parts: [{ type: "text", text: "Interrupt this packed provider turn." }],
   },
-  resolutionFor: (request) => {
+  resolutionFor: async (request, { signal }) => {
+    await Promise.resolve();
+    signal.throwIfAborted();
     assert.equal(request.requestKind, "approval");
     if (request.requestKind !== "approval") {
       throw new TypeError("The deterministic fake must open an approval request.");
@@ -1175,7 +1271,7 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
@@ -1239,7 +1335,7 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 11,
+  protocolVersion: 12,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -1261,7 +1357,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 11,
+  protocolVersion: 12,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -1916,13 +2012,13 @@ const INTENTIONALLY_INVALID_CONSUMER_SOURCE = `import type {
   AgentCapabilities,
 } from "@agen-ai/agent-protocol";
 
-const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 10;
+const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 11;
 void retiredProtocolVersion;
 `;
 
 async function writePackedOverrides(consumerRoot, dependencies) {
   await writeFile(path.join(consumerRoot, ".pnpmfile.cjs"),
-    `const packedDependencies = ${JSON.stringify(dependencies)};\nmodule.exports = { hooks: { readPackage(pkg) {\n  for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {\n    if (!pkg[section]) continue;\n    for (const [name, tarball] of Object.entries(packedDependencies)) {\n      if (Object.hasOwn(pkg[section], name)) pkg[section][name] = tarball;\n    }\n  }\n  return pkg;\n} } };\n`);
+    packedOverridesSource(dependencies));
 }
 
 function assertApprovalWalkthrough(report, expectedResolution, completionText) {
@@ -2007,25 +2103,34 @@ function assertRememberedAcpExample(report) {
   }
 }
 
-async function runCoreConsumer(tempRoot, artifacts) {
+async function exampleIdentities(consumerRoot, files) {
+  return Promise.all(files.map(async (file) => ({
+    path: `examples/${file}`,
+    sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, "examples", file))).digest("hex"),
+  })));
+}
+
+async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   const consumerRoot = path.join(tempRoot, "core-consumer");
   await mkdir(path.join(consumerRoot, "src"), { recursive: true });
   await mkdir(path.join(consumerRoot, "examples/fixtures"), { recursive: true });
-  const coreNames = ["@agen-ai/validation", "@agen-ai/agent-protocol", "@agen-ai/agent-runtime"];
+  const coreNames = CORE_CONSUMER_PACKAGES;
   const dependencies = Object.fromEntries(coreNames.map((name) => [name,
     `file:${artifacts.find((artifact) => artifact.manifest.name === name).tarballPath}`]));
-  await writeFile(path.join(consumerRoot, "package.json"), JSON.stringify({
-    name: "agent-sdk-core-only-interaction-proof", version: "1.0.0", private: true, type: "module",
-    packageManager: "pnpm@11.7.0", engines: { node: ">=22.0.0" }, dependencies: { ...dependencies, zod: "4.4.3" },
-    devDependencies: { "@types/node": "24.10.1", typescript: "5.9.3" },
-  }, null, 2) + "\n");
+  await writeFile(path.join(consumerRoot, "package.json"), JSON.stringify(consumerPackageManifest("core-consumer", dependencies), null, 2) + "\n");
   await writeFile(path.join(consumerRoot, "tsconfig.json"), JSON.stringify({ compilerOptions: {
     target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", outDir: "dist", rootDir: ".",
     strict: true, noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, skipLibCheck: false, types: ["node"],
-  }, include: ["src/*.ts", "examples/lifecycle-interactions.ts", "examples/remembered-approvals.ts"] }, null, 2) + "\n");
+  }, include: ["src/*.ts", "examples/lifecycle-interactions.ts", "examples/remembered-approvals.ts", "examples/session-continuations.ts"] }, null, 2) + "\n");
   await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/session-interactions/core.ts"), path.join(consumerRoot, "src/core.ts"));
   await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/remembered-approvals/core-types.ts"),
     path.join(consumerRoot, "src/remembered-types.ts"));
+  for (const file of CORE_CONTINUATION_FILES) {
+    const destination = path.join(consumerRoot, "examples", file);
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, file), destination);
+  }
+  const continuationExamples = await exampleIdentities(consumerRoot, CORE_CONTINUATION_FILES);
   const examplePath = path.join(consumerRoot, "examples/lifecycle-interactions.ts");
   await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "lifecycle-interactions.ts"), examplePath);
   const exampleSha256 = createHash("sha256").update(await readFile(examplePath)).digest("hex");
@@ -2037,7 +2142,9 @@ async function runCoreConsumer(tempRoot, artifacts) {
   await writeFile(path.join(consumerRoot, "offline-guard.mjs"),
     'globalThis.fetch = async () => { throw new Error("Core-only session interaction proof must execute without network access."); };\n');
   await writePackedOverrides(consumerRoot, dependencies);
-  await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], { cwd: consumerRoot });
+  const seed = dependencyBaseline ? await seedDependencyBaseline({ baseline: dependencyBaseline, profile: "core-consumer", consumerRoot, artifacts }) : undefined;
+  await run("pnpm", ["install", "--ignore-scripts", seed ? "--frozen-lockfile" : "--prefer-offline"], { cwd: consumerRoot });
+  const dependencyEvidence = seed ? await verifyDependencyBaselineInstall(seed) : undefined;
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
   const example = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/examples/lifecycle-interactions.js"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
@@ -2047,6 +2154,11 @@ async function runCoreConsumer(tempRoot, artifacts) {
     transcript: ["handler.offered", "opening.returned", "host.selected:decline", "answer.delivered", "decision.answered", "session.closed", "instance.disposed"],
   });
   process.stdout.write(example.stdout);
+  const continuation = await run(process.execPath,
+    ["--import", "./offline-guard.mjs", "dist/examples/session-continuations.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assertSessionContinuationExample(JSON.parse(continuation.stdout.trim()));
+  process.stdout.write(continuation.stdout);
   const remembered = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/examples/remembered-approvals.js"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
   assertRememberedCoreExample(JSON.parse(remembered.stdout.trim()));
@@ -2062,35 +2174,17 @@ async function runCoreConsumer(tempRoot, artifacts) {
     { scenario: "opening-cleanup", openings: 1, callbacks: 1, answers: 0, nativeCloses: 1, hostReleases: 1, turns: 0, cleanup: "joined" },
   ]);
   process.stdout.write(core.stdout);
-  return { exampleSha256, rememberedExampleSha256, packages: coreNames };
+  return { exampleSha256, rememberedExampleSha256, continuationExamples, packages: coreNames, dependencyEvidence };
 }
 
-async function runConsumer(tempRoot, artifacts) {
+async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
   const consumerRoot = path.join(tempRoot, "consumer");
   const sourceRoot = path.join(consumerRoot, "src");
   await mkdir(sourceRoot, { recursive: true });
   const tarballFor = (name) =>
     artifacts.find((artifact) => artifact.manifest.name === name).tarballPath;
   const fileDependency = (name) => `file:${tarballFor(name)}`;
-  const packageJson = {
-    name: "agent-sdk-external-consumer-proof",
-    version: "1.0.0",
-    private: true,
-    type: "module",
-    packageManager: "pnpm@11.7.0",
-    engines: { node: ">=22.0.0" },
-    dependencies: {
-      "@agen-ai/validation": fileDependency("@agen-ai/validation"),
-      "@agen-ai/agent-protocol": fileDependency("@agen-ai/agent-protocol"),
-      "@agen-ai/agent-runtime": fileDependency("@agen-ai/agent-runtime"),
-      "@agen-ai/agent-orchestration": fileDependency("@agen-ai/agent-orchestration"),
-      "@agen-ai/acp-transport": fileDependency("@agen-ai/acp-transport"),
-      "@agen-ai/provider-acp": fileDependency("@agen-ai/provider-acp"),
-      "@agen-ai/acp-registry": fileDependency("@agen-ai/acp-registry"),
-      zod: "4.4.3",
-    },
-    devDependencies: { "@types/node": "24.10.1", typescript: "5.9.3", tsx: "4.19.3" },
-  };
+  const packageJson = consumerPackageManifest("consumer", Object.fromEntries(PACKAGES.map(({ name }) => [name, fileDependency(name)])));
   const tsconfig = {
     compilerOptions: {
       target: "ES2022",
@@ -2165,9 +2259,11 @@ async function runConsumer(tempRoot, artifacts) {
     }, null, 2)}\n`,
   );
   await writePackedOverrides(consumerRoot, Object.fromEntries(PACKAGES.map(({ name }) => [name, fileDependency(name)])));
-  await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], {
+  const seed = dependencyBaseline ? await seedDependencyBaseline({ baseline: dependencyBaseline, profile: "consumer", consumerRoot, artifacts }) : undefined;
+  await run("pnpm", ["install", "--ignore-scripts", seed ? "--frozen-lockfile" : "--prefer-offline"], {
     cwd: consumerRoot,
   });
+  const dependencyEvidence = seed ? await verifyDependencyBaselineInstall(seed) : undefined;
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], {
     cwd: consumerRoot,
   });
@@ -2183,31 +2279,24 @@ async function runConsumer(tempRoot, artifacts) {
   const liveExample = await run(process.execPath,
     ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/live-request-output.ts"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
-  const liveSummaries = liveExample.stdout.trim().split(/\r?\n/u).map((line) => JSON.parse(line));
-  assert.deepEqual(liveSummaries, [{
-    example: "live-request-output", evidence: "synthetic",
-    transcript: [
-      "turn.started",
-      "request.opened:live-request:destination",
-      "turn.waiting_for_request",
-      "output:Independent work completed while the request remained open.",
-      "answer.submitted:live-request:destination",
-      "provider.accepted:live-request:destination:destination=Archive",
-      "answer.delivered:live-request:destination",
-      "output:Continuing with Archive.",
-      "turn.completed:completed",
-      "session.closed",
-      "handler.joined",
-    ],
-    starts: 1, outputReaders: 1, acceptedAnswers: 1, closes: 1,
-    producerJoined: true, handlerJoined: true, cleanup: "joined",
-  }], "The packed example must show live progress before answering and complete through its original reader.");
+  assertLiveRequestExample(JSON.parse(liveExample.stdout.trim()));
   process.stdout.write(liveExample.stdout);
   const rememberedAcpExample = await run(process.execPath,
     ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/remembered-approvals-acp.ts"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
   assertRememberedAcpExample(JSON.parse(rememberedAcpExample.stdout.trim()));
   process.stdout.write(rememberedAcpExample.stdout);
+  const continuationAcp = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "examples/session-continuations-acp.ts"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assertAcpContinuationExample(JSON.parse(continuationAcp.stdout.trim()));
+  process.stdout.write(continuationAcp.stdout);
+  const continuationAcpFiles = await exampleIdentities(consumerRoot, [
+    "session-continuations-acp.ts",
+    ...(await readdir(path.join(consumerRoot, "examples/fixtures/session-continuations")))
+      .filter((file) => file.endsWith(".ts") || file.endsWith(".mjs"))
+      .sort().map((file) => `fixtures/session-continuations/${file}`),
+  ]);
   const nativeTests = (await readdir(path.join(consumerRoot, "examples/delegation/native/tests")))
     .filter((file) => file.endsWith(".test.ts")).sort();
   assert.ok(nativeTests.length > 0, "Native qualification requires executable hermetic public tests.");
@@ -2319,7 +2408,13 @@ async function runConsumer(tempRoot, artifacts) {
   process.stdout.write(orchestrationExecution.stdout);
   const managedExecution = await run(process.execPath, ["dist/orchestration/execution.js"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
-  assert.equal(managedExecution.stdout.trim(), "External packed managed delegation execution consumer passed.");
+  const managedLines = managedExecution.stdout.trim().split(/\r?\n/u);
+  assert.equal(managedLines.length, 2);
+  assert.deepEqual(JSON.parse(managedLines[0]), {
+    proof: "packed-store-contract", evidence: "synthetic", contractVersion: 4,
+    obsoleteOwnerEntries: 0, childStarts: 1, resourceReleases: 1, grantReleases: 1, cleanup: "closed",
+  });
+  assert.equal(managedLines[1], "External packed managed delegation execution consumer passed.");
   process.stdout.write(managedExecution.stdout);
   const managedAcpExecution = await run(process.execPath, ["dist/orchestration/acp.js", REPO_ROOT],
     { cwd: consumerRoot, timeoutMs: 90_000 });
@@ -2359,7 +2454,7 @@ assert.throws(() => createAcpSchemaValidator("stable", ${JSON.stringify(profile)
       await writeFile(schemaPath, schemaBytes);
     }
   }
-  return { liveExampleSha256, rememberedAcpExampleSha256 };
+  return { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -2367,16 +2462,26 @@ assert.throws(() => createAcpSchemaValidator("stable", ${JSON.stringify(profile)
 // ------------------------------------------------------------------------------------------------
 
 function parseArguments(argv) {
-  if (argv.length === 0) return undefined;
-  assert.ok(
-    argv.length === 2 && argv[0] === "--output" && path.isAbsolute(argv[1]),
-    "Usage: test:agent-sdk-external-consumer [--output <new-absolute-directory>]",
-  );
-  return path.resolve(argv[1]);
+  const usage = "Usage: test:agent-sdk-external-consumer [--output <new-absolute-directory> [--dependency-baseline <retained-consumer-root>]]";
+  const options = {};
+  for (let index = 0; index < argv.length; index += 2) {
+    const option = argv[index];
+    const value = argv[index + 1];
+    assert.ok((option === "--output" || option === "--dependency-baseline") && typeof value === "string"
+      && path.isAbsolute(value) && !Object.hasOwn(options, option), usage);
+    options[option] = path.resolve(value);
+  }
+  assert.ok(!options["--dependency-baseline"] || options["--output"], usage);
+  return { outputRoot: options["--output"], baselineRoot: options["--dependency-baseline"] };
 }
 
 async function main() {
-  const outputRoot = parseArguments(process.argv.slice(2));
+  const { outputRoot, baselineRoot } = parseArguments(process.argv.slice(2));
+  if (baselineRoot) {
+    assert.ok(outputRoot !== baselineRoot && !outputRoot.startsWith(`${baselineRoot}${path.sep}`)
+      && !baselineRoot.startsWith(`${outputRoot}${path.sep}`), "Output and dependency baseline must not overlap");
+  }
+  const dependencyBaseline = baselineRoot ? await readDependencyBaseline(baselineRoot, PACKAGES.map(({ name }) => name)) : undefined;
   let tempRoot;
   if (outputRoot === undefined) {
     tempRoot = await mkdtemp(path.join(tmpdir(), "agenai-agent-sdk-consumer-"));
@@ -2408,18 +2513,26 @@ async function main() {
         await inspectTarball(definition, tarballPath, extractedRoot),
       );
     }
-    const coreConsumer = await runCoreConsumer(tempRoot, artifacts);
-    const { liveExampleSha256, rememberedAcpExampleSha256 } = await runConsumer(tempRoot, artifacts);
+    const coreConsumer = await runCoreConsumer(tempRoot, artifacts, dependencyBaseline);
+    const { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence } = await runConsumer(tempRoot, artifacts, dependencyBaseline);
+    const dependencyEvidencePath = dependencyBaseline ? path.join(tempRoot, "dependency-baseline.json") : undefined;
+    if (dependencyEvidencePath) await writeFile(dependencyEvidencePath, JSON.stringify({
+      schema: "agenai.agent-sdk.consumer-dependency-baseline.v1", baselineRoot,
+      profiles: [coreConsumer.dependencyEvidence, dependencyEvidence],
+    }, null, 2) + "\n", { flag: "wx" });
     process.stdout.write(`${JSON.stringify({
       proof: "agent-sdk-packed-artifact-identities",
       example: {
         path: "examples/live-request-output.ts",
         sha256: liveExampleSha256,
       },
+      sessionContinuationExample: { files: coreConsumer.continuationExamples, installedSdkPackages: coreConsumer.packages },
+      sessionContinuationAcpExample: { files: continuationAcpFiles },
       lifecycleExample: { path: "examples/lifecycle-interactions.ts", sha256: coreConsumer.exampleSha256, installedSdkPackages: coreConsumer.packages },
       rememberedExample: { path: "examples/remembered-approvals.ts", sha256: coreConsumer.rememberedExampleSha256,
         installedSdkPackages: coreConsumer.packages },
       rememberedAcpExample: { path: "examples/remembered-approvals-acp.ts", sha256: rememberedAcpExampleSha256 },
+      ...(dependencyEvidencePath ? { dependencyBaselineEvidence: dependencyEvidencePath } : {}),
       packages: await Promise.all(artifacts.map(async ({ manifest, tarballPath }) => ({
         name: manifest.name, version: manifest.version,
         sha256: createHash("sha256").update(await readFile(tarballPath)).digest("hex"),

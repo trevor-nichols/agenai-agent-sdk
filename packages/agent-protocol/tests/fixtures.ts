@@ -132,7 +132,7 @@ const supportedNativeDomains = {
 export const providerCapabilityFixtures = {
   fixture: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey: 'fixture',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -165,7 +165,7 @@ export const providerCapabilityFixtures = {
   },
   codex: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey: 'codex',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -189,7 +189,7 @@ export const providerCapabilityFixtures = {
   },
   claudeCode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey: 'claude_code',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -213,7 +213,7 @@ export const providerCapabilityFixtures = {
   },
   opencode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey: 'opencode',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -237,7 +237,7 @@ export const providerCapabilityFixtures = {
   },
   cursor: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey: 'cursor_acp',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -261,7 +261,7 @@ export const providerCapabilityFixtures = {
   },
   grokBuild: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey: 'grok_build',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -286,7 +286,7 @@ export const providerCapabilityFixtures = {
 } as const;
 
 const eventBase = {
-  protocolVersion: 11,
+  protocolVersion: 12,
   sessionId: 'session:external-42',
   turnId: 'turn:external-9',
   occurredAt: protocolTimestamp,
@@ -521,4 +521,5 @@ export const eventFixtureCorpus = [
     type: 'provider.diagnostic',
     payload: { code: 'native_notice', message: 'Provider emitted a notice.' },
   },
+  { ...eventBase, type: 'request.unavailable', payload: { requestId: 'request:1', reason: 'withdrawn' } },
 ] as const;

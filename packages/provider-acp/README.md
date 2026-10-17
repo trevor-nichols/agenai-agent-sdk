@@ -1,14 +1,15 @@
 # @agen-ai/provider-acp
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
-Agent Client Protocol wire version 1 into the existing Agent Protocol V11 session
-API. The coordinated SDK release is `0.4.1`.
+Agent Client Protocol wire version 1 into the existing Agent Protocol V12 session
+API. The coordinated source candidate is unpublished `0.4.2`; published `0.4.1` qualification remains
+historical evidence for its exact V11 artifacts.
 The package is ESM, MIT licensed, side-effect-free on import and requires Node.js
 22 or newer. It depends only on the public transport, runtime and protocol packages;
 the core packages remain independent of ACP.
 
 The provider pins the transport's `schema-v1.23.0` stable profile. It translates
-ACP into current V11 capabilities and rejects unsupported semantics explicitly.
+ACP into current V12 capabilities and rejects unsupported semantics explicitly.
 Connection negotiation, configured host facilities, and mapping policy fix one
 capability envelope per instance; every later connection must match it.
 
@@ -54,7 +55,7 @@ under a different policy.
 | Turns and requests | Default text turns, streamed assistant/reasoning text, tool progress, cancellation and once-only exact-action permissions by default, with opt-in complete remembered-choice mappings. One execution retains the original native prompt across request waits and answers. |
 | Resume | Exact persisted binding using advertised `session/resume`, otherwise advertised `session/load`. Load history is bounded and suppressed from new-turn output. No automatic recreation after failure. |
 | Configuration | Managed by default. Explicit `configuration: 'selectable'` maps observed boolean/select catalogs, with a session-mode fallback when config options are absent. Unknown metadata differs from observed empty metadata. |
-| Forms | Canonical boolean/single-select/multi-select forms that fit V11 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
+| Forms | Canonical boolean/single-select/multi-select forms that fit V12 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
 | Images | Inline base64 PNG/JPEG/WebP only when the peer advertises image input, within image and total turn budgets. No implicit local-file read or URL fetch. |
 | Plans | Complete replacements of observed turn plans. A mode called “plan” does not establish enforced planning behavior or approval authority. |
 | File changes | Partial structured observations from native tool diffs. Canonical paths contained by the working directory become sorted relative display paths without filesystem reads. Unfinished tools remain unknown at ordinary turn completion. No final workspace diff or Review artifact is inferred. |
@@ -68,7 +69,7 @@ Through-turn branching, same-turn steering, enforced plan mode, persistent
 SDK-owned tool-approval grants, context usage/compaction, account quota, effective skill/rule
 inventory, collaboration, generated resources and artifact publication remain
 unsupported. ACP usage counters can decrease without confirmed compaction and
-cannot satisfy V11's context continuity contract. Unsupported media output fails
+cannot satisfy V12's context continuity contract. Unsupported media output fails
 explicitly rather than disappearing from an otherwise successful transcript.
 Embedded terminal references also fail explicitly: a mutable, possibly truncated
 terminal snapshot does not provide an ordered append-only transcript. Agents can
@@ -81,7 +82,7 @@ over other conversations or account state.
 
 ## Operational failures and uncertainty
 
-The provider maps supported standard `schema-v1.23.0` prompt errors into V11 `AgentError` values.
+The provider maps supported standard `schema-v1.23.0` prompt errors into V12 `AgentError` values.
 Standard `-32000` reports `authentication` with an `authenticate` user-action hint; `-32602` reports
 `invalid_request`; `-32603` reports `provider`; standard parse/request/method errors report `protocol`.
 Other remote codes remain `unknown` with unknown recovery. Mapping uses the standard error code,
@@ -411,8 +412,9 @@ remains noninteractive. The mapping is absent by default, and ordinary standard
 unknown-extension handling never enables it implicitly.
 
 The selected launch arguments are exactly `['agent', '--no-leader', 'stdio']`.
-The adapter exposes create-only `sessionInteractions` support with an exclusive
-producer and decision requests. The handler receives a neutral workspace
+The adapter exposes the exact `sessionInteractions.mappings` tuple
+`{ openingOperation: 'create', requestKind: 'decision' }`, exclusive producer
+ownership and, in current 0.4.2 source, `humanWait: ['bounded', 'until_withdrawn_or_closed']`. The handler receives a neutral workspace
 decision and can keep its response capability after opening returns, before
 any model turn. Use the generic
 [runtime lifecycle](../agent-runtime/README.md#session-lifetime-interactions)
@@ -476,6 +478,165 @@ for these setup scenarios only. They establish no general model-turn sizing,
 other builds/platforms, browser login, native durable recovery, SDK-managed
 remembered permissions or private execution support. The earlier failed native
 ownership attempt remains unqualified.
+
+The current V12 decision descriptor omits `expiresAt` because this native mapping reports no
+provider-owned expiry. The bounded host timer remains a separate policy boundary;
+`humanWait: { kind: 'until_withdrawn_or_closed' }` omits that human timer and
+rejects an explicitly supplied `limits.requestTimeoutMs`. Initialization,
+response observation, authentication and cleanup keep their finite bounds.
+Responses require `{ kind: 'decision', choiceId }`. Generalized runtime terminal/deadline and
+exact support declarations apply to this mapping: an answered terminal records
+`{ kind: 'answered', response: { kind: 'decision', choiceId } }`, and host timeout records
+`{ kind: 'expired', source: 'host_policy' }`. A validated consumer handle exposes the effective
+`deadline` separately from the provider descriptor. Raw driver instances return candidate adapters
+whose interaction callback receives `kind: 'direct'`; registry materialization installs the
+validated consumer facade. Session forms, plan reviews and native continuations
+remain unsupported by `grok-folder-trust-v1`. The retained SDK02 native evidence
+above remains specific to its original finite waiting configuration.
+
+## Restored plan requests in current 0.4.2 source
+
+The Node constructor accepts a separate explicit selection:
+`sessionInteractions: { mapping: 'grok-build-1.0.60-session-requests-v1' }`.
+It requires an exclusive descendant-owning `executionBoundary`, exact direct
+arguments `['agent', '--no-leader', 'stdio']`, modern stable ACP
+`schema-v1.23.0`, and initialized native `_meta.agentVersion: '1.0.60'`.
+The version observation is checked on every connection; it does not authenticate
+an executable or its publisher. The host owns executable selection and byte verification.
+
+This source mapping declares exactly `resume / plan_review` and
+`resume / plan_review / after_open_return` continuation timing. It uses
+`session/load` for the selected restoration. Install `interactions.onRequest`
+and `nativeContinuations.onExecution` before resuming. The continuation handler
+must begin pulling its sole `execution.outputs` iterator before an approval or
+revision response can enter native work. A caller turn and a native continuation
+share the same execution slot and continuous output validation.
+
+The exact `_x.ai/exit_plan_mode` callback supplies a bounded complete plan
+snapshot and three offered choices. Approval maps to `{ outcome: 'approved' }`;
+revision maps to `{ outcome: 'cancelled', feedback }`; abandonment maps to
+`{ outcome: 'abandoned' }` and needs no execution reservation. A revised response
+must identify the offered plan revision and carry its bounded feedback. Missing
+or null plan content cannot become a fabricated review snapshot.
+
+Approval and revision continue the native request without sending
+`session/prompt`. The existing session turn/queue owner accepts a fresh
+`_x.ai/queue/changed.runningPromptId` beginning `plan-resume-`, correlates live
+output to that exact prompt, and completes only on its matching
+`_x.ai/session_notification` `turn_completed` update. Normal completion requires
+`stop_reason: 'end_turn'` and observed live output. Exact `stop_reason: 'cancelled'`
+uses the existing admitted cancellation reason to report `canceled`, or `expired`
+for a timeout, including cancellation after promotion before any assistant output.
+An unsolicited native `cancelled` terminal also reports `canceled`, without
+asserting that a caller requested interruption.
+The original execution reader retains that terminal and cleanup. The pinned
+[Grok cancellation source](https://github.com/xai-org/grok-build/blob/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8/crates/codegen/xai-grok-shell/src/session/acp_session_impl/cancel.rs#L842)
+emits this exact cancellation terminal; historical `interrupted` is not an active
+cancellation alias. Errors and foreign prompt/session identities remain failures.
+
+Historical replay, a generic interaction-resolved notification and the local
+response receipt establish no continuation completion. Prompt identities observed
+in historical or replayed queue, output and terminal channels remain retained
+under the existing shared queue/state budget, preventing later reuse as a fresh
+promotion. Repeated notifications for the already owned current prompt remain
+valid and do not reserve the same identity twice. Wrong, reused or competing
+identities fail the owned session. Ordinary caller turns remain available after
+that execution and its reader settle.
+
+The selected 1.0.60 mapping also isolates direct native child-session observations.
+Only a root-channel `_x.ai/session_notification` `subagent_spawned` announcement
+with exact parent, child and subagent identities records that relationship.
+Announced child queue notifications, stable session updates and native terminal
+observations are validated and discarded before parent metadata, output,
+continuation prompt tracking or completion. Unknown extensions, tool text and
+permission metadata cannot announce a child. Arbitrary foreign sessions,
+conflicting identity reuse and nested child announcements fail the owned session.
+
+Each retained relationship shares the existing session queue's count and byte
+budget; each identity is bounded to 256 UTF-8 bytes. Exact repeated announcements
+reserve no extra state. Relationships remain reserved until session stop because
+a child's prompt terminal does not establish child-session retirement. Historical
+relationships are replay-only and cannot become live; discarded load-time child
+observations still consume the opening replay budget. This observation scope adds
+no public collaboration capability or child permission, filesystem, terminal or
+form authority. Parent-addressed permission requests retain their existing root
+session routing, and child-addressed requests remain rejected.
+
+For an announced live child with an exact attempt identity, this mapping recognizes
+one ordered native permission cancellation sequence. The child's
+`pending_interaction` must first identify a permission tool. Its exact root-routed
+`session/request_permission` callback must then identify that child through
+`toolCall._meta['x.ai/requestingSessionId']` and the same tool ID. A subsequent
+child `interaction_resolved` followed by a root `subagent_finished` with the exact
+child/subagent/attempt identities and `status: 'cancelled'` withdraws only that
+original callback. The existing request owner queues `request.unavailable` for a
+displayed request before rejecting its reverse callback with `-32800`; an unseen
+queued callback is removed without publishing its ID. A child `turn_completed`
+notification supplies no permission cancellation authority.
+
+An `interaction_resolved` notification alone cannot establish withdrawal because
+it also covers answered and failed interactions. If its exact callback has not
+already accepted an answer, new answer entry waits for corroboration under the
+existing finite `cancellationTimeoutMs`; duplicate observations do not refresh
+that deadline. Missing or contradictory corroboration fails and quiesces the
+owned session without manufacturing withdrawal. An already entered answer keeps
+its original receipt. Native callback reservations remain retained until actual
+transport settlement and entered host work finish. Child/tool census entries,
+including retired identities and their possible answer-wait state, share the
+session count and byte budgets until stop. Pre-admission, prior-turn and replayed
+facts cannot attach to or withdraw a future callback. This mapping consumes
+observed native facts; it adds no child cancellation command or child-addressed
+request authority.
+
+The selected lifecycle request queue retains at most
+`min(maxPendingRequests, 16)` native turn callbacks and 1 MiB of request material,
+within the existing shared session budget. Lower configured limits still win.
+Queued, displayed, response-entered and canceled callbacks remain counted until
+their actual transport settlement and any entered host callback finish. Generic
+ACP compositions retain the existing configurable request ceiling of 1–256
+and default 16; the selected request-material ceiling does not replace the
+8 MiB default output budget.
+
+Exact standard `$/cancel_request` disables only its correlated reverse callback.
+A displayed turn request emits one `request.unavailable` with reason `withdrawn`
+on its original execution before the next surviving FIFO request opens. A queued
+canceled callback stays unseen. The protocol cancellation response is separate
+from a human denial, and an already entered local delivery receipt keeps its
+truth even if cancellation or a later write failure occurs. Output continues
+through the original reader.
+
+Both finite and `until_withdrawn_or_closed` human waiting are accepted for these
+selected session requests. Actual provider expiry remains independent. This
+mapping adds no create/branch session review, outside-turn form, remembered
+approval, durable native recovery or private Hostd authority. Folder-trust
+selection and its create-only restriction remain independent.
+
+Controlled public-constructor and pipe-boundary proof establishes generic FIFO,
+queued withdrawal, exact continuation admission and resource bounds. Final MS009
+installed-native proof separately qualifies Grok Build 1.0.60 on Linux x86_64 /
+Node 24.18.0 with modern stable `schema-v1.23.0`: exact active A withdrawal with
+zero A answers, later B once-only delivery/effect, the original output terminal,
+fresh retained approve/revise continuations with no caller prompt, and no-work
+abandonment during its bounded observation. Each selected case independently
+observes the original workload empty after first SDK close while the consumer
+remains alive, before disposal.
+
+That current Grok composition explicitly sets `GROK_AUTO_WAKE=0`,
+`GROK_WORKER_THREADS=1`, `GROK_SUBAGENT_WORKER_THREADS=1` and
+`GROK_GIX_STATUS_THREADS=1`. Automatic parent wake remains unqualified. Native
+permission forwarding is observed to serialize; simultaneous live Grok callbacks
+into the SDK FIFO queue remain unqualified under the user-accepted MS009 amendment.
+Generic ACP FIFO and the separate Claude diagnostic's native FIFO proof do not
+extend that Grok claim. The selected human-wait observation is 250 ms, which proves
+that mapping's bounded observation rather than arbitrary native waiting duration.
+
+The campaign uses isolated scripted model responses and a constant fake credential;
+it qualifies no real backend authentication, inference or billing. The separate
+Grok 1.0.50 remembered-edit regression retains its historical launch environment
+and recorded task-limit warnings; it makes no capacity-headroom claim. Existing
+Grok 1.0.50 qualification and the legacy `v0.11.4` transport profile retain their
+original scope. The [0.4.2 migration guide](../../MIGRATING-TO-0.4.2.md) identifies
+the executable examples, supported tuples and unsupported native paths.
 
 ## Reserved execution ownership
 
@@ -760,8 +921,8 @@ close ends that handle's ownership. The host retains control over its process po
 Canonical forms preflight the whole schema before presenting a request. They
 support at most 16 ordinary fields and 100 choices per selection. Free-text fields,
 nested objects, numeric fields, defaults, patterns/formats, and constraints without
-a V11 representation are rejected. Native free text permits blank/whitespace values
-and measures length in Unicode code points; V11 text answers use nonblank/UTF-16
+a V12 representation are rejected. Native free text permits blank/whitespace values
+and measures length in Unicode code points; V12 text answers use nonblank/UTF-16
 bounds. The provider does not narrow those native semantics silently. Enumerated
 string values can map through opaque canonical selection IDs.
 A required multi-select must require exactly one minimum selection; an optional
@@ -782,7 +943,7 @@ binding grants no interaction authority. Their host callbacks receive a turn
 lifetime signal that ends on cancellation, settlement or close.
 
 Image input allows at most 16 images, 375,000 decoded bytes per image and 750,000
-decoded bytes total, subject to the stricter 1 MiB V11 turn-content bound. Declared
+decoded bytes total, subject to the stricter 1 MiB V12 turn-content bound. Declared
 media type, dimensions, base64 encoding and byte counts are validated. The provider
 does not decode pixels or publish generated bytes; hosts needing image-content
 inspection must perform it before submitting input.

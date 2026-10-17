@@ -32,7 +32,7 @@ export class AcpHostRouter {
   private readonly terminals: AcpHostTerminals;
   private readonly requests = new Map<string, RequestScope>();
   private binding: AcpBoundSession | undefined;
-  private pending = 0;
+  private readonly pending = new Map<Promise<void>, Promise<void>>();
   private bytes = 0;
 
   constructor(private readonly input: {
@@ -40,6 +40,7 @@ export class AcpHostRouter {
     readonly host: AcpHostFacilities;
     readonly limits: AcpProviderLimits;
     readonly stopped: AbortSignal;
+    readonly humanTimeoutMs?: () => number | undefined;
     readonly ingress: () => AcpSessionIngress | undefined;
   }) {
     this.interactions = new AcpHostInteractions(input);
@@ -80,27 +81,29 @@ export class AcpHostRouter {
   }
 
   admit(context: AcpReverseRequestContext): Promise<AcpJsonValue> {
+    const params = hostObject(context.params);
+    if (context.method === 'session/request_permission'
+      || (context.method === 'elicitation/create' && Object.hasOwn(params, 'sessionId'))) return this.route(context, params);
     const bytes = Buffer.byteLength(JSON.stringify(context.params), 'utf8');
-    if (this.pending >= this.input.limits.maxPendingRequests
+    if (this.pending.size >= this.input.limits.maxPendingRequests
       || this.bytes + bytes > this.input.limits.maxQueuedBytes) {
       throw new AcpRpcHandlerError(-32603, 'The host request capacity was exceeded.');
     }
-    this.pending += 1;
     this.bytes += bytes;
-    let result: Promise<AcpJsonValue>;
-    try { result = this.route(context); } catch (error) {
-      this.pending -= 1; this.bytes -= bytes; throw error;
-    }
+    const retirement = context.settled.then(() => this.interactions.joinRequest(context.settled)).then(() => {
+      this.pending.delete(context.settled); this.bytes -= bytes;
+    });
+    this.pending.set(context.settled, retirement);
+    const result = this.route(context, params);
     return result.then((value) => {
       if (Buffer.byteLength(JSON.stringify(value), 'utf8') > Math.min(this.input.limits.maxQueuedBytes, 8 * 1_024 * 1_024) - 512) {
         throw invalidHostRequest();
       }
       return value;
-    }).finally(() => { this.pending -= 1; this.bytes -= bytes; });
+    });
   }
 
-  private route(context: AcpReverseRequestContext): Promise<AcpJsonValue> {
-    const params = hostObject(context.params);
+  private route(context: AcpReverseRequestContext, params: AcpJsonObject): Promise<AcpJsonValue> {
     if (context.method === 'elicitation/create') {
       const session = Object.hasOwn(params, 'sessionId');
       const request = Object.hasOwn(params, 'requestId');
@@ -162,17 +165,21 @@ export class AcpHostRouter {
     return this.interactions.complete(id);
   }
 
-  sessionElicitation(context: AcpReverseRequestContext): Promise<AcpJsonValue> {
+  sessionElicitation(context: AcpReverseRequestContext, observeCallback?: (work: Promise<void>) => void): Promise<AcpJsonValue> {
     const bound = this.requireSession(hostObject(context.params), context.signal);
     return this.interactions.request(context, { kind: 'session', sessionId: bound.sessionId,
-      workingDirectory: bound.workingDirectory }, context.signal);
+      workingDirectory: bound.workingDirectory }, context.signal, observeCallback);
   }
 
   async close(): Promise<void> {
     for (const request of this.requests.values()) request.abort();
     this.requests.clear();
-    const results = await Promise.allSettled([this.interactions.close(), this.terminals.close()]);
-    const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
-    if (failures.length) throw new AggregateError(failures.map((result) => result.reason), 'ACP host facility cleanup failed.');
+    const deadline = hostDeadline(new AbortController().signal, this.input.limits.hostOperationTimeoutMs);
+    const join = async () => { while (this.pending.size > 0) await Promise.all(this.pending.values()); };
+    try {
+      const results = await Promise.allSettled([this.interactions.close(), this.terminals.close(), awaitHost(join(), deadline.signal)]);
+      const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (failures.length) throw new AggregateError(failures.map((result) => result.reason), 'ACP host facility cleanup failed.');
+    } finally { deadline.close(); }
   }
 }

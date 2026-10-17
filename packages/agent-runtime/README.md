@@ -9,9 +9,14 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This package implements Agent Protocol V11 at coordinated SDK release `0.4.1`,
-including the additive session-interaction API. The earlier `0.4.0` release retains V10.
-Upgrade consumers from `0.3.1` using the coordinated release and its migration guide.
+This unpublished source candidate implements Agent Protocol V12 at coordinated SDK version `0.4.2`,
+including tagged decision responses and exact turn request unavailability. Published `0.4.1`
+retains V11 and its qualification evidence; the earlier `0.4.0` release retains V10.
+The runtime also provides neutral session forms, plan reviews, staged native continuations and
+explicit human-wait policies. Provider mappings require their own support and qualification.
+Keep all installed SDK packages at the same version; the [0.4.2 migration
+guide](../../MIGRATING-TO-0.4.2.md) covers tagged responses, continuous request output and store
+contract changes. Generic contract proof and exact native qualification are separate boundaries.
 The SDK contract version is independent of private transport and product persistence versions. This
 is intentionally one coordinated tuple rather than a deployable mixed-version graph.
 
@@ -198,28 +203,35 @@ same correlation and lifecycle validation at their respective ports.
 
 ## Session-lifetime interactions
 
-An adapter can offer a decision outside any model turn through `sessionInteractions`.
-Its support declaration is separate from V11 turn capabilities: absence means
-`{ kind: 'unsupported' }`; supported adapters name exact `openingOperations`, declare
-`requestKinds: ['decision']` and require `producerOwnership: 'exclusive'`. Supplying
-`interactions` for an unsupported opening raises `session_interactions_unsupported` before
-delegating that opening. An adapter's create support does not imply resume or branch support.
+An adapter can offer a decision, form or plan review outside a model turn through
+`sessionInteractions`. Support is separate from portable turn capabilities: absence means
+`{ kind: 'unsupported' }`. Supported adapters declare exact
+`{ openingOperation, requestKind }` mappings, `producerOwnership: 'exclusive'` and supported
+`humanWait` modes. Create support does not imply resume or branch support. Supplying a handler
+or policy for an unsupported mapping rejects before candidate opening.
 
-Install `interactions.onRequest` before opening. The callback receives a bound
-`AgentSessionInteraction` containing the portable request, an eligibility signal, a
-terminal promise and `respond({ choiceId, signal? })`. The handler can return immediately
-after handing the capability to an owned UI, or return the promise for its work. Opening
-may return while the decision remains pending; questions can also arrive after return.
-Do not block session creation waiting for every human decision or route these decisions
-through `startTurn`, `AgentEvent`, or an execution's `resolveRequest`.
+Driver authors implement `AgentProviderAdapter` with candidate opening inputs
+`AgentProviderCreateSessionInput`, `AgentProviderResumeSessionInput` and
+`AgentProviderBranchSessionInput`. The runtime installs their producer facade before entering
+that opening. Registry consumers receive `AgentValidatedProviderAdapter` in a
+`ValidatedMaterializedAgentProviderInstance`; they use `AgentCreateSessionInput`,
+`AgentResumeSessionInput` and `AgentBranchSessionInput`. These types separate provider offers
+from application handlers. Revalidating an adapter retains its original candidate ownership.
 
-For an already selected `adapter`, host-owned `openingInput` and UI-owned map, register early:
+Install `interactions.onRequest` before opening. The application callback receives a bound
+`AgentSessionInteraction` containing its immutable portable request, observed deadline,
+eligibility signal, terminal promise and `respond` capability. Narrow `request.kind` before
+reading workspace targets, form fields or the exact plan snapshot. Responses are tagged by
+kind and validate the offered choice and action; forms validate field answers, and plan
+responses validate plan ID and revision. Only revision accepts required nonblank feedback.
+
+For an already selected validated `adapter`, host-owned `openingInput` and UI-owned map:
 
 ```ts
-import type { AgentProviderCreateSessionInput, AgentSessionInteraction } from '@agen-ai/agent-runtime';
+import type { AgentCreateSessionInput, AgentSessionInteraction } from '@agen-ai/agent-runtime';
 
 const pending = new Map<string, AgentSessionInteraction>();
-const input: AgentProviderCreateSessionInput = {
+const input: AgentCreateSessionInput = {
   ...openingInput,
   interactions: {
     onRequest(interaction) {
@@ -228,67 +240,124 @@ const input: AgentProviderCreateSessionInput = {
   },
 };
 const session = await adapter.createSession(input);
-// Present the request target and every choice consequence before selecting a choice.
-// Answer using that retained interaction's respond({ choiceId }) capability.
-// The UI retires terminal entries and observes interaction.signal.
+// Narrow request.kind and present the actual offered choices before answering.
+// A workspace decision uses respond({ kind: 'decision', choiceId }).
+// Retire the UI entry when interaction.signal aborts; keep entered receipt ownership.
 ```
 
-The complete public [lifecycle example](../../examples/lifecycle-interactions.ts) uses a
-consumer-owned adapter, opens with a pending decision, selects a synthetic decline and joins
-cleanup without a model turn. It needs only the core protocol/runtime dependency closure.
-For an ordinary noninteractive opening, omit `interactions` from the input. The runtime
-does not install an automatic answer policy; a provider requiring a handler must reject that
-opening. Keep authentication and interactive materialization in their existing owners.
+A handler can return after handing the capability to an owned UI, or return a promise whose
+actual work remains tracked. Opening may return while a request remains pending. Session
+requests do not become `AgentEvent` request outputs or execution `resolveRequest` calls.
+The complete public [lifecycle example](../../examples/lifecycle-interactions.ts) opens with a
+pending decision, selects a synthetic decline and joins cleanup without a model turn. It needs
+only the core protocol/runtime dependency closure. An ordinary noninteractive opening omits
+`interactions`; no automatic answer policy is installed. A provider requiring a handler must
+reject that opening. Authentication retains its separate bounded owner.
 
-`respond` validates the choice against this exact request and allows one active response:
+`respond` allows one unsettled response attempt per request:
 
 | Receipt | Meaning |
 | --- | --- |
-| `delivered` | The provider-owned handler accepted the exact choice. The interaction becomes `answered`; this does not prove a wire write, native consumption, effect completion or persistent storage. |
-| `rejected` with `requestState: 'pending'` | Definitive refusal preserves this request's eligibility. A second response while one is active also receives pending refusal; it cannot start overlapping native delivery. |
-| `rejected` with `requestState: 'unavailable'` | The request has retired and the capability cannot answer it again. |
-| `delivery_uncertain` | Entered delivery did not establish acceptance or refusal. The session is fenced against further mutation; close it without replaying the choice. |
+| `delivered` | The provider-owned handler accepted the exact response. This does not prove model consumption, continuation start, successful effects or persistence. |
+| `rejected` with `requestState: 'pending'` | Definitive refusal permits a later attempt only if the request remains live. A concurrent response also receives pending refusal without entering overlapping delivery. |
+| `rejected` with `requestState: 'unavailable'` | The request cannot be answered again. |
+| `delivery_uncertain` | Entered delivery did not establish acceptance or refusal. Mutation is fenced; retain cleanup and do not replay the response. |
 
-Malformed choices and pre-aborted response inputs preserve their original errors before provider
-entry. An entered response that throws or exceeds its response deadline returns uncertainty,
-even if the provider later settles. Closing or aborting does not make an entered answer safe
-to repeat. Successful cleanup never resolves that uncertainty or authorizes replay.
+Terminals are `answered`, `rejected`, `delivery_uncertain`, `withdrawn`, `expired`,
+`session_closed` and `failed`. `answered.response` retains accepted kind, choice and action,
+plus plan ID/revision where applicable; it does not duplicate form values or revision feedback.
+`expired.source` distinguishes provider expiry from host policy. A terminal ends answer
+eligibility, independently of an entered attempt's receipt. A delivered or rejected/pending
+receipt racing withdrawal remains unchanged and cannot restore the retired request.
 
-Terminal variants are `answered`, `rejected`, `delivery_uncertain`, `withdrawn`, `expired`,
-`session_closed`, and `failed`. `interaction.signal` controls answer eligibility and UI
-presentation; terminal settlement records the decision lifecycle. Neither means the native
-producer, entered response or callback has stopped. Close first fences admission and starts
-native shutdown, then joins the actual response, terminal and callback work. A callback that
-ignores abort remains owned. Request expiry or handler failure fails the interaction owner;
-cleanup and its original failure remain observable through the owning session.
+Local parse and pre-abort errors remain precise before provider entry. Entered response
+exceptions or observation timeout return uncertainty. Successful cleanup cannot establish
+whether an uncertain answer was accepted or authorize replay. Eligibility abortion, terminal
+settlement and promise observation are not proof that producers or callbacks have joined.
 
-The runtime validates integer overrides once on the opening context:
+### Human waiting and retention
+
+Omitting `humanWait`, or selecting `{ kind: 'bounded' }`, retains the finite default.
+The only numeric human timeout is `limits.requestTimeoutMs`. An explicitly supported
+`humanWait: { kind: 'until_withdrawn_or_closed' }` installs no SDK human timer. Supplying a
+`requestTimeoutMs` property in that mode rejects before opening, even when it equals the
+default. The producer facade omits that property in unbounded mode.
+
+The descriptor's optional `expiresAt` means actual provider expiry. At validated offer time,
+the runtime fixes `interaction.deadline` to the earlier provider expiry or bounded host policy;
+provider expiry wins a tie. No provider expiry and no host timer yields `{ kind: 'no_deadline' }`.
+Presentation delay and queue residence do not restart this deadline. Expiry never fabricates an
+answer. Without independently qualified provider-local survival semantics, expiry initiates
+owned shutdown. Exact withdrawal remains distinct from expiry or general transport failure.
 
 | Limit | Default | Allowed override |
 | --- | --- | --- |
 | `maxRetainedRequests` | 8 | 1 to 32 |
 | `maxRetainedBytes` | 524,288 bytes | 65,536 to 2,097,152 bytes |
-| `requestTimeoutMs` | 300,000 ms | 1,000 to 1,800,000 ms |
+| `requestTimeoutMs` in bounded mode | 300,000 ms | 1,000 to 1,800,000 ms |
 | `responseTimeoutMs` | 30,000 ms | 1,000 to 120,000 ms |
 | `cleanupTimeoutMs` | 30,000 ms | 1,000 to 120,000 ms |
 
-Request eligibility uses the earlier provider expiry or runtime request deadline. Retained
-capacity includes terminal requests whose native terminal, response or callback has not drained.
-Unknown fields, fractional values and values outside the bounds reject the opening context.
-The opening signal applies until the session is adopted; later cancellation belongs to the
-returned session or a specific response rather than the completed opening call.
+Retained descriptor bytes include each immutable plan snapshot once. Separately bounded
+response material remains charged to its single unsettled attempt. Terminal requests stay
+retained until actual native terminal, response and presentation callback work drain.
+Unknown fields, fractional values and out-of-range overrides reject. Human-wait policy does
+not remove response, preparation, cleanup, authentication, transport or capacity bounds.
+All turn and session request IDs share the fixed session-generation census of 4,096 IDs and
+1 MiB of UTF-8 identity bytes; tombstones are not evicted to grant reuse.
 
-If an opening fails with incomplete cleanup, use
-`isAgentProviderSessionCleanupErrorFor(error, openingInput)` with the exact input object
-passed to the adapter, such as `input` above.
-Retain that `AgentProviderSessionCleanupError` and its bound `retryCleanup()`; keep the
-registry, instance, host resources and installation references owned until it succeeds.
-A returned session with failed close likewise retains cleanup through the session and any
-returned cleanup error. An observation timeout does not detach the actual work. Retry joins
-the same owner and never opens another session or resends a choice. Serialized errors and
-request IDs cannot restore callable cleanup or response authority. Adapter authors use
-`createAgentProviderSessionCleanupError({ openingInput, providerKey, errors, retryCleanup })`
-to preserve a failed opening's exact cleanup owner.
+### Native continuations
+
+A response that can start native work uses a provider `prepared` interaction. Effect-free
+`prepareResponse` receives the exact parsed response and runtime-owned attempt identity.
+It returns either `no_continuation` or `native_continuation`, with once-only `dispatch` and
+idempotent predispatch `cancel` operations. Direct interactions may only deliver responses
+that cannot start execution. A known no-work action does not reserve an execution.
+
+The application installs `nativeContinuations.onExecution` before opening. Exact support
+includes the opening operation, request kind and timing; it does not imply other combinations.
+When preparation selects a continuation, the runtime synchronously reserves the same slot
+used by caller `startTurn`, allocates a turn identity and adopts the candidate through ordinary
+output validation. It never creates a synthetic caller prompt or calls candidate `startTurn`.
+
+The host must actually call `next()` on the supplied execution's sole output iterator. Merely
+retaining the handle or acquiring an iterator is insufficient. The parked wrapper pull proves
+reader readiness without touching the candidate iterator before dispatch. A handler may await
+that first output: dispatch does not wait for callback fulfillment. After readiness, runtime
+rechecks exact request, attempt, opening, deadline and slot ownership before entering dispatch.
+Output produced during dispatch stays on that original reader.
+
+One fixed 30-second window covers preparation and reader readiness from response claim.
+Predispatch failure cancels and joins allocated source/callback ownership before releasing the
+slot. Failed cleanup retains the stopped owner and its retry handle. A started execution uses
+normal session quiescence and output cleanup. The independent continuation `outcome` reports
+`started` or `not_started`; a delivery receipt proves neither. Missing outcome cannot free a
+slot or rewrite a delivered receipt. One dispatch-anchored response deadline observes both
+receipt and outcome; uncertainty fences mutation without dropping either owner.
+
+Opening timing is explicit: `after_open_return`, `before_open_return`, or `before_binding`.
+The opening owner exists before candidate entry and transfers atomically after exact binding
+validation. Exceptional data awaiting binding is limited to 16 envelopes, 1 MiB and 30 seconds.
+It cannot invent a binding or route output by working directory. Core timing support does not
+qualify a native provider mapping; select only that provider's explicitly supported tuple.
+
+### Close and retained cleanup
+
+Close fences opening/session admission and starts native quiescence before joining preparation,
+responses, output and callbacks. A callback ignoring abort remains owned. Host binding and
+installation resources are released only after actual native cleanup and joins succeed.
+The opening signal applies until adoption; later cancellation belongs to the returned session
+or response owner.
+
+If opening fails with incomplete cleanup, call
+`isAgentProviderSessionCleanupErrorFor(error, openingInput)` with the exact original object.
+Retain the matching `AgentProviderSessionCleanupError` and its bound `retryCleanup()`; keep
+registry, instance, host resources and installation references until it succeeds. A returned
+session with failed close likewise retains cleanup through that session and its cleanup error.
+An observation timeout cannot detach actual work. Retry joins the same owner without opening
+another session or resending a response. Serialized errors and request IDs cannot restore
+callable cleanup or response authority. Adapter authors preserve failed opening ownership with
+`createAgentProviderSessionCleanupError({ openingInput, providerKey, errors, retryCleanup })`.
 
 ## Session-local host tools and instructions
 
@@ -448,6 +517,21 @@ instance identity, capabilities, readiness, create/resume/branch, binding callba
 turn/request ordering, request resolution, steering, interruption, configuration, idempotent
 close, and idempotent disposal. Unsupported operations must remain explicit discriminants and
 must not expose handlers.
+
+`resolutionFor(request, { signal })` accepts the existing synchronous resolution callback,
+an asynchronous callback, or `undefined` to deliberately leave a request unanswered. Its
+request-scoped signal aborts when the original output stream reports that exact request
+unavailable, when the turn completes, or when conformance cleanup begins. Honor the signal
+to dismiss pending human input; do not fabricate a denial or retry an answer after retirement.
+The runner continuously reads the same execution while callbacks and delivery receipts are
+pending. A returned answer is checked against the exact offered request before delivery.
+`request_resolution` appears in the report only after a delivered receipt;
+`request_unavailability` records consumption of a native retirement event. Opening a request
+alone proves neither. The runner checks session controls before its main turn and inspects
+turn-produced resources after terminal output while the session remains open. It then starts session
+close before joining its reader and actual callback tasks; failure also starts close before joins. Original
+failures and cleanup failures remain observable. A callback that ignores cancellation
+remains owned until its actual promise settles.
 
 The coordinated SDK release is `0.4.1` and implements Agent Protocol V11.
 The earlier `0.4.0` release retains V10.

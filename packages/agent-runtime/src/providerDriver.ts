@@ -14,7 +14,7 @@ import type { MaybePromise } from "./foundation.js";
 import type { AgentAccountQuotaPort } from "./accountQuota/types.js";
 import type { AgentEnvironmentDiscoveryPort } from "./environment/types.js";
 import type { AgentProviderReadiness } from "./readiness.js";
-import type { AgentProviderAdapter } from "./sessions.js";
+import type { AgentProviderAdapter, AgentValidatedProviderAdapter } from "./sessions.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Instance Contracts
@@ -43,6 +43,8 @@ export interface MaterializedAgentProviderInstance {
 }
 
 // ------------------------------------------------------------------------------------------------
+export type ValidatedMaterializedAgentProviderInstance = Omit<MaterializedAgentProviderInstance, "adapter"> & Readonly<{ adapter: AgentValidatedProviderAdapter }>;
+
 //                Driver Contracts
 // ------------------------------------------------------------------------------------------------
 

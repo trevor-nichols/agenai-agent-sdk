@@ -13,6 +13,7 @@ import {
   createAgentProviderReadiness,
   createAgentProviderRegistry,
   type AgentProviderDriver,
+  type AgentProviderDirectSessionInteraction,
   type AgentProviderSession,
   type AgentSessionInteraction,
   type AgentSessionInteractionTerminal,
@@ -20,7 +21,7 @@ import {
 
 // This consumer-owned adapter is a deterministic fixture with no native, network, or storage effect.
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 11,
+  protocolVersion: 12,
   providerKey: 'example-lifecycle-interactions',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
   turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
@@ -64,9 +65,9 @@ const driver: AgentProviderDriver = {
         resumption: { kind: 'unsupported' },
         branching: { kind: 'unsupported' },
         authentication: { kind: 'unsupported' },
-        // Support is separate from V10 turn capabilities and applies only to this opening operation.
-        sessionInteractions: { kind: 'supported', openingOperations: ['create'],
-          requestKinds: ['decision'], producerOwnership: 'exclusive' },
+        // Support is separate from portable turn capabilities and applies only to this opening operation.
+        sessionInteractions: { kind: 'supported', mappings: [{ openingOperation: 'create', requestKind: 'decision' }],
+          producerOwnership: 'exclusive', humanWait: ['bounded'] },
         createSession(context): AgentProviderSession {
           context.signal?.throwIfAborted();
           if (!context.interactions) throw new Error('This controlled adapter requires a setup handler.');
@@ -101,14 +102,15 @@ const driver: AgentProviderDriver = {
           }
           const unavailable = parseAgentError({ category: 'unknown', code: 'example_request_unavailable',
             message: 'The controlled decision no longer accepts an answer.', recovery: { kind: 'none' } });
-          const interaction: AgentSessionInteraction = {
-            request, signal: lifetime.signal, terminal,
+          const interaction: AgentProviderDirectSessionInteraction = {
+            kind: 'direct', request, signal: lifetime.signal, terminal,
             async respond(input) {
-              const response = parseAgentSessionDecisionResponseFor(request, { choiceId: input.choiceId });
-              input.signal?.throwIfAborted();
+              const { signal, ...value } = input;
+              const response = parseAgentSessionDecisionResponseFor(request, value);
+              signal?.throwIfAborted();
               if (result) return { status: 'rejected', requestState: 'unavailable', error: unavailable };
               statistics.acceptedAnswers += 1;
-              finish({ kind: 'answered', choiceId: response.choiceId });
+              finish({ kind: 'answered', response });
               // This receipt establishes acceptance by this handler; the fixture performs no effect.
               return { status: 'delivered' };
             },
@@ -177,16 +179,17 @@ try {
 
   // Present request.title, request.target and every choice consequence to the user.
   // Only this synthetic walkthrough selects decline automatically; hosts own their decision policy.
+  assert.ok(interaction.request.kind === 'decision', 'The workspace fixture must offer a decision.');
   const decline = interaction.request.choices.find((choice) => choice.consequence.kind === 'decline');
   assert.ok(decline);
   transcript.push(`host.selected:${decline.choiceId}`);
-  const receipt = await interaction.respond({ choiceId: decline.choiceId });
+  const receipt = await interaction.respond({ kind: 'decision', choiceId: decline.choiceId });
   receiptStatus = receipt.status;
   assert.equal(receipt.status, 'delivered');
   transcript.push('answer.delivered');
   const terminal = await interaction.terminal;
   terminalKind = terminal.kind;
-  assert.deepEqual(terminal, { kind: 'answered', choiceId: decline.choiceId });
+  assert.deepEqual(terminal, { kind: 'answered', response: { kind: 'decision', choiceId: decline.choiceId } });
   transcript.push('decision.answered');
   // Neither the receipt nor terminal proves native effect or persistence. There is no native provider here.
 } finally {

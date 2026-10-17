@@ -21,7 +21,8 @@ export function rawRequestHistory(database: DatabaseSync, operationId: string, r
   assert.ok(pendingRun);
   return { format: Number(database.prepare('PRAGMA user_version').get()?.user_version), state: { ...state },
     schema: rows(database, "SELECT type,name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name"),
-    operationBlob: Buffer.from(operation).toString('hex'), pendingRun: { ...pendingRun },
+    operationBlob: Buffer.from(operation).toString('hex'),
+    requestOperations: rows(database, "SELECT * FROM delegation_operations WHERE run_id=? AND json_extract(CAST(data_blob AS TEXT),'$.kind')='request_resolution' ORDER BY operation_id", runId), pendingRun: { ...pendingRun },
     historical: formatThreeFixture.ids.map((id) => ({
       runs: rows(database, 'SELECT * FROM delegation_runs WHERE run_id=?', id.runId),
       tasks: rows(database, 'SELECT * FROM delegation_tasks WHERE task_id=?', id.taskId),
@@ -44,6 +45,7 @@ export function assertRetainedRequestHistory(current: RawRequestHistory, previou
   assert.equal(current.format, 3);
   assert.deepEqual(current.schema, previous.schema, 'Opening and recovery must not migrate the exact format-three layout.');
   assert.equal(current.operationBlob, previous.operationBlob, 'The padded accepted-answer operation slot must remain byte-identical.');
+  assert.deepEqual(current.requestOperations, previous.requestOperations, 'Every entered request receipt remains byte-identical across recovery.');
   assert.deepEqual(current.historical, previous.historical, 'Original V10 settled slots, receipt bytes, inputs and observations must remain byte-identical.');
   const { owner_epoch: _currentEpoch, owner_nonce: _currentNonce, ...currentState } = current.state;
   const { owner_epoch: _previousEpoch, owner_nonce: _previousNonce, ...previousState } = previous.state;

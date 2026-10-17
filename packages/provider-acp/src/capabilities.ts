@@ -21,9 +21,9 @@ export function acpProviderCapabilities(
   permissionMapping: AcpPermissionMappingSelection = { mapping: 'once-only-v1' },
 ): AgentCapabilities {
   return freezeCapabilities(parseAgentCapabilities({
-    protocolVersion: 11,
+    protocolVersion: 12,
     providerKey,
-    sessions: { create: true, resume: sessionInteractions === undefined && (negotiated.agentCapabilities.loadSession === true
+    sessions: { create: true, resume: sessionInteractions?.mapping !== 'grok-folder-trust-v1' && (negotiated.agentCapabilities.loadSession === true
       || (negotiated.agentCapabilities.sessionCapabilities as import('@agen-ai/acp-transport').AcpJsonObject | undefined)?.resume != null), branch: { kind: 'unsupported' } },
     turns: { interactionModes: ['default'], interrupt: true, steer: { kind: 'unsupported' } },
     requests: {

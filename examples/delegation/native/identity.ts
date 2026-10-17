@@ -15,7 +15,7 @@ export const SDK_PACKAGE_NAMES = [
 export interface RuntimeFile { readonly path: string; readonly bytes: number; readonly sha256: string }
 export interface SdkPackageIdentity {
   readonly name: typeof SDK_PACKAGE_NAMES[number];
-  readonly version: '0.4.1';
+  readonly version: '0.4.2';
   readonly sourceGitTree: string;
   readonly manifestSha256: string;
   readonly runtimeFiles: readonly RuntimeFile[];

@@ -49,6 +49,12 @@ import {
 import {
   AgentSessionDecisionRequestPortableSchema,
   AgentSessionDecisionResponsePortableSchema,
+  AgentSessionFormRequestPortableSchema,
+  AgentSessionFormResponsePortableSchema,
+  AgentSessionPlanReviewRequestPortableSchema,
+  AgentSessionPlanReviewResponsePortableSchema,
+  AgentSessionRequestPortableSchema,
+  AgentSessionResponsePortableSchema,
 } from '../src/zod/sessionInteractions.ts';
 import {
   AgentTurnInputContentSchema,
@@ -83,6 +89,48 @@ const definitions = [
     direction: 'input',
     schema: AgentSessionDecisionResponsePortableSchema,
     parserInvariants: ['bounded_acyclic_json_data', 'utf8_field_bytes', 'serialized_utf8_bytes', 'offered_choice_membership'],
+  },
+  {
+    exportName: 'AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-form-request',
+    direction: 'output',
+    schema: AgentSessionFormRequestPortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf16_text_lengths', 'utf8_field_bytes', 'serialized_utf8_bytes', 'unique_choice_ids', 'unique_choice_actions', 'unique_field_ids', 'unique_choice_values', 'field_selection_bounds'],
+  },
+  {
+    exportName: 'AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-form-response',
+    direction: 'input',
+    schema: AgentSessionFormResponsePortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf16_text_lengths', 'utf8_field_bytes', 'serialized_utf8_bytes', 'offered_choice_membership', 'offered_action_correlation', 'field_answer_correlation', 'unique_choice_selections', 'exact_plan_revision', 'request_kind_correlation'],
+  },
+  {
+    exportName: 'AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-plan-review-request',
+    direction: 'output',
+    schema: AgentSessionPlanReviewRequestPortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf16_text_lengths', 'utf8_field_bytes', 'serialized_utf8_bytes', 'unique_choice_ids', 'unique_choice_actions', 'plan_text_utf8_bytes'],
+  },
+  {
+    exportName: 'AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-plan-review-response',
+    direction: 'input',
+    schema: AgentSessionPlanReviewResponsePortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf16_text_lengths', 'utf8_field_bytes', 'serialized_utf8_bytes', 'offered_choice_membership', 'offered_action_correlation', 'field_answer_correlation', 'unique_choice_selections', 'exact_plan_revision', 'request_kind_correlation'],
+  },
+  {
+    exportName: 'AGENT_SESSION_REQUEST_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-request',
+    direction: 'output',
+    schema: AgentSessionRequestPortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf16_text_lengths', 'utf8_field_bytes', 'serialized_utf8_bytes', 'unique_choice_ids', 'unique_choice_actions', 'unique_field_ids', 'unique_choice_values', 'field_selection_bounds', 'plan_text_utf8_bytes'],
+  },
+  {
+    exportName: 'AGENT_SESSION_RESPONSE_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.session-response',
+    direction: 'input',
+    schema: AgentSessionResponsePortableSchema,
+    parserInvariants: ['bounded_acyclic_json_data', 'utf16_text_lengths', 'utf8_field_bytes', 'serialized_utf8_bytes', 'offered_choice_membership', 'offered_action_correlation', 'field_answer_correlation', 'unique_choice_selections', 'exact_plan_revision', 'request_kind_correlation'],
   },
   {
     exportName: 'AGENT_ERROR_JSON_SCHEMA',

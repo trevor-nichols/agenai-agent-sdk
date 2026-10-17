@@ -31,3 +31,64 @@ export function sessionDecisionFixture() {
     ],
   };
 }
+
+export function sessionFormFixture() {
+  return {
+    kind: 'form',
+    requestId: 'form:1',
+    sessionId: 'session:1',
+    title: 'Configure the workspace',
+    fields: [
+      { kind: 'text', fieldId: 'name', label: 'Name', required: true, sensitivity: 'ordinary', multiline: false, maxLength: 40 },
+      {
+        kind: 'single_select', fieldId: 'region', label: 'Region', required: true, sensitivity: 'ordinary', allowOther: false,
+        options: [{ value: 'east', label: 'East' }, { value: 'west', label: 'West' }],
+      },
+      {
+        kind: 'multi_select', fieldId: 'features', label: 'Features', required: false, sensitivity: 'ordinary', allowOther: true, maxSelections: 2,
+        options: [{ value: 'search', label: 'Search' }, { value: 'reports', label: 'Reports' }],
+      },
+      { kind: 'boolean', fieldId: 'private', label: 'Private', required: false, sensitivity: 'ordinary' },
+      { kind: 'confirmation', fieldId: 'confirmed', label: 'Confirm', confirmLabel: 'Confirmed', required: false, sensitivity: 'ordinary' },
+    ],
+    choices: [
+      { choiceId: 'submit', action: 'submit', label: 'Submit' },
+      { choiceId: 'cancel', action: 'cancel', label: 'Cancel' },
+    ],
+  };
+}
+
+export function sessionFormResponseFixture() {
+  return {
+    kind: 'form', action: 'submit', choiceId: 'submit',
+    answers: [
+      { kind: 'text', fieldId: 'name', value: 'Example workspace' },
+      { kind: 'single_select', fieldId: 'region', value: 'east' },
+      { kind: 'multi_select', fieldId: 'features', values: ['search'], other: 'Custom feature' },
+      { kind: 'boolean', fieldId: 'private', value: false },
+      { kind: 'confirmation', fieldId: 'confirmed', confirmed: false },
+    ],
+  };
+}
+
+export function sessionPlanReviewFixture() {
+  return {
+    kind: 'plan_review',
+    requestId: 'plan-review:1',
+    sessionId: 'session:1',
+    title: 'Review the implementation plan',
+    plan: {
+      planId: 'plan:1', revision: 'revision:1', title: 'Workspace implementation',
+      content: { kind: 'text', format: 'markdown', text: '# Implementation\n\n1. Inspect the workspace.\n2. Apply the approved changes.\n' },
+    },
+    choices: [
+      { choiceId: 'approve', action: 'approve', label: 'Approve' },
+      { choiceId: 'revise', action: 'revise', label: 'Request changes' },
+      { choiceId: 'abandon', action: 'abandon', label: 'Abandon' },
+    ],
+  };
+}
+
+export function sessionPlanReviewResponseFixture() {
+  return { kind: 'plan_review', action: 'revise', choiceId: 'revise', planId: 'plan:1', revision: 'revision:1', feedback: 'Inspect error handling before applying changes.' };
+}

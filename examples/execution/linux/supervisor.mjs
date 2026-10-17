@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { readFile, writeFile, mkdir, stat, rmdir, chmod } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, stat, rmdir, chmod, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -132,4 +132,6 @@ const control = createServer((socket) => {
 });
 await new Promise((resolve, reject) => { control.once('error', reject); control.listen(join(operationRoot, 'control.sock'), resolve); });
 await chmod(join(operationRoot, 'control.sock'), 0o600);
-await writeFile(join(operationRoot, 'ready.json'), JSON.stringify({ root, epoch: config.epoch }), { mode: 0o600 });
+const readiness = join(operationRoot, '.ready.json.tmp');
+await writeFile(readiness, JSON.stringify({ root, epoch: config.epoch }), { mode: 0o600, flag: 'wx' });
+await rename(readiness, join(operationRoot, 'ready.json'));

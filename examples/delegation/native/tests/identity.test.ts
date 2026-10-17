@@ -53,8 +53,8 @@ async function fixture(t: TestContext) {
   }
   const packages: NativeSdkIdentity['packages'][number][] = [];
   for (const name of packageNames) {
-    const installed = await install(root, { name, version: '0.4.1' });
-    packages.push({ name, version: '0.4.1', sourceGitTree: 'a'.repeat(40), manifestSha256: hash(installed.manifestBytes),
+    const installed = await install(root, { name, version: '0.4.2' });
+    packages.push({ name, version: '0.4.2', sourceGitTree: 'a'.repeat(40), manifestSha256: hash(installed.manifestBytes),
       runtimeFiles: installed.files, runtimeTreeSha256: treeHash(installed.files) });
   }
   const mcp = await install(root, {

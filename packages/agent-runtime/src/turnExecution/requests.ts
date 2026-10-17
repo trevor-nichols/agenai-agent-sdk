@@ -1,8 +1,6 @@
-// ------------------------------------------------------------------------------------------------
-//                requests.ts - Exact callback admission across response and interruption outcomes
-// ------------------------------------------------------------------------------------------------
-
-import type { AgentRequest, AgentTurnId } from "@agen-ai/agent-protocol";
+import type { AgentProviderKey, AgentRequest, AgentTurnId } from "@agen-ai/agent-protocol";
+import { throwAgentProviderContractError } from "../contractErrors.js";
+import type { AgentSessionAdmission } from "../sessionAdmission.js";
 
 export interface PendingAgentRequest {
   readonly request: AgentRequest;
@@ -14,62 +12,127 @@ export interface SuspendedAgentTurnRequests {
   readonly withdraw: () => void;
 }
 
-interface RequestAdmissionGeneration {
-  readonly suspensions: Set<symbol>;
-  readonly withheldRequests: Map<string, PendingAgentRequest>;
-}
+type RequestEligibility =
+  | Readonly<{ kind: "pending" | "withheld"; pending: PendingAgentRequest }>
+  | Readonly<{ kind: "claimed"; pending: PendingAgentRequest; attempt: symbol }>
+  | Readonly<{ kind: "retired" }>;
 
-function createRequestAdmissionGeneration(): RequestAdmissionGeneration {
-  return { suspensions: new Set(), withheldRequests: new Map() };
+interface RequestEntry {
+  eligibility: RequestEligibility;
+  canonicalRetirementObserved: boolean;
+  readonly suspensions: Set<symbol>;
 }
 
 export function createAgentTurnRequestAdmission(input: Readonly<{
+  providerKey: AgentProviderKey;
+  sessionAdmission: AgentSessionAdmission;
   pendingRequests: Map<string, PendingAgentRequest>;
   canRestore: () => boolean;
+  canRestoreRequest: (pending: PendingAgentRequest) => boolean;
 }>) {
-  let generation = createRequestAdmissionGeneration();
-  const withdraw = () => {
-    generation = createRequestAdmissionGeneration();
-    input.pendingRequests.clear();
-  };
-  const restoreReadyRequests = (requestGeneration: RequestAdmissionGeneration) => {
-    if (requestGeneration !== generation || !input.canRestore()
-      || requestGeneration.suspensions.size > 0 || input.pendingRequests.size > 0) return;
-    for (const [requestId, pending] of requestGeneration.withheldRequests) {
-      input.pendingRequests.set(requestId, pending);
-    }
-    requestGeneration.withheldRequests.clear();
-  };
-  const claim = (requestId: string, pending: PendingAgentRequest): (() => void) => {
-    const claimedGeneration = generation;
+  const requests = new Map<string, RequestEntry>();
+  const invalidSequence = (message: string): never =>
+    throwAgentProviderContractError(input.providerKey, "invalid_turn_sequence", message);
+  const retire = (requestId: string, entry: RequestEntry): void => {
+    entry.eligibility = { kind: "retired" };
+    entry.suspensions.clear();
     input.pendingRequests.delete(requestId);
-    return () => {
-      if (claimedGeneration !== generation || !input.canRestore()) return;
-      claimedGeneration.withheldRequests.set(requestId, pending);
-      restoreReadyRequests(claimedGeneration);
+  };
+  const restoreReadyRequest = (): void => {
+    if (!input.canRestore() || input.pendingRequests.size > 0) return;
+    for (const [requestId, entry] of requests) {
+      if (entry.eligibility.kind !== "withheld" || entry.suspensions.size > 0) continue;
+      const pending = entry.eligibility.pending;
+      if (!input.canRestoreRequest(pending)) { retire(requestId, entry); continue; }
+      entry.eligibility = { kind: "pending", pending };
+      input.pendingRequests.set(requestId, pending);
+      return;
+    }
+  };
+  const withdraw = (): void => {
+    for (const [requestId, entry] of requests) retire(requestId, entry);
+  };
+  const claim = (requestId: string, pending: PendingAgentRequest) => {
+    const entry = requests.get(requestId);
+    if (!entry || entry.eligibility.kind !== "pending" || entry.eligibility.pending !== pending) {
+      return throwAgentProviderContractError(input.providerKey, "request_resolution_mismatch",
+        "Resolution does not identify an answerable request in this execution.");
+    }
+    const attempt = Symbol("request response");
+    entry.eligibility = { kind: "claimed", pending, attempt };
+    input.pendingRequests.delete(requestId);
+    restoreReadyRequest();
+    return {
+      restore(): void {
+        if (entry.eligibility.kind !== "claimed" || entry.eligibility.attempt !== attempt || !input.canRestore()) return;
+        entry.eligibility = { kind: "withheld", pending };
+        restoreReadyRequest();
+      },
+      retire(): void {
+        if (entry.eligibility.kind !== "claimed" || entry.eligibility.attempt !== attempt) return;
+        retire(requestId, entry);
+        restoreReadyRequest();
+      },
     };
   };
   const suspend = (): SuspendedAgentTurnRequests => {
-    const suspendedGeneration = generation;
-    const suspension = Symbol("interruption");
-    suspendedGeneration.suspensions.add(suspension);
-    for (const [requestId, pending] of input.pendingRequests) {
-      suspendedGeneration.withheldRequests.set(requestId, pending);
+    const token = Symbol("interruption");
+    const affected: RequestEntry[] = [];
+    for (const [requestId, entry] of requests) {
+      if (entry.eligibility.kind === "retired") continue;
+      affected.push(entry);
+      entry.suspensions.add(token);
+      if (entry.eligibility.kind === "pending") {
+        entry.eligibility = { kind: "withheld", pending: entry.eligibility.pending };
+        input.pendingRequests.delete(requestId);
+      }
     }
-    input.pendingRequests.clear();
+    let settled = false;
     return {
-      restore() {
-        if (!suspendedGeneration.suspensions.delete(suspension)) return;
-        restoreReadyRequests(suspendedGeneration);
+      restore(): void {
+        if (settled) return;
+        settled = true;
+        for (const entry of affected) entry.suspensions.delete(token);
+        restoreReadyRequest();
       },
-      withdraw() {
-        if (!suspendedGeneration.suspensions.delete(suspension)) return;
-        if (suspendedGeneration === generation) withdraw();
+      withdraw(): void {
+        if (settled) return;
+        settled = true;
+        withdraw();
       },
     };
   };
   return {
     claim, suspend, withdraw,
-    observeRequest() { generation = createRequestAdmissionGeneration(); },
+    open(pending: PendingAgentRequest): void {
+      if (input.pendingRequests.size > 0) invalidSequence("Provider opened more than one pending request for a session.");
+      const requestId = pending.request.requestId;
+      input.sessionAdmission.claimRequest(requestId, "invalid_turn_sequence");
+      requests.set(requestId, { eligibility: { kind: "pending", pending }, canonicalRetirementObserved: false,
+        suspensions: new Set() });
+      input.pendingRequests.set(requestId, pending);
+    },
+    unavailable(requestId: string): void {
+      const entry = requests.get(requestId);
+      if (!entry) return invalidSequence("Provider retired a request not opened in this execution.");
+      if (entry.canonicalRetirementObserved) return invalidSequence("Provider retired the same request more than once.");
+      entry.canonicalRetirementObserved = true;
+      retire(requestId, entry);
+      restoreReadyRequest();
+    },
+    *unclaimedRequests(): Iterable<PendingAgentRequest> {
+      for (const entry of requests.values()) {
+        if (entry.eligibility.kind === "pending" || entry.eligibility.kind === "withheld") yield entry.eligibility.pending;
+      }
+    },
+    hasUnclaimedRequest(): boolean {
+      for (const entry of requests.values()) {
+        if (entry.eligibility.kind === "pending" || entry.eligibility.kind === "withheld") return true;
+      }
+      return false;
+    },
+    hasOpened(requestId: string): boolean { return requests.has(requestId); },
   };
 }
+
+export type AgentTurnRequestAdmission = ReturnType<typeof createAgentTurnRequestAdmission>;

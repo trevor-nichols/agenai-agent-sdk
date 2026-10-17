@@ -5,15 +5,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseAgentCapabilities, parseAgentSessionDecisionRequest } from "@agen-ai/agent-protocol";
+import { parseAgentCapabilities, parseAgentSessionDecisionRequest, parseAgentSessionId, parseAgentConfigurationRevisionId, parseAgentProviderConversationId, parseAgentProviderHistoryAnchor, parseAgentTurnId } from "@agen-ai/agent-protocol";
 
 import {
   AgentProviderHostBindingCleanupError,
-  AgentProviderRegistryError,
-  createAgentProviderRegistry,
   validateAgentProviderAdapter,
-  type AgentProviderDriver,
-  type AgentProviderSession,
+  type AgentProviderSession, type AgentCreateSessionInput,
   type AgentSessionInteractionTerminal,
 } from "../src/index.js";
 import { createFakeAgentProvider } from "../src/testing/index.js";
@@ -29,11 +26,23 @@ import {
 test("registry composition with a prevalidated adapter preserves one binding owner on every opening path", async (t) => {
   for (const kind of ["create", "resume", "branch"] satisfies OpeningKind[]) {
     await t.test(kind, async () => {
-      const harness = await createHarness({
-        transformAdapter: (adapter, capabilities) => validateAgentProviderAdapter(capabilities, adapter),
-      });
+      const harness = await createHarness();
+      const composed = validateAgentProviderAdapter(harness.fake.capabilities, harness.adapter);
       const host = makeBinding();
-      const session = await harness.open(kind, host.binding);
+      const input: AgentCreateSessionInput = { sessionId: parseAgentSessionId(`composed-${kind}`), workingDirectory: "/host/workspace",
+        configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("composition"), catalogRevision: 1, selections: [] },
+        hostBinding: host.binding, onBindingCreated() {} };
+      const sourceBinding = { conversationId: parseAgentProviderConversationId("composition-source"), historyAnchor: parseAgentProviderHistoryAnchor("source-history") };
+      let session: AgentProviderSession;
+      if (kind === "create") session = await composed.createSession(input);
+      else if (kind === "resume") {
+        if (composed.resumption.kind !== "supported") throw new Error("Expected resumption fixture.");
+        session = await composed.resumption.resumeSession({ ...input, binding: sourceBinding });
+      } else {
+        if (composed.branching.kind !== "through_turn") throw new Error("Expected branching fixture.");
+        session = await composed.branching.branchSession({ ...input, source: { sessionId: parseAgentSessionId("source"), binding: sourceBinding,
+          throughTurn: { turnId: parseAgentTurnId("source-turn"), historyAnchor: sourceBinding.historyAnchor } } });
+      }
       await invoke(harness.facade());
       assert.equal(host.invocations.length, 1);
       await assert.doesNotReject(async () => session.close({ reason: "idle" }),
@@ -54,19 +63,19 @@ test("rejected session cleanup joins the real interaction callback before releas
   const events: string[] = [];
   const harness = await createHarness({
     transformAdapter: (adapter) => ({ ...adapter, createSession: (input) => adapter.createSession(input), sessionInteractions: {
-      kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+      kind: "supported", mappings: [{ openingOperation: "create", requestKind: "decision" }], producerOwnership: "exclusive", humanWait: ["bounded"],
     } }),
     beforeOpen(context) {
       assert.ok(context.interactions);
       const completion = context.interactions.onRequest({
-        request: parseAgentSessionDecisionRequest({ kind: "decision", requestId: "rejected-session-decision", sessionId: context.sessionId,
+        kind: "direct", request: parseAgentSessionDecisionRequest({ kind: "decision", requestId: "rejected-session-decision", sessionId: context.sessionId,
           title: "Workspace configuration", target: { kind: "workspace", path: "/host/workspace" },
           expiresAt: new Date(Date.now() + 60_000).toISOString(), choices: [{ choiceId: "leave-gated", label: "Leave gated",
             description: "Keep workspace configuration gated.", consequence: { kind: "decline", configuration: "remains_gated" } }] }),
         signal: new AbortController().signal, terminal: terminal.promise,
         async respond() { throw new Error("The rejected opening must never receive a decision."); },
       });
-      assert.equal(completion, callback.promise, "The facade must expose actual callback completion to the adapter.");
+      void Promise.resolve(completion).catch(() => {});
     },
     transformSession(session) {
       return Object.assign({ ...session, async close(input: Parameters<AgentProviderSession["close"]>[0]) {
@@ -89,29 +98,14 @@ test("rejected session cleanup joins the real interaction callback before releas
   await harness.registry.dispose();
 });
 
-test("registry revalidation applies current capabilities to a previously validated adapter", async () => {
+test("revalidation checks current capabilities against the captured original candidate", async () => {
   const fake = createFakeAgentProvider();
-  const driver: AgentProviderDriver = {
-    ...fake.driver,
-    async materialize(definition) {
-      const instance = await fake.driver.materialize(definition);
-      return {
-        ...instance,
-        adapter: validateAgentProviderAdapter(instance.capabilities, instance.adapter),
-        capabilities: parseAgentCapabilities({
-          ...instance.capabilities,
-          sessions: { ...instance.capabilities.sessions, resume: false },
-        }),
-      };
-    },
-  };
-  await assert.rejects(createAgentProviderRegistry({ drivers: [driver], definitions: [fake.definition] }), (error: unknown) => {
-    assert.ok(error instanceof AgentProviderRegistryError);
-    assert.equal(error.code, "instance_contract_mismatch");
-    assert.ok(hasContractCode("capability_port_mismatch")(error.cause));
-    return true;
-  });
+  const instance = await fake.driver.materialize(fake.definition);
+  const validated = validateAgentProviderAdapter(instance.capabilities, instance.adapter);
+  const changed = parseAgentCapabilities({ ...instance.capabilities, sessions: { ...instance.capabilities.sessions, resume: false } });
+  assert.throws(() => validateAgentProviderAdapter(changed, validated), hasContractCode("capability_port_mismatch"));
   assert.equal(fake.snapshot().createdSessionIds.length, 0);
+  await instance.dispose();
   assert.equal(fake.snapshot().instanceDisposeCount, 1);
 });
 

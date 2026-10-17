@@ -58,8 +58,10 @@ startup/streams, an explicit retry of the retained SDK cleanup can complete.
 The original SDK qualification stays failed: later cleanup success cannot
 erase the intervention or restore the missing independent checkpoint.
 
-The host has explicit limits of **64 tasks, 512 MiB memory and 180 seconds** for
-the entire service, including the trusted supervisor. These are qualification
+The host defaults to **64 tasks, 512 MiB memory and 180 seconds** for
+the entire service, including the trusted supervisor. An explicit `tasksMax: 128`
+selects the only alternative task ceiling; other task values are rejected before
+acquiring resources. Memory and runtime limits remain fixed. These are qualification
 limits rather than general provider sizing advice. The independent observer
 checks the kernel PID/memory limits and OOM-kill counters. Expiry of the service
 runtime bound is external intervention; it must not be credited as SDK cleanup.

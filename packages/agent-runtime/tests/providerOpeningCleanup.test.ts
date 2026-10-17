@@ -7,7 +7,7 @@ import test from "node:test";
 import { parseAgentConfigurationRevisionId, parseAgentProviderKey, parseAgentSessionId } from "@agen-ai/agent-protocol";
 import {
   AgentProviderSessionCleanupError, createAgentProviderSessionCleanupError,
-  isAgentProviderSessionCleanupErrorFor, type AgentProviderCreateSessionInput, type AgentProviderSessionContext,
+  isAgentProviderSessionCleanupErrorFor, type AgentCreateSessionInput, type AgentProviderSessionContext,
 } from "../src/index.js";
 import { createHarness, deferred, hasContractCode, invoke, makeBinding, type OpeningKind } from "./fixtures/hostBindings/harness.js";
 
@@ -62,7 +62,7 @@ test("a provider cleanup receipt without a host binding identifies the original 
       retryCleanup: () => { retries += 1; },
     });
   } });
-  const input: AgentProviderCreateSessionInput = {
+  const input: AgentCreateSessionInput = {
     sessionId: parseAgentSessionId("retained-opening"), workingDirectory: "/workspace",
     configuration: { kind: "selected", revision: parseAgentConfigurationRevisionId("config:1"), catalogRevision: 1, selections: [] },
     onBindingCreated() {},
@@ -84,7 +84,8 @@ test("foreign, cloned and unassociated cleanup errors cannot retain the current 
       let thrown: AgentProviderSessionCleanupError | undefined;
       const harness = await createHarness({
         transformAdapter: (adapter) => ({ ...adapter, createSession: (input) => adapter.createSession(input), sessionInteractions: {
-          kind: "supported", openingOperations: ["create"], requestKinds: ["decision"], producerOwnership: "exclusive",
+          kind: "supported", mappings: [{ openingOperation: "create", requestKind: "decision" }],
+          producerOwnership: "exclusive", humanWait: ["bounded"],
         } }),
         beforeOpen(context) {
         const openingInput: AgentProviderSessionContext = ownership === "foreign"

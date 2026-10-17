@@ -52,7 +52,7 @@ const configuration = {
 
 const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 11,
+  protocolVersion: 12,
   providerKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -164,7 +164,7 @@ function event<TType extends AgentEvent["type"]>(
   payload: Extract<AgentEvent, { readonly type: TType }>["payload"],
 ) {
   return createAgentEventOutput({
-    protocolVersion: 11,
+    protocolVersion: 12,
     sessionId,
     turnId,
     occurredAt,

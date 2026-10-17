@@ -16,7 +16,7 @@ import {
   AGENT_PROTOCOL_VERSION,
   agentProtocolSerializedJsonBytes,
 } from '../foundation/types.js';
-import type { AgentEvent } from '../events/types.js';
+import { AGENT_REQUEST_UNAVAILABLE_REASONS, type AgentEvent } from '../events/types.js';
 import { AgentRequestPortableSchema, AgentRequestSchema } from './requests.js';
 import { AgentOperationResultPortableSchema } from './operations.js';
 import { AgentGeneratedResourceDescriptorPortableSchema } from './resources.js';
@@ -246,6 +246,13 @@ export const AgentEventPortableSchema = z.discriminatedUnion('type', [
   turnEvent(
     'request.opened',
     z.object({ request: AgentRequestPortableSchema }).strict().readonly(),
+  ),
+  turnEvent(
+    'request.unavailable',
+    z.object({
+      requestId: AgentRequestIdSchema,
+      reason: z.enum(AGENT_REQUEST_UNAVAILABLE_REASONS),
+    }).strict().readonly(),
   ),
   turnEvent('progress.updated', ProgressUpdatedPayloadSchema),
   turnEvent('context.usage.updated', AgentContextUsagePortableSchema),

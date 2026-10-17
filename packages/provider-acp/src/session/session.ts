@@ -10,6 +10,7 @@ import {
   parseAgentRequestId,
   type AgentSessionBinding,
   type AgentTurnCompletedPayload,
+  type AgentTurnId,
 } from '@agen-ai/agent-protocol';
 import {
   throwIfAgentOperationAborted,
@@ -22,6 +23,10 @@ import {
   type AgentRequestResolutionResult,
   type AgentProviderSession,
 } from '@agen-ai/agent-runtime';
+import { GrokPlanContinuations } from './continuation.js';
+import { GrokDescendantObservations } from './descendants.js';
+import { GrokChildPermissionWithdrawals } from './requests/grokWithdrawals.js';
+import { awaitHost } from '../host/lifecycle.js';
 
 import type { CreateAcpProviderSessionInput } from './create.js';
 import { AcpProviderSessionError, sessionError } from './errors.js';
@@ -59,15 +64,56 @@ export class SessionState {
   private closePromise: Promise<void> | undefined;
   private itemSequence = 0;
   private requestSequence = 0;
+  private readonly continuations: GrokPlanContinuations;
+  private readonly descendants: GrokDescendantObservations | undefined;
+  private readonly childWithdrawals: GrokChildPermissionWithdrawals | undefined;
 
   constructor(private readonly input: CreateAcpProviderSessionInput) {
     this.queue = new SessionQueue(input.limits);
     this.replay = new AcpHistoryReplay(input.limits);
+    if (input.connection.sessionInteractions?.selectedLifecycle) {
+      this.childWithdrawals = new GrokChildPermissionWithdrawals({
+        reserveState: (value, extraBytes) => this.queue.reserveState(value, extraBytes),
+        currentTurn: () => this.turn, timeoutMs: input.limits.cancellationTimeoutMs,
+        withdraw: (request) => this.requests.withdraw(request, new AcpRpcHandlerError(-32800, 'Request cancelled')),
+        fail: (error) => this.fail(error),
+      });
+      this.descendants = new GrokDescendantObservations({
+        reserveState: (value, extraBytes) => this.queue.reserveState(value, extraBytes),
+        rootSessionId: () => this.nativeSessionId,
+        activeTurn: () => this.turn !== undefined && !this.turn.nativeSettled && !this.turn.terminal,
+        observeHistory: (params) => this.replay.observe(params),
+        withdrawals: this.childWithdrawals,
+      });
+    }
+    this.continuations = new GrokPlanContinuations({ queue: this.queue,
+      selected: input.connection.sessionInteractions?.selectedLifecycle === true,
+      requireUsable: () => this.requireUsable(), assertNativeSession: (params) => this.assertNativeSession(params),
+      createNativeTurn: (turnId) => this.createNativeTurn(turnId), execution: (turn, stream) => this.execution(turn, stream),
+      stream: (turn, ready) => this.streamContinuation(turn, ready),
+      completeNativeTurn: (turn, payload) => this.completeNativeTurn(turn, payload), close: () => this.close(),
+    });
     this.operations = createAcpStandardSessionOperations(input.connection.client);
     this.requests = new PendingSessionRequests({
-      maxPendingRequests: input.limits.maxPendingRequests,
+      maxPendingRequests: input.connection.sessionInteractions?.selectedLifecycle
+        ? Math.min(input.limits.maxPendingRequests, 16) : input.limits.maxPendingRequests,
+      maxRequestMaterialBytes: input.connection.sessionInteractions?.selectedLifecycle
+        ? Math.min(input.limits.maxQueuedBytes, 1_048_576) : input.limits.maxQueuedBytes,
       admit: (request, bytes) => this.queue.admit({ kind: 'request', request }, bytes),
       fail: (error) => this.fail(error),
+      unavailable: (request, requestId) => {
+        try { this.queue.admit({ kind: 'unavailable', request, requestId }, nativeBytes(requestId) + 64, true); }
+        catch (cause) { this.fail(sessionError(cause)); }
+      },
+      settled: (request) => {
+        this.childWithdrawals?.settle(request);
+        const turn = this.turn;
+        if (turn?.waiting === request && !request.unavailable) {
+          turn.waiting = undefined;
+          this.queue.wakeReader();
+        }
+      },
+      admitted: (request) => this.childWithdrawals?.attach(request),
     });
     this.configuration = createAcpSessionConfiguration({
       capability: input.capabilities.configuration, client: acpSessionControlClient(input),
@@ -77,10 +123,17 @@ export class SessionState {
     this.environment = createAcpSessionEnvironment({ limits: input.limits, now: input.now, signal: input.connection.stopped });
     this.onStopped = () => this.fail(sessionError(input.connection.stopped.reason));
     this.detach = input.connection.attachSession({
+      joinCallbacks: () => this.requests.join(),
+      onExtensionNotification: (context) => {
+        this.requireUsable();
+        if (this.descendants?.admit(context, this.replay.active)) return;
+        this.continuations.admitNotification(context);
+      },
       onNotification: (context) => this.admitNotification(context),
       onPermissionRequest: (context) => this.admitRequest(context, 'permission'),
       onElicitationRequest: (context) => this.admitRequest(context, 'form'),
     });
+    input.connection.sessionInteractions?.attachContinuationOwner((prepared) => this.continuations.prepareResponse(prepared));
     input.connection.stopped.addEventListener('abort', this.onStopped, { once: true });
     if (input.connection.stopped.aborted) this.onStopped();
   }
@@ -88,13 +141,13 @@ export class SessionState {
   async open(): Promise<AgentProviderSession> {
     this.requireUsable();
     throwIfAgentOperationAborted(this.input.context.signal);
-    const sessionInteractions = this.input.connection.sessionInteractions;
+    const sessionInteractions = this.input.context.interactions ? this.input.connection.sessionInteractions : undefined;
     await openAcpNativeSession(this.input, {
       replay: this.replay,
       bind: (binding) => {
         this.binding = binding;
         this.nativeSessionId = binding.conversationId;
-        this.input.connection.sessionInteractions?.bindNativeSession(binding.conversationId);
+        sessionInteractions?.bindNativeSession(binding.conversationId);
         this.bindHostSession();
       },
       observeSetup: (result) => {
@@ -144,7 +197,7 @@ export class SessionState {
   }
 
   private fail(error: Error): void {
-    if (this.failure) return;
+    if (this.failure || this.closed) return;
     this.failure = error;
     this.input.connection.sessionInteractions?.stop({ kind: 'failed', cause: error });
     this.turn?.hostInteractions.abort(error);
@@ -152,17 +205,22 @@ export class SessionState {
     this.requests.cancelAll();
     this.environment.close();
     this.turn?.settled.reject(error);
+    this.continuations.stop(error);
+    this.descendants?.stop();
+    this.childWithdrawals?.stop(error);
     this.clearTurnTimers();
     void this.input.connection.close().catch((cause) => { this.cleanupFailure = cause; });
   }
 
   private admitNotification(context: AcpNotificationContext): Promise<void> | void {
     this.requireUsable();
+    if (this.descendants?.admit(context, this.replay.active)) return;
     const params = nativeObject(context.params, 'session notification');
     this.assertNativeSession(params);
     const update = nativeObject(params.update, 'session update');
     const kind = nativeString(update.sessionUpdate, 'session update kind');
     this.replay.observe(params);
+    const liveOutput = this.continuations.admitOutput(params, update, this.replay.active);
     if (SESSION_METADATA_UPDATES.has(kind)) {
       if (this.nativeSessionId === undefined) {
         const entry = this.queue.admit({ kind: 'update', params }, nativeBytes(params) * 2);
@@ -172,7 +230,7 @@ export class SessionState {
       this.observeMetadata(update);
       return;
     }
-    if (this.replay.active) return;
+    if (this.replay.active || !liveOutput) return;
     if (!this.turn || this.turn.nativeSettled || this.turn.terminal) {
       throw new AcpProviderSessionError('acp_update_without_prompt', 'ACP emitted turn content without an active native prompt.');
     }
@@ -212,21 +270,40 @@ export class SessionState {
     for (const cleanup of this.turn?.cleanup.splice(0) ?? []) cleanup();
   }
 
+  private async *streamContinuation(turn: NativeTurn, ready: Promise<boolean>): AsyncGenerator<AgentProviderOutput> {
+    let stable = false;
+    try {
+      if (!await ready) { stable = true; return; }
+      yield* this.emit(turn.mapping.event('turn.started', {}));
+      yield* this.drain(turn);
+      await this.requests.join();
+      stable = true;
+    } catch (error) { this.fail(sessionError(error)); throw error; }
+    finally { if (!stable && !this.closed) this.fail(new AcpProviderSessionError('acp_turn_abandoned', 'The native continuation reader was abandoned.')); }
+  }
+
   startTurn(input: AgentProviderStartTurnInput): AgentProviderTurnExecution {
     this.requireUsable();
     throwIfAgentOperationAborted(input.signal);
-    if (this.turn && !this.turn.terminal) throw new AcpProviderSessionError('acp_turn_active', 'The ACP session already has an active or waiting turn.');
+    if (this.turn && !this.turn.sourceSettled) throw new AcpProviderSessionError('acp_turn_active', 'The ACP session already has an active or waiting turn.');
     if (input.interactionMode !== 'default') {
       throw new AcpProviderSessionError('acp_input_unsupported', 'ACP supports only the default interaction mode.');
     }
     const prompt = prepareAcpPrompt(input.parts, this.input.capabilities);
+    const turn = this.createNativeTurn(input.turnId);
+    return this.execution(turn, () => this.streamTurn(turn, input, prompt));
+  }
+
+  private createNativeTurn(turnId: AgentTurnId): NativeTurn {
+    this.requireUsable();
+    if (this.turn && !this.turn.sourceSettled) throw new AcpProviderSessionError('acp_turn_active', 'The ACP session already has an active or waiting turn.');
     const settled = deferred<AgentTurnCompletedPayload>();
     void settled.promise.catch(() => undefined);
     const turn: NativeTurn = {
-      turnId: input.turnId,
+      turnId,
       mapping: new TurnMapping({
         sessionId: this.input.context.sessionId,
-        turnId: input.turnId,
+        turnId,
         workingDirectory: this.input.context.workingDirectory,
         permissionMapping: this.input.permissionMapping,
         now: this.input.now,
@@ -241,21 +318,43 @@ export class SessionState {
       nativeStarted: false,
       nativeSettled: false,
       terminal: false,
+      sourceSettled: false,
       waiting: undefined,
       transition: undefined,
       cancelReason: undefined,
       cancellation: undefined,
     };
     this.turn = turn;
+    return turn;
+  }
+
+  private execution(turn: NativeTurn, stream: () => AsyncGenerator<AgentProviderOutput>): AgentProviderTurnExecution {
     let acquired = false;
     const outputs = {
       [Symbol.asyncIterator]: () => {
         if (acquired) throw new AcpProviderSessionError('acp_turn_stream_owned', 'The ACP turn output already has a consumer.');
         acquired = true;
-        return this.streamTurn(turn, input, prompt);
+        return this.ownedStream(turn, stream);
       },
     };
     return Object.freeze({ turnId: turn.turnId, outputs, resolveRequest: (resolution: AgentProviderResolveRequestInput) => this.resolveRequest(turn, resolution) });
+  }
+
+  private async *ownedStream(turn: NativeTurn, stream: () => AsyncGenerator<AgentProviderOutput>): AsyncGenerator<AgentProviderOutput> {
+    yield* stream();
+    turn.sourceSettled = true;
+  }
+
+  private completeNativeTurn(turn: NativeTurn, payload: AgentTurnCompletedPayload): void {
+    turn.nativeSettled = true;
+    if (this.requests.size > 0) {
+      this.fail(new AcpProviderSessionError('acp_terminal_with_request', 'ACP completed native work with unanswered interaction requests.'));
+      return;
+    }
+    turn.hostInteractions.abort(new DOMException('The ACP native execution settled.', 'AbortError'));
+    this.clearTurnTimers();
+    this.queue.admit({ kind: 'terminal', payload }, nativeBytes(payload), true);
+    turn.settled.resolve(payload);
   }
 
   private launchTurn(turn: NativeTurn, input: AgentProviderStartTurnInput, prompt: ReturnType<typeof prepareAcpPrompt>): void {
@@ -270,16 +369,8 @@ export class SessionState {
     }, {
       timeoutMs: this.input.limits.promptTimeoutMs,
       onResponseReceived: (response) => {
-        turn.nativeSettled = true;
-        if (this.requests.size > 0) {
-          this.fail(new AcpProviderSessionError('acp_terminal_with_request', 'ACP completed a prompt with unanswered interaction requests.'));
-          return;
-        }
-        turn.hostInteractions.abort(new DOMException('The ACP native prompt settled.', 'AbortError'));
-        this.clearTurnTimers();
         const payload = acpTurnCompletion(response, turn.cancelReason);
-        this.queue.admit({ kind: 'terminal', payload }, nativeBytes(payload), true);
-        turn.settled.resolve(payload);
+        this.completeNativeTurn(turn, payload);
       },
     }).then(() => undefined, (error) => {
       if (!turn.nativeSettled) this.fail(sessionError(error));
@@ -339,7 +430,7 @@ export class SessionState {
         } finally { entry.release(); }
       } else if (message.kind === 'request') {
         const request = message.request;
-        if (request.answered || turn.cancelReason) { entry.release(); continue; }
+        if (request.answered || turn.cancelReason) continue;
         if (request.kind === 'permission') {
           const mappedTool = turn.mapping.tool(nativeObject(request.params.toolCall, 'permission tool'), true);
           let next = mappedTool.next();
@@ -350,7 +441,7 @@ export class SessionState {
             if (request.answered || turn.cancelReason) break;
             next = mappedTool.next();
           }
-          if (!next.done) { entry.release(); continue; }
+          if (!next.done) continue;
           const permission = turn.mapping.permission(request.params, next.value);
           request.mapped = { kind: 'permission', permission, request: permission.request };
           if (permission.warning) {
@@ -363,17 +454,24 @@ export class SessionState {
             continue;
           }
           if (request.host) {
-            void (async () => request.host!())().then((result) => this.requests.answer(request, result), (error) => this.requests.reject(request, sessionError(error)));
+            void this.requests.invokeHost(request).then((result) => this.requests.answer(request, result), (error) => this.requests.reject(request, sessionError(error)));
             continue;
           }
           const flow = new AcpFormFlow(request.form!, () => parseAgentRequestId(`acp:request:${++this.requestSequence}`));
           request.mapped = { kind: 'form', flow, request: flow.request };
         }
-        if (request.answered || turn.cancelReason) { entry.release(); continue; }
+        if (request.answered || turn.cancelReason) continue;
         turn.waiting = request;
         yield* this.offerRequest(turn, request);
         if (turn.terminal) return 'terminal';
         continue;
+      } else if (message.kind === 'unavailable') {
+        try {
+          const request = message.request;
+          yield* this.emit(turn.mapping.event('request.unavailable', { requestId: message.requestId, reason: 'withdrawn' }));
+          if (turn.waiting === request) turn.waiting = undefined;
+          yield* this.emit(turn.mapping.event('turn.state_changed', { state: 'running' }));
+        } finally { entry.release(); }
       } else {
         try {
           if (this.requests.size > 0) throw new AcpProviderSessionError('acp_terminal_with_request', 'ACP completed a prompt with unanswered interaction requests.');
@@ -385,6 +483,7 @@ export class SessionState {
           turn.terminal = true;
           turn.waiting = undefined;
           turn.mapping.release();
+          this.continuations.complete(turn);
           this.clearTurnTimers();
           return 'terminal';
         } finally { entry.release(); }
@@ -394,6 +493,8 @@ export class SessionState {
 
   private async *offerRequest(turn: NativeTurn, request: PendingSessionRequest): AsyncGenerator<AgentProviderOutput> {
     const canonical = request.mapped!.request;
+    if (!this.requests.canAnswer(request)) return;
+    request.publishedRequestId = canonical.requestId;
     yield* this.emit(turn.mapping.event('request.opened', { request: canonical }));
     if (turn.terminal) return;
     yield* this.emit(turn.mapping.event('turn.state_changed', { state: 'waiting_for_request', requestId: canonical.requestId }));
@@ -405,6 +506,7 @@ export class SessionState {
       this.launchTurn(turn, input, prompt);
       yield* this.emit(turn.mapping.event('turn.started', {}));
       yield* this.drain(turn);
+      await this.requests.join();
       stable = true;
     } catch (error) { this.fail(sessionError(error)); throw error; }
     finally {
@@ -418,6 +520,9 @@ export class SessionState {
     if (this.turn !== turn || turn.terminal || !request?.mapped) {
       throw new AcpProviderSessionError('acp_request_not_pending', 'The ACP resolution does not identify an available pending request.');
     }
+    const gate = this.childWithdrawals?.answerGate(request);
+    if (gate) await awaitHost(gate, input.signal ?? this.input.connection.stopped);
+    throwIfAgentOperationAborted(input.signal);
     const result = resolveAcpRequest(this.requests, turn, request, request.mapped, input);
     if (result.status === 'delivered') this.queue.wakeReader();
     return result;
@@ -486,6 +591,9 @@ export class SessionState {
       this.queue.fail(error);
       this.requests.cancelAll();
       this.turn?.settled.reject(error);
+      this.continuations.stop(error);
+      this.descendants?.stop();
+      this.childWithdrawals?.stop(error);
       this.clearTurnTimers();
       this.environment.close();
       this.turn?.mapping.release();

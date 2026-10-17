@@ -113,7 +113,7 @@ test("the deterministic fake passes conformance with a provider retry after requ
                     && output.event.payload.state === "waiting_for_request") {
                     observedRetries += 1;
                     yield createAgentEventOutput({
-                      protocolVersion: 11,
+                      protocolVersion: 12,
                       sessionId: input.sessionId,
                       turnId: turnInput.turnId,
                       occurredAt: "2026-10-11T00:00:00.000Z",
@@ -246,8 +246,8 @@ test("the deterministic fake passes conformance with a provider retry after requ
   assert.deepEqual(snapshot.resumedSessionIds, ["external-session:resume"]);
   assert.deepEqual(snapshot.branchedSessionIds, ["external-session:branch"]);
   assert.deepEqual(snapshot.turnIds, [
-    "external-turn:1",
     "external-turn:interruption",
+    "external-turn:1",
   ]);
   assert.equal(snapshot.resolutions.length, 1);
   assert.deepEqual(snapshot.interruptedTurnIds, [
@@ -318,7 +318,7 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
       environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-      protocolVersion: 11,
+      protocolVersion: 12,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {
@@ -388,6 +388,13 @@ test("conformance verifies explicit unsupported operation discriminants", async 
 
 test("conformance rejects a definitive steering rejection on a live turn", async () => {
   const fake = createFakeAgentProvider({
+    capabilities: parseAgentCapabilities({
+      ...createFakeAgentProvider().capabilities,
+      configuration: { kind: "managed" },
+      operations: { kind: "unsupported" },
+      collaboration: { kind: "unsupported" },
+      generatedResources: { kind: "unsupported" },
+    }),
     steeringResult: {
       status: "rejected",
       error: {
@@ -404,7 +411,7 @@ test("conformance rejects a definitive steering rejection on a live turn", async
       driver: fake.driver,
       definition: fake.definition,
       workingDirectory: "/host/workspaces/rejected-steering",
-      configuration,
+      configuration: { kind: "managed", revision: parseAgentConfigurationRevisionId("rejected-steering:configuration") },
       createSessionId: parseAgentSessionId("rejected-steering:create"),
       resumeSessionId: parseAgentSessionId("rejected-steering:resume"),
       branchSessionId: parseAgentSessionId("rejected-steering:branch"),
@@ -443,4 +450,96 @@ test("conformance rejects a definitive steering rejection on a live turn", async
       error instanceof AgentProviderConformanceError &&
       error.check === "steering",
   );
+});
+
+test("conformance retains the original error and failed cleanup without disposing the instance", { timeout: 3_000 }, async () => {
+  const fake = createFakeAgentProvider({ capabilities: parseAgentCapabilities({
+    ...createFakeAgentProvider().capabilities,
+    sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
+    turns: { interactionModes: ["default"], interrupt: false, steer: { kind: "unsupported" } },
+    configuration: { kind: "managed" }, operations: { kind: "unsupported" },
+    collaboration: { kind: "unsupported" }, generatedResources: { kind: "unsupported" },
+  }) });
+  const original = new Error("Human input failed.");
+  const cleanup = new Error("Native cleanup remains incomplete.");
+  const driver: AgentProviderDriver = { ...fake.driver, async materialize(definition) {
+    const instance = await fake.driver.materialize(definition);
+    return { ...instance, adapter: { ...instance.adapter, async createSession(input) {
+      const session = await instance.adapter.createSession(input);
+      return { ...session, async close(context) { await session.close(context); throw cleanup; } };
+    } } };
+  } };
+  const failures = (error: unknown): unknown[] => error instanceof AggregateError
+    ? error.errors.flatMap(failures) : [error];
+  await assert.rejects(runAgentProviderConformance({
+    driver, definition: fake.definition, workingDirectory: "/workspace",
+    configuration: { kind: "managed", revision: parseAgentConfigurationRevisionId("cleanup:configuration") },
+    createSessionId: parseAgentSessionId("cleanup:create"), resumeSessionId: parseAgentSessionId("cleanup:resume"),
+    abortedSessionId: parseAgentSessionId("cleanup:aborted"), interruptionSessionId: parseAgentSessionId("cleanup:interrupt"),
+    turn: { turnId: parseAgentTurnId("cleanup:turn"), interactionMode: "default", parts: [{ type: "text", text: "test" }] },
+    interruptionTurn: { turnId: parseAgentTurnId("cleanup:unused"), interactionMode: "default", parts: [{ type: "text", text: "unused" }] },
+    async resolutionFor() { await Promise.resolve(); throw original; },
+  }), (error: unknown) => {
+    const retained = failures(error);
+    return retained.includes(original) && retained.includes(cleanup);
+  });
+  assert.equal(fake.snapshot().instanceDisposeCount, 0);
+  assert.equal(fake.snapshot().resolutions.length, 0);
+  assert.equal(fake.snapshot().closeCounts["cleanup:create"], 1);
+});
+
+test("conformance inspects a turn-produced resource after terminal output and before session close", async () => {
+  const fake = createFakeAgentProvider({ capabilities: parseAgentCapabilities({
+    ...createFakeAgentProvider().capabilities,
+    sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
+    turns: { interactionModes: ["default"], interrupt: false, steer: { kind: "unsupported" } },
+    requests: { approval: { kind: "unsupported" }, elicitation: { kind: "unsupported" } },
+    configuration: { kind: "managed" }, operations: { kind: "unsupported" },
+    collaboration: { kind: "unsupported" },
+  }) });
+  const lifecycle: string[] = [];
+  let produced = false;
+  let closed = false;
+  const driver: AgentProviderDriver = { ...fake.driver, async materialize(definition) {
+    const instance = await fake.driver.materialize(definition);
+    return { ...instance, adapter: { ...instance.adapter, async createSession(input) {
+      const session = await instance.adapter.createSession(input);
+      assert.equal(session.generatedResources.kind, "supported");
+      if (session.generatedResources.kind !== "supported") throw new Error("Expected generated resource support.");
+      const resources = session.generatedResources;
+      return { ...session,
+        startTurn(input) {
+          const execution = session.startTurn(input);
+          return { ...execution, outputs: (async function* () {
+            for await (const output of execution.outputs) {
+              if (output.kind === "event" && output.event.type === "turn.completed") {
+                produced = true;
+                lifecycle.push("produced");
+              }
+              yield output;
+            }
+          })() };
+        },
+        generatedResources: { kind: "supported" as const, async getGeneratedResource(input) {
+          assert.equal(produced, true, "The producing turn has not generated the resource yet.");
+          assert.equal(closed, false, "Resource inspection requires the producing session to remain open.");
+          lifecycle.push("inspected");
+          return resources.getGeneratedResource(input);
+        } },
+        async close(input) { if (!closed) lifecycle.push("closed"); closed = true; await session.close(input); },
+      };
+    } } };
+  } };
+  const report = await runAgentProviderConformance({
+    driver, definition: fake.definition, workingDirectory: "/workspace",
+    configuration: { kind: "managed", revision: parseAgentConfigurationRevisionId("resource:configuration") },
+    generatedResourceId: parseAgentGeneratedResourceId("fake-resource:1"),
+    createSessionId: parseAgentSessionId("resource:create"), resumeSessionId: parseAgentSessionId("resource:resume"),
+    abortedSessionId: parseAgentSessionId("resource:aborted"), interruptionSessionId: parseAgentSessionId("resource:interrupt"),
+    turn: { turnId: parseAgentTurnId("resource:turn"), interactionMode: "default", parts: [{ type: "text", text: "Generate the resource." }] },
+    interruptionTurn: { turnId: parseAgentTurnId("resource:unused"), interactionMode: "default", parts: [{ type: "text", text: "unused" }] },
+    resolutionFor() { throw new Error("Unexpected request."); },
+  });
+  assert.deepEqual(lifecycle, ["produced", "inspected", "closed"]);
+  assert.ok(report.checks.includes("generated_resources"));
 });

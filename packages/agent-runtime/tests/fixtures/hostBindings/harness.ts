@@ -20,10 +20,11 @@ import {
   type AgentHostToolInvocation,
   type AgentHostToolResult,
   type AgentProviderAdapter,
-  type AgentProviderCreateSessionInput,
+  type AgentCreateSessionInput,
   type AgentProviderDriver,
   type AgentProviderSession,
   type AgentProviderSessionContext,
+  type AgentValidatedProviderAdapter,
   type AgentSessionHostBinding,
   type AgentSessionHostBindingSupport,
   type MaybePromise,
@@ -159,7 +160,7 @@ export async function createHarness(options: {
   const registry = await createAgentProviderRegistry({
     drivers: [driver], definitions: [fake.definition],
   });
-  const adapter = registry.requireInstance(fake.definition.instanceId).adapter;
+  const adapter: AgentValidatedProviderAdapter = registry.requireInstance(fake.definition.instanceId).adapter;
   const sourceBinding = {
     conversationId: parseAgentProviderConversationId("source-conversation"),
     historyAnchor: parseAgentProviderHistoryAnchor("source-history"),
@@ -167,10 +168,10 @@ export async function createHarness(options: {
   const open = (
     kind: OpeningKind,
     hostBinding?: AgentSessionHostBinding,
-    overrides: Partial<AgentProviderCreateSessionInput> = {},
+    overrides: Partial<AgentCreateSessionInput> = {},
   ) => {
     sequence += 1;
-    const context: AgentProviderCreateSessionInput = {
+    const context: AgentCreateSessionInput = {
       sessionId: parseAgentSessionId(`host-session:${sequence}`),
       workingDirectory: "/host/workspace",
       configuration: {

@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/provider-acp",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": false,
   "description": "Optional Agent Client Protocol provider for the AgenAI coding-agent runtime.",
   "type": "module",
@@ -9,10 +9,21 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "README.md", "LICENSE"],
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./node": { "types": "./dist/node/index.d.ts", "import": "./dist/node/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -28,14 +39,23 @@
     "@agen-ai/agent-protocol": "workspace:^",
     "@agen-ai/agent-runtime": "workspace:^"
   },
-  "devDependencies": { "tsup": "^8.5.0" },
-  "engines": { "node": ">=22.0.0" },
+  "devDependencies": {
+    "tsup": "^8.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/trevor-nichols/agenai-agent-sdk.git",
     "directory": "packages/provider-acp"
   },
   "homepage": "https://github.com/trevor-nichols/agenai-agent-sdk#readme",
-  "bugs": { "url": "https://github.com/trevor-nichols/agenai-agent-sdk/issues" },
-  "publishConfig": { "access": "public", "provenance": true }
+  "bugs": {
+    "url": "https://github.com/trevor-nichols/agenai-agent-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }

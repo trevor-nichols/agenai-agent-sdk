@@ -2,6 +2,7 @@ import type { AcpJsonObject, AcpJsonValue } from '@agen-ai/acp-transport';
 import type { AcpNegotiatedAgent } from './contracts.js';
 import { AcpProviderConnectionError } from './errors.js';
 import type { AcpPermissionMappingSelection } from '../permissions/contracts.js';
+import type { AcpSessionInteractionSelection } from '../sessionInteractions/contracts.js';
 
 function immutableProtocolData(value: AcpJsonValue): AcpJsonValue {
   if (Array.isArray(value)) {
@@ -22,6 +23,7 @@ function immutableProtocolData(value: AcpJsonValue): AcpJsonValue {
 export function readNegotiatedAgent(
   response: AcpJsonValue,
   permissionMapping: AcpPermissionMappingSelection = { mapping: 'once-only-v1' },
+  sessionInteractions?: AcpSessionInteractionSelection,
 ): AcpNegotiatedAgent {
   const value = response as AcpJsonObject;
   if (value.protocolVersion !== 1) {
@@ -39,6 +41,13 @@ export function readNegotiatedAgent(
     agentInfo = Object.freeze({ name: info.name as string, version: info.version as string });
   }
   let agentVersion: string | undefined;
+  if (sessionInteractions?.mapping === 'grok-build-1.0.60-session-requests-v1') {
+    const meta = value._meta;
+    if (meta === null || typeof meta !== 'object' || Array.isArray(meta) || meta.agentVersion !== '1.0.60') {
+      throw new AcpProviderConnectionError('acp_session_profile_mismatch', 'The selected session mapping requires exact initialized agentVersion 1.0.60.');
+    }
+    agentVersion = '1.0.60';
+  }
   if (permissionMapping.mapping === 'declared-complete-consequences-v1') {
     if (agentInfo?.name !== permissionMapping.agentInfo.name || agentInfo.version !== permissionMapping.agentInfo.version) {
       throw new AcpProviderConnectionError('acp_permission_profile_mismatch', 'The initialized ACP identity does not match the selected permission profile.');

@@ -3,19 +3,21 @@ import type { AgentProviderConversationId, AgentSessionId } from '@agen-ai/agent
 import {
   DEFAULT_AGENT_SESSION_INTERACTION_LIMITS,
   throwIfAgentOperationAborted,
-  type AgentSessionInteractionContext,
+  type AgentProviderSessionInteractionContext,
   type AgentSessionInteractionLimits,
 } from '@agen-ai/agent-runtime';
 
 import type { AcpProviderLimits } from '../limits.js';
 import { AcpProviderSessionError } from '../session/errors.js';
 import { folderTrustDecision, GROK_FOLDER_TRUST_METHOD, parseNativeFolderTrustRequest } from './grokFolderTrust.js';
-import { NativeSessionDecision, sessionDecisionError } from './request.js';
+import { NativeSessionDecision, sessionDecisionError, type PreparePlanContinuation } from './request.js';
+import { GROK_PLAN_REVIEW_METHOD, parseNativePlanReviewRequest, planReviewRequest } from './grokPlanReview.js';
+import type { AcpSessionInteractionSelection } from './contracts.js';
 
 interface OpeningOwner {
   readonly sessionId: AgentSessionId;
   readonly workingDirectory: string;
-  readonly interactions: AgentSessionInteractionContext;
+  readonly interactions: AgentProviderSessionInteractionContext;
   readonly limits: Readonly<AgentSessionInteractionLimits>;
   readonly removeAbort: () => void;
 }
@@ -30,10 +32,12 @@ export type SessionInteractionStop =
   | Readonly<{ kind: 'session_closed' }>
   | Readonly<{ kind: 'failed'; cause: Error }>;
 
-/** One connection owns one create generation and one retained native decision. */
+/** One connection owns one opening generation and one retained native session request. */
 export class SessionInteractionBroker {
   private state: BrokerState = { kind: 'idle' };
   private requestNumber = 0;
+  private expectedNativeId: AgentProviderConversationId | undefined;
+  private prepareContinuation: PreparePlanContinuation | undefined;
   private retained: Readonly<{ decision: NativeSessionDecision; nativeId: AgentProviderConversationId }> | undefined;
   private readonly entered = new Set<NativeSessionDecision>();
   private openingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -45,28 +49,36 @@ export class SessionInteractionBroker {
 
   readonly handleRequest = (context: AcpReverseRequestContext): Promise<AcpJsonValue> => {
     try {
-      if (context.method !== GROK_FOLDER_TRUST_METHOD) throw failure(
+      const plan = this.input.selection.mapping === 'grok-build-1.0.60-session-requests-v1';
+      if (context.method !== (plan ? GROK_PLAN_REVIEW_METHOD : GROK_FOLDER_TRUST_METHOD)) throw failure(
         'acp_session_interaction_invalid', 'The reverse request does not belong to the selected session mapping.');
-      const native = parseNativeFolderTrustRequest(context.params);
+      const native = plan ? parseNativePlanReviewRequest(context.params) : parseNativeFolderTrustRequest(context.params);
       const state = this.state;
       if (state.kind === 'stopped') throw state.cause;
       if (state.kind === 'idle' || state.kind === 'prepared') throw failure(
         'acp_session_interaction_owner_missing', 'The native decision has no dispatched session opening owner.');
       if (this.retained) throw failure(
         'acp_session_interaction_capacity', 'The connection already retains a native session decision.');
-      if (native.cwd !== state.owner.workingDirectory
-        || ('nativeId' in state && native.sessionId !== state.nativeId)) throw failure(
+      if (('cwd' in native && native.cwd !== state.owner.workingDirectory)
+        || (this.expectedNativeId !== undefined && native.sessionId !== this.expectedNativeId)) throw failure(
         'acp_session_interaction_binding', 'The native decision does not match its exact session binding.');
-      const expiresAt = Date.now() + state.owner.limits.requestTimeoutMs;
-      const request = folderTrustDecision({ native, sessionId: state.owner.sessionId, requestNumber: ++this.requestNumber, expiresAt });
+      const hostDeadlineAt = state.owner.interactions.humanWait?.kind === 'until_withdrawn_or_closed'
+        ? undefined : Date.now() + state.owner.limits.requestTimeoutMs;
+      const requestNumber = ++this.requestNumber;
+      const request = 'planContent' in native ? planReviewRequest(native, state.owner.sessionId, requestNumber)
+        : folderTrustDecision({ native, sessionId: state.owner.sessionId, requestNumber });
       const descriptorBytes = Buffer.byteLength(JSON.stringify(request), 'utf8');
       const nativeBytes = Buffer.byteLength(JSON.stringify(native), 'utf8');
       if (descriptorBytes > state.owner.limits.maxRetainedBytes
         || descriptorBytes + nativeBytes > this.input.limits.maxQueuedBytes) throw failure(
         'acp_session_interaction_capacity', 'The native session decision exceeds its retained byte budget.');
       const decision = new NativeSessionDecision({ request,
-        nativeContext: Object.freeze({ id: context.id, signal: context.signal }), expiresAt,
-        accepting: () => this.state.kind === 'active' || this.state.kind === 'open',
+        nativeContext: context, ...(hostDeadlineAt === undefined ? {} : { hostDeadlineAt }),
+        ...(plan ? { prepareContinuation: (input) => {
+          if (!this.prepareContinuation) throw failure('acp_continuation_owner_missing', 'The plan review has no prepared execution owner.');
+          return this.prepareContinuation(input);
+        } } : {}),
+        accepting: () => this.state.kind === 'open' || (!plan && this.state.kind === 'active'),
         fail: (cause) => this.stop({ kind: 'failed', cause }),
         retire: () => {
           if (this.retained?.decision === decision) this.retained = undefined;
@@ -76,7 +88,7 @@ export class SessionInteractionBroker {
       this.retained = { decision, nativeId: native.sessionId };
       this.entered.add(decision);
       decision.observeNativeSignal();
-      if (this.state.kind === 'active' || this.state.kind === 'open') decision.present(state.owner.interactions.onRequest);
+      if (this.state.kind === 'open' || (!plan && this.state.kind === 'active')) decision.present(state.owner.interactions.onRequest);
       return decision.nativeReply;
     } catch (cause) {
       const error = cause instanceof Error ? cause : failure(
@@ -91,16 +103,32 @@ export class SessionInteractionBroker {
   constructor(private readonly input: Readonly<{
     stopped: AbortSignal;
     limits: AcpProviderLimits;
+    selection: AcpSessionInteractionSelection;
     onFailure: (cause: Error) => void;
   }>) {
     input.stopped.addEventListener('abort', this.onStopped, { once: true });
     if (input.stopped.aborted) this.onStopped();
   }
 
+  attachContinuationOwner(prepare: PreparePlanContinuation): void {
+    if (this.prepareContinuation) throw this.stateError();
+    this.prepareContinuation = prepare;
+  }
+
+  humanTimeoutMs(): number | undefined {
+    if (this.state.kind === 'idle' || this.state.kind === 'stopped') return DEFAULT_AGENT_SESSION_INTERACTION_LIMITS.requestTimeoutMs;
+    return this.state.owner.interactions.humanWait?.kind === 'until_withdrawn_or_closed'
+      ? undefined : this.state.owner.limits.requestTimeoutMs;
+  }
+
+  get selectedLifecycle(): boolean {
+    return this.input.selection.mapping === 'grok-build-1.0.60-session-requests-v1';
+  }
+
   prepareOpening(input: Readonly<{
     sessionId: AgentSessionId;
     workingDirectory: string;
-    interactions: AgentSessionInteractionContext;
+    interactions: AgentProviderSessionInteractionContext;
     signal?: AbortSignal;
   }>): void {
     throwIfAgentOperationAborted(input.signal);
@@ -123,20 +151,22 @@ export class SessionInteractionBroker {
 
   onOpeningDispatched(): void {
     if (this.state.kind !== 'prepared') throw this.stateError();
-    this.state = { kind: 'dispatched', owner: this.state.owner };
+    this.state = this.expectedNativeId === undefined ? { kind: 'dispatched', owner: this.state.owner }
+      : { kind: 'bound', owner: this.state.owner, nativeId: this.expectedNativeId };
     this.openingTimer = setTimeout(() => this.stop({ kind: 'failed', cause: failure(
       'acp_session_interaction_opening_timeout', 'The native decision opening did not bind before its deadline.') }),
     this.input.limits.initializationTimeoutMs);
   }
 
   bindNativeSession(nativeId: AgentProviderConversationId): void {
-    if (this.state.kind !== 'dispatched') throw this.stateError();
+    if (this.state.kind !== 'dispatched' && this.state.kind !== 'prepared') throw this.stateError();
     if (this.retained && this.retained.nativeId !== nativeId) {
       const cause = failure('acp_session_interaction_binding', 'The buffered decision claimed a different native session.');
       this.stop({ kind: 'failed', cause });
       throw cause;
     }
-    this.state = { kind: 'bound', owner: this.state.owner, nativeId };
+    this.expectedNativeId = nativeId;
+    if (this.state.kind === 'dispatched') this.state = { kind: 'bound', owner: this.state.owner, nativeId };
   }
 
   completeOpeningResponse(): void {
@@ -144,7 +174,7 @@ export class SessionInteractionBroker {
     this.clearOpeningTimer();
     const owner = this.state.owner;
     this.state = { kind: 'active', owner, nativeId: this.state.nativeId };
-    this.retained?.decision.present(owner.interactions.onRequest);
+    if (this.input.selection.mapping === 'grok-folder-trust-v1') this.retained?.decision.present(owner.interactions.onRequest);
     this.throwIfStopped();
   }
 
@@ -152,6 +182,7 @@ export class SessionInteractionBroker {
     if (this.state.kind !== 'active') throw this.stateError();
     this.state.owner.removeAbort();
     this.state = { kind: 'open', owner: this.state.owner, nativeId: this.state.nativeId };
+    this.retained?.decision.present(this.state.owner.interactions.onRequest);
   }
 
   stop(reason: SessionInteractionStop): void {

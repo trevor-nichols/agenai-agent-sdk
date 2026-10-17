@@ -107,7 +107,7 @@ test('events reject unsupported versions, unknown fields, and product coordinate
 
 test('events enforce reference, state, terminal, progress, and byte invariants', () => {
   const base = {
-    protocolVersion: 11,
+    protocolVersion: 12,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -170,7 +170,7 @@ test('retry, runtime-error, and failed-turn events preserve shared failure refin
     ['turn.completed', { outcome: 'failed', error }],
   ] as const) {
     const event = {
-      protocolVersion: 11, sessionId: 'session:1', turnId: 'turn:1',
+      protocolVersion: 12, sessionId: 'session:1', turnId: 'turn:1',
       occurredAt: protocolTimestamp, type, payload,
     };
     assert.deepEqual(parseAgentEvent(event), event);
@@ -182,7 +182,7 @@ test('retry, runtime-error, and failed-turn events preserve shared failure refin
 
 test('events reject noncanonical identifiers and diagnostic strings', () => {
   const base = {
-    protocolVersion: 11,
+    protocolVersion: 12,
     sessionId: 'session:1',
     turnId: 'turn:1',
     occurredAt: protocolTimestamp,
@@ -253,7 +253,7 @@ test('events reject noncanonical identifiers and diagnostic strings', () => {
 
 test('plan snapshots preserve canceled status and optional canonical priority', () => {
   const base = {
-    protocolVersion: 11,
+    protocolVersion: 12,
     sessionId: 'session:plan-semantics',
     turnId: 'turn:plan-semantics',
     occurredAt: protocolTimestamp,
@@ -301,4 +301,25 @@ test('plan snapshots preserve canceled status and optional canonical priority', 
       false,
     );
   }
+});
+
+test('request unavailability preserves exact turn identity and accepts only closed native reasons', () => {
+  const base = {
+    protocolVersion: 12, type: 'request.unavailable', sessionId: 'session:1', turnId: 'turn:1',
+    occurredAt: protocolTimestamp, payload: { requestId: 'request:1', reason: 'withdrawn' },
+  };
+  for (const reason of ['withdrawn', 'expired', 'unknown']) {
+    const input = { ...base, payload: { ...base.payload, reason } };
+    assert.deepEqual(parseAgentEvent(input), input);
+    assert.deepEqual(parseAgentEvent(JSON.parse(JSON.stringify(input))), input);
+  }
+  const { turnId: _turnId, ...withoutTurn } = base;
+  for (const invalid of [
+    withoutTurn,
+    { ...base, protocolVersion: 11 },
+    { ...base, payload: { ...base.payload, reason: 'host_timeout' } },
+    { ...base, payload: { ...base.payload, nativeRequestId: 'hidden' } },
+    { ...base, payload: { ...base.payload, requestId: '' } },
+    { ...base, requestId: 'request:1' },
+  ]) assert.equal(safeParseAgentEvent(invalid).success, false);
 });

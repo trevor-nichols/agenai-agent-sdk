@@ -1,5 +1,6 @@
 import type { AcpJsonValue, AcpReverseRequestContext } from '@agen-ai/acp-transport';
 import type { AgentInstanceId } from '@agen-ai/agent-protocol';
+import { DEFAULT_AGENT_SESSION_INTERACTION_LIMITS } from '@agen-ai/agent-runtime';
 import type { AcpProviderLimits } from '../limits.js';
 import { validateAcpFormContent, validateAcpFormSchema } from '../session/requests/forms.js';
 import type { AcpHostFacilities, AcpHostInteractionScope, AcpHostUrlInteractionLease } from './contracts.js';
@@ -17,19 +18,28 @@ interface UrlInteraction {
   completion: Promise<void> | undefined;
 }
 
+interface FormInteraction {
+  readonly scopeSignal: AbortSignal;
+  readonly lifetime: AbortController;
+  readonly completion: Promise<void>;
+}
+
 export class AcpHostInteractions {
   private readonly urls = new Map<string, UrlInteraction>();
   private readonly pendingUrls = new Map<string, boolean>();
   private readonly leases: AcpHostLeases;
+  private readonly forms = new Map<Promise<void>, FormInteraction>();
 
   constructor(private readonly input: {
     readonly instanceId: AgentInstanceId;
     readonly host: AcpHostFacilities;
     readonly limits: AcpProviderLimits;
     readonly stopped: AbortSignal;
+    readonly humanTimeoutMs?: () => number | undefined;
   }) { this.leases = new AcpHostLeases(input.limits.hostOperationTimeoutMs); }
 
-  async request(context: AcpReverseRequestContext, scope: AcpHostInteractionScope, scopeSignal: AbortSignal): Promise<AcpJsonValue> {
+  async request(context: AcpReverseRequestContext, scope: AcpHostInteractionScope, scopeSignal: AbortSignal,
+    observeCallback?: (work: Promise<void>) => void): Promise<AcpJsonValue> {
     const params = hostObject(context.params);
     const message = hostText(params.message, 4_000);
     const signal = AbortSignal.any([context.signal, scopeSignal, this.input.stopped]);
@@ -37,11 +47,21 @@ export class AcpHostInteractions {
       if (!this.input.host.form) throw unsupportedHostRequest();
       const schema = freezeHostData(structuredClone(hostObject(params.requestedSchema)));
       validateAcpFormSchema(schema);
-      const deadline = hostDeadline(signal, this.input.limits.authenticationTimeoutMs);
+      const timeoutMs = scope.kind === 'authentication' ? this.input.limits.authenticationTimeoutMs
+        : this.input.humanTimeoutMs ? this.input.humanTimeoutMs() : DEFAULT_AGENT_SESSION_INTERACTION_LIMITS.requestTimeoutMs;
+      const lifetime = new AbortController();
+      const formSignal = AbortSignal.any([signal, lifetime.signal]);
+      const deadline = timeoutMs === undefined ? { signal: formSignal, close() {} } : hostDeadline(formSignal, timeoutMs);
+      const callback = Promise.resolve().then(() => {
+        if (deadline.signal.aborted) throw deadline.signal.reason;
+        return this.input.host.form!({ instanceId: this.input.instanceId, scope, signal: deadline.signal, message, requestedSchema: schema });
+      });
+      const actualCallback = callback.then(() => undefined, () => undefined);
+      observeCallback?.(actualCallback);
+      const completion = Promise.all([actualCallback, context.settled]).then(() => { this.forms.delete(context.settled); });
+      this.forms.set(context.settled, { scopeSignal, lifetime, completion });
       try {
-        const result = await awaitHost(this.input.host.form({
-          instanceId: this.input.instanceId, scope, signal: deadline.signal, message, requestedSchema: schema,
-        }), deadline.signal);
+        const result = await awaitHost(callback, deadline.signal);
         if (result.action === 'accept') {
           const content = hostObject(result.content);
           validateAcpFormContent(schema, content);
@@ -93,6 +113,10 @@ export class AcpHostInteractions {
     }
   }
 
+  joinRequest(settled: Promise<void>): Promise<void> {
+    return this.forms.get(settled)?.completion ?? Promise.resolve();
+  }
+
   async complete(id: string): Promise<void> {
     const interaction = this.urls.get(id);
     if (!interaction) {
@@ -117,16 +141,24 @@ export class AcpHostInteractions {
     this.urls.delete(id);
   }
 
-  async close(): Promise<void> {
-    await this.leases.close();
-    for (const interaction of this.urls.values()) interaction.detach();
-    this.urls.clear();
+  private async closeForms(scope?: AbortSignal): Promise<void> {
+    const entries = [...this.forms.values()].filter((entry) => scope === undefined || entry.scopeSignal === scope);
+    for (const entry of entries) entry.lifetime.abort(new DOMException('Host form closed.', 'AbortError'));
+    const deadline = hostDeadline(new AbortController().signal, this.input.limits.hostOperationTimeoutMs);
+    try { await awaitHost(Promise.all(entries.map((entry) => entry.completion)), deadline.signal); }
+    finally { deadline.close(); }
   }
 
-  async closeScope(signal: AbortSignal): Promise<void> {
-    await this.leases.close(signal);
-    for (const [id, interaction] of this.urls) if (interaction.scopeSignal === signal) {
+  private async closeOwned(scope?: AbortSignal): Promise<void> {
+    const results = await Promise.allSettled([this.leases.close(scope), this.closeForms(scope)]);
+    const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+    if (failures.length) throw new AggregateError(failures.map((result) => result.reason), 'ACP host interaction cleanup failed.');
+    for (const [id, interaction] of this.urls) if (scope === undefined || interaction.scopeSignal === scope) {
       interaction.detach(); this.urls.delete(id);
     }
   }
+
+  close(): Promise<void> { return this.closeOwned(); }
+
+  closeScope(signal: AbortSignal): Promise<void> { return this.closeOwned(signal); }
 }

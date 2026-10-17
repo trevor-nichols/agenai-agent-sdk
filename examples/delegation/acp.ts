@@ -13,7 +13,7 @@ import {
   type AgentSessionConfiguration,
 } from '@agen-ai/agent-protocol';
 import { createAgentProviderRegistry, isAgentProviderSessionCleanupErrorFor,
-  type AgentProviderCreateSessionInput, type AgentProviderDriver, type AgentProviderSession, type AgentProviderSessionCleanupError } from '@agen-ai/agent-runtime';
+  type AgentCreateSessionInput, type AgentProviderDriver, type AgentProviderSession, type AgentProviderSessionCleanupError } from '@agen-ai/agent-runtime';
 import { createNodeAcpProviderDriver } from '@agen-ai/provider-acp/node';
 import {
   createDelegationCoordinator, createDelegationHostBinding, createInMemoryDelegationStore, parseDelegationLimits,
@@ -76,7 +76,7 @@ export async function runAcpDelegationExample(driver: AgentProviderDriver, root:
   const parentLifetime = new AbortController();
   let cleanupAttempted = false;
   let dispatchFailure: { error: unknown } | undefined;
-  const openSession = async (input: AgentProviderCreateSessionInput): Promise<AgentProviderSession> => {
+  const openSession = async (input: AgentCreateSessionInput): Promise<AgentProviderSession> => {
     try { return await registry.requireInstance(instanceId).adapter.createSession(input); }
     catch (error) {
       if (isAgentProviderSessionCleanupErrorFor(error, input)) openingCleanup = error;

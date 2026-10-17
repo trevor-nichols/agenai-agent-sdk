@@ -134,9 +134,10 @@ export function createAcpClient(options: CreateAcpClientOptions): AcpClient {
 
   const writeOrFail = async (
     message: AcpRequestMessage | AcpNotificationMessage | AcpResponseMessage,
+    observeSettlement?: (settled: Promise<void>) => void,
   ): Promise<void> => {
     try {
-      await writer.write(message);
+      await writer.write(message, observeSettlement);
     } catch (error) {
       const normalized = error instanceof Error
         ? error
@@ -146,9 +147,9 @@ export function createAcpClient(options: CreateAcpClientOptions): AcpClient {
     }
   };
 
-  const sendErrorResponse = async (id: AcpRequestId, error: AcpErrorObject): Promise<void> => {
+  const sendErrorResponse = async (id: AcpRequestId, error: AcpErrorObject, observeSettlement?: (settled: Promise<void>) => void): Promise<void> => {
     if (state !== 'open') return;
-    await writeOrFail({ jsonrpc: '2.0', id, error });
+    await writeOrFail({ jsonrpc: '2.0', id, error }, observeSettlement);
   };
 
   const sendReservedErrorResponse = (
@@ -334,18 +335,22 @@ export function createAcpClient(options: CreateAcpClientOptions): AcpClient {
     extension: boolean,
     handler: NonNullable<CreateAcpClientOptions['reverseRequestHandlers']>[string],
     controller: AbortController,
+    settled: Promise<void>,
   ): Promise<void> => (async () => {
+    let actualWrite: Promise<void> | undefined;
+    const observeWrite = (settlement: Promise<void>) => { actualWrite = settlement; };
     try {
       const result = await handler({
         id: message.id,
         method: message.method,
         params: message.params,
         signal: controller.signal,
+        settled,
       });
       assertBoundedAcpJson(result, limits);
       if (extension) extensions.validateResult('inbound_request', message.method, result);
       else schema.validate('client', message.method, 'response', result);
-      if (state === 'open') await writeOrFail({ jsonrpc: '2.0', id: message.id, result });
+      if (state === 'open') await writeOrFail({ jsonrpc: '2.0', id: message.id, result }, observeWrite);
     } catch (error) {
       if (state !== 'open') return;
       const rpcError = error instanceof AcpRpcHandlerError
@@ -358,7 +363,9 @@ export function createAcpClient(options: CreateAcpClientOptions): AcpClient {
         code: rpcError.code,
         message: rpcError.message,
         ...(rpcError.data !== undefined ? { data: rpcError.data as AcpJsonValue } : {}),
-      });
+      }, observeWrite);
+    } finally {
+      await actualWrite;
     }
   })();
 
@@ -415,7 +422,7 @@ export function createAcpClient(options: CreateAcpClientOptions): AcpClient {
     reservedInboundRequestIds.add(key);
     const settlement = deferred<void>();
     activeReverse.set(key, { controller, settlement: settlement.promise });
-    void runReverseRequest(message, extension, handler, controller)
+    void runReverseRequest(message, extension, handler, controller, settlement.promise)
       .catch((error) => fatal(error instanceof Error ? error : new AcpProtocolError(
         'acp_reverse_request_failed',
       )))

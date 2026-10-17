@@ -64,6 +64,42 @@ test('agent authentication correlates host forms and URL consent outside session
   assert.deepEqual(inactive.error?.recovery, { kind: 'none' });
 });
 
+test('authentication forms keep their finite ceremony deadline and join cancellation without a human answer', { timeout: 3_000 }, async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.parse('2026-10-16T12:00:00.000Z') });
+  const peer = createHostPeer(agentInitialize);
+  peer.handle((frame) => frame.method === 'authenticate');
+  const entered = fixtureDeferred<AbortSignal>();
+  let callbacks = 0;
+  const instance = await createAcpProviderDriver({ providerKey: hostProviderKey, createConnection: () => peer.lease,
+    limits: { authenticationTimeoutMs: 1_000 }, authentication: { browser: { methodId: 'fixture-browser' } }, host: { form(input) {
+      callbacks += 1; assert.equal(input.scope.kind, 'authentication'); entered.resolve(input.signal);
+      return new Promise<never>((_, reject) => input.signal.addEventListener('abort', () => reject(input.signal.reason), { once: true }));
+    } },
+  }).materialize(hostDefinition);
+  t.after(async () => { await instance.dispose(); peer.destroy(); });
+  assert.equal(instance.adapter.authentication.kind, 'supported');
+  if (instance.adapter.authentication.kind !== 'supported') throw new Error('Expected explicit authentication support.');
+  const progress = instance.adapter.authentication.start({ attemptId: 'auth:form-timeout', flow: 'browser' })[Symbol.asyncIterator]();
+  await progress.next();
+  const authentication = await peer.wait((frame) => frame.method === 'authenticate');
+  assert.ok(authentication.id);
+  void peer.request('elicitation/create', { requestId: authentication.id, mode: 'form', message: 'Authenticate',
+    requestedSchema: { type: 'object', properties: { count: { type: 'integer' } }, required: ['count'] } }, 'authentication-form');
+  const signal = await entered.promise;
+  t.mock.timers.tick(999);
+  assert.equal(signal.aborted, false);
+  t.mock.timers.tick(1);
+  const terminal = (await progress.next()).value;
+  assert.equal(terminal?.kind, 'authentication');
+  if (terminal?.kind !== 'authentication') throw new Error('Expected authentication terminal.');
+  assert.equal(terminal.progress.status, 'failed');
+  assert.equal(terminal.progress.error?.code, 'authentication_outcome_uncertain');
+  assert.equal(signal.aborted, true);
+  assert.equal(callbacks, 1);
+  assert.equal(peer.frames.some((frame) => frame.id === 'authentication-form' && frame.result !== undefined), false);
+  await progress.return?.();
+});
+
 for (const action of ['cancel', 'dispose'] as const) {
   test(`${action} retires authentication and owned URL UI while the progress consumer is paused`, { timeout: 2_000 }, async (t) => {
     const peer = createHostPeer(agentInitialize);

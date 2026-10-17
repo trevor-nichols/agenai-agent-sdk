@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { setImmediate } from 'node:timers/promises';
 import test from 'node:test';
 import { parseAgentEnvironmentId, parseAgentTurnId } from '@agen-ai/agent-protocol';
-import { createAcpProviderDriver, type AcpHostTerminalLease, type AcpHostUrlDecision } from '../src/index.js';
+import { AgentProviderSessionCleanupError, createAgentProviderRegistry, type AgentProviderOutput } from '@agen-ai/agent-runtime';
+import { createAcpProviderDriver, type AcpHostFormInput, type AcpHostFormResponse, type AcpHostTerminalLease, type AcpHostUrlDecision } from '../src/index.js';
 import { createHostPeer, fixtureDeferred, hostDefinition, hostProviderKey, hostSessionContext } from './node-fixtures/host-peer.js';
+import { hostHumanFixture } from './node-fixtures/host-human.js';
 
 test('filesystem facilities reject unbound and foreign sessions before host callbacks and preserve host authorization errors', { timeout: 2_000 }, async (t) => {
   const peer = createHostPeer();
@@ -101,12 +104,12 @@ test('accepted session URLs retain bounded capacity until completion and never a
   const prompt = await peer.wait((frame) => frame.method === 'session/prompt');
   const params = { sessionId: 'native-session', mode: 'url', message: 'Authorize', url: 'https://login.example.invalid/', elicitationId: 'url:1' };
   assert.deepEqual((await peer.request('elicitation/create', params)).result, { action: 'accept' });
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  await setImmediate();
   assert.equal((await peer.request('elicitation/create', { ...params, elicitationId: 'url:2' })).error?.code, -32602);
   assert.equal(opened, 1);
   peer.send({ jsonrpc: '2.0', method: 'elicitation/complete', params: { elicitationId: 'url:1' } });
   await completed.promise;
-  await new Promise<void>((resolve) => setImmediate(resolve));
+  await setImmediate();
   decision = 'decline';
   assert.deepEqual((await peer.request('elicitation/create', { ...params, elicitationId: 'url:2' })).result, { action: 'decline' });
   assert.equal(opened, 2); assert.equal(released, 2);
@@ -144,4 +147,147 @@ test('host-approved MCP setup is sent without inventing connected integration in
   const snapshot = await session.environment.readEnvironment({ signal: new AbortController().signal, environmentId: parseAgentEnvironmentId('environment:fixture') });
   assert.deepEqual(snapshot.integrations, { kind: 'unsupported', reasons: [] });
   assert.equal(JSON.stringify(snapshot).includes('fixture-secret'), false);
+});
+
+const nativeForm = { sessionId: 'native-session', mode: 'form', message: 'Choose a native count', requestedSchema: {
+  type: 'object', properties: { count: { type: 'integer', minimum: 1, maximum: 3 } }, required: ['count'],
+} };
+
+for (const policy of ['default', 'bounded', 'unbounded'] as const) {
+  test(`neutral native host forms use the ${policy} human policy independently of authentication`, { timeout: 5_000 }, async (t) => {
+    t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.parse('2026-10-16T12:00:00.000Z') });
+    const entered = fixtureDeferred<AbortSignal>();
+    const answer = fixtureDeferred<AcpHostFormResponse>();
+    const native = policy === 'default' ? undefined : hostHumanFixture(t, () => { answer.resolve({ action: 'cancel' }); });
+    const borrowed = native ? undefined : createHostPeer();
+    borrowed?.handle((frame) => frame.method === 'session/prompt');
+    const peer = native?.peer ?? borrowed!;
+    let forms = 0;
+    const options = { limits: { authenticationTimeoutMs: 10 }, host: { form(input: AcpHostFormInput) {
+        forms += 1; assert.equal(input.scope.kind, 'session'); entered.resolve(input.signal); return answer.promise;
+      } } };
+    const registry = native ? await native.registered(options) : await createAgentProviderRegistry({ definitions: [hostDefinition], drivers: [createAcpProviderDriver({
+      ...options, providerKey: hostProviderKey, createConnection: () => borrowed!.lease,
+    })] });
+    if (borrowed) t.after(async () => { answer.resolve({ action: 'cancel' }); await registry.dispose(); borrowed.destroy(); });
+    const adapter = registry.requireInstance(hostDefinition.instanceId).adapter;
+    const session = await adapter.createSession({ ...(native?.context ?? hostSessionContext()),
+      ...(policy === 'default' ? {} : { interactions: policy === 'unbounded'
+        ? { humanWait: { kind: 'until_withdrawn_or_closed' }, onRequest() { throw new Error('No outside-turn request was offered.'); } }
+        : { limits: { requestTimeoutMs: 1_000 }, onRequest() { throw new Error('No outside-turn request was offered.'); } } }),
+    });
+    const outputs: AgentProviderOutput[] = [];
+    const consumed = (async () => {
+      for await (const output of session.startTurn({ turnId: parseAgentTurnId(`turn:human:${policy}`), interactionMode: 'default', parts: [{ type: 'text', text: 'Native host form' }] }).outputs) outputs.push(output);
+    })();
+    void consumed.catch(() => {});
+    const prompt = await peer.wait((frame) => frame.method === 'session/prompt');
+    const response = peer.request('elicitation/create', nativeForm, 'neutral-form');
+    const signal = await entered.promise;
+    const wait = policy === 'bounded' ? 1_000 : 300_000;
+    t.mock.timers.tick(wait - 1); await setImmediate();
+    assert.equal(signal.aborted, false, 'The authentication budget must not time out a neutral session form.');
+    t.mock.timers.tick(policy === 'unbounded' ? 2 : 1); await setImmediate();
+    assert.equal(signal.aborted, policy !== 'unbounded');
+    if (policy !== 'unbounded') {
+      const refused = await response;
+      assert.equal(refused.error?.code, -32603);
+      assert.equal(refused.result, undefined);
+    }
+    answer.resolve({ action: 'accept', content: { count: 2 } });
+    if (policy === 'unbounded') assert.deepEqual((await response).result, { action: 'accept', content: { count: 2 } });
+    await setImmediate();
+    peer.send({ jsonrpc: '2.0', id: prompt.id, result: { stopReason: 'end_turn' } });
+    await consumed;
+    assert.equal(forms, 1);
+    assert.equal(outputs.some((output) => output.kind === 'event' && output.event.type === 'request.opened'), false);
+    assert.equal(peer.frames.filter((frame) => frame.id === 'neutral-form').length, 1);
+    await session.close({ reason: 'idle' });
+  });
+}
+
+test('an ignored neutral form cancellation retains the same actual callback through bounded cleanup and retry', { timeout: 5_000 }, async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.parse('2026-10-16T12:00:00.000Z') });
+  const entered = fixtureDeferred<AbortSignal>();
+  const answer = fixtureDeferred<AcpHostFormResponse>();
+  const fixture = hostHumanFixture(t, () => { answer.resolve({ action: 'cancel' }); });
+  const peer = fixture.peer;
+  let callbacks = 0;
+  const registry = await fixture.registered({
+    limits: { hostOperationTimeoutMs: 1_000 }, host: { form(input) { callbacks += 1; entered.resolve(input.signal); return answer.promise; } },
+  });
+  const session = await registry.requireInstance(hostDefinition.instanceId).adapter.createSession({ ...fixture.context,
+    interactions: { humanWait: { kind: 'until_withdrawn_or_closed' }, onRequest() {} },
+  });
+  const consumed = (async () => {
+    for await (const _output of session.startTurn({ turnId: parseAgentTurnId('turn:ignored-form'), interactionMode: 'default', parts: [{ type: 'text', text: 'Retain the original form callback.' }] }).outputs) {}
+  })();
+  void consumed.catch(() => {});
+  await peer.wait((frame) => frame.method === 'session/prompt');
+  const response = peer.request('elicitation/create', nativeForm, 'ignored-form');
+  const signal = await entered.promise;
+  peer.send({ jsonrpc: '2.0', method: '$/cancel_request', params: { requestId: 'ignored-form' } });
+  assert.equal((await response).error?.code, -32800);
+  assert.equal(signal.aborted, true);
+  let retained: AgentProviderSessionCleanupError | undefined;
+  let cleanupFinished = false;
+  const closing = Promise.resolve(session.close({ reason: 'shutdown' })).then(() => { cleanupFinished = true; });
+  const refused = assert.rejects(closing, (cause: unknown) => {
+    assert.ok(cause instanceof AgentProviderSessionCleanupError); retained = cause; return true;
+  });
+  void refused.catch(() => {});
+  await fixture.nativeClosed;
+  await setImmediate();
+  assert.equal(cleanupFinished, false, 'Actual native shutdown cannot join an ignored host callback.');
+  t.mock.timers.tick(200); await refused;
+  assert.ok(retained);
+  let joined = false;
+  const retry = retained.retryCleanup().then(() => { joined = true; });
+  await setImmediate();
+  assert.equal(joined, false);
+  assert.equal(callbacks, 1);
+  answer.resolve({ action: 'accept', content: { count: 2 } });
+  await retry;
+  await retained.retryCleanup();
+  await consumed.catch(() => {});
+  assert.equal(joined, true);
+  assert.equal(callbacks, 1);
+  assert.equal(peer.frames.filter((frame) => frame.id === 'ignored-form').length, 1);
+  assert.equal(peer.frames.find((frame) => frame.id === 'ignored-form')?.result, undefined);
+  assert.equal(peer.frames.filter((frame) => frame.method === 'session/prompt').length, 1);
+});
+
+test('URL ceremonies retain their finite authentication deadline under an unbounded session human policy', { timeout: 5_000 }, async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.parse('2026-10-16T12:00:00.000Z') });
+  const decision = fixtureDeferred<AcpHostUrlDecision>();
+  const entered = fixtureDeferred<AbortSignal>();
+  const fixture = hostHumanFixture(t, () => { decision.resolve('cancel'); });
+  const peer = fixture.peer;
+  let released = 0;
+  const registry = await fixture.registered({ limits: { authenticationTimeoutMs: 1_000 }, host: { url(input) {
+    assert.equal(input.scope.kind, 'session'); entered.resolve(input.signal);
+    return { decision: decision.promise, release() { released += 1; } };
+  } } });
+  const session = await registry.requireInstance(hostDefinition.instanceId).adapter.createSession({ ...fixture.context,
+    interactions: { humanWait: { kind: 'until_withdrawn_or_closed' }, onRequest() {} },
+  });
+  const consumed = (async () => {
+    for await (const _output of session.startTurn({ turnId: parseAgentTurnId('turn:url-deadline'), interactionMode: 'default', parts: [{ type: 'text', text: 'Authorize a URL ceremony.' }] }).outputs) {}
+  })();
+  void consumed.catch(() => {});
+  const prompt = await peer.wait((frame) => frame.method === 'session/prompt');
+  const response = peer.request('elicitation/create', { sessionId: 'native-session', mode: 'url', message: 'Authorize',
+    elicitationId: 'url:finite', url: 'https://login.example.invalid/' }, 'finite-url');
+  const signal = await entered.promise;
+  t.mock.timers.tick(999); await setImmediate();
+  assert.deepEqual([signal.aborted, released], [false, 0]);
+  t.mock.timers.tick(1);
+  const refused = await response;
+  assert.equal(refused.error?.code, -32603);
+  assert.equal(refused.result, undefined);
+  assert.deepEqual([signal.aborted, released], [true, 1]);
+  peer.send({ jsonrpc: '2.0', id: prompt.id, result: { stopReason: 'end_turn' } });
+  await consumed;
+  await session.close({ reason: 'idle' });
+  assert.equal(released, 1);
 });

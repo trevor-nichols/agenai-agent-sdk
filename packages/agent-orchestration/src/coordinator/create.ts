@@ -23,7 +23,7 @@ import type { CreateDelegationCoordinatorOptions, DelegationCoordinator } from "
 
 export async function createDelegationCoordinator(options: CreateDelegationCoordinatorOptions): Promise<DelegationCoordinator> {
   const limits = parseDelegationLimits(options.limits);
-  if (options.store.contractVersion !== 3 || delegationInputDigest(limits) !== delegationInputDigest(options.store.limits)) {
+  if (options.store.contractVersion !== 4 || delegationInputDigest(limits) !== delegationInputDigest(options.store.limits)) {
     failDelegation("store_failed", "The coordinator requires the exact store contract and limits.");
   }
   validateDeliverySetup(options);

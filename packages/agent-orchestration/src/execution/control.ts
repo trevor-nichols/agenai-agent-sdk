@@ -136,7 +136,7 @@ async function continueRequest(state: CoordinatorState, input: DelegationResolve
   const { live, request } = pending;
   parseAgentRequestResolutionFor(request, resolution);
   const identity = { operationId, inputDigest: delegationInputDigest({ kind: "request_resolution", taskId: live.taskId, runId: live.runId, requestId: request.requestId, resolution }) };
-  return serializeControl(live, async () => {
+  const admission = await serializeControl(live, async () => {
     const [{ task }, run] = await Promise.all([state.task(live.taskId), state.run(live.taskId, live.runId)]);
     state.options.host.assertResultAccess({ scope: live.scope, task });
     state.options.host.assertRequestAccess({ handle: input.handle, task, run, request });
@@ -147,52 +147,62 @@ async function continueRequest(state: CoordinatorState, input: DelegationResolve
         || existing.operation.taskId !== live.taskId || existing.operation.runId !== live.runId) {
         failDelegation("operation_conflict", "The operation identity already has different input or ownership.");
       }
-      return requestReceipt(live, operationId, existing.operation.disposition, existing.operation.requestState, true);
+      return { kind: "receipt" as const, receipt: requestReceipt(live, operationId, existing.operation.disposition, existing.operation.requestState, true) };
     }
-    if (live.request !== pending || !live.stream || live.finishing || !live.turn || !live.requestHistory || live.uncertain || live.cancellation
+    if (live.request !== pending || pending.eligibility !== "waiting" || !live.stream || live.finishing || !live.turn || live.uncertain || live.cancellation
       || run.phase !== "waiting" || live.execution?.signal.aborted || live.lifetime.signal.aborted) {
       failDelegation("request_unavailable", "The exact waiting request no longer has a live executor.");
     }
-    const history = live.requestHistory;
-    await markRequest(state, live, "resolution_intended", { ...history, state: "resolution_intended" }, identity);
-    live.request = undefined;
-    let disposition: "delivered" | "rejected" | "uncertain";
-    let requestState: "pending" | "unavailable" | undefined;
-    let localFailure: Readonly<{ error: unknown }> | undefined;
-    let entered = false;
-    try {
-      const turn = live.turn;
-      const result = await boundedControl(state, live, (signal) => turn.resolveRequest({ resolution,
-        signal: AbortSignal.any([signal, live.lifetime.signal]), onProviderExecutionStarted() {
-          state.options.host.assertRequestAccess({ handle: input.handle, task, run, request });
-          live.execution?.assertCurrent();
-          entered = true;
-        } }));
-      disposition = result.status === "delivery_uncertain" ? "uncertain" : result.status;
-      if (result.status === "rejected") requestState = result.requestState;
-    } catch (error) {
-      if (error instanceof AgentProviderDelegatedOperationError || (entered && error instanceof DOMException && error.name === "AbortError")) {
-        disposition = "uncertain";
-      } else {
-        disposition = "rejected";
-        requestState = live.lifetime.signal.aborted || live.cancellation ? "unavailable" : "pending";
-        localFailure = { error };
-      }
-    }
-    if (disposition === "uncertain") live.uncertain = "request_executor_lost";
-    try {
-      await state.mutate(live.taskId, live.runId, operationId, identity.inputDigest,
-        (fence) => ({ ...fence, kind: "operation_receipt", disposition, at: now(), ...(requestState ? { requestState } : {}) }));
-    } catch (error) {
-      live.uncertain = "storage_failed";
-      void finishRun(state, live, { kind: "recovery_required", reason: "storage_failed" }).catch(() => undefined);
+    const history = pending.history;
+    pending.eligibility = "claimed";
+    try { await markRequest(state, live, "resolution_intended", { ...history, state: "resolution_intended" }, identity); }
+    catch (error) {
+      if (!pending.signal.aborted && live.request === pending) pending.eligibility = "waiting";
       throw error;
     }
-    if (requestState === "pending" && !live.lifetime.signal.aborted && !live.cancellation) live.request = pending;
-    if (live.uncertain) void finishRun(state, live, { kind: "recovery_required", reason: live.uncertain }).catch(() => undefined);
-    if (localFailure) throw localFailure.error;
-    return requestReceipt(live, operationId, disposition, requestState);
+    live.requestAttempts.set(operationId, pending);
+    const turn = live.turn;
+    return { kind: "dispatch" as const, invoke: async (): Promise<DelegationRequestReceipt> => {
+      let disposition: "delivered" | "rejected" | "uncertain";
+      let requestState: "pending" | "unavailable" | undefined;
+      let localFailure: Readonly<{ error: unknown }> | undefined;
+      let entered = false;
+      try {
+        const result = await boundedControl(state, live, (signal) => turn.resolveRequest({ resolution,
+          signal: AbortSignal.any([signal, live.lifetime.signal]), onProviderExecutionStarted() {
+            state.options.host.assertRequestAccess({ handle: input.handle, task, run, request });
+            live.execution?.assertCurrent();
+            entered = true;
+          } }));
+        disposition = result.status === "delivery_uncertain" ? "uncertain" : result.status;
+        if (result.status === "rejected") requestState = result.requestState;
+      } catch (error) {
+        if (error instanceof AgentProviderDelegatedOperationError || (entered && error instanceof DOMException && error.name === "AbortError")) {
+          disposition = "uncertain";
+        } else {
+          disposition = "rejected";
+          requestState = live.lifetime.signal.aborted || live.cancellation ? "unavailable" : "pending";
+          localFailure = { error };
+        }
+      }
+      if (disposition === "uncertain") live.uncertain = "request_executor_lost";
+      try {
+        await state.mutate(live.taskId, live.runId, operationId, identity.inputDigest,
+          (fence) => ({ ...fence, kind: "operation_receipt", disposition, at: now(), ...(requestState ? { requestState } : {}) }));
+      } catch (error) {
+        live.uncertain = "storage_failed";
+        void finishRun(state, live, { kind: "recovery_required", reason: "storage_failed" }).catch(() => undefined);
+        throw error;
+      }
+      if (pending.eligibility !== "retired") {
+        pending.eligibility = requestState === "pending" && live.request === pending && !live.lifetime.signal.aborted && !live.cancellation ? "waiting" : "retired";
+      }
+      if (live.uncertain) void finishRun(state, live, { kind: "recovery_required", reason: live.uncertain }).catch(() => undefined);
+      if (localFailure) throw localFailure.error;
+      return requestReceipt(live, operationId, disposition, requestState);
+    } };
   });
+  return admission.kind === "receipt" ? admission.receipt : admission.invoke();
 }
 
 export function resolveLiveRequest(state: CoordinatorState, input: DelegationResolveHostRequestInput): Promise<DelegationRequestReceipt> {
@@ -207,10 +217,11 @@ export function resolveLiveRequest(state: CoordinatorState, input: DelegationRes
   if (prior) return state.track(prior.promise.then((receipt) => ({ ...receipt as DelegationRequestReceipt, duplicate: true })), pending.live);
   const work = state.track(continueRequest(state, input), pending.live);
   pending.live.pendingOperations.set(operationId, { digest, promise: work });
-  pending.live.requestResolution = work;
+  pending.resolution ??= work;
   void work.finally(() => {
     pending.live.pendingOperations.delete(operationId);
-    if (pending.live.requestResolution === work) pending.live.requestResolution = undefined;
+    pending.live.requestAttempts.delete(operationId);
+    if (pending.resolution === work) pending.resolution = undefined;
   }).catch(() => undefined);
   return work;
 }

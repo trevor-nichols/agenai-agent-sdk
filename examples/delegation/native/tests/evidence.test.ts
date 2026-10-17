@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
+import { AgentProtocolValidationError } from '@agen-ai/agent-protocol';
 import { assertQualifiedNativeMode, parseNativeDiscoveryReport, parseNativeMappingProof, parseNativeModeReport } from '../evidence.js';
 import { parseNativeCandidate, parseNativeSelection, type NativeCandidate } from '../contracts.js';
 import { SDK_PACKAGE_NAMES } from '../identity.js';
@@ -96,7 +97,7 @@ function discoveryFixture() {
   const unsupported = { kind: 'unsupported' };
   return { version: 1, outcome: 'qualified', failedGates: [], noPrompt: true, elapsedMs: 100, modelAcknowledged: true, reasoningAcknowledged: true,
     configurationStarts: 2, cleanup: { ...cleanup(), bridgesAcquired: 0, bridgesReleased: 0 }, configuration: selection(),
-    capabilities: { protocolVersion: 11, providerKey: 'native-proof', sessions: { create: true, resume: false, branch: unsupported },
+    capabilities: { protocolVersion: 12, providerKey: 'native-proof', sessions: { create: true, resume: false, branch: unsupported },
       turns: { interactionModes: ['default'], interrupt: true, steer: unsupported }, requests: { approval: unsupported, elicitation: unsupported },
       context: { usage: unsupported, compaction: unsupported }, input: { text: true, images: unsupported, contentReferences: unsupported },
       output: { streaming: true, plans: false, fileChanges: 'none', artifactKinds: [] }, configuration: { kind: 'selectable', fieldKinds: ['single_select'], maxFields: 2 },
@@ -130,7 +131,7 @@ function candidateFixture() {
       pythonVersion: '3.13.0', zlibCompileVersion: '1.3', zlibRuntimeVersion: '1.3', inputChunkBytes: 1_048_576, outputChunkBytes: 1_048_576,
       maxInputBytes: 104_857_600, maxOutputBytes: 268_435_456, plannedTimeoutMs: 30_000 },
     sdk: { sourceRevision: 'd'.repeat(40), nodeVersion: '22.23.2', nodeSha256: digest('fixture-node'), pnpmVersion: '11.7.0', pnpmSha256: digest('fixture-pnpm'),
-      lockfileSha256: digest('fixture-lock'), packages: SDK_PACKAGE_NAMES.map((name) => ({ name, version: '0.4.1', sourceGitTree: 'e'.repeat(40),
+      lockfileSha256: digest('fixture-lock'), packages: SDK_PACKAGE_NAMES.map((name) => ({ name, version: '0.4.2', sourceGitTree: 'e'.repeat(40),
         manifestSha256: digest('fixture-manifest'), runtimeFiles: files, runtimeTreeSha256: tree })),
       mcp: { version: '1.29.0', rootSnapshot, graph, graphSha256: semanticDigest(graph), runtimeFiles: files, runtimeTreeSha256: tree } },
     runnerFiles, runnerDigest: semanticDigest(runnerFiles), choice: { modelId: 'grok-4.3', reasoning: 'low' },
@@ -586,4 +587,24 @@ test('version 2 approvals distinguish delivered answers from later original-stre
   assert.throws(() => parseNativeModeReport(mislabeled));
   const promoted = { ...historical, version: 2 };
   assert.throws(() => parseNativeModeReport(promoted));
+});
+
+test('current native candidate admission refuses old or mixed SDK packages and Agent11 discovery without relabeling', () => {
+  const candidate = candidateFixture();
+  assert.deepEqual(parseNativeCandidate(candidate), candidate);
+  for (const historicalOnly of [true, false]) {
+    const invalid = {
+      ...candidate,
+      sdk: { ...candidate.sdk, packages: candidate.sdk.packages.map((pkg, index) => ({
+        ...pkg, version: historicalOnly || index === 0 ? '0.4.1' : '0.4.2',
+      })) },
+    };
+    assert.throws(() => parseNativeCandidate(invalid), { code: 'input_literal_invalid' });
+    assert.equal(invalid.sdk.packages[0]?.version, '0.4.1');
+  }
+  const discovery = discoveryFixture();
+  assert.deepEqual(parseNativeDiscoveryReport(discovery), discovery);
+  const historical = { ...discovery, capabilities: { ...discovery.capabilities, protocolVersion: 11 } };
+  assert.throws(() => parseNativeDiscoveryReport(historical), AgentProtocolValidationError);
+  assert.equal(historical.capabilities.protocolVersion, 11);
 });

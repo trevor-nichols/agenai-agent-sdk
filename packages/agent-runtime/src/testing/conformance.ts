@@ -62,7 +62,10 @@ export interface AgentProviderConformanceScenario {
   readonly interruptionSessionId: AgentSessionId;
   readonly turn: AgentProviderStartTurnInput;
   readonly interruptionTurn: AgentProviderStartTurnInput;
-  readonly resolutionFor: (request: AgentRequest) => AgentRequestResolution;
+  readonly resolutionFor: (
+    request: AgentRequest,
+    context: Readonly<{ signal: AbortSignal }>,
+  ) => AgentRequestResolution | undefined | Promise<AgentRequestResolution | undefined>;
   readonly branchSource?: (
     binding: AgentSessionBinding,
     turnId: AgentTurnId,
@@ -120,6 +123,7 @@ async function checkEnvironmentWatch(input: {
 }
 
 interface StartedAgentProviderTurn {
+  readonly session: AgentProviderSession;
   readonly execution: AgentProviderTurnExecution;
   readonly iterator: AsyncIterator<AgentProviderOutput>;
   readonly outputs: AgentProviderOutput[];
@@ -145,29 +149,101 @@ async function advanceToStartedTurn(
         next.value.kind === "event" &&
         next.value.event.type === "turn.started"
       ) {
-        return { execution, iterator, outputs };
+        return { session, execution, iterator, outputs };
       }
     }
   } catch (error) {
-    await iterator.return?.();
+    const closing = session.close({ reason: "contract_rejected" });
+    const settled = await Promise.allSettled([closing, iterator.return?.()]);
+    const failures = settled.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+    if (failures.length > 0) throw new AggregateError([error, ...failures], "Conformance opening and cleanup failed.", { cause: error });
     throw error;
   }
 }
 
 async function collectRemainingOutputs(
   started: StartedAgentProviderTurn,
-  resolutionFor?: (request: AgentRequest) => AgentRequestResolution,
-): Promise<readonly AgentProviderOutput[]> {
-  for (;;) {
-    const next = await started.iterator.next();
-    if (next.done) return started.outputs;
-    started.outputs.push(next.value);
-    if (next.value.kind === "event" && next.value.event.type === "request.opened" && resolutionFor) {
-      const request = next.value.event.payload.request;
-      const receipt = await started.execution.resolveRequest({ resolution: parseAgentRequestResolutionFor(request, resolutionFor(request)) });
-      requireCheck(receipt.status === "delivered", "request_resolution", "Matching request answer was not accepted by the provider handler.");
+  resolutionFor?: AgentProviderConformanceScenario["resolutionFor"],
+  beforeClose?: () => Promise<void>,
+): Promise<Readonly<{ outputs: readonly AgentProviderOutput[]; deliveredRequests: number }>> {
+  const requests = new Map<AgentRequest["requestId"], AbortController>();
+  const tasks: Promise<void>[] = [];
+  let acceptingRequests = true;
+  let deliveredRequests = 0;
+  let failTask!: (error: unknown) => void;
+  const taskFailure = new Promise<never>((_resolve, reject) => { failTask = reject; });
+  const abortRequests = () => {
+    for (const controller of requests.values()) {
+      controller.abort(new DOMException("Conformance request is no longer answerable.", "AbortError"));
     }
+  };
+  const resolve = async (request: AgentRequest, signal: AbortSignal) => {
+    if (!resolutionFor) return;
+    let resolution: AgentRequestResolution | undefined;
+    try {
+      resolution = await resolutionFor(request, { signal });
+    } catch (error) {
+      if (signal.aborted && isAgentOperationAbortError(error)) return;
+      throw error;
+    }
+    if (resolution === undefined || signal.aborted) return;
+    const receipt = await started.execution.resolveRequest({
+      resolution: parseAgentRequestResolutionFor(request, resolution),
+    });
+    requireCheck(receipt.status === "delivered", "request_resolution",
+      "Matching request answer was not accepted by the provider handler.");
+    deliveredRequests += 1;
+  };
+  const reader = (async () => {
+    for (;;) {
+      const next = await started.iterator.next();
+      if (next.done || !acceptingRequests) return;
+      started.outputs.push(next.value);
+      if (next.value.kind !== "event") continue;
+      const event = next.value.event;
+      if (event.type === "request.opened" && resolutionFor) {
+        const request = event.payload.request;
+        const controller = new AbortController();
+        requests.set(request.requestId, controller);
+        const task = resolve(request, controller.signal);
+        tasks.push(task);
+        void task.catch((error: unknown) => { acceptingRequests = false; failTask(error); });
+      } else if (event.type === "request.unavailable") {
+        requests.get(event.payload.requestId)?.abort(
+          new DOMException("The provider retired this conformance request.", "AbortError"),
+        );
+        requests.delete(event.payload.requestId);
+      } else if (event.type === "turn.completed") {
+        abortRequests();
+        return;
+      }
+    }
+  })();
+  const checked = reader.then(async () => {
+    if (acceptingRequests) await beforeClose?.();
+  });
+  const failures = new Set<unknown>();
+  try {
+    await Promise.race([checked, taskFailure]);
+  } catch (error) {
+    failures.add(error);
   }
+  acceptingRequests = false;
+  abortRequests();
+  const closing = started.session.close({ reason: failures.size > 0 ? "contract_rejected" : "idle" });
+  const [closed, read, inspected, returned] = await Promise.allSettled([closing, reader, checked, started.iterator.return?.()]);
+  if (closed?.status === "rejected") failures.add(closed.reason);
+  for (const result of [read, inspected]) {
+    if (result?.status === "rejected" && !(failures.size > 0 && isAgentOperationAbortError(result.reason))) failures.add(result.reason);
+  }
+  if (returned?.status === "rejected") failures.add(returned.reason);
+  const joined = await Promise.allSettled(tasks);
+  for (const result of joined) {
+    if (result.status === "rejected") failures.add(result.reason);
+  }
+  if (failures.size === 1) throw failures.values().next().value;
+  if (failures.size > 1) throw new AggregateError(failures, "Conformance and owned cleanup failed.", { cause: failures.values().next().value });
+  return { outputs: started.outputs, deliveredRequests };
 }
 
 function requireOperationStatus(
@@ -229,6 +305,7 @@ export async function runAgentProviderConformance(
   });
   let disposed = false;
   let createdSession: AgentProviderSession | null = null;
+  let failure: Readonly<{ error: unknown }> | undefined;
   try {
     const instance = registry.requireInstance(scenario.definition.instanceId);
     requireCheck(
@@ -406,57 +483,7 @@ export async function runAgentProviderConformance(
       checks.push("abort");
     }
 
-    const startedTurn = await advanceToStartedTurn(created, scenario.turn);
-    let turnOutputs: readonly AgentProviderOutput[];
-    try {
-      if (instance.capabilities.turns.steer.kind === "supported") {
-        requireCheck(
-          created.steering.kind === "supported",
-          "steering",
-          "Steering capability has no handler.",
-        );
-        const result = await created.steering.steerTurn({
-          turnId: scenario.turn.turnId,
-          ...(scenario.steeringInput ?? {
-            parts: [
-              { type: "text", text: "Additional conformance input." },
-            ],
-          }),
-        });
-        requireCheck(
-          result.status === "delivered",
-          "steering",
-          "Steering did not deliver to the live turn.",
-        );
-      } else {
-        requireCheck(
-          created.steering.kind === "unsupported",
-          "steering",
-          "Unsupported steering exposed a handler.",
-        );
-      }
-      turnOutputs = await collectRemainingOutputs(startedTurn, scenario.resolutionFor);
-    } catch (error) {
-      await startedTurn.iterator.return?.();
-      await created.close({ reason: "contract_rejected" });
-      throw error;
-    }
-    const events = semanticEvents(turnOutputs);
-    requireCheck(
-      events[0]?.type === "turn.started",
-      "turn_order",
-      "Turn did not start first.",
-    );
-    requireCheck(
-      hasStableTurnBoundary(events),
-      "turn_order",
-      "Turn did not terminate or enter a waiting state.",
-    );
-    checks.push("turn_order");
-
-    if (events.some((event) => event.type === "request.opened")) checks.push("request_resolution");
-
-    checks.push("steering");
+    const turnChecksIndex = checks.length;
 
     if (instance.capabilities.turns.interrupt) {
       let interruptedBindingCount = 0;
@@ -496,12 +523,12 @@ export async function runAgentProviderConformance(
           "interruption",
           "Live turn interruption did not succeed.",
         );
-        const outputs = await collectRemainingOutputs(liveTurn);
+        const { outputs } = await collectRemainingOutputs(liveTurn);
         requireCheck(semanticEvents(outputs).some((event) => event.type === "turn.completed"),
           "interruption", "Interrupted turn did not produce native terminal output.");
       } finally {
-        await liveTurn?.iterator.return?.();
-        await interrupted.close({ reason: "other" });
+        const closing = interrupted.close({ reason: "other" });
+        await Promise.all([closing, liveTurn?.iterator.return?.()]);
       }
     } else {
       requireCheck(
@@ -670,29 +697,87 @@ export async function runAgentProviderConformance(
     }
     checks.push("collaboration");
 
-    if (instance.capabilities.generatedResources.kind === "supported") {
-      requireCheck(
-        created.generatedResources.kind === "supported"
-          && scenario.generatedResourceId !== undefined,
-        "generated_resources",
-        "Supported generated resources require an access port and fixture.",
-      );
-      const resource = await created.generatedResources.getGeneratedResource({
-        resourceId: scenario.generatedResourceId,
+    const turnChecks: string[] = [];
+    const startedTurn = await advanceToStartedTurn(created, scenario.turn);
+    let turnResult: Awaited<ReturnType<typeof collectRemainingOutputs>>;
+    try {
+      if (instance.capabilities.turns.steer.kind === "supported") {
+        requireCheck(
+          created.steering.kind === "supported",
+          "steering",
+          "Steering capability has no handler.",
+        );
+        const result = await created.steering.steerTurn({
+          turnId: scenario.turn.turnId,
+          ...(scenario.steeringInput ?? {
+            parts: [
+              { type: "text", text: "Additional conformance input." },
+            ],
+          }),
+        });
+        requireCheck(
+          result.status === "delivered",
+          "steering",
+          "Steering did not deliver to the live turn.",
+        );
+      } else {
+        requireCheck(
+          created.steering.kind === "unsupported",
+          "steering",
+          "Unsupported steering exposed a handler.",
+        );
+      }
+      turnResult = await collectRemainingOutputs(startedTurn, scenario.resolutionFor, async () => {
+        if (instance.capabilities.generatedResources.kind === "supported") {
+          requireCheck(
+            created.generatedResources.kind === "supported"
+              && scenario.generatedResourceId !== undefined,
+            "generated_resources",
+            "Supported generated resources require an access port and fixture.",
+          );
+          const resource = await created.generatedResources.getGeneratedResource({
+            resourceId: scenario.generatedResourceId,
+          });
+          requireCheck(
+            resource.descriptor.resourceId === scenario.generatedResourceId,
+            "generated_resources",
+            "Generated resource access returned another resource.",
+          );
+        } else {
+          requireCheck(
+            created.generatedResources.kind === "unsupported",
+            "generated_resources",
+            "Unsupported generated resources exposed an access port.",
+          );
+        }
+        checks.push("generated_resources");
       });
-      requireCheck(
-        resource.descriptor.resourceId === scenario.generatedResourceId,
-        "generated_resources",
-        "Generated resource access returned another resource.",
-      );
-    } else {
-      requireCheck(
-        created.generatedResources.kind === "unsupported",
-        "generated_resources",
-        "Unsupported generated resources exposed an access port.",
-      );
+    } catch (error) {
+      const closing = created.close({ reason: "contract_rejected" });
+      const settled = await Promise.allSettled([closing, startedTurn.iterator.return?.()]);
+      const failures = settled.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+      if (failures.length > 0) throw new AggregateError([error, ...failures], "Conformance turn and cleanup failed.", { cause: error });
+      throw error;
     }
-    checks.push("generated_resources");
+    const events = semanticEvents(turnResult.outputs);
+    requireCheck(
+      events[0]?.type === "turn.started",
+      "turn_order",
+      "Turn did not start first.",
+    );
+    requireCheck(
+      hasStableTurnBoundary(events),
+      "turn_order",
+      "Turn did not terminate or enter a waiting state.",
+    );
+    turnChecks.push("turn_order");
+
+    if (turnResult.deliveredRequests > 0) turnChecks.push("request_resolution");
+    if (events.some((event) => event.type === "request.unavailable")) turnChecks.push("request_unavailability");
+
+    turnChecks.push("steering");
+
+    checks.splice(turnChecksIndex, 0, ...turnChecks);
 
     await created.close({ reason: "idle" });
     await created.close({ reason: "idle" });
@@ -773,8 +858,16 @@ export async function runAgentProviderConformance(
       providerKey: scenario.definition.providerKey,
       checks: Object.freeze(checks),
     });
+  } catch (error) {
+    failure = { error };
+    throw error;
   } finally {
-    await createdSession?.close({ reason: "contract_rejected" });
-    if (!disposed) await registry.dispose();
+    try {
+      await createdSession?.close({ reason: "contract_rejected" });
+      if (!disposed) await registry.dispose();
+    } catch (error) {
+      if (failure) throw new AggregateError([failure.error, error], "Conformance and final cleanup failed.", { cause: failure.error });
+      throw error;
+    }
   }
 }

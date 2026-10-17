@@ -23,7 +23,8 @@ function setup(t: TestContext, mode = 'normal', unknownExtensionPolicy?: CreateN
     ...(mode.startsWith('descendant_') ? { limits: { initializationTimeoutMs: 1_000 } } : {}), launch: {
     executable: process.execPath,
     args: [fixture, '$HOME', `$(touch ${path.join(cwd, 'shell-executed')})`],
-    cwd, env: { ACP_FIXTURE_LOG: log, ACP_FIXTURE_MODE: mode }, shutdownTimeoutMs: mode.startsWith('descendant_') ? 200 : 30,
+    cwd, env: { ACP_FIXTURE_LOG: log, ACP_FIXTURE_MODE: mode },
+    ...(mode === 'ignore_term' ? {} : { shutdownTimeoutMs: mode.startsWith('descendant_') ? 200 : 30 }),
   } });
   const entries = (): LogEntry[] => readFileSync(log, 'utf8').trim().split('\n').map((line) => JSON.parse(line) as LogEntry);
   return { driver, cwd, entries };
@@ -112,9 +113,12 @@ test('owned process cleanup escalates when the peer ignores graceful termination
   const instance = await driver.materialize(definition);
   t.after(() => instance.dispose());
   const pid = entries()[0]?.pid;
+  assert.ok(pid);
   await instance.dispose();
   assert.ok(entries().some((entry) => entry.type === 'ignored_term'));
   assertExited(pid);
+  assert.throws(() => process.kill(-pid, 0), (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ESRCH');
+  await instance.dispose();
 });
 
 for (const mode of ['descendant_inherited_stdio', 'descendant_ignored_stdio', 'descendant_early_exit', 'descendant_peer']) {
