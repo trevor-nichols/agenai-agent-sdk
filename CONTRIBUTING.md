@@ -37,8 +37,8 @@ continuation, session-lifetime decisions, retained startup/opening cleanup, canc
 peers and slow consumers. The fixture sources are part of
 this public projection, so the proof can run without access to the private monorepo.
 
-The current source package family is the coordinated `0.4.2` candidate with Agent Protocol V12.
-The published package family remains `0.4.1` with its original V11 artifacts. Read [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) before changing lifecycle behavior.
+The current source and published package family are coordinated at `0.4.2` with Agent Protocol V12.
+Earlier `0.4.1` artifacts retain V11. Read [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before changing lifecycle behavior.
 After building, `pnpm examples:lifecycle-interactions` runs the generic core-only walkthrough:
 an early handler receives a setup question, opening returns while it is pending, a bound response
 settles it and cleanup joins without starting a model turn. Turn requests have the separate

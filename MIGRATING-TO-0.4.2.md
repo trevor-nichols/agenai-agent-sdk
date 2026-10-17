@@ -1,9 +1,9 @@
 # Migrating to 0.4.2
 
-`0.4.2` is the coordinated source candidate for all seven SDK packages and Agent
-Protocol V12. Keep the installed package family at one version. A candidate build
-or a passing synthetic example does not publish the release or qualify a native
-provider. The published `0.4.1` artifacts and their original qualification remain
+`0.4.2` is the coordinated published release for all seven SDK packages and Agent
+Protocol V12. npm `latest` and `beta` select this release. Keep the installed package
+family at one version. Publication and passing synthetic examples do not expand
+a native provider's qualification. The published `0.4.1` artifacts and their original qualification remain
 unchanged. Upgrades from earlier versions also need the
 [0.4.1 guide](MIGRATING-TO-0.4.1.md) and [0.4 guide](MIGRATING-TO-0.4.md).
 

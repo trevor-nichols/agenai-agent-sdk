@@ -9,7 +9,7 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This unpublished source candidate implements Agent Protocol V12 at coordinated SDK version `0.4.2`,
+This package implements Agent Protocol V12 at coordinated published SDK version `0.4.2`,
 including tagged decision responses and exact turn request unavailability. Published `0.4.1`
 retains V11 and its qualification evidence; the earlier `0.4.0` release retains V10.
 The runtime also provides neutral session forms, plan reviews, staged native continuations and
@@ -533,13 +533,14 @@ close before joining its reader and actual callback tasks; failure also starts c
 failures and cleanup failures remain observable. A callback that ignores cancellation
 remains owned until its actual promise settles.
 
-The coordinated SDK release is `0.4.1` and implements Agent Protocol V11.
+The coordinated SDK release is `0.4.2` and implements Agent Protocol V12.
+The earlier `0.4.1` release retains V11.
 The earlier `0.4.0` release retains V10.
 The earlier public `0.3.0` and `0.3.1` releases implemented V9 and remain historical.
 Keep installed packages in the seven-package SDK release family on the coordinated version; the
 orchestration and ACP packages remain optional. Every materialized instance requires `environment` and
 `accountQuota`; every session requires `environment`. The former standalone `integrations`
-observation port is removed. The public runtime implements Agent Protocol V11 with one current
+observation port is removed. The public runtime implements Agent Protocol V12 with one current
 adapter/session surface. Package versions remain independent of private transport and product
 persistence versions.
 

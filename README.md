@@ -2,9 +2,8 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Current source is the coordinated `0.4.2` candidate with Agent Protocol V12.
-> Published `0.4.1` retains Agent Protocol V11; source preparation does not publish a release.
-> The retained publication record places `latest` and `beta` on `0.4.1`; this candidate does not change those tags.
+> All seven packages are published at coordinated version `0.4.2` with Agent Protocol V12.
+> npm `latest` and `beta` select this release. Earlier `0.4.1` artifacts retain V11 and their original qualification.
 > See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
 > and [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
@@ -46,7 +45,7 @@ Write the host once. Adapt each agent once.
 
 All seven packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All seven source package versions are coordinated at `0.4.2`; published `0.4.1`
+schema assets. All seven source and published package versions are coordinated at `0.4.2`; published `0.4.1`
 retains its historical qualification and archive identities.
 
 The dependency chain is intentionally narrow:
@@ -94,17 +93,17 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published coordinated `0.4.1` runtime:
+Install the published coordinated `0.4.2` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.1
+pnpm add @agen-ai/agent-runtime@0.4.2
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.1 @agen-ai/agent-protocol@0.4.1
+pnpm add @agen-ai/validation@0.4.2 @agen-ai/agent-protocol@0.4.2
 ```
 
 Keep every SDK package you install at the same coordinated version, including optional packages.
@@ -114,7 +113,7 @@ examples require matching built `0.4.2` packages; their decision responses carry
 `{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
 documents the implemented generic lifecycle and exact native qualification limits.
 Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
-the generalized source API described below requires matching `0.4.2` packages.
+the generalized API described below is available in the matching published `0.4.2` packages.
 Run the examples from a built source checkout or use the matching npm package family.
 Installing the earlier `0.4.0` release does not provide these APIs.
 

@@ -11,8 +11,9 @@ ACP registry) ship together at one version. Publish the complete seven-package s
 6. `@agen-ai/provider-acp` (optional local-process and injected-stream provider)
 7. `@agen-ai/acp-registry` (optional catalog planning, verified installation and retained launch)
 
-The coordinated source candidate is `0.4.2` with Agent Protocol V12. Published `0.4.1` retains
-Agent Protocol V11; all seven packages select that published release on `latest` and `beta`. Preserve the earlier `0.4.0` release and its historical evidence. Verify current
+The coordinated source and published release are `0.4.2` with Agent Protocol V12; all seven
+packages select it on `latest` and `beta`. Preserve earlier `0.4.1`/V11 and `0.4.0`/V10 releases
+and their historical evidence. Verify current
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
@@ -112,7 +113,7 @@ evidence, not application settings, product integration or provider registration
 ## Package setup status
 
 All seven package names completed npm setup and trusted-publisher configuration for `0.4.0`,
-and the same relationships published `0.4.1`. Future releases need no initial-package bootstrap or
+and the same relationships published `0.4.1` and `0.4.2`. Future releases need no initial-package bootstrap or
 placeholder. Inspect the existing trust relationships before a later authorized release; do not recreate them merely
 because this source version changed. Historical staging and publication evidence remains tied to
 the original release. Source preparation creates no stage, trusted publisher, release tag or
@@ -161,7 +162,7 @@ maintainer-authenticated npm session after the immutable version and provenance 
 the release does not request OIDC dist-tag permission:
 
 ```sh
-VERSION=0.4.1
+VERSION=0.4.2
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest
@@ -172,7 +173,7 @@ npm dist-tag add "@agen-ai/acp-registry@$VERSION" latest
 ```
 
 Read every tag back after the seven commands. A promotion changes package resolution, not tarball
-bytes; `beta` may continue to select the same exact version. Both tags now select `0.4.1`.
+bytes; `beta` may continue to select the same exact version. Both tags now select `0.4.2`.
 These commands remain a separately authorized release procedure, not a source-readiness step.
 
 ## Trusted publisher configuration

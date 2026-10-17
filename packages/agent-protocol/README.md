@@ -6,7 +6,7 @@ capabilities, typed operations, safe configuration and managed-content inventori
 observations, effective harness content and package catalogs, environment observations, account-quota observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
-The coordinated unpublished source candidate is `0.4.2` and uses Agent Protocol V12, including exact request
+The coordinated published release is `0.4.2` and uses Agent Protocol V12, including exact request
 unavailability and session decisions, forms and plan reviews. Published `0.4.1` retains V11;
 `0.4.0` retains V10. Source versioning does not establish registry publication.
 Keep all installed SDK packages at one coordinated version. The [0.4.2 migration
@@ -287,7 +287,7 @@ before delegation; a composer can use the same pure functions to preserve and ex
 ## Versioning and release
 
 Agent Protocol V12 defines the contract shared by this package, `@agen-ai/validation`, and
-`@agen-ai/agent-runtime`. The coordinated source release is `0.4.2`; published `0.4.1` retains
+`@agen-ai/agent-runtime`. The coordinated published release is `0.4.2`; published `0.4.1` retains
 V11 and `0.4.0` retains V10. Registry publication and dist-tag state are release metadata outside
 this contract. Earlier public releases remain historical. The complete seven-package public
 release inventory must use one coordinated source version.

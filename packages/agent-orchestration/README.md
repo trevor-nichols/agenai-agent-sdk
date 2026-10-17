@@ -1,7 +1,7 @@
 # @agen-ai/agent-orchestration
 
 Optional managed delegation for applications using the AgenAI coding-agent SDK, at coordinated
-unpublished source version `0.4.2` (published `0.4.1`). This package sits above
+published release version `0.4.2`. This package sits above
 `@agen-ai/agent-runtime`. Core runtime consumers do not depend on it. Current source uses Agent
 Protocol V12; published `0.4.1` uses V11 and the earlier `0.4.0` release uses V10. Managed store
 contract is 4; the reference SQLite format remains 3; retained historical requests cannot reconstruct live reply authority.
