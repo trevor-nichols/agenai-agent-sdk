@@ -11,8 +11,8 @@ ACP registry) ship together at one version. Publish the complete seven-package s
 6. `@agen-ai/provider-acp` (optional local-process and injected-stream provider)
 7. `@agen-ai/acp-registry` (optional catalog planning, verified installation and retained launch)
 
-The coordinated source release is `0.4.3` with Agent Protocol V12. Published `0.4.2`
-remains on `latest` and `beta` until the verified 0.4.3 promotion. Preserve earlier
+The coordinated `0.4.3` release is published with Agent Protocol V12, and npm `latest`
+and `beta` select that verified seven-package release. Preserve earlier `0.4.2`/V12,
 `0.4.1`/V11 and `0.4.0`/V10 releases and their historical evidence. Verify current
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
@@ -115,7 +115,7 @@ evidence, not application settings, product integration or provider registration
 ## Package setup status
 
 All seven package names completed npm setup and trusted-publisher configuration for `0.4.0`,
-and the same relationships published `0.4.1` and `0.4.2`. Future releases need no initial-package bootstrap or
+and the same relationships published `0.4.1`, `0.4.2` and `0.4.3`. Future releases need no initial-package bootstrap or
 placeholder. Inspect the existing trust relationships before a later authorized release; do not recreate them merely
 because this source version changed. Historical staging and publication evidence remains tied to
 the original release. Source preparation creates no stage, trusted publisher, release tag or
@@ -175,6 +175,11 @@ npm dist-tag add "@agen-ai/acp-transport@$VERSION" latest
 npm dist-tag add "@agen-ai/provider-acp@$VERSION" latest
 npm dist-tag add "@agen-ai/acp-registry@$VERSION" latest
 ```
+
+Run these commands one package at a time. Complete that command's browser authentication, wait
+for its successful exit and read its tag back before starting the next package. Do not batch
+authentication links or leave concurrent maintainer challenges pending. If a challenge expires,
+read the package's current tag before generating a replacement for that package alone.
 
 Read every tag back after the seven commands. A promotion changes package resolution, not tarball
 bytes; `beta` may continue to select the same exact version. Readback must establish the intended version for both tags after promotion.
