@@ -72,6 +72,7 @@ const PUBLIC_REPOSITORY_URL = "git+https://github.com/trevor-nichols/agenai-agen
 const PUBLIC_HOMEPAGE_URL = "https://github.com/trevor-nichols/agenai-agent-sdk#readme";
 const PUBLIC_BUGS_URL = "https://github.com/trevor-nichols/agenai-agent-sdk/issues";
 const PUBLIC_EXAMPLES_ROOT = "examples";
+const CORE_OPERATION_FILES = ["operations.ts", "operations/invoke.ts", "operations/fixture.ts"];
 const CORE_CONTINUATION_FILES = [
   "session-continuations.ts",
   "fixtures/session-continuations/provider.ts",
@@ -88,22 +89,22 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.4.2", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.3", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.2" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.3" },
   },
   {
     name: "@agen-ai/agent-orchestration",
     root: "packages/agent-orchestration",
     directory: "packages/agent-orchestration",
     dependencies: {
-      "@agen-ai/agent-runtime": "^0.4.2",
-      "@agen-ai/agent-protocol": "^0.4.2",
-      "@agen-ai/validation": "^0.4.2",
+      "@agen-ai/agent-runtime": "^0.4.3",
+      "@agen-ai/agent-protocol": "^0.4.3",
+      "@agen-ai/validation": "^0.4.3",
       zod: "4.4.3",
       "@modelcontextprotocol/sdk": "1.29.0",
     },
@@ -126,16 +127,16 @@ const PACKAGES = [
     root: "packages/provider-acp",
     directory: "packages/provider-acp",
     dependencies: {
-      "@agen-ai/acp-transport": "^0.4.2",
-      "@agen-ai/agent-runtime": "^0.4.2",
-      "@agen-ai/agent-protocol": "^0.4.2",
+      "@agen-ai/acp-transport": "^0.4.3",
+      "@agen-ai/agent-runtime": "^0.4.3",
+      "@agen-ai/agent-protocol": "^0.4.3",
     },
   },
   {
     name: "@agen-ai/acp-registry",
     root: "packages/acp-registry",
     directory: "packages/acp-registry",
-    dependencies: { "@agen-ai/validation": "^0.4.2", zod: "4.4.3",
+    dependencies: { "@agen-ai/validation": "^0.4.3", zod: "4.4.3",
       "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
@@ -257,7 +258,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.4.2");
+  assert.equal(manifest.version, "0.4.3");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -485,7 +486,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.4.2");
+assert.equal(protocolManifest.version, "0.4.3");
 
 const packedFailure: AgentError = {
   category: "quota_exhausted", code: "allowance_unavailable", message: "The observed allowance is exhausted.",
@@ -2121,16 +2122,19 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   await writeFile(path.join(consumerRoot, "tsconfig.json"), JSON.stringify({ compilerOptions: {
     target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", outDir: "dist", rootDir: ".",
     strict: true, noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, skipLibCheck: false, types: ["node"],
-  }, include: ["src/*.ts", "examples/lifecycle-interactions.ts", "examples/remembered-approvals.ts", "examples/session-continuations.ts"] }, null, 2) + "\n");
+  }, include: ["src/*.ts", "examples/lifecycle-interactions.ts", "examples/remembered-approvals.ts", "examples/session-continuations.ts", "examples/operations.ts"] }, null, 2) + "\n");
   await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/session-interactions/core.ts"), path.join(consumerRoot, "src/core.ts"));
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/operation-lifecycle.ts"),
+    path.join(consumerRoot, "src/operation-lifecycle.ts"));
   await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/remembered-approvals/core-types.ts"),
     path.join(consumerRoot, "src/remembered-types.ts"));
-  for (const file of CORE_CONTINUATION_FILES) {
+  for (const file of [...CORE_CONTINUATION_FILES, ...CORE_OPERATION_FILES]) {
     const destination = path.join(consumerRoot, "examples", file);
     await mkdir(path.dirname(destination), { recursive: true });
     await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, file), destination);
   }
   const continuationExamples = await exampleIdentities(consumerRoot, CORE_CONTINUATION_FILES);
+  const operationExamples = await exampleIdentities(consumerRoot, CORE_OPERATION_FILES);
   const examplePath = path.join(consumerRoot, "examples/lifecycle-interactions.ts");
   await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "lifecycle-interactions.ts"), examplePath);
   const exampleSha256 = createHash("sha256").update(await readFile(examplePath)).digest("hex");
@@ -2146,6 +2150,27 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   await run("pnpm", ["install", "--ignore-scripts", seed ? "--frozen-lockfile" : "--prefer-offline"], { cwd: consumerRoot });
   const dependencyEvidence = seed ? await verifyDependencyBaselineInstall(seed) : undefined;
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const operationLifecycle = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/src/operation-lifecycle.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.deepEqual(JSON.parse(operationLifecycle.stdout.trim()), {
+    proof: "packed-operation-lifecycle", evidence: "synthetic", dispatches: 1, nativeCloses: 1, overlappingTurns: 0, cleanup: "joined",
+  });
+  process.stdout.write(operationLifecycle.stdout);
+  const operations = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/examples/operations.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.deepEqual(JSON.parse(operations.stdout.trim()), {
+    example: "operations", evidence: "synthetic", scenarios: [
+      { scenario: "unsupported", status: "unsupported", dispatches: 0, compactionObserved: false },
+      { scenario: "missing", status: "unavailable", dispatches: 0, compactionObserved: false },
+      { scenario: "fields", status: "unsupported_descriptor", dispatches: 0, compactionObserved: false },
+      { scenario: "declined", status: "declined", dispatches: 0, compactionObserved: false },
+      { scenario: "effect", status: "settled", dispatches: 1, compactionObserved: true },
+      { scenario: "no_effect", status: "settled", dispatches: 1, compactionObserved: false },
+      { scenario: "pre_abort", status: "canceled_before_execution", dispatches: 0, compactionObserved: false },
+      { scenario: "entered_abort", status: "uncertain", dispatches: 1, compactionObserved: false },
+    ], turns: 0, cleanup: "joined",
+  });
+  process.stdout.write(operations.stdout);
   const example = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/examples/lifecycle-interactions.js"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
   assert.deepEqual(JSON.parse(example.stdout.trim()), {
@@ -2174,7 +2199,7 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
     { scenario: "opening-cleanup", openings: 1, callbacks: 1, answers: 0, nativeCloses: 1, hostReleases: 1, turns: 0, cleanup: "joined" },
   ]);
   process.stdout.write(core.stdout);
-  return { exampleSha256, rememberedExampleSha256, continuationExamples, packages: coreNames, dependencyEvidence };
+  return { exampleSha256, rememberedExampleSha256, continuationExamples, operationExamples, packages: coreNames, dependencyEvidence };
 }
 
 async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
@@ -2526,6 +2551,7 @@ async function main() {
         path: "examples/live-request-output.ts",
         sha256: liveExampleSha256,
       },
+      operationsExample: { files: coreConsumer.operationExamples, installedSdkPackages: coreConsumer.packages },
       sessionContinuationExample: { files: coreConsumer.continuationExamples, installedSdkPackages: coreConsumer.packages },
       sessionContinuationAcpExample: { files: continuationAcpFiles },
       lifecycleExample: { path: "examples/lifecycle-interactions.ts", sha256: coreConsumer.exampleSha256, installedSdkPackages: coreConsumer.packages },

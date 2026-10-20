@@ -44,8 +44,9 @@ async function routeRequest(state: CoordinatorState, live: LiveRun, request: Age
   await markRequest(state, live, "opened", historical);
   const handle = Object.freeze({}) as DelegationHostRequestHandle;
   const presentationAbort = new AbortController();
+  if (live.lifetime.signal.aborted) presentationAbort.abort(live.lifetime.signal.reason);
   const pending: LiveRequest = { handle, live, request, history: historical,
-    signal: AbortSignal.any([presentationAbort.signal, live.lifetime.signal]), eligibility: "waiting" };
+    signal: presentationAbort.signal, eligibility: "waiting" };
   live.request = pending;
   state.requests.set(handle, pending);
   live.requestPresentations.set(request.requestId, { history: historical, abort: presentationAbort });

@@ -60,7 +60,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.4.2");
+assert.equal(rootManifest.version, "0.4.3");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");

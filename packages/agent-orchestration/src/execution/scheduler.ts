@@ -58,6 +58,9 @@ async function pump(state: CoordinatorState): Promise<void> {
         observedStart: false, recordedStart: false, controlTail: Promise.resolve(), summary: "", truncated: false, references: [], runtimeCleanupAttempts: 0,
         resourceReleaseAttempts: 0, executionReleaseAttempts: 0, runtimeClosed: false, resourcesReleased: false, executionReleased: false,
         schedule: () => schedule(state) };
+      live.lifetime.signal.addEventListener("abort", () => {
+        for (const presentation of live.requestPresentations.values()) presentation.abort.abort(live.lifetime.signal.reason);
+      }, { once: true });
       try {
         assertRunDispatch(state, live, run.admittedPolicyRevision, run.admittedOriginPolicyRevision);
         if (!await dispatchIntent(state, live, "prepare")) continue;

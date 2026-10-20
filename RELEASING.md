@@ -11,13 +11,14 @@ ACP registry) ship together at one version. Publish the complete seven-package s
 6. `@agen-ai/provider-acp` (optional local-process and injected-stream provider)
 7. `@agen-ai/acp-registry` (optional catalog planning, verified installation and retained launch)
 
-The coordinated source and published release are `0.4.2` with Agent Protocol V12; all seven
-packages select it on `latest` and `beta`. Preserve earlier `0.4.1`/V11 and `0.4.0`/V10 releases
-and their historical evidence. Verify current
+The coordinated source release is `0.4.3` with Agent Protocol V12. Published `0.4.2`
+remains on `latest` and `beta` until the verified 0.4.3 promotion. Preserve earlier
+`0.4.1`/V11 and `0.4.0`/V10 releases and their historical evidence. Verify current
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before adopting this release and
+[UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for this patch,
+[MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for the V12 boundary and
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
 The public repository uses npm trusted publishing. GitHub Actions receives a short-lived npm
@@ -48,8 +49,9 @@ Source checks do not contact npm publication APIs.
 inventory without publishing anything.
 
 Retain the inspected source revision, complete seven-package archive set, package versions and
-check results for release review. The workflow checks the archive inventory before its first
-publication, rejecting missing, unknown or mixed-version artifacts. Package checks and
+check results for release review. The workflow checks the archive inventory and retains the exact
+seven tarballs with the source lockfile in a GitHub Actions artifact before its first publication,
+rejecting missing, unknown or mixed-version artifacts. Package checks and
 synthetic ACP examples establish source behavior; they do not establish native agent, account,
 inference, installed-host or fleet qualification. Deployment remains a separate operation.
 
@@ -146,6 +148,8 @@ their intended artifacts before resuming; never blindly republish a version stil
 
 npm never permits the same package name and version to be published twice. If published bytes do
 not match, stop and release a new patch version rather than overwriting or unpublishing casually.
+Retain the original `npm-release-<tag>-attempt-<attempt>` artifact. A retry must compare against
+those original bytes; do not infer identity from a fresh pack or replace an accepted upload.
 
 If a tagged workflow fails because the workflow itself needs a non-package correction, commit that
 correction to `main` without moving the tag. Dispatch the workflow from `main` with `release_ref`
@@ -162,7 +166,7 @@ maintainer-authenticated npm session after the immutable version and provenance 
 the release does not request OIDC dist-tag permission:
 
 ```sh
-VERSION=0.4.2
+VERSION=0.4.3
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest
@@ -173,7 +177,7 @@ npm dist-tag add "@agen-ai/acp-registry@$VERSION" latest
 ```
 
 Read every tag back after the seven commands. A promotion changes package resolution, not tarball
-bytes; `beta` may continue to select the same exact version. Both tags now select `0.4.2`.
+bytes; `beta` may continue to select the same exact version. Readback must establish the intended version for both tags after promotion.
 These commands remain a separately authorized release procedure, not a source-readiness step.
 
 ## Trusted publisher configuration

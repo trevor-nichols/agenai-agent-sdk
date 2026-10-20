@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "f56f1dad6ef1d92ab405a33826c9fe22951774e1",
+  "sourceRevision": "52ff5ffefd2f3872a0525cd6019090dd82c83b5f",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -63,6 +63,7 @@
     "README.md",
     "RELEASING.md",
     "SECURITY.md",
+    "UPGRADING-TO-0.4.3.md",
     "examples/delegation/README.md",
     "examples/delegation/acp.ts",
     "examples/delegation/durable.ts",
@@ -190,6 +191,9 @@
     "examples/lifecycle-interactions.ts",
     "examples/live-request-output.ts",
     "examples/local-command.ts",
+    "examples/operations.ts",
+    "examples/operations/fixture.ts",
+    "examples/operations/invoke.ts",
     "examples/registry-install-run.ts",
     "examples/remembered-approvals-acp.ts",
     "examples/remembered-approvals.ts",
@@ -674,6 +678,7 @@
     "packages/agent-runtime/tests/hostBindingsValidation.test.ts",
     "packages/agent-runtime/tests/nativeContinuationAdmission.test.ts",
     "packages/agent-runtime/tests/nativeContinuations.test.ts",
+    "packages/agent-runtime/tests/operationLifecycle.test.ts",
     "packages/agent-runtime/tests/providerOpeningCleanup.test.ts",
     "packages/agent-runtime/tests/providerRegistry.test.ts",
     "packages/agent-runtime/tests/publicApi.typecheck.ts",
@@ -805,6 +810,7 @@
     "pnpm-workspace.yaml",
     "scripts/architecture/agent-sdk-consumers/dependency-baseline.mjs",
     "scripts/architecture/agent-sdk-consumers/dependency-baseline.test.mjs",
+    "scripts/architecture/agent-sdk-consumers/operation-lifecycle.ts",
     "scripts/architecture/agent-sdk-consumers/orchestration/acp-failures.ts",
     "scripts/architecture/agent-sdk-consumers/orchestration/acp-host.ts",
     "scripts/architecture/agent-sdk-consumers/orchestration/acp-ownership.ts",

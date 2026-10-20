@@ -4,6 +4,39 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 `0.4.0`, the three core packages and four optional packages (orchestration, ACP transport, ACP provider
 and ACP registry) share one source version and a seven-package release inventory.
 
+## 0.4.3 - 2026-10-20
+
+This coordinated patch keeps Agent Protocol V12, managed store contract 4 and SQLite
+format 3. Upgrade all seven packages together; no envelope or storage migration is
+introduced. See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md).
+
+### Fixed
+
+- Reserve the shared execution slot for immediate idle-session operations so they
+  cannot overlap caller turns or native continuations. Exact cached idempotent
+  results do not reserve another execution.
+- Start native quiescence before close joins entered operation work and awaited
+  output. Entered failures preserve uncertainty and cleanup ownership.
+- Accept provider-owned retry observations through the operation's exact output
+  correlation without creating a conversational turn.
+- Keep a retired managed-request presentation signal aborted across Node 24 garbage
+  collection; request retirement cannot silently restore presentation eligibility.
+
+### Added
+
+- Add a public-entrypoint operation walkthrough with exact discovery/revision,
+  confirmation, awaited observations, no-effect completion and cancellation.
+  Eight synthetic cases compile and execute against packed core SDK artifacts.
+- Retain the exact complete release archives and source lockfile before npm upload.
+
+### Scope
+
+The private Claude adapter's manual/automatic compaction implementation and host
+policy are outside the public package inventory. This release adds no public Claude
+constructor or universal compaction method. Existing native qualification retains
+its original artifact/version scope; current-source checks and packed examples do
+not establish new native/backend authentication, billing or deployment claims.
+
 ## 0.4.2 - 2026-10-17
 
 This coordinated release advances all seven packages to `0.4.2` and Agent Protocol
