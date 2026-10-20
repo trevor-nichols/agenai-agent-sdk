@@ -134,6 +134,18 @@ jobs:
           node scripts/release/verify-release-set.mjs
           --release-ref "$RELEASE_REF" --release-directory release
 
+      - name: Retain exact pre-publication artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-release-${{ env.RELEASE_TAG }}-attempt-${{ github.run_attempt }}
+          path: |
+            release/*.tgz
+            pnpm-lock.yaml
+            .agenai-export.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Inspect validation publication
         id: validation
         run: >-

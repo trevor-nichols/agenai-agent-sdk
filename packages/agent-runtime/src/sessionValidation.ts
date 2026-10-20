@@ -876,6 +876,7 @@ const SESSION_OPERATION_OBSERVATION_EVENT_TYPES = new Set<AgentEvent["type"]>([
   "resource.updated",
   "runtime.warning",
   "runtime.error",
+  "runtime.retrying",
   "provider.diagnostic",
 ]);
 
@@ -1502,151 +1503,163 @@ export function validateAgentProviderSession(input: {
           ) => {
             requireUsable();
             throwIfAgentOperationAborted(operationInput.signal);
-            let invocation: AgentOperationInvocation;
-            let observationTurnId: AgentTurnId;
+            const settle = validationOwner.sessionAdmission.trackOperation();
+            const signal = operationInput.signal === undefined ? sessionLifetime.signal
+              : AbortSignal.any([operationInput.signal, sessionLifetime.signal]);
+            operationInput = { ...operationInput, signal };
             try {
-              invocation = parseAgentOperationInvocation(operationInput.invocation);
-              observationTurnId = parseAgentTurnId(
-                operationInput.observationTurnId,
-              );
-            } catch {
-              return throwAgentProviderContractError(
-                providerKey,
-                "input_operation_mismatch",
-                "Operation invocation is invalid.",
-              );
-            }
-            const catalog = validateAgentOperationCatalogForCapabilities(
-              capabilities,
-              await declaredOperations.listOperations(
-                operationInput.signal === undefined
-                  ? {}
-                  : { signal: operationInput.signal },
-              ),
-            );
-            const descriptor = catalog.operations.find(
-              (operation) => operation.operationId === invocation.operationId,
-            );
-            if (descriptor === undefined) {
-              return throwAgentProviderContractError(
-                providerKey,
-                "input_operation_mismatch",
-                "Operation invocation does not identify an offered operation.",
-              );
-            }
-            try {
-              invocation = parseAgentOperationInvocationFor(
-                descriptor,
-                invocation,
-              );
-            } catch {
-              return throwAgentProviderContractError(
-                providerKey,
-                "input_operation_mismatch",
-                "Operation invocation is stale or outside the offered descriptor.",
-              );
-            }
-            const existing = interactionState.operationInvocations.get(
-              invocation.invocationId,
-            );
-            if (existing !== undefined) {
-              if (JSON.stringify(existing.invocation) !== JSON.stringify(invocation)) {
+              let invocation: AgentOperationInvocation;
+              let observationTurnId: AgentTurnId;
+              try {
+                invocation = parseAgentOperationInvocation(operationInput.invocation);
+                observationTurnId = parseAgentTurnId(
+                  operationInput.observationTurnId,
+                );
+              } catch {
                 return throwAgentProviderContractError(
                   providerKey,
                   "input_operation_mismatch",
-                  "Operation invocation ID was reused with conflicting input.",
+                  "Operation invocation is invalid.",
                 );
               }
-              if (
-                descriptor.idempotency === "required"
-                && existing.result !== undefined
-              ) {
-                return existing.result;
-              }
-              return throwAgentProviderContractError(
-                providerKey,
-                "input_operation_mismatch",
-                "Operation invocation ID is already active or is not replayable.",
+              const catalog = validateAgentOperationCatalogForCapabilities(
+                capabilities,
+                await declaredOperations.listOperations(
+                  operationInput.signal === undefined
+                    ? {}
+                    : { signal: operationInput.signal },
+                ),
               );
-            }
-            const trackedInvocation: TrackedAgentOperationInvocation = {
-              invocation,
-            };
-            const observationState: AgentTurnSequenceState = {
-              fileChangeMode: capabilities.output.fileChanges,
-              observedItems: new Map(),
-              proposedPlans: new Map(),
-              generatedResourceIds: new Set(),
-              started: true,
-              terminal: false,
-              finalDiffObserved: false,
-            };
-            interactionState.operationInvocations.set(
-              invocation.invocationId,
-              trackedInvocation,
-            );
-            try {
-              const result = await delegateProviderMutation({
-                operation: "invoke_operation",
-                observer: operationInput.onProviderExecutionStarted,
-                invoke: (onProviderExecutionStarted, onOutput) =>
-                  declaredOperations.invokeOperation({
-                    invocation,
-                    observationTurnId,
-                    onProviderExecutionStarted,
-                    onOutput,
-                    ...(operationInput.signal === undefined
-                      ? {}
-                      : { signal: operationInput.signal }),
-                  }),
-                observeOutput: async (candidate) => {
-                  const output = validateAgentProviderOutputForContext(
-                    candidate as AgentProviderOutput,
-                    {
-                      ...outputContext(observationTurnId),
-                      operationInvocationId: invocation.invocationId,
-                    },
-                  );
-                  observeSessionOperationOutput({
-                    capabilities,
-                    providerKey,
-                    output,
-                    state: observationState,
-                    contextUsageState,
-                    interactionState,
-                  });
-                  await operationInput.onOutput?.(output);
-                },
-                validate: (candidate) => {
-                  const result = validateAgentOperationResultTransition({
-                    providerKey,
-                    candidate: validateAgentOperationResultForInvocation(
-                      providerKey,
-                      descriptor,
-                      invocation,
-                      candidate,
-                    ),
-                    previous: interactionState.operationResults.get(
-                      invocation.invocationId,
-                    ),
-                  });
-                  interactionState.operationResults.set(
-                    result.invocationId,
-                    result,
-                  );
-                  return result;
-                },
-              });
-              trackedInvocation.result = result;
-              return result;
-            } catch (error) {
-              if (!(error instanceof AgentProviderDelegatedOperationError)) {
-                interactionState.operationInvocations.delete(
-                  invocation.invocationId,
+              const descriptor = catalog.operations.find(
+                (operation) => operation.operationId === invocation.operationId,
+              );
+              if (descriptor === undefined) {
+                return throwAgentProviderContractError(
+                  providerKey,
+                  "input_operation_mismatch",
+                  "Operation invocation does not identify an offered operation.",
                 );
               }
-              throw error;
-            }
+              try {
+                invocation = parseAgentOperationInvocationFor(
+                  descriptor,
+                  invocation,
+                );
+              } catch {
+                return throwAgentProviderContractError(
+                  providerKey,
+                  "input_operation_mismatch",
+                  "Operation invocation is stale or outside the offered descriptor.",
+                );
+              }
+              const existing = interactionState.operationInvocations.get(
+                invocation.invocationId,
+              );
+              if (existing !== undefined) {
+                if (JSON.stringify(existing.invocation) !== JSON.stringify(invocation)) {
+                  return throwAgentProviderContractError(
+                    providerKey,
+                    "input_operation_mismatch",
+                    "Operation invocation ID was reused with conflicting input.",
+                  );
+                }
+                if (
+                  descriptor.idempotency === "required"
+                  && existing.result !== undefined
+                ) {
+                  return existing.result;
+                }
+                return throwAgentProviderContractError(
+                  providerKey,
+                  "input_operation_mismatch",
+                  "Operation invocation ID is already active or is not replayable.",
+                );
+              }
+              requireUsable();
+              signal.throwIfAborted();
+              const reservation = descriptor.timing === "idle_session" && descriptor.executionMode === "immediate"
+                ? validationOwner.reserveExecution() : undefined;
+              const trackedInvocation: TrackedAgentOperationInvocation = {
+                invocation,
+              };
+              const observationState: AgentTurnSequenceState = {
+                fileChangeMode: capabilities.output.fileChanges,
+                observedItems: new Map(),
+                proposedPlans: new Map(),
+                generatedResourceIds: new Set(),
+                started: true,
+                terminal: false,
+                finalDiffObserved: false,
+              };
+              interactionState.operationInvocations.set(
+                invocation.invocationId,
+                trackedInvocation,
+              );
+              try {
+                const result = await delegateProviderMutation({
+                  operation: "invoke_operation",
+                  observer: operationInput.onProviderExecutionStarted,
+                  invoke: (onProviderExecutionStarted, onOutput) =>
+                    declaredOperations.invokeOperation({
+                      invocation,
+                      observationTurnId,
+                      onProviderExecutionStarted,
+                      onOutput,
+                      ...(operationInput.signal === undefined
+                        ? {}
+                        : { signal: operationInput.signal }),
+                    }),
+                  observeOutput: async (candidate) => {
+                    const output = validateAgentProviderOutputForContext(
+                      candidate as AgentProviderOutput,
+                      {
+                        ...outputContext(observationTurnId),
+                        operationInvocationId: invocation.invocationId,
+                      },
+                    );
+                    observeSessionOperationOutput({
+                      capabilities,
+                      providerKey,
+                      output,
+                      state: observationState,
+                      contextUsageState,
+                      interactionState,
+                    });
+                    await operationInput.onOutput?.(output);
+                  },
+                  validate: (candidate) => {
+                    const result = validateAgentOperationResultTransition({
+                      providerKey,
+                      candidate: validateAgentOperationResultForInvocation(
+                        providerKey,
+                        descriptor,
+                        invocation,
+                        candidate,
+                      ),
+                      previous: interactionState.operationResults.get(
+                        invocation.invocationId,
+                      ),
+                    });
+                    interactionState.operationResults.set(
+                      result.invocationId,
+                      result,
+                    );
+                    return result;
+                  },
+                });
+                trackedInvocation.result = result;
+                return result;
+              } catch (error) {
+                if (!(error instanceof AgentProviderDelegatedOperationError)) {
+                  interactionState.operationInvocations.delete(
+                    invocation.invocationId,
+                  );
+                }
+                throw error;
+              } finally {
+                if (reservation !== undefined) validationOwner.releaseExecution(reservation);
+              }
+            } finally { settle(); }
           },
         });
 
@@ -2003,6 +2016,7 @@ export function validateAgentProviderSession(input: {
       }
       await input.sessionInteractionOwner?.join();
       await closingTurn?.owner.join();
+      await validationOwner.sessionAdmission.joinOperations();
       await input.hostBindingLease?.release();
       validationOwner.completeClose();
     };

@@ -25,7 +25,7 @@ imports `/zod`.
 
 ## Versioning and release
 
-The package participates in the coordinated published `0.4.2` release with Agent
+The package participates in the coordinated `0.4.3` release with Agent
 Protocol V12. Published `0.4.1` retains V11 and the earlier `0.4.0` release retains V10.
 Public `0.3.0` and `0.3.1` SDK releases
 implemented V9 and remain the prior protocol generation. This package's ordinary validator-neutral

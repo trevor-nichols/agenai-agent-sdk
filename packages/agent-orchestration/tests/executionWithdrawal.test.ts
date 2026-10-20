@@ -3,8 +3,11 @@
 // ------------------------------------------------------------------------------------------------
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { setImmediate } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 import { parseAgentApprovalRequest, parseAgentError } from "@agen-ai/agent-protocol";
 import { createAgentEventOutput, type AgentRequestResolutionResult } from "@agen-ai/agent-runtime";
 import { createExecutionHarness, waitFor } from "./fixtures/execution/harness.js";
@@ -12,6 +15,15 @@ import { deferred, eventBase } from "./fixtures/execution/provider.js";
 import { hasCode } from "./fixtures/execution/store.js";
 
 for (const lateStatus of ["delivered", "rejected"] as const) test(`retired A preserves its late ${lateStatus} receipt while B answers and cleanup joins actual work`, { timeout: 10_000 }, async (t) => {
+  if (lateStatus === "delivered" && !globalThis.gc) {
+    const childEnvironment = { ...process.env };
+    delete childEnvironment.NODE_TEST_CONTEXT;
+    const child = spawnSync(process.execPath, ["--expose-gc", "--import", "tsx", "--test",
+      "--test-name-pattern=^retired A preserves its late delivered receipt", fileURLToPath(import.meta.url)],
+    { encoding: "utf8", timeout: 9_000, env: childEnvironment });
+    assert.equal(child.status, 0, `${child.error?.message ?? ""}\n${child.stdout}\n${child.stderr}`);
+    return;
+  }
   const retire = deferred<void>();
   const finish = deferred<void>();
   const firstEntered = deferred<void>();
@@ -25,6 +37,13 @@ for (const lateStatus of ["delivered", "rejected"] as const) test(`retired A pre
   const signals: AbortSignal[] = [];
   const cooperative = lateStatus === "rejected";
   const harness = await createExecutionHarness({ host(base) { return { async onRequest(request) {
+    if (!cooperative && request.request.requestId === second.requestId) {
+      // Retired sources must stay aborted even when a host polls without an abort listener.
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await setImmediate();
+        globalThis.gc!();
+      }
+    }
     base.onRequest(request);
     signals.push(request.signal);
     if (request.request.requestId !== first.requestId) return;

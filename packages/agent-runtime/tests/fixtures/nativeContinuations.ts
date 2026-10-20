@@ -32,6 +32,7 @@ export async function continuationFixture(options: {
   close?: () => Promise<void>;
   createExecution?: (turnId: AgentTurnId) => AgentTurnId | void;
   extraOutput?: (context: AgentProviderSessionContext, turnId: AgentTurnId) => ReturnType<typeof createAgentEventOutput>;
+  transformSession?: (session: AgentProviderSession) => AgentProviderSession;
 } = {}) {
   const fake = createFakeAgentProvider();
   const instance = await fake.driver.materialize(fake.definition);
@@ -143,7 +144,7 @@ export async function continuationFixture(options: {
           await options.close?.(); await native.close(close); events.push("native_closed");
         },
       };
-      return session;
+      return options.transformSession?.(session) ?? session;
     },
   });
   const input: AgentCreateSessionInput = {

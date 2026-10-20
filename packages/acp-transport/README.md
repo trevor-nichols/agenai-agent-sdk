@@ -5,7 +5,7 @@ This optional AgenAI Agent SDK package connects a host to streams supplied by th
 host. It validates messages against packaged, hash-pinned ACP schemas and owns
 framing, correlation, reverse requests, deadlines and connection cleanup.
 
-The coordinated published release is `0.4.2`; published `0.4.1` keeps its original
+The coordinated release is `0.4.3`; published `0.4.1` keeps its original
 archives and qualification. The package is ESM, MIT
 licensed and side-effect-free on import, with exact Ajv `8.17.1` as its sole runtime
 dependency. It is independent of the provider-neutral `@agen-ai/agent-protocol`

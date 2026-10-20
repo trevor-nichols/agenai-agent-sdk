@@ -1969,9 +1969,9 @@ test("interaction observations enforce per-turn bounds and forward-only lifecycl
   }
 });
 
-test("session operation observations preserve backpressure and reject turn-owned retries", async (context) => {
-  for (const retryFromOperation of [false, true]) {
-    await context.test(retryFromOperation ? "turn-owned retry rejected" : "compaction accepted", async () => {
+test("session operation observations preserve backpressure and reject turn lifecycle output", async (context) => {
+  for (const turnCompletionFromOperation of [false, true]) {
+    await context.test(turnCompletionFromOperation ? "turn completion rejected" : "compaction accepted", async () => {
       const operationId = parseAgentOperationId("compact-context");
       const invocationId = parseAgentOperationInvocationId(
         "invocation:compact-context",
@@ -2038,11 +2038,12 @@ test("session operation observations preserve backpressure and reject turn-owned
                     details: { trigger: "manual" },
                   },
                 }));
-                if (retryFromOperation) {
-                  await operationInput.onOutput?.(retryingOutput(
-                    operationInput.observationTurnId,
-                    parseAgentIsoDateTime("2026-10-11T00:00:00.000Z"),
-                  ));
+                if (turnCompletionFromOperation) {
+                  await operationInput.onOutput?.(createAgentEventOutput({
+                    protocolVersion: 12, type: "turn.completed", sessionId,
+                    turnId: operationInput.observationTurnId, occurredAt: "2026-10-11T00:00:00.000Z",
+                    payload: { outcome: "completed" },
+                  }));
                 }
                 return {
                   invocationId: operationInput.invocation.invocationId,
@@ -2094,7 +2095,7 @@ test("session operation observations preserve backpressure and reject turn-owned
         "backpressured",
       );
       releaseOutput.resolve();
-      if (retryFromOperation) {
+      if (turnCompletionFromOperation) {
         await assert.rejects(operation, (error: unknown) =>
           error instanceof AgentProviderDelegatedOperationError
           && error.operation === "invoke_operation"

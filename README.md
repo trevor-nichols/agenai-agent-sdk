@@ -2,8 +2,9 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> All seven packages are published at coordinated version `0.4.2` with Agent Protocol V12.
-> npm `latest` and `beta` select this release. Earlier `0.4.1` artifacts retain V11 and their original qualification.
+> This source prepares coordinated version `0.4.3` with Agent Protocol V12.
+> Published `0.4.2` remains selected by npm `latest` and `beta` until verified promotion.
+> See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for this patch’s lifecycle fixes. Earlier `0.4.1` artifacts retain V11 and their original qualification.
 > See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
 > and [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
@@ -45,7 +46,7 @@ Write the host once. Adapt each agent once.
 
 All seven packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All seven source and published package versions are coordinated at `0.4.2`; published `0.4.1`
+schema assets. All seven source package versions are coordinated at `0.4.3`; published `0.4.1`
 retains its historical qualification and archive identities.
 
 The dependency chain is intentionally narrow:
@@ -93,23 +94,23 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published coordinated `0.4.2` runtime:
+After publication, install the coordinated `0.4.3` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.2
+pnpm add @agen-ai/agent-runtime@0.4.3
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.2 @agen-ai/agent-protocol@0.4.2
+pnpm add @agen-ai/validation@0.4.3 @agen-ai/agent-protocol@0.4.3
 ```
 
 Keep every SDK package you install at the same coordinated version, including optional packages.
 The source Agent Protocol V12 directly replaces V11 at the live boundary; the current parser has no
 V11 compatibility mode. Published `0.4.1` retains V11 and `0.4.0` retains V10. Current source
-examples require matching built `0.4.2` packages; their decision responses carry
+examples require matching built `0.4.3` packages; their decision responses carry
 `{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
 documents the implemented generic lifecycle and exact native qualification limits.
 Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
@@ -201,6 +202,34 @@ pnpm build
 pnpm examples:session-continuations
 pnpm examples:session-continuations:acp
 ```
+
+## Invoke an offered session operation
+
+[`examples/operations.ts`](examples/operations.ts) is a core-only, offline walkthrough of exact
+operation discovery, confirmation, awaited output, no-effect completion and cancellation. The
+[invocation flow](examples/operations/invoke.ts) selects an application-configured operation ID,
+checks its shape and uses the descriptor revision, fresh invocation ID and independent observation
+correlation. The catalog revision is not the descriptor revision. This example deliberately refuses
+fields it does not understand. Replace its synthetic fixture and simulated decision with your own
+validated session and abort-aware confirmation UI.
+
+```sh
+pnpm examples:operations
+```
+
+A completed command does not guarantee compaction: observe an accepted completed
+`context_compaction` item. Compaction may lose detail or grow context, and the SDK provides no undo.
+An entered cancellation or failure can be uncertain; check `AgentProviderDelegatedOperationError`
+before treating an abort as pre-execution cancellation, stop mutation, close with fresh cleanup
+authority, and never automatically resend. Await successful close before disposing dependencies;
+retain the exact owner if cleanup fails.
+
+Current source reserves idle immediate operations against turns and native continuations, and
+starts native quiescence before close joins pending operation output. These runtime corrections
+and the example are included in `0.4.3`. The packed-consumer gate compiles and runs
+eight synthetic scenarios using only public entrypoints. It qualifies developer flow, not a native
+provider, account or actual summary. There is no public Claude provider constructor here; Hostd's
+private Claude integration and the optional public ACP adapter have separate support contracts.
 
 ## Handle remembered turn approvals
 

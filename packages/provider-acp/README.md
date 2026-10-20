@@ -2,7 +2,7 @@
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
 Agent Client Protocol wire version 1 into the existing Agent Protocol V12 session
-API. The coordinated published release is `0.4.2`; published `0.4.1` qualification remains
+API. The coordinated release is `0.4.3`; published `0.4.1` qualification remains
 historical evidence for its exact V11 artifacts.
 The package is ESM, MIT licensed, side-effect-free on import and requires Node.js
 22 or newer. It depends only on the public transport, runtime and protocol packages;
@@ -414,7 +414,7 @@ unknown-extension handling never enables it implicitly.
 The selected launch arguments are exactly `['agent', '--no-leader', 'stdio']`.
 The adapter exposes the exact `sessionInteractions.mappings` tuple
 `{ openingOperation: 'create', requestKind: 'decision' }`, exclusive producer
-ownership and, in current 0.4.2 source, `humanWait: ['bounded', 'until_withdrawn_or_closed']`. The handler receives a neutral workspace
+ownership and, in current 0.4.3 source, `humanWait: ['bounded', 'until_withdrawn_or_closed']`. The handler receives a neutral workspace
 decision and can keep its response capability after opening returns, before
 any model turn. Use the generic
 [runtime lifecycle](../agent-runtime/README.md#session-lifetime-interactions)
@@ -494,7 +494,7 @@ validated consumer facade. Session forms, plan reviews and native continuations
 remain unsupported by `grok-folder-trust-v1`. The retained SDK02 native evidence
 above remains specific to its original finite waiting configuration.
 
-## Restored plan requests in current 0.4.2 source
+## Restored plan requests in current 0.4.3 source
 
 The Node constructor accepts a separate explicit selection:
 `sessionInteractions: { mapping: 'grok-build-1.0.60-session-requests-v1' }`.

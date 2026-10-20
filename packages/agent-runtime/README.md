@@ -9,7 +9,7 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This package implements Agent Protocol V12 at coordinated published SDK version `0.4.2`,
+This package implements Agent Protocol V12 at coordinated SDK version `0.4.3`,
 including tagged decision responses and exact turn request unavailability. Published `0.4.1`
 retains V11 and its qualification evidence; the earlier `0.4.0` release retains V10.
 The runtime also provides neutral session forms, plan reviews, staged native continuations and
@@ -157,10 +157,11 @@ reopen an older request. A host must cancel human decisions when their execution
 those tasks during cleanup. Keep the session or exact opening-cleanup receipt if cleanup fails;
 disposing its registry or host resources before quiescence would lose the retained owner.
 
-`runtime.retrying` reports a retry already owned by the provider on the active turn. It preserves
+`runtime.retrying` reports a retry already owned by the provider on the active turn or operation. It preserves
 turn ownership, pending requests, and per-output backpressure; it neither starts another execution
 nor completes the turn. It is rejected before `turn.started`, after `turn.completed`, after a
-`final_diff` terminal materialization, and from session-operation observations. The event's neutral
+`final_diff` terminal materialization on a turn. Current source also admits it through an owned
+session operation's awaited `onOutput`, with the exact `observationTurnId` and no `turn.started`. The event's neutral
 failure category and recovery hint describe the observed condition. A recovery hint never authorizes
 replaying work or changes an uncertain execution outcome. Contract failures, delegated-operation
 started evidence, and retained cleanup responsibilities remain separate from those failure values.
@@ -187,6 +188,23 @@ validation and abort errors unchanged, while
 provider-delegated steering failures throw `AgentProviderDelegatedOperationError` with the original
 cause and explicit started-execution evidence so a host can retire the unusable session. Platform
 scheduling and provider-native queue modes are intentionally outside this SPI.
+
+Current source reserves the shared execution slot for `idle_session`/`immediate` operations after
+descriptor validation, through native settlement and awaited output acceptance. Caller turns and
+native continuations cannot overlap that reservation. Exact cached idempotent results are returned
+before reserving another execution. Close stops admission and initiates native quiescence before
+joining entered operation work; failed cleanup retains its stopped owner for retry. This lifecycle
+correction and operation retry observations are included in `0.4.3`, using the existing
+Agent Protocol V12 and operation SPI.
+
+Discover the operation through `session.operations` and its offered descriptor, using an exact
+application-configured ID. Pass the descriptor revision as `expectedRevision`, its exact fields,
+a fresh invocation ID and an independent observation correlation; the catalog revision is a
+different value. Confirmation is host-owned. A completed result proves command completion, while
+an accepted completed `context_compaction` item proves an observed compaction effect. Do not infer
+effects from English output text, manufacture token savings, or replay an uncertain operation.
+The exported repository's `examples/operations.ts` demonstrates these cases against public APIs
+and is compiled and executed in the isolated packed-consumer gate.
 
 Configuration selection, operation invocation, and collaboration mutation use the same execution
 receipt rule: stale or malformed input fails before provider delegation, while any failure after
@@ -533,7 +551,7 @@ close before joining its reader and actual callback tasks; failure also starts c
 failures and cleanup failures remain observable. A callback that ignores cancellation
 remains owned until its actual promise settles.
 
-The coordinated SDK release is `0.4.2` and implements Agent Protocol V12.
+The coordinated SDK release is `0.4.3` and implements Agent Protocol V12.
 The earlier `0.4.1` release retains V11.
 The earlier `0.4.0` release retains V10.
 The earlier public `0.3.0` and `0.3.1` releases implemented V9 and remain historical.

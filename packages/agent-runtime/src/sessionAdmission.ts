@@ -10,7 +10,15 @@ export function createAgentSessionAdmission<Execution = unknown>(providerKey: Ag
   type Slot = { readonly token: object; readonly kind: "reserved" } | { readonly token: object; readonly kind: "installed"; readonly execution: Execution };
   let slot: Slot | undefined;
   let stopped = false;
+  const operations = new Set<Promise<void>>();
   return {
+    trackOperation(): () => void {
+      if (stopped) throwAgentProviderContractError(providerKey, "session_unusable", "Session admission is stopped.");
+      const completion = Promise.withResolvers<void>();
+      operations.add(completion.promise);
+      return () => { operations.delete(completion.promise); completion.resolve(); };
+    },
+    async joinOperations(): Promise<void> { await Promise.all(operations); },
     reserveExecution(): object {
       if (stopped) throwAgentProviderContractError(providerKey, "session_unusable", "Session admission is stopped.");
       if (slot) throwAgentProviderContractError(providerKey, "concurrent_turn", "Provider session already owns an execution.");
