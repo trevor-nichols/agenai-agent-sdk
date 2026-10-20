@@ -2,8 +2,8 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> This source prepares coordinated version `0.4.3` with Agent Protocol V12.
-> Published `0.4.2` remains selected by npm `latest` and `beta` until verified promotion.
+> Coordinated version `0.4.3` is published with Agent Protocol V12.
+> npm `latest` and `beta` both select the verified seven-package `0.4.3` release.
 > See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for this patch’s lifecycle fixes. Earlier `0.4.1` artifacts retain V11 and their original qualification.
 > See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
@@ -94,7 +94,7 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-After publication, install the coordinated `0.4.3` runtime:
+Install the published `0.4.3` runtime:
 
 ```sh
 pnpm add @agen-ai/agent-runtime@0.4.3
@@ -114,7 +114,7 @@ examples require matching built `0.4.3` packages; their decision responses carry
 `{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
 documents the implemented generic lifecycle and exact native qualification limits.
 Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
-the generalized API described below is available in the matching published `0.4.2` packages.
+the generalized API described below is available in the matching published `0.4.3` packages.
 Run the examples from a built source checkout or use the matching npm package family.
 Installing the earlier `0.4.0` release does not provide these APIs.
 
@@ -521,7 +521,7 @@ correlation and cleanup limits. Known or registered methods still use their exac
 validators. A vendor feature that needs an extension requires an explicit mapping
 and separate behavior evidence.
 
-| Surface | Provider support in `0.4.2` source |
+| Surface | Provider support in `0.4.3` source |
 | --- | --- |
 | Sessions and turns | Create, default text turns, streamed text/reasoning/tool progress, and settlement-backed interruption. Exact resume requires advertised `session/resume` or `session/load`; load replay is bounded and suppressed. |
 | Turn permissions | Once-only, exact-action choices; one native prompt survives each canonical request continuation. Persistent turn grants are unsupported; the explicitly selected workspace decision below is separate. |
