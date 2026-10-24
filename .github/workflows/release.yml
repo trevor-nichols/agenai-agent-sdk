@@ -17,8 +17,14 @@ on:
         required: false
         default: ""
         type: string
+      original_artifact_id:
+        description: Original pre-publication artifact ID (guarded main recovery only; no repacking)
+        required: false
+        default: ""
+        type: string
 
 permissions:
+  actions: read
   contents: read
   id-token: write
 
@@ -36,6 +42,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.release_ref != '' && inputs.release_ref || github.ref_name }}
       RELEASE_REF: ${{ inputs.release_ref != '' && format('refs/tags/{0}', inputs.release_ref) || github.ref }}
+      ORIGINAL_ARTIFACT_ID: ${{ inputs.original_artifact_id }}
     steps:
       - name: Check out release tag
         uses: actions/checkout@v7
@@ -43,6 +50,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install pnpm
+        if: inputs.original_artifact_id == ''
         uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
@@ -53,20 +61,23 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
+        if: inputs.original_artifact_id == ''
         run: pnpm install --frozen-lockfile
 
-      - name: Set up Python for offline registry installation fixtures
+      - name: Set up Python for release archives and registry fixtures
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.14.4'
 
       - name: Set up uv for offline registry installation fixtures
+        if: inputs.original_artifact_id == ''
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: '0.11.28'
           enable-cache: false
 
       - name: Verify registry fixture prerequisites
+        if: inputs.original_artifact_id == ''
         run: |
           python3 --version
           uv --version
@@ -79,6 +90,11 @@ jobs:
 
           if [[ "$RELEASE_TAG" != "v$root_version" || "$RELEASE_REF" != "refs/tags/$RELEASE_TAG" ]]; then
             echo "Release tag $RELEASE_TAG does not match root version $root_version." >&2
+            exit 1
+          fi
+
+          if [[ -n "$ORIGINAL_ARTIFACT_ID" && "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Original artifact restoration requires guarded main recovery." >&2
             exit 1
           fi
 
@@ -118,6 +134,7 @@ jobs:
           echo "RELEASE_SHA=$release_commit" >> "$GITHUB_ENV"
 
       - name: Provision Linux native history sandbox
+        if: inputs.original_artifact_id == ''
         shell: bash
         env:
           NATIVE_HISTORY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
@@ -164,6 +181,7 @@ jobs:
           test -f "${history_mount_fixture}/written"
 
       - name: Check SDK
+        if: inputs.original_artifact_id == ''
         run: pnpm check
 
       - name: Restore Ubuntu native history namespace restriction
@@ -183,7 +201,18 @@ jobs:
           fi
 
 
+      - name: Check retained-artifact recovery tooling
+        if: inputs.original_artifact_id != ''
+        run: node --test scripts/release/*.test.mjs
+
+      - name: Restore original release artifact
+        if: inputs.original_artifact_id != ''
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/release/restore-release-artifact.mjs --artifact-id "$ORIGINAL_ARTIFACT_ID"
+
       - name: Pack release tarballs
+        if: inputs.original_artifact_id == ''
         shell: bash
         run: |
           set -euo pipefail
@@ -213,6 +242,7 @@ jobs:
             release/*.tgz
             pnpm-lock.yaml
             .agenai-export.json
+            release-artifact-receipt.json
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 90

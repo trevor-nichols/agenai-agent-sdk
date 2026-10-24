@@ -198,6 +198,33 @@ the original run retains the tag and resolved tag commit in its immutable proven
 packages first published by the recovery run identify the corrected `main` workflow commit. Never
 use recovery to publish changed package sources under an existing version.
 
+### Reuse the original archives after a partial publication
+
+If any package version was accepted, retain its original pre-publication workflow artifact. For
+an authorized workflow-only recovery, dispatch from `main` with `release_ref` set to the immutable
+version tag and `original_artifact_id` set to that original artifact's numeric ID. For example,
+`release_ref=v0.4.4` and `original_artifact_id=12577458147` identify the original attempt-2 archive
+set. The helper rejects artifact input on tag runs; ordinary tag releases continue to pack fresh
+archives. Recovery preserves the original tag attempt's completed SDK qualification and runs
+focused release-tooling tests instead of rebuilding or rerunning unchanged SDK/native fixtures.
+All source guards, package/provenance inspections and signature verification remain in force;
+restoration does not establish a new native qualification.
+
+Restoration verifies the artifact's repository, original tag commit, release workflow and completed
+run attempt, allowing a failed attempt that already published part of the set. It verifies GitHub's
+ZIP digest, decodes only the ten exact archives plus lockfile and export metadata into private
+scratch, and compares retained metadata with the immutable tag rather than recovery `HEAD`.
+Archives are admitted before a new `release` directory is created; existing destinations are
+preserved. The helper admits ZIPs through 64 MiB and expanded contents through 512 MiB, with bounded
+copying. These restoration budgets are release tooling limits, not SDK workload limits.
+
+The new pre-publication artifact includes `release-artifact-receipt.json` with the original
+artifact/run identity, digest, tagged metadata hashes and every restored archive hash. Its ordinary
+root export metadata still describes the recovery checkout. No accepted archive is repacked.
+Already published packages are skipped only after exact bytes, manifest, requested tag and
+provenance pass the existing checks. New publications identify the corrected `main` workflow;
+accepted original publications retain their original tag provenance. Keep the immutable tag fixed.
+
 ## Promoting an exact release to latest
 
 This workflow and its trust configuration authorize `npm publish` only. Promotion uses a

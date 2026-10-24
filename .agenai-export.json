@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "80a417a3718a4e0164779393b930a0c9c38cda01",
+  "sourceRevision": "9943ee77c5f7d814794e23fb90a9bcac8001201e",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -1302,7 +1302,12 @@
     "scripts/development/agent-sandbox-qualification/selective/proxy/upgrade.mjs",
     "scripts/development/agent-sandbox-qualification/selective/run.mjs",
     "scripts/development/agent-sandbox-qualification/selective/safety.mjs",
+    "scripts/release/artifact/extract.py",
+    "scripts/release/artifact/metadata.mjs",
+    "scripts/release/artifact/restore.mjs",
     "scripts/release/package-inventory.mjs",
+    "scripts/release/restore-release-artifact.mjs",
+    "scripts/release/restore-release-artifact.test.mjs",
     "scripts/release/verify-package-publication.mjs",
     "scripts/release/verify-package-publication.test.mjs",
     "scripts/release/verify-release-set.mjs",
