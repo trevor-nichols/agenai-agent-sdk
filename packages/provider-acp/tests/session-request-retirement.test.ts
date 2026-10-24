@@ -38,7 +38,7 @@ test('exact active and queued ACP cancellation preserves surviving FIFO requests
     (error: unknown) => error instanceof Error && 'code' in error && error.code === 'request_resolution_mismatch');
   assert.deepEqual(await execution.resolveRequest({ resolution: selection(survivor.payload.request) }), { status: 'delivered' });
   const finished = events(await collectRemaining(iterator));
-  assert.deepEqual(finished.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(finished.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   assert.equal([...first, ...next, ...finished].filter((event) => event.type === 'request.opened').length, 2);
   assert.equal([...first, ...next, ...finished].flatMap((event) => event.type === 'content.delta' ? [event.payload.delta] : []).join(''),
     'Output survives cancellation.');
@@ -80,5 +80,5 @@ test('answered reverse callbacks retain capacity until the actual response write
     { outcome: { outcome: 'selected', optionId: 'A:allow' } },
   ]);
   assert.deepEqual(await execution.resolveRequest({ resolution: selection(c.payload.request) }), { status: 'delivered' });
-  assert.deepEqual(events(await collectRemaining(iterator)).filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(events(await collectRemaining(iterator)).filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
 });

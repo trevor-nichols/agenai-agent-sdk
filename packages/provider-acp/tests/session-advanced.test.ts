@@ -99,7 +99,7 @@ test('session forms preserve one native waiter through intent and typed answers,
     approval.requestId, 'running', offered.requestId, 'running', fields.requestId, 'running',
   ]);
   assert.equal(combined.filter((event) => event.type === 'turn.started').length, 1);
-  assert.deepEqual(combined.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(combined.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   assert.deepEqual(peer.frames.filter((frame) => !frame.method).map((frame) => ({ id: frame.id, result: frame.result })), [
     { id: 'permission:1', result: { outcome: { outcome: 'selected', optionId: 'permission:1:allow' } } },
     { id: 3, result: { action: 'accept', content: { note: '', choice: ' raw value ', tags: ['', ' ', '😀😀'], enabled: false } } },

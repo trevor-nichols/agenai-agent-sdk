@@ -177,11 +177,11 @@ test("ordinary turn completion leaves the host binding available until explicit 
       ...session,
       startTurn: fixtureTurn(async function* (input) {
         const base = {
-          protocolVersion: 12 as const, sessionId: context.sessionId, turnId: input.turnId,
+          protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime("2026-10-10T12:00:00.000Z"),
         };
         yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
       }),
     };
     return candidate;

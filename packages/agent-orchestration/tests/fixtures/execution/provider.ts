@@ -28,7 +28,7 @@ export function deferred<Value>() {
 
 export function eventBase(context: AgentProviderSessionContext, turnId: AgentTurnId) {
   return {
-    protocolVersion: 12 as const,
+    protocolVersion: 13 as const,
     sessionId: context.sessionId,
     turnId,
     occurredAt: parseAgentIsoDateTime("2026-10-10T12:00:00.000Z"),
@@ -38,7 +38,7 @@ export function eventBase(context: AgentProviderSessionContext, turnId: AgentTur
 export async function* completedTurn(context: AgentProviderSessionContext, turnId: AgentTurnId): AsyncIterable<AgentProviderOutput> {
   const base = eventBase(context, turnId);
   yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-  yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+  yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
 }
 
 export function mapTurnOutputs(session: AgentProviderSession,

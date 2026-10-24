@@ -6,12 +6,15 @@ capabilities, typed operations, safe configuration and managed-content inventori
 observations, effective harness content and package catalogs, environment observations, account-quota observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
-The coordinated release is `0.4.3` and uses Agent Protocol V12, including exact request
-unavailability and session decisions, forms and plan reviews. Published `0.4.1` retains V11;
-`0.4.0` retains V10. Source versioning does not establish registry publication.
+Current source is the unpublished coordinated eight-package `0.4.4` candidate and uses Agent
+Protocol V13, adding structured final output. Published `0.4.3` is the seven-package V12 release,
+including exact request unavailability and session decisions, forms and plan reviews. Published
+`0.4.1` retains V11; `0.4.0` retains V10. Source versioning does not establish registry publication.
 Keep all installed SDK packages at one coordinated version. The [0.4.2 migration
 guide](../../MIGRATING-TO-0.4.2.md) covers V12 envelopes, tagged session responses and
 the separate ownership of request eligibility, entered receipts and continuation output.
+The [0.4.4 upgrade guide](../../UPGRADING-TO-0.4.4.md) covers the V13 source changes and optional,
+execution-independent `@agen-ai/agent-history` package.
 
 ## Ownership boundary
 
@@ -38,8 +41,9 @@ carry no fabricated windows or hints.
 - `@agen-ai/agent-protocol` exports the complete plain API.
 - `/sessions`, `/session-interactions`, `/turns`, `/requests`, `/events`, `/capabilities`, `/artifacts`, `/operations`,
   `/configuration`, `/managed-content`, `/integrations`, `/collaboration`, `/resources`, and
-  `/account-quota`, `/effective-content`, `/commands`, `/extensions`, and `/environment` are focused plain entrypoints.
-- `/zod` is the only entrypoint that exposes Zod schemas.
+  `/account-quota`, `/effective-content`, `/commands`, `/extensions`, `/environment`, and
+  `/structured-output` are focused plain entrypoints.
+- `/zod` is the only entrypoint that exposes Zod schemas and the `zodOutput` authoring adapter.
 - `/json-schema` exposes deterministic draft 2020-12 schema artifacts.
 
 Ordinary entrypoints expose plain TypeScript types, constants, parsers, and validator-neutral
@@ -56,7 +60,7 @@ import {
 } from '@agen-ai/agent-protocol';
 
 const event: AgentEvent = parseAgentEvent({
-  protocolVersion: 12,
+  protocolVersion: 13,
   type: 'content.delta',
   sessionId: parseAgentSessionId('external-session:42'),
   turnId: parseAgentTurnId('external-turn:9'),
@@ -71,7 +75,7 @@ const event: AgentEvent = parseAgentEvent({
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 ```
 
-Serialized values carry `protocolVersion: 12`; TypeScript API names remain unsuffixed. Unknown
+Serialized values carry `protocolVersion: 13`; TypeScript API names remain unsuffixed. Unknown
 fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
@@ -88,7 +92,7 @@ Approval requests correlate to one live item or exact proposed-plan artifact and
 bounded list of typed options. Every option declares its decision and a closed `consequence`.
 `scoped` contains precise `persistence` and `scope`; `provider_managed_remembrance` contains explicit
 unknown duration and applicability and a required bounded explanation. Flat persistence/scope
-fields are rejected in V12. Neither approval nor a delivered answer proves the provider wrote a rule.
+fields are rejected in the current protocol. Neither approval nor a delivered answer proves the provider wrote a rule.
 Resolutions select one exact offered `optionId` or explicitly cancel. Supported approval capability
 requires `providerManagedRemembrance`: false requires a nonempty readonly precise-mode tuple; true
 allows a bounded readonly array, including empty for a remembered-only provider. Scoped options
@@ -117,6 +121,130 @@ collapse unrelated pools into one percentage. Quantity units remain distinct fro
 which uses integer minor units with an explicit scale. None of these domains has a generic
 extension or metadata bag.
 
+## Structured final output
+
+V13 defines a provider-neutral output request, finite JSON Schema profile, and terminal result.
+Use [`generateObject`](../agent-runtime/README.md#generate-a-typed-object) from
+`@agen-ai/agent-runtime/generation` to own a fresh generation session, or use the lower-level
+session/turn API when the application owns that lifecycle. Successful generation establishes that
+the returned JSON satisfies the admitted schema and local decoder. It does not establish factual
+correctness or guarantee that every run completes.
+
+`capabilities.turns.structuredOutput` is a required discriminated union:
+
+| Capability | Contract |
+| --- | --- |
+| `{ kind: 'unsupported' }` | Structured requests fail before provider delegation. |
+| `{ kind: 'supported', mechanism: 'native', schemaProfile: 'agenai.output-schema.v1', scope, maxSchemaBytes, maxOutputBytes, resume: false, branch: false }` | A native mapping accepts the exact profile within its advertised byte limits. `scope` is `turn` or `session`; limits can be stricter than the portable ceilings below. |
+
+For `turn` scope, supply `output: { kind: 'json_schema', schema }` on `startTurn`; a later turn
+without `output` is ordinary text. For `session` scope, supply it on `createSession`; every turn
+inherits that immutable schema. An `output` property on a schema-bound turn is rejected even if
+its value is `undefined` or the same schema. Steering cannot change the schema. Structured resume
+and branch are unsupported; ordinary resume/branch remain separate capabilities. The validated
+runtime copies and freezes admitted schema data, so caller mutation cannot change the request.
+
+Every `turn.completed` payload requires `structuredOutput`:
+
+| Result | Meaning |
+| --- | --- |
+| `{ kind: 'not_requested' }` | The turn had no admitted output schema. |
+| `{ kind: 'json', value }` | A complete JSON object is available; only `outcome: 'completed'` can carry it. The runtime independently validates it against the admitted schema. |
+| `{ kind: 'unavailable', reason }` | Requested structured generation has no validated value. `schema_mismatch` may include bounded validator-neutral `issues`. |
+
+The unavailable reasons are `refused`, `incomplete`, `missing_output`, `invalid_json`,
+`schema_mismatch`, `output_limit_exceeded`, `native_retries_exhausted`, and `provider_error`.
+A native `completed` outcome can coexist with `unavailable`; failed, canceled and expired outcomes
+cannot carry `json`. An unsolicited value or an admitted request reported as `not_requested` is a
+provider contract violation. Ordinary text/reasoning deltas remain observations, never partial
+validated JSON. The SDK does not extract JSON from prose, repair values, or replay generation.
+
+### Plain schemas and typed decoders
+
+The root and `/structured-output` entrypoints export `createAgentOutputDefinition`,
+`parseAgentOutputSchema`, `safeParseAgentOutputSchema`, `validateAgentOutputValue`, the plain types,
+and limits. A schema-only definition produces `AgentJsonObject`. A decoder supplies actual type
+evidence; there is no unchecked `createAgentOutputDefinition<MyType>(schema)` overload.
+
+```ts
+import { createAgentOutputDefinition } from '@agen-ai/agent-protocol';
+
+const titleOutput = createAgentOutputDefinition({
+  type: 'object',
+  properties: { title: { type: 'string', minLength: 1, maxLength: 80 } },
+  required: ['title'],
+  additionalProperties: false,
+}, (value) => typeof value.title === 'string'
+  ? { success: true, data: { title: value.title } }
+  : { success: false, issues: [{ code: 'title_required', path: ['title'], message: 'A title is required.' }] });
+// The decoder infers { title: string } for generateObject({ output: titleOutput, ... }).
+```
+
+The decoder returns `AgentProtocolParseResult<T>` and performs local validation only. The runtime
+checks its successful result again and requires it to preserve the generated JSON value exactly.
+Coercion, trimming, defaults, dropped properties, classes and transformed values are rejected.
+Apply presentation or persistence transforms after `generateObject` succeeds.
+
+`zodOutput` explicitly opts into Zod composition and executes that schema as the local decoder:
+
+```ts
+import { z } from 'zod/v4';
+import { zodOutput } from '@agen-ai/agent-protocol/zod';
+
+const titleOutput = zodOutput(z.strictObject({ title: z.string() }));
+// Inferred value: { title: string }; ordinary protocol/runtime declarations stay validator-neutral.
+```
+
+The Zod adapter accepts finite strict objects with required fields, plain strings, string enums
+and literals, booleans, null, homogeneous arrays, one nullable wrapper, and finite numbers with
+inclusive bounds or safe-integer checks. It rejects optional fields, transforms/coercion, defaults,
+refinements, formats/patterns, lazy/recursive schemas, general unions and unsupported wrappers.
+It also rejects Zod string length checks because they count UTF-16 units while this profile counts
+Unicode code points. Zod array checks, including `.min()`, `.max()` and `.length()`, are rejected
+because their condition provenance cannot be represented safely. For string or array bounds, use
+`createAgentOutputDefinition` with neutral `minLength`/`maxLength` or `minItems`/`maxItems` plus a
+validation-only decoder. An explicitly local check can reject a value but does not become a native
+generation constraint. Unsupported authoring raises `AgentProtocolValidationError` with an
+actionable issue path; the adapter never silently strips a check.
+
+### The `agenai.output-schema.v1` profile
+
+The root is an object. Every object, including nested objects, requires exactly all declared
+properties and `additionalProperties: false`; represent absence through a required nullable field.
+The optional root `$schema` must be `https://json-schema.org/draft/2020-12/schema`.
+
+| Node | Accepted keywords beyond `type` |
+| --- | --- |
+| Object | `properties`, `required`, `additionalProperties: false`, `description` |
+| Array | One homogeneous `items` schema, optional `minItems`, `maxItems`, `description` |
+| String | Optional nonempty unique string `enum`, `minLength`, `maxLength`, `description` |
+| Integer or number | Optional inclusive finite `minimum`, `maximum`, `description` |
+| Boolean or null | Optional `description` |
+| Nullable node | Exactly `anyOf: [nonNullNode, { type: 'null' }]` and optional `description`; either input branch order is accepted and canonicalized. Nested nullable wrappers are rejected. |
+
+Unknown keywords fail admission. There are no references/definitions, recursion, general
+`anyOf`/`oneOf`/`allOf`, optional properties, tuples, patterns, formats, defaults or arbitrary
+extensions. Numeric bounds must be ordered, integer bounds must admit an integer, and every enum
+entry must satisfy its string bounds. Admission rejects schemas whose minimum possible value
+cannot fit the value or advertised output capacity.
+
+| Bound | Portable ceiling |
+| --- | --- |
+| Serialized schema / canonical value | 16,384 UTF-8 bytes each; provider capability can lower either limit |
+| Schema nodes / nesting depth | 256 / 8, counting the root at depth 1 |
+| Properties per object / string enum entries | 100 / 100 |
+| Property names / descriptions | 1–128 / 0–2,000 Unicode code points; names exclude `__proto__`, `constructor`, `prototype` |
+| Declared string/array length bounds | Nonnegative safe integers up to 16,384; array minimum cannot exceed 100 |
+| Value nodes / nesting depth / entries per object or array | 1,024 / 16 / 100 |
+| Raw JSON candidate text | 65,536 UTF-8 bytes before complete parsing; the decoded value must still fit 16,384 bytes |
+| Validation diagnostics | 8 issues / 4,096 serialized UTF-8 bytes total; each code/message is at most 64/256 code points and each path at most 16 segments / 1,024 serialized bytes |
+
+The object/array value ceiling still applies when a schema's `maxItems` is higher. String lengths
+count code points without normalization; number validation uses finite JavaScript JSON numbers,
+with `Number.isInteger` for `integer`. Schemas and values must be plain acyclic JSON data with data
+properties: accessors, symbols, sparse arrays, non-finite numbers and prototype-sensitive keys fail
+before use. The byte limits measure serialized JSON, including escaping and property names.
+
 ## Request lifecycle and session interactions
 
 `request.unavailable` is a turn event with the existing session, turn and timestamp envelope.
@@ -132,14 +260,14 @@ explicit offered choices and optional `expiresAt`. That expiry is only a provide
 the host's effective deadline is a separate runtime observation. Descriptors have no `turnId`,
 provider-native request ID, metadata bag or transport correlation field. The root and focused
 `@agen-ai/agent-protocol/session-interactions` entrypoints expose plain types and parsers.
-Only `/zod` exposes schemas. The `/json-schema` registry contains 35 deterministic contracts,
-including request/response schemas for each session kind and their complete unions.
+Only `/zod` exposes validator schemas. The `/json-schema` registry contains deterministic contracts,
+including request/response schemas for each session kind, their complete unions, and structured output.
 
 A workspace decision preserves its exact target and grant/decline consequences. A workspace
 `grant` is provider-managed, persistent and may affect other sessions; it covers the workspace
 rather than only the categories detected when the question was created. A `decline` leaves
 configuration gated without promising revocation, persisted denial or suppression of future
-questions. Present the target and consequences before applying a decision policy. V12 responses
+questions. Present the target and consequences before applying a decision policy. Current responses
 are tagged: `parseAgentSessionDecisionResponseFor(request, { kind: 'decision', choiceId })`.
 The earlier untagged `{ choiceId }` argument is rejected.
 
@@ -286,18 +414,20 @@ before delegation; a composer can use the same pure functions to preserve and ex
 
 ## Versioning and release
 
-Agent Protocol V12 defines the contract shared by this package, `@agen-ai/validation`, and
-`@agen-ai/agent-runtime`. The coordinated release is `0.4.3`; published `0.4.1` retains
-V11 and `0.4.0` retains V10. Registry publication and dist-tag state are release metadata outside
-this contract. Earlier public releases remain historical. The complete seven-package public
-release inventory must use one coordinated source version.
+Agent Protocol V13 defines the current source contract shared with `@agen-ai/agent-runtime`.
+The coordinated eight-package `0.4.4` candidate is unpublished. Published `0.4.3` retains V12,
+`0.4.1` retains V11 and `0.4.0` retains V10. Registry publication and dist-tag state are release
+metadata outside this contract. Earlier public releases remain historical. The complete candidate
+release inventory must use one coordinated source version. Optional `@agen-ai/agent-history`
+browses native saved conversations independently of execution; it does not infer structured-output
+support or validated values from native transcript JSON.
 
-Protocol V12 is independent of private transport and product persistence versions and replaces
-V11 at live boundaries. There is one current parser. V11 and older serialized data require the
-historical owner's frozen decoder and are rejected by the live V12 parser where versioned.
+Protocol V13 is independent of private transport and product persistence versions and replaces
+V12 at live boundaries. There is one current parser. V12 and older serialized data require the
+historical owner's frozen decoder and are rejected by the live V13 parser where versioned.
 The environment and account-quota namespaces each retain their own schema version 1.
 
-The repository release proof builds and packs the exact seven-package release set, rejects
+The repository release proof builds and packs the exact eight-package release set, rejects
 workspace-only or private references, then typechecks and runs a consumer outside the monorepo.
 
 From the public repository root, run `pnpm check` to execute the same packed-consumer proof.

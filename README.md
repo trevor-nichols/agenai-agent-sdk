@@ -2,9 +2,10 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Coordinated version `0.4.3` is published with Agent Protocol V12.
-> npm `latest` and `beta` both select the verified seven-package `0.4.3` release.
-> See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for this patch’s lifecycle fixes. Earlier `0.4.1` artifacts retain V11 and their original qualification.
+> Current source is the coordinated **ten-package `0.4.4` candidate**, with Agent Protocol V13, native structured final responses, optional runtime execution input and optional history and sandbox packages. This candidate is unpublished; execution input has no supported public native provider.
+> The recorded npm `latest` and `beta` state remains the verified **seven-package `0.4.3` release**, which did not include history or either sandbox package.
+> See [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for candidate setup, the V13 adapter upgrade, execution-input ownership, structured-output support, native history scope and sandbox execution.
+> See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for the preceding patch’s lifecycle fixes. Earlier `0.4.1` artifacts retain V11 and their original qualification.
 > See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
 > and [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
@@ -37,17 +38,21 @@ Write the host once. Adapt each agent once.
 | Package | Purpose |
 | --- | --- |
 | `@agen-ai/validation` | Validator-neutral issue data with an optional Zod 4 adapter. |
-| `@agen-ai/agent-protocol` | Sessions, turns, requests, session decisions, capabilities, classified failures, provider retry events, artifacts, environment catalogs, parsers, and schemas. |
-| `@agen-ai/agent-runtime` | Drivers, instances, adapters, sessions, session-lifetime handlers, environment lifecycle validation, registry mechanics, and conformance tools. |
+| `@agen-ai/agent-protocol` | Sessions, turns, structured-output schemas and definitions, requests, capabilities, failures, artifacts, environment catalogs and parsers. |
+| `@agen-ai/agent-runtime` | Validated drivers, instances and sessions, optional execution input, object generation through `/generation`, lifecycle handlers, registry mechanics and conformance tools. |
 | `@agen-ai/agent-orchestration` | Optional certified target policy, scoped managed tasks and tools, completion inbox delivery, and bounded storage contracts. |
 | `@agen-ai/acp-transport` | Optional Node.js ACP JSON-RPC transport with explicitly selected pinned schemas, bounded framing, correlation, and standard session operations. |
 | `@agen-ai/provider-acp` | Optional ACP driver with explicit connection ownership, a Node process launcher, and bounded session/permission lifecycles. |
 | `@agen-ai/acp-registry` | Optional bounded catalog validation, deterministic search and exact plans, with explicit Node fetching, verified installation and retained launch. |
+| `@agen-ai/agent-history` | Optional native saved-conversation catalogs, transcripts, separate metadata/content search and explicit management through qualified provider entrypoints. |
+| `@agen-ai/sandbox` | Optional neutral sandbox ownership, bounded commands, streams, files and recovery, with an explicit ACP integration entrypoint. |
+| `@agen-ai/sandbox-docker` | Optional explicitly configured local Docker backend with bounded resources and cleanup ownership. |
 
-All seven packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
+All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All seven source package versions are coordinated at `0.4.3`; published `0.4.1`
-retains its historical qualification and archive identities.
+schema assets. All ten source package versions are coordinated at candidate version `0.4.4`.
+The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
+Native qualification retains its exact platform/runtime and archive identities.
 
 The dependency chain is intentionally narrow:
 
@@ -56,6 +61,11 @@ The dependency chain is intentionally narrow:
   -> @agen-ai/agent-protocol
        -> @agen-ai/validation
        -> zod
+
+@agen-ai/agent-history (optional source candidate)
+  -> @agen-ai/agent-protocol
+  -> @agen-ai/validation
+  -> zod
 
 @agen-ai/agent-orchestration
   -> @agen-ai/agent-runtime
@@ -76,6 +86,16 @@ The dependency chain is intentionally narrow:
   -> @agen-ai/validation
   -> zod
   -> pinned archive readers (Node installation graph only)
+
+@agen-ai/sandbox
+  -> @agen-ai/validation
+  -> zod
+  -> optional @agen-ai/provider-acp peer (explicit /acp entrypoint only)
+
+@agen-ai/sandbox-docker
+  -> @agen-ai/sandbox
+  -> @agen-ai/validation
+  -> zod
 ```
 
 The optional transport has no dependency on the core packages, and the core packages do not
@@ -108,15 +128,229 @@ pnpm add @agen-ai/validation@0.4.3 @agen-ai/agent-protocol@0.4.3
 ```
 
 Keep every SDK package you install at the same coordinated version, including optional packages.
-The source Agent Protocol V12 directly replaces V11 at the live boundary; the current parser has no
-V11 compatibility mode. Published `0.4.1` retains V11 and `0.4.0` retains V10. Current source
-examples require matching built `0.4.3` packages; their decision responses carry
+The source Agent Protocol V13 replaces V12 at the live boundary; the current parser has no
+older-version compatibility mode. Published `0.4.3` and `0.4.2` retain V12, `0.4.1` retains V11 and
+`0.4.0` retains V10. Current source examples require matching built or packed `0.4.4` candidate packages; their decision responses carry
 `{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
 documents the implemented generic lifecycle and exact native qualification limits.
 Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
-the generalized API described below is available in the matching published `0.4.3` packages.
-Run the examples from a built source checkout or use the matching npm package family.
-Installing the earlier `0.4.0` release does not provide these APIs.
+the generalized session-interaction API is available in the matching published `0.4.3` packages.
+Run current examples from the built candidate checkout or its complete matching tarball set.
+The `0.4.3` npm installation above provides the previously published API and examples; it does not
+include execution input, structured generation, history or sandbox execution. [Candidate setup](UPGRADING-TO-0.4.4.md#validate-the-candidate) uses local artifacts
+rather than an unpublished npm version.
+
+## Generate a typed object
+
+Use `generateObject` from **`@agen-ai/agent-runtime/generation`** when a task should return a
+small validated JSON object. It borrows a validated provider instance, creates a fresh session,
+runs one turn, consumes its single output stream and closes the session before returning
+`{ value, sessionId, turnId }`. The application owns instance selection, credentials, tool and
+sandbox policy, persistence and eventual instance or registry disposal.
+
+[`examples/generate-title.ts`](examples/generate-title.ts) is the complete public-entrypoint
+example. It derives a title from a conversation's first prompt and calls the application's
+`saveTitle` only after generation and session cleanup succeed. Its output definition uses plain
+JSON Schema and an actual decoder, so `result.value.title` is inferred as `string`:
+
+```ts
+import {
+  createAgentOutputDefinition,
+  parseAgentConfigurationRevisionId,
+  parseAgentSessionId,
+  parseAgentTurnId,
+} from '@agen-ai/agent-protocol';
+import type { ValidatedMaterializedAgentProviderInstance } from '@agen-ai/agent-runtime';
+import { AgentGenerationError, generateObject } from '@agen-ai/agent-runtime/generation';
+
+const titleOutput = createAgentOutputDefinition({
+  type: 'object',
+  properties: { title: { type: 'string', minLength: 1, maxLength: 80 } },
+  required: ['title'],
+  additionalProperties: false,
+}, (value) => typeof value.title === 'string'
+  ? { success: true, data: { title: value.title } }
+  : { success: false, issues: [{
+    code: 'title_required', path: ['title'], message: 'A title is required.',
+  }] });
+
+export async function generateAndSaveTitle(input: Readonly<{
+  instance: ValidatedMaterializedAgentProviderInstance;
+  conversationId: string;
+  firstPrompt: string;
+  workingDirectory: string;
+  saveTitle: (conversationId: string, title: string) => Promise<void>;
+  signal?: AbortSignal;
+}>): Promise<{ kind: 'saved'; title: string } | { kind: 'unsupported' }> {
+  try {
+    const result = await generateObject({
+      instance: input.instance,
+      session: {
+        sessionId: parseAgentSessionId(`title:${input.conversationId}`),
+        workingDirectory: input.workingDirectory,
+        configuration: {
+          kind: 'managed', revision: parseAgentConfigurationRevisionId('title:configuration:1'),
+        },
+      },
+      turn: {
+        turnId: parseAgentTurnId(`title:${input.conversationId}:1`),
+        interactionMode: 'default',
+        parts: [{
+          type: 'text',
+          text: `Create a short conversation title for this first prompt:\n${input.firstPrompt}`,
+        }],
+      },
+      output: titleOutput,
+      timeoutMs: 30_000,
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+    });
+    await input.saveTitle(input.conversationId, result.value.title);
+    return { kind: 'saved', title: result.value.title };
+  } catch (error) {
+    if (error instanceof AgentGenerationError && error.code === 'unsupported') {
+      return { kind: 'unsupported' };
+    }
+    throw error;
+  }
+}
+```
+
+The example passes this definition as `output: titleOutput` alongside its host-selected
+`instance`, create-session input, turn input and a 30-second `timeoutMs`. The helper selects the
+provider's declared schema lifetime automatically. No generic type assertion supplies the result
+type. Omitting the decoder produces `AgentJsonObject`; supplying one infers its successful data
+type. The runtime validates both native data and decoder output, requires the same JSON value and
+returns deeply frozen data. A decoder can reject a value, but cannot trim strings, add defaults,
+coerce types, remove properties or otherwise change it. Apply presentation transforms afterward.
+
+For Zod authoring, use the deliberate protocol `/zod` entrypoint with exact `zod@4.4.3`:
+
+```ts
+import { z } from 'zod/v4';
+import { zodOutput } from '@agen-ai/agent-protocol/zod';
+
+const titleOutput = zodOutput(z.strictObject({ title: z.string() }));
+// Passing this definition to generateObject infers result.value as { title: string }.
+```
+
+`zodOutput` emits the portable schema and runs the same Zod schema as the local decoder. It
+accepts strict objects, ordinary arrays, strings, booleans, nulls, string enums/literals,
+nullable values, inclusive numeric bounds and safe integers. It rejects optional fields,
+transforms, refinements, defaults, coercion, formats, recursion and other unsupported wrappers.
+It also rejects **string and array length checks**, including `.min()`, `.max()` and `.length()`
+on those types: string lengths differ between Zod's UTF-16 units and JSON Schema's code points,
+and Zod array checks can contain conditions whose meaning cannot be preserved. Use the neutral
+definition above for `minLength`/`maxLength` or `minItems`/`maxItems`, or supply an explicit local
+validation-only decoder. That decoder never adds constraints to the native schema implicitly.
+
+The credentialless [title fixture](examples/fixtures/generate-title.ts) runs the same application
+helper against a deterministic adapter. The installed consumer compiles and executes this example
+from tarballs using only public exports. Separate real-backend qualification used the installed
+Grok composition below; the fixture itself makes no model call.
+
+### Schema profile and provider support
+
+The portable profile is **`agenai.output-schema.v1`**, a finite subset of JSON Schema draft
+2020-12. The root and nested objects must be closed with `additionalProperties: false` and must
+list every property exactly once in `required`. Nullable fields use `anyOf` with one non-null
+schema and one `{ type: 'null' }` branch. Supported keywords are `type`, `properties`, `required`,
+`additionalProperties`, homogeneous `items`, `minItems`, `maxItems`, string `enum`, `minLength`,
+`maxLength`, numeric `minimum`/`maximum`, and `description`; the exact `$schema` URI is optional
+at the root. General unions, references, patterns, formats, defaults and arbitrary JSON Schema
+are unsupported.
+
+Schemas are limited to 16,384 serialized UTF-8 bytes, 256 expanded nodes, depth 8 and 100
+properties per object. Values are limited to 16,384 serialized bytes, 1,024 nodes, depth 16 and
+100 entries per collection. Providers may advertise smaller byte ceilings. Schema admission also
+rejects schemas whose minimum required value exceeds those limits. See the
+[protocol README](packages/agent-protocol/README.md) for the full limits and neutral validation APIs.
+
+| Composition | Structured-output support in this candidate |
+| --- | --- |
+| Public `@agen-ai/provider-acp` with Grok Build 1.0.62 | Explicit `structuredOutputMapping: { mapping: 'grok-build-1.0.62-structured-output-v1' }`, stable ACP `schema-v1.23.0`, per-turn schemas. Qualified from installed `0.4.4` packages on Linux x86_64 / Node 24.18.0 with `grok-4.3`, low reasoning and xAI API-key authentication. |
+| Generic ACP, including the provider's default configuration | Unsupported. ACP metadata acceptance alone does not establish native final-output semantics. |
+| Private Codex app-server 0.163.0 | Per-turn native schemas qualified through the private diagnostic adapter; no public Codex provider constructor ships. |
+| Private Claude SDK 0.3.269 / Code 2.1.269 | One immutable schema per fresh query, qualified through the private diagnostic adapter; no public Claude provider constructor ships. |
+| OpenCode V2 2.1.2 and Cursor SDK 1.0.40 execution adapters | Unsupported; structured requests fail before native execution. Their history support is independent. |
+
+The public Grok installed proof returned a title, a richer nested object, a different schema and
+ordinary text after structured turns, with independent session/reader/process closure checks.
+Private Codex and Claude evidence has its own diagnostic admission and containment limits; it
+does not qualify production Hostd or fleet execution. Inspect the
+[ACP provider README](packages/provider-acp/README.md) before selecting the mapping. These exact
+version/platform/account observations do not qualify arbitrary provider versions or tool policies.
+
+Successful generation guarantees that the returned JSON satisfies the accepted schema and local
+decoder. It does not guarantee factual correctness or that every invocation completes. A native
+turn can complete while its structured result is unavailable. There is no prose-to-JSON fallback,
+substring extraction, automatic repair or automatic replay; provider-owned validation attempts can
+still occur and do not imply one backend request or a billing ceiling.
+
+### Handle generation failures and cleanup
+
+Inspect `AgentGenerationError.code` from the same `/generation` entrypoint:
+
+| Code | Application handling |
+| --- | --- |
+| `unsupported` | Select a separately authorized supported instance or skip generation. No session was opened. |
+| `generation_failed` | Inspect bounded `reason`/`issues` when present. Reasons include refusal, incomplete or missing output, invalid JSON, schema mismatch, output limits, exhausted native retries and provider error. |
+| `decoding_failed` | The local decoder rejected, threw or changed the JSON value. Correct the definition or handle the rejection. |
+| `interaction_required` | A turn request arrived without an `onRequest` handler. Generation stops and initiates cleanup. |
+| `observer_failed` / `request_failed` | An observer, handler or answer delivery failed. Preserve any returned receipt and uncertainty. |
+| `timeout` | The generation deadline expired. Native cleanup has separate ownership and bounds. |
+
+Input/schema validation, provider contract errors and caller abort errors can retain their existing
+error types. `timeoutMs` defaults to five minutes and accepts a positive integer up to one hour;
+an earlier `turn.deadlineAt` wins. A caller `signal` covers opening, generation and callback work.
+Output observers and answer delivery each have a 30-second bound; turn request handlers have a
+five-minute bound within the overall deadline. Use signal-aware callbacks. The helper owns the
+only output reader; `onOutput` observes that reader and must not start another one. `onRequest`
+handles turn requests while reading continues; opening-time session questions require the
+separate `session.interactions` context installed before opening.
+
+An object schema and a title prompt do not disable tools, grant permissions or establish a
+sandbox. Configure the instance's actual native policy for the task. Without `onRequest`, an
+unexpected approval fails as `interaction_required` rather than receiving an automatic answer.
+
+On failure the helper initiates native interruption when supported and starts close before joining
+entered work. Cleanup has a fresh 30-second observation bound. If it remains incomplete,
+`AgentGenerationCleanupError` retains `retryCleanup()`, the primary error and, when available, the
+validated result. A failed opening can retain its original `AgentProviderSessionCleanupError`
+instead. Preserve the exact callable owner and retry **cleanup only** until it succeeds, then
+dispose caller-owned instances or registries. A retained result does not mean cleanup succeeded;
+an abort or uncertain answer delivery never authorizes replaying generation.
+
+## Browse saved conversation history
+
+[`examples/history/README.md`](examples/history/README.md) documents the reusable
+`browseHistory(history, options)` helper and a credentialless synthetic source:
+
+```sh
+pnpm build
+pnpm examples:history
+```
+
+Construct a source explicitly through `@agen-ai/agent-history/claude`, `/codex`, `/opencode`,
+`/cursor`, `/grok` or `/acp`, then pass it to the same browser. Each operation declares
+`status: 'supported'` with a descriptor and callable method, or `status: 'unsupported'` with a
+reason. Narrow catalog, lookup, transcript, named views and both search ports independently.
+The helper preserves pages, observation times and coverage and closes the source in `finally`.
+Historical tool observations and attachments are inert; browsing starts no execution turn.
+
+The [history package README](packages/agent-history/README.md) gives constructors, native versions,
+resource policies and exact management effects. Claude SDK 0.3.306 / Code 2.1.306, Codex app-server
+0.163.0, OpenCode V2 2.1.2, Cursor SDK 1.0.40 JSONL/SQLite local stores, Grok Build 1.0.62 and
+negotiated ACP `schema-v1.23.0` have distinct qualified source kinds. Generic ACP supports only
+negotiated catalog discovery. Cursor IDE/legacy CLI and cloud transcript replay remain unqualified;
+no cloud constructor ships after the sampled retained stream returned HTTP 410. Native evidence
+is limited to its recorded Linux x86_64 / Node 24.18.0 tuple.
+
+Traversals are live and preserve native retention and omissions. Exhausting a selected checkpoint,
+retained chain or stored-update view does not prove lifetime completeness. Metadata title search
+is separate from native content search; the SDK creates no index or transcript-scan fallback.
+Management defaults disabled and requires exact effect acceptance. An uncertain post-dispatch
+mutation fences further mutations without automatic retry, and failed cleanup retains a callable
+retry owner. Native storage effects are disclosed even when management is disabled.
 
 ## Handle decisions outside a turn
 
@@ -203,6 +437,62 @@ pnpm examples:session-continuations
 pnpm examples:session-continuations:acp
 ```
 
+## Send input during an owned execution
+
+The unpublished `0.4.4` candidate adds an optional, process-local `execution.input` port to the
+existing runtime. It adds no package or Agent Protocol/Host Protocol version change. No public
+native provider ships input support: public ACP/Grok ports remain absent or unsupported, and
+there is no public Claude execution constructor. Existing strict `turns.steer` semantics are
+unchanged. There is no idle input method; use ordinary `startTurn()` when idle.
+
+The [execution-input example](examples/execution-input/README.md) uses a caller-owned teaching
+provider through the real public runtime validator. Start the original sole output reader first,
+then narrow `execution.input?.kind === 'supported'`. Keep that reader continuously running while
+awaiting `sendMessage()` and any accepted receipt's `settled` promise; neither wait replaces it.
+The reusable [caller flow](examples/execution-input/application.ts) and
+[opening/cleanup owner](examples/execution-input/main.ts) show this lifecycle without credentials,
+native processes or network access.
+
+```sh
+pnpm examples:execution-input
+```
+
+Use matching built or packed `0.4.4` candidate packages. The five hermetic scenarios are explicitly
+synthetic: accepted/consumed, accepted/unconfirmed, definite native rejection, uncertain delivery,
+and unsupported input. They teach the neutral API and establish no native mapping.
+
+| Observation | Meaning |
+| --- | --- |
+| `accepted` | The exact submission was authoritatively admitted. Its `settled` promise separately reports consumption. Admission alone proves neither consumption nor compliance. |
+| `consumed` settlement | The exact message was attributed to the original native command or an owned continuation of the same SDK execution. Compliance and execution completion remain separate observations. |
+| `unconfirmed` settlement | Acceptance remains true, but consumption could not be confirmed for the bounded reason. Providers without consumption evidence declare `consumptionReporting: 'unavailable'`. |
+| `rejected` | Definite non-admission, with a bounded error and no consumption promise. |
+| `delivery_uncertain` | Delivery may have happened. Further mutation is fenced while the original output reader remains able to drain. |
+
+Never replay an uncertain message automatically or simulate delivery with steering, interruption or
+a fallback turn. Provider-invoked failures can also carry `AgentProviderDelegatedOperationError`
+evidence; preserve that uncertainty. Close with a fresh cleanup signal. If close fails, retain the
+same session for another close attempt, or the exact cleanup handle and its `retryCleanup()` when
+provided, until cleanup succeeds. A timeout, aborted wait or returned receipt does not establish
+producer quiescence.
+
+Input is text only, with unique IDs from `parseAgentExecutionInputMessageId()`. Inspect
+`input.support.limits`: declarations can lower the SDK ceilings of **two outstanding messages,
+sixteen entered messages per execution and 1 MiB of buffered UTF-8 envelopes**. Canonical turn-input
+content limits also apply. A separate session-generation census retains at most 4,096 IDs and 1 MiB
+of ID bytes, including settled IDs. Sending before reader entry, after terminality, through a stale
+execution, while a human request/response remains unsettled, or on a schema-bound execution fails
+before provider entry.
+
+Actual packed ACP constructors separately pass six unsupported cases with borrowed and owned
+connections, including Grok input advertisements and the selected structured-output mapping, with
+zero native input dispatch. ACP negotiation and native extension names do not enable the port.
+Positive native evidence belongs only to the private controlled Claude SDK `0.3.309` / Code
+`2.1.309` diagnostic composition on Linux x86_64 / Node `24.18.0`; it grants no public execution constructor,
+subscription, fleet or billing qualification. See the
+[upgrade guide](UPGRADING-TO-0.4.4.md#optional-input-on-an-owned-execution) for adapter ownership and
+the exact evidence scope. Structured-output and history provider versions remain independent.
+
 ## Invoke an offered session operation
 
 [`examples/operations.ts`](examples/operations.ts) is a core-only, offline walkthrough of exact
@@ -233,7 +523,7 @@ private Claude integration and the optional public ACP adapter have separate sup
 
 ## Handle remembered turn approvals
 
-[`examples/remembered-approvals.ts`](examples/remembered-approvals.ts) is a core-only V12 walkthrough
+[`examples/remembered-approvals.ts`](examples/remembered-approvals.ts) is a core-only V13 walkthrough
 using a synthetic adapter and ordinary protocol/runtime imports. It displays each offered decision
 and consequence, including explicit unknown duration and applicability, then selects the exact
 offered remembered option ID. Its answer handler waits for unrelated progress while the original
@@ -329,7 +619,7 @@ It uses a deterministic provider with no native process, account or network. One
 output reader observe an opened request and unrelated progress before the host supplies the exact
 answer. A separately owned handler waits for that progress, receives a delivery receipt, and joins
 cleanup after later output and the original turn's terminal event. The packed consumer runs this
-same source against the seven matching tarballs.
+same source against the current matching tarballs.
 
 `startTurn` validates and reserves synchronously; native work starts on the first output pull.
 Keep one consumer and one outstanding pull, and run human decisions independently of that reader.
@@ -393,6 +683,55 @@ and any installation reference retained; retry the owned cleanup before disposin
 This helper error is not an SDK export or a serializable recovery handle.
 These examples demonstrate API behavior; they do not qualify a native
 agent, an authenticated account, inference, or production containment.
+
+## Run an agent in a sandbox
+
+The optional `0.4.4` candidate packages add an explicitly selected execution boundary around one
+native process. `@agen-ai/sandbox` owns policy, streams, file transfer and cleanup; its root has no
+Docker or ACP dependency. `@agen-ai/sandbox-docker` selects a local Docker Engine, namespace,
+exact existing image ID, non-root user and explicit caller-owned spill directory. The explicit `@agen-ai/sandbox/acp` entrypoint composes
+that sandbox with `@agen-ai/provider-acp/node`; install that optional peer only when using ACP.
+Streaming `importTree` and `exportTree` use optional caller quotas and no default complete-transfer timer; exact-file exports avoid whole-workspace scans. The explicit `/node` entrypoint owns directory helpers and selected filesystem spill storage, while the root/backend graphs remain free of filesystem authority. Directory export reserves a new private namespace and returns its published `files` child only after validation; existing destinations are preserved. Source hierarchies remain caller-quiescent rather than becoming snapshots. The core/runtime dependency graph and Agent Protocol V13 remain unchanged.
+
+The optional Docker `profile` defaults to `linux-x64`. Explicit
+`desktop-apple-virtualization-native-arm64` and
+`desktop-apple-virtualization-rosetta-amd64` candidates separate the macOS controller, Linux
+daemon and guest-image architectures. Actual Mac verification is pending; selecting a profile
+does not establish native qualification. See the [platform verification instructions](scripts/development/agent-sandbox-qualification/platform/README.md)
+for fresh installed-package proof and independently observed guest cleanup. The SDK never
+discovers Docker contexts, changes Desktop settings or falls back between architectures.
+
+Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
+[`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
+run from the built matching candidate checkout:
+
+```sh
+AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \
+AGENAI_SANDBOX_TEST_MANIFEST=/absolute/fixture-manifest.json \
+AGENAI_SANDBOX_TEST_OUTPUT=/absolute/fresh-output \
+pnpm examples:sandbox
+```
+
+The example uses a synthetic guest ACP peer, makes no model request and reads no provider
+credentials. Its reusable [`withSandboxAcpSession`](examples/sandbox/session.ts) is example source,
+not an npm API. It reserves cleanup before startup, imports files before process reservation,
+eagerly initializes one native connection, and runs two turns in one SDK session. SDK close stops
+the whole compute boundary and joins streams while retaining files; selected export precedes
+final destruction. Failed cleanup retains the original error and exact retry owner.
+
+Choose the network policy explicitly. Isolated mode has no network; outbound mode permits broad
+reachable host, LAN and internet access. Logical transfer quotas do not enforce guest disk use. Explicit required allocated-block quotas reject before reservation until enforcement is qualified; omission means no requested hard quota. Docker can attach exact pre-existing image datasets read-only under `/datasets/<name>` on its admitted containerd image-store profile. Dataset images remain borrowed, while each sandbox owns its writable workspace. Recovery v2 binds dataset and execution configuration separately from request policy; legacy records reject before effects.
+The bridge disables host facilities, while separately supplied callbacks, MCP servers and host
+bindings keep the authority of their caller. Explicit guest credentials remain visible to guest
+code and the trusted Docker controller. Recovery records support exact cleanup after controller
+failure and never restore a runnable session or replay a command.
+
+Review the [Docker image requirements](packages/sandbox-docker/README.md#prepare-the-guest-image)
+before selecting an image: additional image environment metadata is rejected, and HOME, TMPDIR
+and PATH must match the fixed backend values when present. Real backend and four-turn Grok
+API-key evidence have the [exact qualification scope](packages/sandbox-docker/README.md#qualification-scope)
+recorded there. Other providers/account routes, fleet execution and hosted CI execution remain
+unqualified.
 
 ## Managed delegation
 
@@ -507,7 +846,7 @@ registration and user experience remain application follow-up work.
 ## ACP support
 
 The transport validates the selected wire schema. The provider separately maps the semantics it
-can faithfully express through Agent Protocol V12. Initialization fixes one capability envelope per
+can faithfully express through Agent Protocol V13. Initialization fixes one capability envelope per
 instance, and later connections must match it.
 
 `createAcpProviderDriver` and `createNodeAcpProviderDriver` default
@@ -521,14 +860,16 @@ correlation and cleanup limits. Known or registered methods still use their exac
 validators. A vendor feature that needs an extension requires an explicit mapping
 and separate behavior evidence.
 
-| Surface | Provider support in `0.4.3` source |
+| Surface | Provider support in `0.4.4` candidate source |
 | --- | --- |
 | Sessions and turns | Create, default text turns, streamed text/reasoning/tool progress, and settlement-backed interruption. Exact resume requires advertised `session/resume` or `session/load`; load replay is bounded and suppressed. |
+| Execution input | Unsupported in all public ACP/Grok compositions. Stable schema negotiation, vendor input advertisements and unknown-extension policy grant no native input mapping. |
+| Structured final responses | Unsupported by default; the exact opt-in Grok Build 1.0.62 mapping supports native per-turn schemas within `agenai.output-schema.v1`. Structured resume/branch remain unsupported. |
 | Turn permissions | Once-only, exact-action choices; one native prompt survives each canonical request continuation. Persistent turn grants are unsupported; the explicitly selected workspace decision below is separate. |
 | Session-lifetime decisions | Unsupported by default. The selected Node `grok-folder-trust-v1` mapping supports workspace decisions for create only and requires a handler and host-supplied execution boundary. |
 | Configuration | Managed by default; explicitly selected boolean/select catalogs with offered revision checks. ACP has no remote compare-and-set guarantee. |
 | Session-local MCP tools | Explicit `sessionMcpBinding` factory after the requested HTTP/SSE transport is negotiated. Instructions use tool context; setup alone does not certify native tool discovery or invocation. |
-| Forms | Boolean, single-select and multi-select forms within V12 bounds, preserving accept/decline/cancel. Broader forms need an explicit host facility; unsupported constraints fail before presentation. |
+| Forms | Boolean, single-select and multi-select forms within current protocol bounds, preserving accept/decline/cancel. Broader forms need an explicit host facility; unsupported constraints fail before presentation. |
 | Images | Advertised inline PNG/JPEG/WebP input within fixed image and turn budgets. No implicit file reads, URL fetching or media output. |
 | Observations | Plans, partial structured file changes, and session command catalogs. Missing metadata stays unknown. These observations do not establish a final workspace Review. |
 | Host facilities | Explicit authentication, URL/form, filesystem and complete terminal callbacks. Paths, commands and method labels do not authorize an effect. |
@@ -691,7 +1032,7 @@ provider mechanics inside the adapter.
 
 ## Environment and effective content
 
-Agent Protocol V12 retains the distinction between content a host manages and content a selected native harness actually
+Agent Protocol V13 retains the distinction between content a host manages and content a selected native harness actually
 reports:
 
 - `managedContent` is the caller-managed inventory used for distribution and product workflows.
@@ -757,26 +1098,19 @@ pnpm check
 ```
 
 `pnpm check` validates repository/release metadata, checks generated protocol surfaces, builds and
-typechecks all seven packages and the examples, executes the local, registry, direct-delegation and
+typechecks all ten source packages and the examples, executes the local, registry, direct-delegation and
 ACP-delegation workflows, hermetic native-runner tests and package tests, then packs
 each package for a separately installed consumer proof. The packed consumer also
 executes those hermetic runner tests and verifies default and strict extension
 policies through installed providers. Nothing is published by that command.
 
-For qualification that must retain an existing dependency set, first retain a successful
-consumer, then pass its output directory explicitly when checking a later candidate:
-
-```sh
-pnpm test:external-consumer --output /absolute/new-consumer
-pnpm test:external-consumer --output /absolute/new-frozen-consumer --dependency-baseline /absolute/new-consumer
-```
-
-The baseline mode creates a new installation from the new SDK archives and the baseline's
-locked third-party versions. It rejects incompatible SDK dependency declarations or altered
-consumer configuration, disables installation scripts, and verifies that the frozen lock remains
-unchanged. It reads the baseline hook as data and does not reuse its installed modules. Without
-this option, each consumer resolves dependency ranges afresh. A matching dependency baseline
-supports reproducibility; native qualification still requires the exact artifact and source checks.
+The dependency-baseline reader retains its historical seven-package `0.4.2` qualification contract.
+The current ten-package source rejects `--dependency-baseline` explicitly because a matching
+current baseline has not been qualified. It never relabels retained `0.4.2` archives or locks.
+The ordinary packed-consumer lane installs the current tarballs with installation scripts disabled
+and resolves registry dependencies normally. It additionally runs a separate history-only consumer
+with execution/runtime, ACP packages and native vendor SDKs absent. Native qualification still
+requires the exact artifact and source checks for the selected provider and environment.
 
 Durable reference qualification is a separate `pnpm test:examples:durable` lane with the exact
 environment described above. Set `AGENT_SDK_DURABLE_TEST_ROOT` to a qualified absolute directory
@@ -795,6 +1129,9 @@ Package-specific API and lifecycle notes live in each package README:
 - [`@agen-ai/acp-transport`](packages/acp-transport/README.md)
 - [`@agen-ai/provider-acp`](packages/provider-acp/README.md)
 - [`@agen-ai/acp-registry`](packages/acp-registry/README.md)
+- [`@agen-ai/agent-history`](packages/agent-history/README.md) (optional `0.4.4` candidate)
+- [`@agen-ai/sandbox`](packages/sandbox/README.md) (optional `0.4.4` candidate)
+- [`@agen-ai/sandbox-docker`](packages/sandbox-docker/README.md) (optional `0.4.4` candidate)
 
 ## Prepared changes in 0.4.0
 
@@ -832,7 +1169,7 @@ owned loopback bridge for a supporting host. The ordinary import graph remains f
 initialization. The provider's optional negotiated `sessionMcpBinding` factory composes those tools
 with ACP sessions. See [managed delegation](#managed-delegation) for completion modes, executable
 workflows and host ownership.
-All seven package versions advance together under the coordinated release policy. Deploying a host
+All ten source package versions advance together under the coordinated release policy. Deploying a host
 or using real accounts and inference requires its own authorization
 and qualification. Package semver does not track a native vendor version. See
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) for the host lifecycle and coordinated upgrade checklist.

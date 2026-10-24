@@ -25,7 +25,7 @@ for (const uncertain of [false, true]) test(`tool steering reports ${uncertain ?
       yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
       entered.resolve();
       await finish.promise;
-      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "completed" } });
+      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
     }), steering: { kind: "supported", async steerTurn(input) {
       const result = await steering.steerTurn(input);
       return uncertain ? { status: "delivery_uncertain", error: { code: "transport_lost", message: "private-native-diagnostic", category: "unknown", recovery: { kind: "unknown" } } } : result;

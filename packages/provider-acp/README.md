@@ -1,17 +1,20 @@
 # @agen-ai/provider-acp
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
-Agent Client Protocol wire version 1 into the existing Agent Protocol V12 session
-API. The coordinated release is `0.4.3`; published `0.4.1` qualification remains
-historical evidence for its exact V11 artifacts.
+Agent Client Protocol wire version 1 into the Agent Protocol V13 session API. Current source is
+the unpublished coordinated eight-package `0.4.4` candidate. Published `0.4.3` is the seven-package
+V12 release; published `0.4.1` qualification remains historical evidence for its exact V11 artifacts.
 The package is ESM, MIT licensed, side-effect-free on import and requires Node.js
 22 or newer. It depends only on the public transport, runtime and protocol packages;
 the core packages remain independent of ACP.
 
 The provider pins the transport's `schema-v1.23.0` stable profile. It translates
-ACP into current V12 capabilities and rejects unsupported semantics explicitly.
+ACP into current V13 capabilities and rejects unsupported semantics explicitly.
 Connection negotiation, configured host facilities, and mapping policy fix one
 capability envelope per instance; every later connection must match it.
+The [0.4.4 upgrade guide](../../UPGRADING-TO-0.4.4.md) describes the coordinated candidate.
+Optional `@agen-ai/agent-history` browsing remains independent of this execution provider; native
+transcript JSON and ACP metadata alone establish no structured-generation capability.
 
 Tool approvals default to once-only scoped consequences. Both constructors accept an explicit
 `permissionMapping` selection for completely described provider-managed remembered choices.
@@ -53,9 +56,11 @@ under a different policy.
 | Surface | Supported behavior and requirements |
 | --- | --- |
 | Turns and requests | Default text turns, streamed assistant/reasoning text, tool progress, cancellation and once-only exact-action permissions by default, with opt-in complete remembered-choice mappings. One execution retains the original native prompt across request waits and answers. |
+| Execution input | Unsupported for every public ACP/Grok composition. There is no input mapping selection or native interjection dispatch; peer labels, metadata and extension advertisements cannot enable it. |
+| Structured final output | Unsupported for generic ACP. Explicit `grok-build-1.0.62-structured-output-v1` mapping supports native turn-scoped `agenai.output-schema.v1` requests and independently validated terminal objects, within the bounds below. |
 | Resume | Exact persisted binding using advertised `session/resume`, otherwise advertised `session/load`. Load history is bounded and suppressed from new-turn output. No automatic recreation after failure. |
 | Configuration | Managed by default. Explicit `configuration: 'selectable'` maps observed boolean/select catalogs, with a session-mode fallback when config options are absent. Unknown metadata differs from observed empty metadata. |
-| Forms | Canonical boolean/single-select/multi-select forms that fit V12 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
+| Forms | Canonical boolean/single-select/multi-select forms that fit V13 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
 | Images | Inline base64 PNG/JPEG/WebP only when the peer advertises image input, within image and total turn budgets. No implicit local-file read or URL fetch. |
 | Plans | Complete replacements of observed turn plans. A mode called “plan” does not establish enforced planning behavior or approval authority. |
 | File changes | Partial structured observations from native tool diffs. Canonical paths contained by the working directory become sorted relative display paths without filesystem reads. Unfinished tools remain unknown at ordinary turn completion. No final workspace diff or Review artifact is inferred. |
@@ -69,7 +74,7 @@ Through-turn branching, same-turn steering, enforced plan mode, persistent
 SDK-owned tool-approval grants, context usage/compaction, account quota, effective skill/rule
 inventory, collaboration, generated resources and artifact publication remain
 unsupported. ACP usage counters can decrease without confirmed compaction and
-cannot satisfy V12's context continuity contract. Unsupported media output fails
+cannot satisfy V13's context continuity contract. Unsupported media output fails
 explicitly rather than disappearing from an otherwise successful transcript.
 Embedded terminal references also fail explicitly: a mutable, possibly truncated
 terminal snapshot does not provide an ordered append-only transcript. Agents can
@@ -80,9 +85,121 @@ this release. Host-owned integrations may use the transport directly with their
 own authorization and native lifecycle policy. No capability grants authority
 over other conversations or account state.
 
+## Input during an execution
+
+The optional runtime `execution.input` contract is available in the unpublished `0.4.4`
+candidate, but this provider exposes no supported execution-input port. Consumers must narrow
+`execution.input?.kind === 'supported'` before sending. Absence and `{ kind: 'unsupported' }`
+both mean unsupported; use ordinary `startTurn()` for new work when idle. Strict `turns.steer`
+semantics are unchanged and remain unsupported here. The
+[runtime README](../agent-runtime/README.md) explains receipt, consumption and output ownership.
+
+Stable ACP `schema-v1.23.0` negotiation and standard unknown-extension handling do not grant
+native input support. Grok Build `1.0.67` has native interjection facilities, but the inspected
+behavior did not establish an authoritative input-to-command link, ownership of autonomous wake
+work, or reusable-session producer quiescence. Queued acknowledgements, matching text and empty
+queue snapshots cannot establish those guarantees. No Grok input mapping is shipped. The
+independent Grok `1.0.62` structured-output mapping and history qualification retain their own
+versions and scope.
+
+Installed public-package proof exercises six unsupported cases: generic ACP, Grok labels and
+input advertisements, and the selected Grok `1.0.62` structured-output mapping, each with borrowed
+and owned connections. The actual packed provider constructors use a synthetic serialized peer;
+all six retain one original turn and reader, dispatch zero native input requests, and join cleanup.
+An unsolicited input extension request receives `-32601`. This is public unsupported-boundary
+proof, separate from private controlled Claude qualification; no public Claude execution constructor ships.
+
+## Structured final output
+
+ACP schema `1.23.0` does not define a portable final-output-schema capability. Generic provider
+instances declare `turns.structuredOutput: { kind: 'unsupported' }`. Standard unknown-extension
+handling, a peer accepting metadata, or JSON-looking assistant text cannot enable it.
+
+Both constructors accept one exact opt-in native mapping:
+
+```ts
+import { parseAgentProviderKey } from '@agen-ai/agent-protocol';
+import { createNodeAcpProviderDriver } from '@agen-ai/provider-acp/node';
+
+const driver = createNodeAcpProviderDriver({
+  providerKey: parseAgentProviderKey('grok-build'),
+  structuredOutputMapping: { mapping: 'grok-build-1.0.62-structured-output-v1' },
+  launch: {
+    executable: approvedExecutable,
+    args: ['agent', '--no-leader', 'stdio'],
+    cwd: workingDirectory,
+    env: explicitNativeEnvironment,
+  },
+});
+```
+
+The host supplies and verifies the executable, environment, credentials and confinement policy.
+For injected connections, pass the same `structuredOutputMapping` to `createAcpProviderDriver`.
+The selection is captured at construction; each connection must negotiate the pinned stable ACP
+profile and initialize with Grok's exact `grokShell: true` / `agentVersion: '1.0.62'` identity.
+Initialization identity is an admission check, not executable provenance or inference proof.
+Changing a mapping needs a new driver/materialization; it is absent from serialized empty
+`driverConfiguration`.
+
+The supported declaration has `mechanism: 'native'`,
+`schemaProfile: 'agenai.output-schema.v1'`, `scope: 'turn'`, `maxSchemaBytes: 16_384`,
+`maxOutputBytes: 16_384`, `resume: false`, and `branch: false`. Supply the schema on `startTurn`,
+or use [`generateObject`](../agent-runtime/README.md#generate-a-typed-object), which borrows the
+selected instance and owns a fresh session through cleanup. Session-opening output is rejected.
+A later ordinary turn omits `output` and sends no schema. Ordinary exact-binding resume remains
+separate; structured requests cannot restore schema state through resume or branch.
+
+The mapping sends the admitted schema through prompt `_meta.outputSchema` and reads only the
+correlated authoritative prompt response's `_meta.structuredOutput`. A successful `end_turn`
+and a complete schema-valid object are both required for terminal `structuredOutput.kind: 'json'`.
+Text deltas are not parsed as output, and the SDK never extracts a JSON substring or repairs it.
+The shared runtime validates the candidate independently against the exact admitted schema.
+
+| Native observation | Portable structured result |
+| --- | --- |
+| `refusal` | `unavailable/refused`, preserving native completed outcome |
+| Non-`end_turn` stop, including token/request limit or cancellation | `unavailable/incomplete`, preserving native outcome |
+| Successful `end_turn` without structured metadata | `unavailable/missing_output` |
+| Bounded native `structuredOutputError` | `unavailable/provider_error`; Grok's free text cannot distinguish exhausted retries from other native validation errors |
+| Oversized metadata/value | `unavailable/output_limit_exceeded` |
+| Complete object that fails the admitted schema | `unavailable/schema_mismatch` with bounded issues |
+
+Native structured metadata is capped at 32,768 UTF-8 bytes and its error string at 4,096 bytes.
+The canonical schema/value ceilings are each 16,384 serialized bytes, with the additional
+[portable shape limits](../agent-protocol/README.md#the-agenaioutput-schemav1-profile). Ambiguous
+value-plus-error metadata, a wrong native session identity, or malformed error metadata is a
+contract failure. Ordinary turns report `structuredOutput: { kind: 'not_requested' }`.
+Only `outcome: 'completed'` can carry `json`; a native finished turn does not guarantee generation
+success. There is no SDK generation retry, fallback model or tool replay. Native validation/fallback
+attempts may occur inside the provider's one prompt and are not described as SDK retries.
+
+Selecting this mapping does not disable native tools or alter host permission policy. A generation
+that requires a human response needs an explicit handler; the helper fails with
+`interaction_required` when one is absent. Retain cleanup errors and their callable retry owners
+as described by the [runtime generation lifecycle](../agent-runtime/README.md#deadlines-requests-and-cleanup).
+
+### Qualified installed native scope
+
+The 2026-10-22 qualification used all eight installed public `0.4.4` candidate tarballs, only public
+entrypoints, stable ACP schema `1.23.0`, Linux x86_64 / Node `24.18.0`, Grok Build `1.0.62`
+(`1474f9cbdd91`), `grok-4.3`, low reasoning and explicit xAI API-key authentication. The executable
+SHA-256 was `2a46d9e4d7ebd7a9cff7f95716714b19dad5f21dd2a497822400b1fb128969aa`.
+The shipped title example returned a typed title and saved it after session/reader closure. Further
+native turns produced an independently validated rich nested object, a changed `{ count: 7 }`
+schema, and ordinary `Ready` text with no schema. Sessions/readers closed, both observed native
+process groups were absent, the caller-owned registry was disposed and owned scratch removed.
+
+This exact local tuple establishes the public mapping's installed native behavior. It does not
+qualify generic ACP, other Grok releases/models/authentication modes, OpenCode, Cursor or arbitrary
+harnesses. Process-group evidence does not establish escaped-descendant or cgroup containment;
+the Node launcher grants no production execution authority or backend billing guarantee. The
+separate private Codex and Claude diagnostic mappings are not public provider packages and cannot
+be imported through this package. Existing history/delegation/approval qualifications below keep
+their original version-specific scope. The `0.4.4` candidate remains unpublished.
+
 ## Operational failures and uncertainty
 
-The provider maps supported standard `schema-v1.23.0` prompt errors into V12 `AgentError` values.
+The provider maps supported standard `schema-v1.23.0` prompt errors into V13 `AgentError` values.
 Standard `-32000` reports `authentication` with an `authenticate` user-action hint; `-32602` reports
 `invalid_request`; `-32603` reports `provider`; standard parse/request/method errors report `protocol`.
 Other remote codes remain `unknown` with unknown recovery. Mapping uses the standard error code,
@@ -414,7 +531,7 @@ unknown-extension handling never enables it implicitly.
 The selected launch arguments are exactly `['agent', '--no-leader', 'stdio']`.
 The adapter exposes the exact `sessionInteractions.mappings` tuple
 `{ openingOperation: 'create', requestKind: 'decision' }`, exclusive producer
-ownership and, in current 0.4.3 source, `humanWait: ['bounded', 'until_withdrawn_or_closed']`. The handler receives a neutral workspace
+ownership and, in current source, `humanWait: ['bounded', 'until_withdrawn_or_closed']`. The handler receives a neutral workspace
 decision and can keep its response capability after opening returns, before
 any model turn. Use the generic
 [runtime lifecycle](../agent-runtime/README.md#session-lifetime-interactions)
@@ -479,7 +596,7 @@ other builds/platforms, browser login, native durable recovery, SDK-managed
 remembered permissions or private execution support. The earlier failed native
 ownership attempt remains unqualified.
 
-The current V12 decision descriptor omits `expiresAt` because this native mapping reports no
+The current V13 decision descriptor omits `expiresAt` because this native mapping reports no
 provider-owned expiry. The bounded host timer remains a separate policy boundary;
 `humanWait: { kind: 'until_withdrawn_or_closed' }` omits that human timer and
 rejects an explicitly supplied `limits.requestTimeoutMs`. Initialization,
@@ -494,7 +611,7 @@ validated consumer facade. Session forms, plan reviews and native continuations
 remain unsupported by `grok-folder-trust-v1`. The retained SDK02 native evidence
 above remains specific to its original finite waiting configuration.
 
-## Restored plan requests in current 0.4.3 source
+## Restored plan requests
 
 The Node constructor accepts a separate explicit selection:
 `sessionInteractions: { mapping: 'grok-build-1.0.60-session-requests-v1' }`.
@@ -921,8 +1038,8 @@ close ends that handle's ownership. The host retains control over its process po
 Canonical forms preflight the whole schema before presenting a request. They
 support at most 16 ordinary fields and 100 choices per selection. Free-text fields,
 nested objects, numeric fields, defaults, patterns/formats, and constraints without
-a V12 representation are rejected. Native free text permits blank/whitespace values
-and measures length in Unicode code points; V12 text answers use nonblank/UTF-16
+a V13 representation are rejected. Native free text permits blank/whitespace values
+and measures length in Unicode code points; V13 text answers use nonblank/UTF-16
 bounds. The provider does not narrow those native semantics silently. Enumerated
 string values can map through opaque canonical selection IDs.
 A required multi-select must require exactly one minimum selection; an optional
@@ -943,7 +1060,7 @@ binding grants no interaction authority. Their host callbacks receive a turn
 lifetime signal that ends on cancellation, settlement or close.
 
 Image input allows at most 16 images, 375,000 decoded bytes per image and 750,000
-decoded bytes total, subject to the stricter 1 MiB V12 turn-content bound. Declared
+decoded bytes total, subject to the stricter 1 MiB V13 turn-content bound. Declared
 media type, dimensions, base64 encoding and byte counts are validated. The provider
 does not decode pixels or publish generated bytes; hosts needing image-content
 inspection must perform it before submitting input.
@@ -952,17 +1069,39 @@ inspection must perform it before submitting input.
 
 `limits` can override `maxQueuedMessages`, `maxQueuedBytes`,
 `maxPendingRequests`, `maxHostTerminals`, `hostOperationTimeoutMs`,
-`authenticationTimeoutMs`, `initializationTimeoutMs`, `promptTimeoutMs`, and
+`authenticationTimeoutMs`, `initializationTimeoutMs`, `terminalWaitTimeoutMs`, and
 `cancellationTimeoutMs`. Defaults share a 128-entry, 8 MiB budget across queued
 sources and retained current-turn item state, with output/control headroom
 reserved inside that budget. Large bursts and turns with many retained items
 can exhaust the same budget. Defaults allow 16 pending requests, 16 host terminals,
 30 seconds for initialization or a host operation, 15 minutes for authentication,
-30 minutes for a prompt, and 5 seconds for cancellation. Admission
+30 minutes for an individual host-terminal exit wait, and 5 seconds for cancellation. Admission
 reserves finite source capacity synchronously. Response and cancellation
 processing remain independent of slow output consumers. Overflow, malformed
 messages, process loss, or unconfirmed cancellation fail closed and require
 closing the unusable session before rematerialization.
+
+Ordinary prompts have no implicit execution deadline. Omit turn `deadlineAt` to
+retain the original prompt, sole output reader and connection until native
+completion, explicit cancellation or close. Startup, authentication, host APIs,
+human-decision policies, output capacity and cleanup keep their independent bounds.
+Selected native continuations also retain their original execution and reader;
+their preparation, promotion and response observations remain separately bounded.
+
+Set `deadlineAt` on each `startTurn` for a caller-selected finite execution budget,
+for example `new Date(Date.now() + 86_400_000).toISOString()` for one day. Distant
+dates use timer slices without an SDK business-duration ceiling or premature Node
+timer overflow. Expiry sends native `session/cancel` while retaining the original
+prompt RPC until its native terminal. A confirmed canceled response produces
+`expired`; an unconfirmed cancellation fails the session and starts owned cleanup.
+Neither expiry nor a cancellation request invents a completed native receipt.
+
+The former provider `limits.promptTimeoutMs` is rejected. Migrate its numeric
+budget to each turn's `deadlineAt`; use `terminalWaitTimeoutMs` only for host-terminal
+exit observation. That setting preserves the prior finite 30-minute default and
+maximum. A host-terminal wait timeout leaves its terminal lease owned for explicit
+kill/release or connection cleanup. Applications retain live owners and close them;
+unbounded prompt waiting does not provide controller-crash survival.
 
 Readiness reports completed initialization and the reported agent version when
 available. It does not prove authentication or inference. The Node launcher

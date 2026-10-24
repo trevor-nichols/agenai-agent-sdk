@@ -22,6 +22,7 @@ import { GROK_FOLDER_TRUST_CAPABILITY_META, GROK_FOLDER_TRUST_METHOD } from '../
 import type { AcpSessionInteractionSelection } from '../sessionInteractions/contracts.js';
 import { awaitHost } from '../host/lifecycle.js';
 import type { AcpPermissionMappingSelection } from '../permissions/contracts.js';
+import type { AcpStructuredOutputMappingSelection } from '../structuredOutput/mapping.js';
 import { GROK_PLAN_REVIEW_METHOD, GROK_QUEUE_METHOD, GROK_SESSION_NOTIFICATION_METHOD } from '../sessionInteractions/grokPlanReview.js';
 
 export async function initializeAcpConnection(input: {
@@ -35,6 +36,7 @@ export async function initializeAcpConnection(input: {
   readonly configuration?: 'managed' | 'selectable';
   readonly sessionInteractions?: AcpSessionInteractionSelection;
   readonly permissionMapping?: AcpPermissionMappingSelection;
+  readonly structuredOutputMapping?: AcpStructuredOutputMappingSelection;
 }): Promise<AcpInitializedConnection> {
   throwIfAgentOperationAborted(input.context.signal);
   const initialization = new AbortController();
@@ -206,7 +208,7 @@ export async function initializeAcpConnection(input: {
       signal: initialization.signal,
     });
     if (stopped.signal.aborted) throw stopped.signal.reason;
-    const negotiated = readNegotiatedAgent(response, input.permissionMapping, input.sessionInteractions);
+    const negotiated = readNegotiatedAgent(response, input.permissionMapping, input.sessionInteractions, input.structuredOutputMapping);
     initialization.signal.removeEventListener('abort', onAbort);
     return Object.freeze({
       client,

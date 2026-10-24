@@ -38,6 +38,7 @@ import { awaitHost, hostDeadline } from './host/lifecycle.js';
 import type { NodeAcpExecutionOwner } from './node/execution/owner.js';
 import { isNodeAcpExecutionCleanupError, NodeAcpExecutionCleanupError } from './node/execution/errors.js';
 import type { AcpPermissionMappingSelection } from './permissions/contracts.js';
+import type { AcpStructuredOutputMappingSelection } from './structuredOutput/mapping.js';
 
 export async function createAcpProviderInstance(input: {
   readonly providerKey: AgentProviderKey;
@@ -51,6 +52,7 @@ export async function createAcpProviderInstance(input: {
   readonly host: AcpHostFacilities;
   readonly mcpServers: readonly AcpStandardMcpServer[];
   readonly permissionMapping: AcpPermissionMappingSelection;
+  readonly structuredOutputMapping?: AcpStructuredOutputMappingSelection;
   readonly sessionMcpBinding?: AcpSessionMcpBindingOptions;
   readonly sessionInteractions?: AcpSessionInteractionSelection;
 }): Promise<MaterializedAgentProviderInstance> {
@@ -71,6 +73,7 @@ export async function createAcpProviderInstance(input: {
       limits: input.limits, usedStreams: input.usedStreams,
       configuration: input.configuration, authentication: input.authentication, host: input.host,
       permissionMapping: input.permissionMapping,
+      ...(input.structuredOutputMapping ? { structuredOutputMapping: input.structuredOutputMapping } : {}),
       ...(input.sessionInteractions ? { sessionInteractions: input.sessionInteractions } : {}),
     });
   };
@@ -81,7 +84,8 @@ export async function createAcpProviderInstance(input: {
   try {
     assertAcpMcpSupport(input.mcpServers, negotiated);
     methods = selectedAuthenticationMethods(negotiated, input.authentication, input.host);
-    capabilities = acpProviderCapabilities(input.providerKey, negotiated, input.configuration, [...methods.keys()], input.sessionInteractions, input.permissionMapping);
+    capabilities = acpProviderCapabilities(input.providerKey, negotiated, input.configuration, [...methods.keys()], input.sessionInteractions,
+      input.permissionMapping, input.structuredOutputMapping);
   } catch (cause) {
     if (eager.execution?.cleanupFailure) throw eager.execution.retainedError(cause, eager.execution.cleanupFailure.error);
     try { await eager.close(); } catch (cleanupError) {
@@ -148,6 +152,9 @@ export async function createAcpProviderInstance(input: {
   const open = async (context: AgentProviderCreateSessionInput | AgentProviderResumeSessionInput, resume: boolean): Promise<AgentProviderSession> => {
     throwIfAgentOperationAborted(context.signal);
     throwIfAgentOperationAborted(lifetime.signal);
+    if ('output' in context && context.output !== undefined) throw new AgentProviderContractError(input.providerKey,
+      capabilities.turns.structuredOutput.kind === 'unsupported' ? 'structured_output_unsupported' : 'structured_output_scope_mismatch',
+      'ACP structured output is accepted only when starting a turn.');
     if (input.sessionInteractions?.mapping === 'grok-folder-trust-v1' && resume) throw new AgentProviderContractError(input.providerKey,
       'session_interactions_unsupported', 'The selected ACP session interaction mapping supports creation only.');
     if (input.sessionInteractions && (input.sessionInteractions.mapping === 'grok-folder-trust-v1' || resume)

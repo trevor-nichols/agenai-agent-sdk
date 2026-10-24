@@ -125,7 +125,7 @@ export class AcpHostRouter {
       return ingress.onPermissionRequest(context);
     }
     const timeout = context.method === 'terminal/wait_for_exit'
-      ? this.input.limits.promptTimeoutMs : this.input.limits.hostOperationTimeoutMs;
+      ? this.input.limits.terminalWaitTimeoutMs : this.input.limits.hostOperationTimeoutMs;
     const deadline = hostDeadline(session.signal, timeout);
     return this.hostRequest(context.method, params, { ...session, signal: deadline.signal })
       .finally(() => deadline.close());

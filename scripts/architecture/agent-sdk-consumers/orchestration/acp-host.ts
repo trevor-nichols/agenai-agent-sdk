@@ -87,7 +87,7 @@ export async function createRetainedPeer(store: AcpInstallationStore, root: stri
       ...options,
       configuration: 'selectable', launch: { executable: launch.executable, args: launch.args,
         env: launch.env, cwd: root, shutdownTimeoutMs: 1_000 },
-      limits: { initializationTimeoutMs: 5_000, promptTimeoutMs: 10_000, cancellationTimeoutMs: 2_000 },
+      limits: { initializationTimeoutMs: 5_000, cancellationTimeoutMs: 2_000 },
       sessionMcpBinding: { transport: 'http', async create(context) {
         acquiredBindings += 1;
         const facade = context.hostBinding;
@@ -218,7 +218,7 @@ export async function createManagedHost(peer: RetainedPeer, installationStore: A
     },
     onRequest() { throw new Error('Unexpected synthetic native request.'); },
   };
-  const store = createInMemoryDelegationStore({ limits: { runTimeoutMs: 30_000, queuedStartTimeoutMs: 10_000, maxWaitMs: 5_000, controlTimeoutMs: 2_000 } });
+  const store = createInMemoryDelegationStore({ limits: { runTimeoutMs: 10_000, queuedStartTimeoutMs: 10_000, maxWaitMs: 5_000, controlTimeoutMs: 2_000 } });
   const coordinator = await createDelegationCoordinator({ host, store, limits: store.limits, parentDelivery: {
     persistence: 'volatile',
     async accept({ envelope, signal }) {

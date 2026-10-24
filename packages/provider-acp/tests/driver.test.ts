@@ -27,6 +27,16 @@ test('configuration rejects unknown host authority before acquiring a connection
   assert.equal(acquisitions, 0);
 });
 
+test('a retired prompt timeout rejects during construction rather than silently losing a caller budget', () => {
+  let acquisitions = 0;
+  assert.throws(() => createAcpProviderDriver({ providerKey,
+    // @ts-expect-error Execution deadlines belong to the individual turn.
+    limits: { promptTimeoutMs: 1000 },
+    createConnection() { acquisitions += 1; return createStreamPeer().lease; },
+  }), TypeError);
+  assert.equal(acquisitions, 0);
+});
+
 test('default extension policy is captured for eager sessions, fresh sessions and resume while borrowed close only detaches', async (t) => {
   const peers: ReturnType<typeof createSessionPeer>[] = [];
   t.after(() => { for (const peer of peers) { peer.stdout.destroy(); peer.stdin.destroy(); } });

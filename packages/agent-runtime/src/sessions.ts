@@ -21,6 +21,7 @@ import type {
   AgentSessionBranchSource,
   AgentSessionConfiguration,
   AgentSessionId,
+  AgentStructuredOutputRequest,
   AgentTurnId,
   AgentTurnInputContent,
   AgentTurnInteractionMode,
@@ -37,6 +38,7 @@ import type { AgentProviderSessionInteractionContext, AgentSessionInteractionCon
 import type {
   AgentEnvironmentObservationPort,
 } from "./environment/types.js";
+import type { AgentExecutionInput, AgentExecutionInputSupport } from "./executionInput/types.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Session Open Contracts
@@ -58,6 +60,7 @@ export type AgentSessionBindingCreatedObserver = (
 export interface AgentProviderCreateSessionInput
   extends AgentProviderSessionContext {
   readonly onBindingCreated: AgentSessionBindingCreatedObserver;
+  readonly output?: AgentStructuredOutputRequest;
 }
 
 export interface AgentProviderResumeSessionInput
@@ -87,6 +90,7 @@ export interface AgentProviderStartTurnInput {
   readonly parts: readonly AgentTurnInputPart[];
   readonly summary?: string;
   readonly deadlineAt?: string;
+  readonly output?: AgentStructuredOutputRequest;
   readonly signal?: AbortSignal;
   readonly onProviderExecutionStarted?: AgentProviderExecutionStartedObserver;
 }
@@ -106,6 +110,7 @@ export type AgentRequestResolutionResult =
 export interface AgentProviderTurnExecution {
   readonly turnId: AgentTurnId;
   readonly outputs: AsyncIterable<AgentProviderOutput>;
+  readonly input?: AgentExecutionInput;
   readonly resolveRequest: (input: AgentProviderResolveRequestInput) => Promise<AgentRequestResolutionResult>;
 }
 
@@ -339,6 +344,7 @@ export type AgentProviderAuthentication =
     }>;
 
 export interface AgentProviderAdapter {
+  readonly executionInput?: AgentExecutionInputSupport;
   readonly sessionInteractions?: AgentSessionInteractionSupport;
   readonly hostBinding?: AgentSessionHostBindingSupport;
   readonly nativeContinuations?: AgentNativeContinuationSupport;
@@ -353,7 +359,10 @@ export interface AgentProviderAdapter {
 export type AgentSessionOpenContext = Omit<AgentProviderSessionContext, "interactions"> & Readonly<{
   interactions?: AgentSessionInteractionContext; nativeContinuations?: AgentNativeContinuationContext;
 }>;
-export type AgentCreateSessionInput = AgentSessionOpenContext & Readonly<{ onBindingCreated: AgentSessionBindingCreatedObserver }>;
+export type AgentCreateSessionInput = AgentSessionOpenContext & Readonly<{
+  onBindingCreated: AgentSessionBindingCreatedObserver;
+  output?: AgentStructuredOutputRequest;
+}>;
 export type AgentResumeSessionInput = AgentSessionOpenContext & Readonly<{ binding: AgentSessionBinding }>;
 export type AgentBranchSessionInput = AgentSessionOpenContext & Readonly<{ source: AgentSessionBranchSource; onBindingCreated: AgentSessionBindingCreatedObserver }>;
 export type AgentValidatedProviderAdapter = Omit<AgentProviderAdapter, "createSession" | "resumption" | "branching"> & Readonly<{

@@ -9,14 +9,20 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-This package implements Agent Protocol V12 at coordinated SDK version `0.4.3`,
+Current source implements Agent Protocol V13 in the unpublished coordinated eight-package `0.4.4`
+candidate, including structured final output. Published `0.4.3` is the seven-package V12 release,
 including tagged decision responses and exact turn request unavailability. Published `0.4.1`
 retains V11 and its qualification evidence; the earlier `0.4.0` release retains V10.
-The runtime also provides neutral session forms, plan reviews, staged native continuations and
-explicit human-wait policies. Provider mappings require their own support and qualification.
+The runtime also provides neutral session forms, plan reviews, staged native continuations,
+explicit human-wait policies and optional input during an owned execution. Provider mappings
+require their own support and qualification. The candidate ships no public native provider with
+execution-input support; the separately controlled private Claude diagnostic mapping does not
+introduce a public Claude constructor.
 Keep all installed SDK packages at the same version; the [0.4.2 migration
 guide](../../MIGRATING-TO-0.4.2.md) covers tagged responses, continuous request output and store
 contract changes. Generic contract proof and exact native qualification are separate boundaries.
+The [0.4.4 upgrade guide](../../UPGRADING-TO-0.4.4.md) covers V13 and the optional
+`@agen-ai/agent-history` package, whose native conversation browsing remains independent of execution.
 The SDK contract version is independent of private transport and product persistence versions. This
 is intentionally one coordinated tuple rather than a deployable mixed-version graph.
 
@@ -25,9 +31,176 @@ is intentionally one coordinated tuple rather than a deployable mixed-version gr
 - `@agen-ai/agent-runtime` exports the public driver, instance, adapter, session, output,
   readiness, account-quota port validation, bounded-evidence, artifact-candidate,
   capability-bound interaction validation, session-lifetime interaction and cleanup APIs, and registry APIs.
+  It also exports `parseAgentExecutionInputMessageId` and the execution-input support, message,
+  port, receipt and outcome types; execution input has no separate package or entrypoint.
 - `@agen-ai/agent-runtime/environment` exports the instance discovery and session observation ports.
+- `@agen-ai/agent-runtime/generation` exports `generateObject`, `AgentGenerationError`,
+  `AgentGenerationCleanupError`, and their input/result/error types. Generation is an explicit
+  entrypoint; importing the ordinary runtime does not select a provider or start work.
 - `@agen-ai/agent-runtime/testing` exports the deterministic fake provider and reusable
   conformance runner.
+
+## Generate a typed object
+
+`generateObject` borrows an explicitly selected `ValidatedMaterializedAgentProviderInstance`,
+opens a fresh native session, owns one continuous output reader and request delivery, validates
+the terminal object, runs a value-preserving decoder, and closes that session before returning.
+The caller retains the instance and its registry; generation never disposes them. It does not
+accept an existing session or resume/branch a prior conversation. Its result contains the inferred
+`value` and the caller's `sessionId` and `turnId`.
+
+```ts
+import {
+  createAgentOutputDefinition,
+  parseAgentConfigurationRevisionId,
+  parseAgentSessionId,
+  parseAgentTurnId,
+} from '@agen-ai/agent-protocol';
+import type { ValidatedMaterializedAgentProviderInstance } from '@agen-ai/agent-runtime';
+import { generateObject } from '@agen-ai/agent-runtime/generation';
+
+const titleOutput = createAgentOutputDefinition({
+  type: 'object',
+  properties: { title: { type: 'string', minLength: 1, maxLength: 80 } },
+  required: ['title'],
+  additionalProperties: false,
+}, (value) => typeof value.title === 'string'
+  ? { success: true, data: { title: value.title } }
+  : { success: false, issues: [{ code: 'title_required', path: ['title'], message: 'A title is required.' }] });
+
+async function generateTitle(instance: ValidatedMaterializedAgentProviderInstance, workingDirectory: string) {
+  const result = await generateObject({
+    instance,
+    session: {
+      sessionId: parseAgentSessionId('title:conversation:42'),
+      workingDirectory,
+      configuration: { kind: 'managed', revision: parseAgentConfigurationRevisionId('title:configuration:1') },
+    },
+    turn: {
+      turnId: parseAgentTurnId('title:conversation:42:1'),
+      interactionMode: 'default',
+      parts: [{ type: 'text', text: 'Create a short title for a conversation about investigating payment failures.' }],
+    },
+    output: titleOutput,
+    timeoutMs: 30_000,
+  });
+  // The generation session and its reader are closed before this value is returned.
+  return result.value.title; // string, inferred from the decoder
+}
+```
+
+Choose configuration that fits the selected instance; the example uses a managed instance.
+Use fresh caller-owned correlation IDs for each generation. The shipped public
+[`examples/generate-title.ts`](../../examples/generate-title.ts) additionally saves the title after
+successful cleanup. The application selects credentials, working-directory access and native
+tool/sandbox policy. A title prompt and an output schema do not disable tools or grant permission.
+
+For Zod authoring, use the explicit protocol adapter:
+
+```ts
+import { z } from 'zod/v4';
+import { zodOutput } from '@agen-ai/agent-protocol/zod';
+
+const titleOutput = zodOutput(z.strictObject({ title: z.string() }));
+// generateObject({ ..., output: titleOutput }) infers result.value as { title: string }.
+```
+
+A schema-only `createAgentOutputDefinition(schema)` returns `AgentJsonObject`. A typed value needs
+a real decoder or `zodOutput`; there is no unchecked `generateObject<MyType>` shortcut that omits
+that evidence. Decoders validate synchronously and must preserve the generated JSON exactly. The
+runtime rejects transformed/coerced values, freezes the successful JSON value, and leaves later
+presentation transforms to the application. See the
+[protocol profile and authoring limits](../agent-protocol/README.md#structured-final-output),
+including the distinct unsupported Zod string/array length checks and their neutral-schema path.
+
+### Capability and schema lifetime
+
+Generation preflights `instance.capabilities.turns.structuredOutput`. Unsupported support, wrong
+scope, unsupported schema, configuration/input mismatch or excessive schema bytes fail before
+native opening. A supported declaration has `mechanism: 'native'`,
+`schemaProfile: 'agenai.output-schema.v1'`, `scope: 'turn' | 'session'`, bounded
+`maxSchemaBytes`/`maxOutputBytes`, and `resume: false`, `branch: false`. `generateObject` supplies
+the schema at the declared boundary: opening for session scope, start-turn for turn scope.
+It owns `output`, `signal`, binding/start callbacks and native continuation control in those
+inputs; supplying even an explicitly `undefined` reserved property is rejected.
+
+With the lower-level API, a turn-scoped request applies only to that turn; omit `output` on the
+next turn for ordinary text. A session-scoped request is an immutable opening binding inherited
+by every turn. Supplying any turn `output` property, including the same schema or `undefined`,
+cannot override or remove it. Steering cannot carry an `output` property. Requests to resume or
+branch with structured output fail before native calls; ordinary resume/branch remain available
+when separately supported. Schema-bound native continuations are not admitted. Admitted schemas
+are detached frozen snapshots, so mutating the original object cannot alter running work.
+
+Every `turn.completed` carries `payload.structuredOutput`: `not_requested`, `json` with a complete
+object, or `unavailable` with a reason. Only a native `completed` outcome can contain `json`.
+Native completion can still be `unavailable`, for example when output is missing or fails schema
+validation. The validated runtime independently checks the terminal candidate against its exact
+admitted schema and converts a well-formed mismatch into `unavailable/schema_mismatch` while
+preserving the native outcome. Malformed envelopes, unsolicited output, duplicate terminals and
+wrong identities remain contract failures. A stream ending without a terminal never manufactures
+success. No partial JSON is exposed as a validated object, and there is no prose extraction,
+model repair, automatic generation retry or provider/tool replay.
+
+### Deadlines, requests and cleanup
+
+`onOutput` observes the same reader owned by the helper and applies backpressure; it must not
+acquire another reader. An optional `onRequest(request, { signal })` returns an exact
+`AgentRequestResolution`; the helper validates/delivers it while continuing output. Honor its
+signal when a request is retired or generation stops. Without a handler, a turn request fails as
+`interaction_required`; the helper never fabricates approval, denial or an answer. Any opening
+session-interaction handler remains an explicit `session.interactions` choice. A generation
+helper supplies no new effect authority.
+
+| Generation bound | Value |
+| --- | --- |
+| Overall timeout | Five minutes by default; `timeoutMs` is a positive integer up to one hour |
+| Effective execution deadline | Earlier of the overall timeout and `turn.deadlineAt`; caller abort also stops generation |
+| Output observer / request handler / response delivery | 30 seconds / five minutes / 30 seconds, each still bounded by the generation deadline |
+| Active request handlers | 8 retained request records; a record remains owned while its callback/delivery is pending |
+| Cleanup attempt | 30 seconds, retaining actual pending work for retry |
+
+The schema/value profile caps each at 16,384 serialized UTF-8 bytes; the provider can advertise
+smaller byte limits. Other shape and raw-candidate limits belong to the
+[protocol profile](../agent-protocol/README.md#the-agenaioutput-schemav1-profile).
+Successful return means stream settlement, local decoding and session cleanup all succeeded.
+On abort or failure, the helper initiates native interruption when applicable and session close
+before joining entered reader/observer/request work. An uncooperative callback remains owned;
+its timeout is not proof it stopped.
+
+| Error | Application handling |
+| --- | --- |
+| `AgentGenerationError` | Inspect `code`: `unsupported`, `interaction_required`, `generation_failed`, `decoding_failed`, `observer_failed`, `request_failed`, or `timeout`. A generation failure may carry the unavailable `reason` and bounded `issues`; request failure may carry the exact delivery `receipt`. |
+| `AgentProtocolValidationError` / `AgentProviderContractError` | Correct input or adapter contract faults; they retain their existing public semantics. |
+| Caller cancellation | Retains the runtime's operation-abort semantics after cleanup. |
+| `AgentGenerationCleanupError` | Retain the original object and borrowed instance/registry; its `retryCleanup()` owns remaining work. It may carry `primaryError` and a validated `result`, but the original call has not succeeded. |
+| `AgentProviderSessionCleanupError` during opening | Retain the exact original opening receipt and its retry callback. |
+
+```ts
+import { AgentGenerationCleanupError, AgentGenerationError } from '@agen-ai/agent-runtime/generation';
+import { AgentProviderSessionCleanupError } from '@agen-ai/agent-runtime';
+
+try {
+  const title = await generateTitle(instance, workingDirectory);
+  await saveTitle(title);
+} catch (error) {
+  if (error instanceof AgentGenerationCleanupError || error instanceof AgentProviderSessionCleanupError) {
+    await error.retryCleanup(); // If it rejects, retain this same callable owner for recovery.
+    throw error; // Cleanup recovery does not replay generation or change the original verdict.
+  }
+  if (error instanceof AgentGenerationError && error.code === 'unsupported') {
+    showStructuredOutputUnavailable();
+  } else {
+    throw error;
+  }
+}
+```
+
+Do not serialize the error in place of retaining its callable cleanup owner or dispose dependent
+resources while cleanup remains incomplete. A later application retry is a separate explicitly
+chosen generation with its own effect and cost assessment. Generic ACP declares unsupported;
+the public provider's exact opt-in Grok mapping and installed native qualification are described
+in [`@agen-ai/provider-acp`](../provider-acp/README.md#structured-final-output).
 
 ## Lifecycle and ownership
 
@@ -107,7 +280,7 @@ provider that replaces that process emits a `process.started` lifecycle output a
 boundary before reporting usage from the replacement. Validation then clears only the
 `materialization` occupancy, cumulative counters, and compaction allowance; logical `session`
 measurements remain continuous.
-`startTurn(input)` returns `{ turnId, outputs, resolveRequest }`. `outputs` preserves per-output
+`startTurn(input)` returns `{ turnId, outputs, resolveRequest, input? }`. `outputs` preserves per-output
 backpressure and stays open during `waiting_for_request`; the consumer can call
 `execution.resolveRequest({ resolution })` as soon as it receives `request.opened`, before its next
 pull. A later queued waiting observation cannot revive an already answered request. No response
@@ -194,8 +367,8 @@ descriptor validation, through native settlement and awaited output acceptance. 
 native continuations cannot overlap that reservation. Exact cached idempotent results are returned
 before reserving another execution. Close stops admission and initiates native quiescence before
 joining entered operation work; failed cleanup retains its stopped owner for retry. This lifecycle
-correction and operation retry observations are included in `0.4.3`, using the existing
-Agent Protocol V12 and operation SPI.
+correction and operation retry observations were included in published `0.4.3`, using its
+Agent Protocol V12 and operation SPI; current V13 source retains that behavior.
 
 Discover the operation through `session.operations` and its offered descriptor, using an exact
 application-configured ID. Pass the descriptor revision as `expectedRevision`, its exact fields,
@@ -218,6 +391,118 @@ and diagnostic events; it enforces the exact session/observation-turn correlatio
 identity, declared bounds, forward-only lifecycle transitions, and per-output backpressure before
 the operation result may settle. Collaboration and generated-resource observations retain the
 same correlation and lifecycle validation at their respective ports.
+
+## Input during an owned execution
+
+The unpublished `0.4.4` candidate adds optional provider-neutral input on a caller-started
+execution. **No public native provider ships with support for this domain.** Public ACP,
+including Grok compositions, remains unsupported. Positive native qualification belongs only to
+a separately controlled private Claude SDK `0.3.309` / Code `2.1.309` diagnostic composition on
+Linux x86_64 / Node `24.18.0`; there is no public Claude execution constructor. That evidence does
+not qualify production/fleet execution, subscription authentication or billing. Other features'
+provider selections and qualification remain independent.
+
+An adapter optionally declares `executionInput?: AgentExecutionInputSupport`. An execution
+optionally exposes `input?: AgentExecutionInput`; absence and `{ kind: 'unsupported' }` both mean
+unsupported. Check `execution.input?.kind === 'supported'` before calling `sendMessage`. A supported
+port must match the adapter's delivery, consumption reporting, input and limit declaration.
+Legacy adapters can continue omitting the domain. Executions adopted from session human-response
+native continuations expose input as unsupported even when caller-started executions support it.
+
+The runtime root exports `parseAgentExecutionInputMessageId` and all six execution-input types:
+`AgentExecutionInputMessageId`, `AgentExecutionInputMessage`, `AgentExecutionInputSupport`,
+`AgentExecutionInput`, `AgentExecutionInputReceipt` and `AgentExecutionInputOutcome`.
+
+```ts
+import {
+  parseAgentExecutionInputMessageId,
+  type AgentExecutionInputMessage,
+} from '@agen-ai/agent-runtime';
+
+const message: AgentExecutionInputMessage = {
+  messageId: parseAgentExecutionInputMessageId('conversation:42:requirement:2'),
+  parts: [{ type: 'text', text: 'Include the corrected requirement in the owned task.' }],
+};
+```
+
+Message IDs are branded separately from turn and human-request IDs. The parser accepts canonical
+nonempty text up to 256 characters, without outer whitespace or control characters. Use a fresh ID
+for every submission; parsing does not make the provider idempotent.
+
+The delivery contract is `current_or_owned_continuation`: the message can be consumed in the
+original native command or an additional native command owned by the same SDK execution. It keeps
+one turn ID, output reader and cleanup owner. Existing `capabilities.turns.steer` /
+`session.steering.steerTurn` retains strict running-native-command semantics. Do not substitute
+input for steering or manufacture a fallback turn when input is unsupported.
+
+`sendMessage({ messageId, parts, summary?, signal? })` accepts text only and returns one of:
+
+| Receipt | Meaning |
+| --- | --- |
+| `accepted` | The native handler authoritatively acknowledged the exact submission. Includes `settled: Promise<AgentExecutionInputOutcome>`; does not establish consumption, compliance or completion. |
+| `rejected` | Definite refusal to admit the message, with a bounded `AgentError` and no settlement promise. The original execution remains owned. |
+| `delivery_uncertain` | Delivery may have started without an authoritative acknowledgement, with a bounded `AgentError`. The runtime fences further mutation while the original output reader can still drain. Never replay the message. |
+
+An accepted receipt settles to `consumed` with its `messageId`, original SDK `turnId` and
+`placement: 'original_native_command' | 'owned_native_continuation'`, or to `unconfirmed` with its
+`messageId` and reason. The unconfirmed reasons are `provider_does_not_report_consumption`,
+`closed`, `interrupted`, `native_failed` and `correlation_lost`; that variant has no turn ID or
+placement. Only support declaring `consumptionReporting: 'message_ids'` can report `consumed`.
+Support declaring `'unavailable'` may report `provider_does_not_report_consumption` instead.
+An unconfirmed outcome preserves acceptance and does not prove non-consumption. Attributed
+consumption still does not prove the model obeyed the instruction. These in-process receipts and
+promise handles are not wire or persistence formats and grant no permission or tool authority.
+
+Start the sole `outputs` reader before sending, then keep it running during both the receipt and
+settlement waits. `startTurn` reserves the existing execution slot synchronously, but provider
+entry is lazy until the first output pull. A retained handle or acquired iterator is insufficient.
+Input on a reserved, idle, stale, completed or closed execution rejects before provider entry.
+There is no idle-session input method; use ordinary `startTurn` when idle. A structured-output
+turn or schema-bound session, a pending turn human request or its unsettled response, and a live
+session interaction also reject input before native entry. Admitted continuations remain in the
+same execution slot through settlement; native result frames cannot end ownership prematurely.
+
+| Bound | SDK ceiling; a provider may declare a smaller positive limit |
+| --- | --- |
+| Outstanding entered/accepted messages awaiting actual settlement | 2 per execution |
+| Entered messages, including definite provider rejections | 16 per execution |
+| Buffered messages | 1,048,576 serialized UTF-8 bytes across message IDs, parts and summaries, excluding signals |
+| Message identity retention | 4,096 IDs and 1,048,576 UTF-8 ID bytes per session generation |
+| Receipt observation / input drain | 30 seconds / 30 seconds; actual entered work remains owned |
+
+Existing turn-content validation also applies, including its 1 MiB plus 16 KiB serialized content
+envelope. Execution input additionally rejects images/content references and must fit its stricter
+buffered-envelope limit. After candidate entry, rejected and settled IDs stay reserved for the
+session generation. Local duplicate, capacity and census failures use
+`execution_input_identity_reused`, `execution_input_capacity_exhausted` and
+`execution_input_identity_limit_exceeded`; census exhaustion initiates owned cleanup. Malformed
+input and pre-abort failures preserve their pre-entry errors. Provider-invoked failures can throw
+`AgentProviderDelegatedOperationError` with `operation: 'send_execution_input'` and started-execution
+evidence. Post-entry abort or a lost receipt can mean uncertain delivery.
+
+For a complete runnable caller flow, use
+[`examples/execution-input`](../../examples/execution-input/README.md) in the public SDK checkout:
+
+```sh
+pnpm exec tsx examples/execution-input/main.ts
+```
+
+Its caller-owned teaching provider uses the actual runtime validator and no native process,
+model, credentials, network, tools or storage. Five synthetic scenarios cover consumed,
+unconfirmed, rejected, uncertain and unsupported input. `application.ts` waits for `turn.started`,
+checks support and keeps the original reader progressing through both waits. Its result and
+reader-join handles preserve ownership on failure. `main.ts` starts session close before joining
+the reader, then disposes the instance; cleanup failure retains its callable retry owner. The same
+source is compiled and run from the installed tarballs. Synthetic success qualifies no native
+provider mapping.
+
+On uncertainty, stop mutation, retain the reader and close the unusable session when needed.
+Do not resend, steer, interrupt or start another turn to simulate delivery. Close starts native
+quiescence before joining entered input, output and callbacks; elapsed observation time does not
+prove they stopped. Keep the session or exact opening cleanup error and dependent instance,
+registry and host resources until cleanup succeeds. Retry joins that same cleanup owner without
+replaying input; rematerializing does not authorize an uncertain message's replay. This optional
+runtime domain adds no Agent Protocol V13 change, private wire change or persistence migration.
 
 ## Session-lifetime interactions
 
@@ -551,14 +836,16 @@ close before joining its reader and actual callback tasks; failure also starts c
 failures and cleanup failures remain observable. A callback that ignores cancellation
 remains owned until its actual promise settles.
 
-The coordinated SDK release is `0.4.3` and implements Agent Protocol V12.
+The coordinated eight-package `0.4.4` source candidate implements Agent Protocol V13 and remains
+unpublished. Published `0.4.3` is the seven-package V12 release.
 The earlier `0.4.1` release retains V11.
 The earlier `0.4.0` release retains V10.
 The earlier public `0.3.0` and `0.3.1` releases implemented V9 and remain historical.
-Keep installed packages in the seven-package SDK release family on the coordinated version; the
-orchestration and ACP packages remain optional. Every materialized instance requires `environment` and
+Keep installed packages in a release family on its coordinated version; orchestration, ACP and
+history packages remain optional. History browsing owns no execution turn and does not establish
+structured-output support. Every materialized instance requires `environment` and
 `accountQuota`; every session requires `environment`. The former standalone `integrations`
-observation port is removed. The public runtime implements Agent Protocol V12 with one current
+observation port is removed. The public runtime implements Agent Protocol V13 with one current
 adapter/session surface. Package versions remain independent of private transport and product
 persistence versions.
 

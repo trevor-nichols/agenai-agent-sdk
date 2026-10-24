@@ -24,6 +24,7 @@ import {
   AGENT_CONTEXT_COMPACTION_STATES,
   AGENT_CONTEXT_MEASUREMENT_SCOPES,
   type AgentContextUsage,
+  type AgentTurnCompletedPayload,
 } from '../turns/types.js';
 import {
   AgentContentStreamKindSchema,
@@ -45,6 +46,7 @@ import {
   AgentRequestIdSchema,
   AgentSessionIdSchema,
   AgentTurnIdSchema,
+  withAcyclicProtocolInput,
 } from './foundation.js';
 
 // ------------------------------------------------------------------------------------------------
@@ -196,116 +198,124 @@ export const AgentContextUsageSchema: z.ZodType<AgentContextUsage> =
 //                Portable Union and Authoritative Refinements
 // ------------------------------------------------------------------------------------------------
 
-export const AgentEventPortableSchema = z.discriminatedUnion('type', [
-  turnEvent(
-    'turn.started',
-    z.object({ message: z.string().max(AGENT_PROTOCOL_TEXT_MAX_LENGTH).optional() })
-      .strict()
-      .readonly(),
-  ),
-  turnEvent('turn.state_changed', TurnStateChangedPayloadSchema),
-  turnEvent('turn.completed', AgentTurnCompletedPayloadPortableSchema),
-  turnEvent('item.started', AgentItemSnapshotSchema),
-  turnEvent('item.updated', AgentItemSnapshotSchema),
-  turnEvent('item.completed', AgentItemSnapshotSchema),
-  turnEvent(
-    'content.delta',
-    z
-      .object({
-        itemId: AgentItemIdSchema,
-        streamKind: AgentContentStreamKindSchema,
-        delta: z.string().max(AGENT_PROTOCOL_TEXT_MAX_LENGTH),
-      })
-      .strict()
-      .readonly(),
-  ),
-  turnEvent(
-    'turn.plan.updated',
-    z
-      .object({
-        explanation: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
-        steps: z
-          .array(AgentPlanStepSchema)
-          .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
-          .readonly(),
-      })
-      .strict()
-      .readonly(),
-  ),
-  turnEvent(
-    'turn.plan.proposed',
-    z
-      .object({
-        artifactId: AgentArtifactIdSchema,
+function createEventSchema(completedPayload: z.ZodType<AgentTurnCompletedPayload>) {
+  return z.discriminatedUnion('type', [
+    turnEvent(
+      'turn.started',
+      z.object({ message: z.string().max(AGENT_PROTOCOL_TEXT_MAX_LENGTH).optional() })
+        .strict()
+        .readonly(),
+    ),
+    turnEvent('turn.state_changed', TurnStateChangedPayloadSchema),
+    turnEvent('turn.completed', completedPayload),
+    turnEvent('item.started', AgentItemSnapshotSchema),
+    turnEvent('item.updated', AgentItemSnapshotSchema),
+    turnEvent('item.completed', AgentItemSnapshotSchema),
+    turnEvent(
+      'content.delta',
+      z
+        .object({
+          itemId: AgentItemIdSchema,
+          streamKind: AgentContentStreamKindSchema,
+          delta: z.string().max(AGENT_PROTOCOL_TEXT_MAX_LENGTH),
+        })
+        .strict()
+        .readonly(),
+    ),
+    turnEvent(
+      'turn.plan.updated',
+      z
+        .object({
+          explanation: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
+          steps: z
+            .array(AgentPlanStepSchema)
+            .max(AGENT_PROTOCOL_COLLECTION_MAX_LENGTH)
+            .readonly(),
+        })
+        .strict()
+        .readonly(),
+    ),
+    turnEvent(
+      'turn.plan.proposed',
+      z
+        .object({
+          artifactId: AgentArtifactIdSchema,
+          requestId: AgentRequestIdSchema,
+        })
+        .strict()
+        .readonly(),
+    ),
+    turnEvent('turn.diff.updated', AgentDiffSummarySchema),
+    turnEvent(
+      'request.opened',
+      z.object({ request: AgentRequestPortableSchema }).strict().readonly(),
+    ),
+    turnEvent(
+      'request.unavailable',
+      z.object({
         requestId: AgentRequestIdSchema,
-      })
-      .strict()
-      .readonly(),
-  ),
-  turnEvent('turn.diff.updated', AgentDiffSummarySchema),
-  turnEvent(
-    'request.opened',
-    z.object({ request: AgentRequestPortableSchema }).strict().readonly(),
-  ),
-  turnEvent(
-    'request.unavailable',
-    z.object({
-      requestId: AgentRequestIdSchema,
-      reason: z.enum(AGENT_REQUEST_UNAVAILABLE_REASONS),
-    }).strict().readonly(),
-  ),
-  turnEvent('progress.updated', ProgressUpdatedPayloadSchema),
-  turnEvent('context.usage.updated', AgentContextUsagePortableSchema),
-  optionallyTurnScopedEvent(
-    'artifact.referenced',
-    z.object({ artifact: AgentArtifactDescriptorSchema }).strict().readonly(),
-  ),
-  optionallyTurnScopedEvent(
-    'operation.updated',
-    z.object({ result: AgentOperationResultPortableSchema }).strict().readonly(),
-  ),
-  optionallyTurnScopedEvent(
-    'collaboration.updated',
-    z.object({ node: AgentCollaborationNodePortableSchema }).strict().readonly(),
-  ),
-  optionallyTurnScopedEvent(
-    'resource.updated',
-    z
-      .object({ resource: AgentGeneratedResourceDescriptorPortableSchema })
-      .strict()
-      .readonly(),
-  ),
-  turnEvent('runtime.retrying', RuntimeRetryingPayloadSchema),
-  optionallyTurnScopedEvent(
-    'runtime.warning',
-    z
-      .object({
-        code: AgentCanonicalCodeSchema,
-        message: AgentCanonicalNonBlankTextSchema,
-        context: AgentErrorContextSchema.optional(),
-      })
-      .strict()
-      .readonly(),
-  ),
-  optionallyTurnScopedEvent(
-    'runtime.error',
-    z.object({ error: AgentErrorSchema }).strict().readonly(),
-  ),
-  optionallyTurnScopedEvent(
-    'provider.diagnostic',
-    z
-      .object({
-        code: AgentCanonicalCodeSchema,
-        message: AgentCanonicalNonBlankTextSchema,
-        context: AgentErrorContextSchema.optional(),
-      })
-      .strict()
-      .readonly(),
-  ),
-]);
+        reason: z.enum(AGENT_REQUEST_UNAVAILABLE_REASONS),
+      }).strict().readonly(),
+    ),
+    turnEvent('progress.updated', ProgressUpdatedPayloadSchema),
+    turnEvent('context.usage.updated', AgentContextUsagePortableSchema),
+    optionallyTurnScopedEvent(
+      'artifact.referenced',
+      z.object({ artifact: AgentArtifactDescriptorSchema }).strict().readonly(),
+    ),
+    optionallyTurnScopedEvent(
+      'operation.updated',
+      z.object({ result: AgentOperationResultPortableSchema }).strict().readonly(),
+    ),
+    optionallyTurnScopedEvent(
+      'collaboration.updated',
+      z.object({ node: AgentCollaborationNodePortableSchema }).strict().readonly(),
+    ),
+    optionallyTurnScopedEvent(
+      'resource.updated',
+      z
+        .object({ resource: AgentGeneratedResourceDescriptorPortableSchema })
+        .strict()
+        .readonly(),
+    ),
+    turnEvent('runtime.retrying', RuntimeRetryingPayloadSchema),
+    optionallyTurnScopedEvent(
+      'runtime.warning',
+      z
+        .object({
+          code: AgentCanonicalCodeSchema,
+          message: AgentCanonicalNonBlankTextSchema,
+          context: AgentErrorContextSchema.optional(),
+        })
+        .strict()
+        .readonly(),
+    ),
+    optionallyTurnScopedEvent(
+      'runtime.error',
+      z.object({ error: AgentErrorSchema }).strict().readonly(),
+    ),
+    optionallyTurnScopedEvent(
+      'provider.diagnostic',
+      z
+        .object({
+          code: AgentCanonicalCodeSchema,
+          message: AgentCanonicalNonBlankTextSchema,
+          context: AgentErrorContextSchema.optional(),
+        })
+        .strict()
+        .readonly(),
+    ),
+  ]);
+}
+
+export const AgentEventPortableSchema = createEventSchema(AgentTurnCompletedPayloadPortableSchema);
 
 export const AgentEventSchema: z.ZodType<AgentEvent> =
-  AgentEventPortableSchema.superRefine((event, context) => {
+  withAcyclicProtocolInput(createEventSchema(AgentTurnCompletedPayloadSchema), {
+    maxDepth: 32,
+    maxNodes: AGENT_PROTOCOL_EVENT_BYTES_LIMIT,
+    maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
+  }).superRefine((event, context) => {
     if (event.providerRefs !== undefined) {
       const providerRefs = AgentProviderRefsSchema.safeParse(event.providerRefs);
       if (!providerRefs.success) {
@@ -323,15 +333,6 @@ export const AgentEventSchema: z.ZodType<AgentEvent> =
           path: ['payload', 'requestId'],
           message: 'Only waiting_for_request state requires a requestId.',
         });
-      }
-    }
-
-    if (event.type === 'turn.completed') {
-      const completed = AgentTurnCompletedPayloadSchema.safeParse(event.payload);
-      if (!completed.success) {
-        for (const issue of completed.error.issues) {
-          context.addIssue({ ...issue, path: ['payload', ...issue.path] });
-        }
       }
     }
 

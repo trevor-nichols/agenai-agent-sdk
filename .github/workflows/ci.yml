@@ -44,8 +44,71 @@ jobs:
         run: |
           python3 --version
           uv --version
+      - name: Provision Linux native history sandbox
+        shell: bash
+        env:
+          NATIVE_HISTORY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          NATIVE_HISTORY_RUNNER_OS: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          if [[ "${NATIVE_HISTORY_RUNNER_ENVIRONMENT:-}" != "github-hosted" || "${NATIVE_HISTORY_RUNNER_OS:-}" != "Linux" || "${ImageOS:-}" != "ubuntu24" ]]; then
+            echo "Native history CI setup requires the ephemeral GitHub-hosted Ubuntu 24.04 runner." >&2
+            exit 1
+          fi
+          if [[ ! -x /usr/bin/bwrap ]] || [[ "$(/usr/bin/bwrap --help)" != *"--ro-bind-fd"* ]] || [[ "$(/usr/bin/bwrap --help)" != *"--bind-fd"* ]]; then
+            sudo apt-get update
+            sudo apt-get install --yes --no-install-recommends bubblewrap
+          fi
+
+          apparmor_userns_path=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          if [[ -e "${apparmor_userns_path}" ]]; then
+            read -r apparmor_userns_original < "${apparmor_userns_path}"
+            printf 'NATIVE_HISTORY_APPARMOR_USERNS_ORIGINAL=%s\n' "${apparmor_userns_original}" >> "${GITHUB_ENV}"
+            if [[ "${apparmor_userns_original}" != "0" ]]; then
+              sudo sysctl --write kernel.apparmor_restrict_unprivileged_userns=0
+            fi
+          fi
+
+          /usr/bin/bwrap \
+            --die-with-parent \
+            --unshare-user \
+            --uid 0 \
+            --gid 0 \
+            --unshare-net \
+            --unshare-pid \
+            --ro-bind / / \
+            --ro-bind-fd 3 /usr/share \
+            --proc /proc \
+            --dev /dev \
+            --clearenv \
+            -- /usr/bin/true 3</usr/share
+
+          history_mount_fixture=$(mktemp -d)
+          trap 'rm -rf -- "${history_mount_fixture}"' EXIT
+          bwrap --unshare-user --uid 0 --gid 0 --unshare-net --ro-bind / / \
+            --bind-fd 3 "${history_mount_fixture}" --proc /proc --dev /dev --clearenv \
+            -- /usr/bin/touch "${history_mount_fixture}/written" 3<"${history_mount_fixture}"
+          test -f "${history_mount_fixture}/written"
+
       - name: Check SDK
         run: pnpm check
+
+      - name: Restore Ubuntu native history namespace restriction
+        if: always()
+        shell: bash
+        env:
+          NATIVE_HISTORY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          NATIVE_HISTORY_RUNNER_OS: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${NATIVE_HISTORY_APPARMOR_USERNS_ORIGINAL:-}" ]]; then
+            if [[ "${NATIVE_HISTORY_RUNNER_ENVIRONMENT:-}" != "github-hosted" || "${NATIVE_HISTORY_RUNNER_OS:-}" != "Linux" || "${ImageOS:-}" != "ubuntu24" ]]; then
+              echo "Refusing a namespace policy change outside the ephemeral Ubuntu 24.04 runner." >&2
+              exit 1
+            fi
+            sudo sysctl --write "kernel.apparmor_restrict_unprivileged_userns=${NATIVE_HISTORY_APPARMOR_USERNS_ORIGINAL}"
+          fi
+
 
   durable-reference:
     name: Qualified local SQLite reference
@@ -66,3 +129,62 @@ jobs:
         run: pnpm build
       - name: Prove SQLite ownership, inbox and process recovery
         run: pnpm test:examples:durable
+
+  sandbox-integration:
+    name: Credential-free sandbox integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+      - name: Set up pinned sandbox Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.18.0'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Materialize public SDK dependency outputs
+        run: pnpm build
+      - name: Test sandbox CI ownership and failure handling
+        run: pnpm test:sandbox-ci:tooling
+      - name: Set up Python for the complete packed registry fixtures
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.14.4'
+      - name: Set up uv for the complete packed registry fixtures
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.11.28'
+          enable-cache: false
+      - name: Allocate short sandbox evidence path
+        shell: bash
+        run: |
+          set -euo pipefail
+          sandbox_evidence_parent=$(mktemp -d /tmp/asci.XXXXXXXX)
+          printf 'AGENAI_SANDBOX_CI_OUTPUT=%s/e\n' "${sandbox_evidence_parent}" >> "${GITHUB_ENV}"
+      - name: Provision owned sandbox daemon
+        env:
+          SANDBOX_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          SANDBOX_RUNNER_OS: ${{ runner.os }}
+        run: bash scripts/development/agent-sandbox-qualification/provision-ci.sh "${RUNNER_TEMP}/agenai-sdk-sandbox-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      - name: Prove source and installed sandbox behavior without model credentials
+        run: pnpm test:sandbox-integration --engine "${AGENAI_SANDBOX_CI_ENGINE}" --output "${AGENAI_SANDBOX_CI_OUTPUT}"
+      - name: Stop owned sandbox daemon and retain its log
+        if: always()
+        env:
+          SANDBOX_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          SANDBOX_RUNNER_OS: ${{ runner.os }}
+        run: bash scripts/development/agent-sandbox-qualification/provision-ci.sh --cleanup
+      - name: Retain sandbox integration evidence
+        if: always() && env.AGENAI_SANDBOX_CI_OUTPUT != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-integration-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.AGENAI_SANDBOX_CI_OUTPUT }}/**/*.json
+            ${{ env.AGENAI_SANDBOX_CI_OUTPUT }}/*.log
+            ${{ runner.temp }}/agenai-sdk-sandbox-${{ github.run_id }}-${{ github.run_attempt }}/daemon.log
+            ${{ runner.temp }}/agenai-sdk-sandbox-${{ github.run_id }}-${{ github.run_attempt }}/startup-error.txt

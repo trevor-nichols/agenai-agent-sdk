@@ -258,7 +258,7 @@ export async function probeNativeGrokStandardMapping(input: {
     const driver = createNodeAcpProviderDriver({ providerKey: 'grok-native-loopback', configuration: 'selectable',
       launch: { ...allocation.launch, env: { ...allocation.launch.env, XAI_API_KEY: fakeApiKey,
         GROK_XAI_API_BASE_URL: baseUrl } },
-      limits: { initializationTimeoutMs: 15_000, promptTimeoutMs: 10_000, cancellationTimeoutMs: 2_000 },
+      limits: { initializationTimeoutMs: 15_000, cancellationTimeoutMs: 2_000 },
     });
     const instanceId = parseAgentInstanceId('native-loopback:instance');
     registry = await createAgentProviderRegistry({ drivers: [driver],
@@ -287,7 +287,7 @@ export async function probeNativeGrokStandardMapping(input: {
     explicitSdkTurns += 1;
     for await (const output of session.startTurn({ turnId: parseAgentTurnId('native-loopback:turn'),
       interactionMode: 'default', parts: [{ type: 'text', text: 'Return one short acknowledgement without calling tools.' }],
-      signal, onProviderExecutionStarted() { providerExecutionStarted = true; },
+      signal, deadlineAt: new Date(Date.now() + 10_000).toISOString(), onProviderExecutionStarted() { providerExecutionStarted = true; },
     }).outputs) {
       if (output.kind !== 'event') continue;
       if (output.event.type === 'content.delta' && output.event.payload.streamKind === 'assistant_text') {

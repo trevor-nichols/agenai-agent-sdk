@@ -23,6 +23,7 @@ export function createNodeAcpProviderDriver(options: CreateNodeAcpProviderDriver
       : { kind: 'factory', create: (context) => spawnAcpProcess(launch, context) },
     ...(options.unknownExtensionPolicy !== undefined ? { unknownExtensionPolicy: options.unknownExtensionPolicy } : {}),
     ...(options.permissionMapping !== undefined ? { permissionMapping: options.permissionMapping } : {}),
+    ...(options.structuredOutputMapping !== undefined ? { structuredOutputMapping: options.structuredOutputMapping } : {}),
     ...(options.limits ? { limits: options.limits } : {}),
     ...(options.configuration ? { configuration: options.configuration } : {}),
     ...(options.authentication ? { authentication: options.authentication } : {}),

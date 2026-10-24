@@ -29,16 +29,16 @@ const input = (text: string) => ({ parts: [{ type: 'text' as const, text }] });
 
 async function openExample(root: string) {
   const provider = await createExampleProvider({ async *outputs(context, turn) {
-    const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId: turn.turnId,
+    const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: turn.turnId,
       occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
     yield createAgentEventOutput({ ...base, type: 'turn.started', payload: {} });
     const scenario = turn.parts.find((part) => part.type === 'text')?.text;
     if (scenario === 'retry') {
       yield createAgentEventOutput({ ...base, type: 'runtime.retrying',
         payload: { owner: 'provider', error: retryError, attempt: 1, maxAttempts: 1, delayMs: 0 } });
-      yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { outcome: 'completed' } });
+      yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { structuredOutput: { kind: 'not_requested' }, outcome: 'completed' } });
     } else if (scenario === 'quota') {
-      yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { outcome: 'failed', error: quotaError } });
+      yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { structuredOutput: { kind: 'not_requested' }, outcome: 'failed', error: quotaError } });
     } else {
       // A recovery hint is information. It cannot prove that effects were not applied.
       throw disconnectError;

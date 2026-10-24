@@ -132,6 +132,7 @@ export async function dispatchPreparedSessionResponse(input: Readonly<{
     if (outcomeFailure) throw outcomeFailure;
     if (earlyOutcome) throw continuationError(owner, "invalid_native_continuation", "Prepared outcome forbids native response dispatch.");
     if (value.kind === "native_continuation") {
+      owner.validationOwner.requireNativeContinuationSupport();
       owner.requireContinuation(input.candidate.request.kind);
       reservation = owner.validationOwner.reserveExecution();
       const turnId = parseAgentTurnId(`native-${randomUUID()}`);

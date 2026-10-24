@@ -184,6 +184,7 @@ export const AgentJsonObjectKeySchema = z
 
 interface ProtocolInputPreflightOptions {
   readonly maxDepth?: number;
+  readonly maxNodes?: number;
   readonly maxCollectionLength?: number;
   readonly requireJsonData?: boolean;
 }
@@ -198,6 +199,7 @@ function passesProtocolInputPreflight(
     | { readonly operation: 'leave'; readonly value: object }
   > = [{ operation: 'enter', value: input, depth: 0 }];
 
+  let nodes = 0;
   while (pending.length > 0) {
     const current = pending.pop();
     if (!current) break;
@@ -205,6 +207,8 @@ function passesProtocolInputPreflight(
       activeObjects.delete(current.value);
       continue;
     }
+    nodes += 1;
+    if (options.maxNodes !== undefined && nodes > options.maxNodes) return false;
     if (options.maxDepth !== undefined && current.depth > options.maxDepth) {
       return false;
     }

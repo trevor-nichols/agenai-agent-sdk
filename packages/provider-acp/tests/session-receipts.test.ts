@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseAgentConfigurationRevisionId, parseAgentInstanceId, parseAgentProviderKey, parseAgentSessionId, parseAgentTurnId } from '@agen-ai/agent-protocol';
-import { createAgentProviderRegistry } from '@agen-ai/agent-runtime';
+import { AgentProviderDelegatedOperationError, createAgentProviderRegistry } from '@agen-ai/agent-runtime';
 import { createAcpProviderDriver } from '../src/index.js';
 import { collectRemaining, createSessionPeer, takeUntilRequest } from './fixtures/session-peer.js';
 import { events, open, selection, turnInput } from './fixtures/session-runtime.js';
@@ -9,17 +9,18 @@ import { fixtureDeferred } from './node-fixtures/host-peer.js';
 
 for (const loss of [
   { kind: 'peer exit', reason: 'acp_provider_peer_closed' },
-  { kind: 'prompt timeout', reason: 'acp_request_deadline_exceeded' },
+  { kind: 'unconfirmed cancellation', reason: 'acp_cancel_uncertain' },
 ] as const) {
-  test(`${loss.kind} before canonical acceptance returns unavailable without a selected native reply or replay`, { timeout: 3_000 }, async (t) => {
+  test(`${loss.kind} before canonical acceptance refuses a selected native reply without replay`, { timeout: 3_000 }, async (t) => {
     const released = fixtureDeferred<void>();
     let releases = 0;
-    const peer = createSessionPeer({ owned: true, onRelease() { releases += 1; released.resolve(); },
+    const peer = createSessionPeer({ owned: true, confirmCancel: loss.kind !== 'unconfirmed cancellation', onRelease() { releases += 1; released.resolve(); },
       onPrompt(peer) { peer.send(peer.permission('lost-permission', 'tool')); },
     });
-    const { registry, session } = await open(peer, loss.kind === 'prompt timeout' ? { promptTimeoutMs: 100 } : undefined);
+    const { registry, session } = await open(peer, { cancellationTimeoutMs: 20 });
     t.after(async () => { await registry.dispose(); peer.dispose(); });
-    const execution = session.startTurn(turnInput());
+    const execution = session.startTurn({ ...turnInput(), ...(loss.kind === 'unconfirmed cancellation'
+      ? { deadlineAt: new Date(Date.now() + 100).toISOString() } : {}) });
     const iterator = execution.outputs[Symbol.asyncIterator]();
     const initial = events(await takeUntilRequest(iterator));
     const opened = initial.find((event) => event.type === 'request.opened');
@@ -28,18 +29,24 @@ for (const loss of [
     if (loss.kind === 'peer exit') peer.stdout.end();
     await released.promise;
     let started = 0;
-    assert.deepEqual(await execution.resolveRequest({ resolution, onProviderExecutionStarted() { started += 1; } }), {
+    const answer = execution.resolveRequest({ resolution, onProviderExecutionStarted() { started += 1; } });
+    if (loss.kind === 'peer exit') assert.deepEqual(await answer, {
       status: 'rejected', requestState: 'unavailable', error: {
         category: 'invalid_request', code: 'acp_request_not_pending',
         message: 'The ACP request callback is no longer available.', recovery: { kind: 'none' },
       },
     });
+    else await assert.rejects(answer, (error: unknown) => error instanceof AgentProviderDelegatedOperationError
+      && error.cause instanceof Error && 'reasonCode' in error.cause && error.cause.reasonCode === 'acp_request_not_pending');
     assert.equal(started, 1);
     await assert.rejects(execution.resolveRequest({ resolution }),
-      (error: unknown) => error instanceof Error && 'code' in error && error.code === 'request_resolution_mismatch');
+      (error: unknown) => error instanceof Error && 'code' in error
+        && error.code === (loss.kind === 'peer exit' ? 'request_resolution_mismatch' : 'session_unusable'));
     await assert.rejects(collectRemaining(iterator),
       (error: unknown) => error instanceof Error && 'reasonCode' in error && error.reasonCode === loss.reason);
-    assert.equal(peer.frames.filter((frame) => !frame.method).length, 0);
+    assert.deepEqual(peer.frames.filter((frame) => !frame.method), loss.kind === 'peer exit' ? [] : [
+      { jsonrpc: '2.0', id: 'lost-permission', result: { outcome: { outcome: 'cancelled' } } },
+    ]);
     assert.equal(peer.frames.filter((frame) => frame.method === 'session/prompt').length, 1);
     assert.equal(initial.filter((event) => event.type === 'request.opened').length, 1);
     assert.equal(initial.filter((event) => event.type === 'turn.completed').length, 0);

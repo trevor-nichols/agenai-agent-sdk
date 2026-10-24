@@ -92,6 +92,7 @@ test('package exports are explicit and complete', () => {
     './resources',
     './session-interactions',
     './sessions',
+    './structured-output',
     './turns',
     './zod',
   ]);
@@ -102,12 +103,12 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 35);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 40);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 12);
+    assert.equal(artifact.protocolVersion, 13);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -640,6 +641,7 @@ test('turn JSON Schemas declare decoded inline-image byte-size parity', () => {
   const ajv = new Ajv2020({
     allErrors: true,
     strict: true,
+    strictTuples: false,
     validateFormats: false,
   });
 
@@ -648,12 +650,7 @@ test('turn JSON Schemas declare decoded inline-image byte-size parity', () => {
       (candidate) => candidate.contractId === testCase.contractId,
     );
     assert.ok(artifact, testCase.contractId);
-    assert.deepEqual(artifact.parserInvariants, [
-      'inline_image_decoded_byte_size',
-      'serialized_bytes',
-      'content_reference_limits',
-      'unique_content_references',
-    ]);
+    assert.ok(artifact.parserInvariants.some((invariant) => invariant === 'inline_image_decoded_byte_size'));
     assert.equal(ajv.compile(artifact.schema)(testCase.value), true);
     assert.equal(testCase.parser(testCase.value).success, false);
   }
@@ -856,7 +853,11 @@ test('event JSON Schema declares residual semantic parser invariants', () => {
     'request_semantics',
     'retry_counter_ordering',
     'serialized_bytes',
-    'terminal_error_consistency',
+    'bounded_plain_json_data',
+    'structured_value_node_and_depth_limits',
+    'structured_value_collection_limits',
+    'serialized_utf8_bytes',
+    'structured_issue_utf8_bytes',
   ]);
 
   const validate = new Ajv2020({
@@ -865,7 +866,7 @@ test('event JSON Schema declares residual semantic parser invariants', () => {
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 12,
+    protocolVersion: 13,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',

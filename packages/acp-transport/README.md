@@ -76,7 +76,7 @@ slow output consumer does not block correlated responses or cancellation. Hosts
 must reserve bounded queue capacity during handler admission and retain that
 reservation until processing completes.
 
-Request deadlines and bounded shutdown drains keep Node's event loop alive until
+Finite request deadlines and bounded shutdown drains keep Node's event loop alive until
 the operation settles, including when the supplied streams have no active I/O
 handles. Settlement clears the operation's timer. Always await `client.dispose()`
 when the connection is no longer needed to reject pending requests and complete
@@ -153,6 +153,20 @@ and output backpressure. Notification delivery alone does not provide a durable
 event journal or a provider-neutral turn state machine.
 
 Request cancellation or timeout does not prove that the peer stopped execution.
+Requests default to bounded waiting, using the configured finite timeout and the
+earlier optional `deadlineAt`. Existing numeric `timeoutMs` and `deadlineAt` calls
+retain those limits. `lifetime: 'bounded'` makes that default explicit.
+
+Select `{ lifetime: 'until_settled' }` for an execution request that must retain
+its original RPC waiter until a response, explicit abort, disposal or connection
+failure. This choice schedules no request timer and cannot be combined with
+`timeoutMs` or `deadlineAt`, even when either property is explicitly `undefined`.
+Contradictions reject before dispatch. The request still consumes bounded pending
+capacity, retains its exact ID and response validation, and respects signals and
+disposal. The caller must own cancellation, output consumption and cleanup. For a
+long native operation, request abort alone does not establish native cancellation;
+retain the RPC while performing the protocol's cancellation-confirmation flow.
+
 `onRequestDispatch` receives the exact allocated `requestId` at the boundary immediately
 before the first write, allowing request-scoped reverse traffic to be correlated before
 the peer can respond. A callback that aborts or rejects admission prevents the request

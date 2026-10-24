@@ -142,10 +142,11 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
+      structuredOutput: { kind: "unsupported" },
       interactionModes: ["default"],
       interrupt: true,
       steer: { kind: "supported", input },
@@ -272,7 +273,7 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 12 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 13 as const, sessionId, turnId, occurredAt };
 }
 
 function fakeEnvironmentSnapshot(
@@ -456,7 +457,7 @@ function fakeSession(input: {
     });
     if (interruptedTurns.has(turnInput.turnId)) {
       yield createAgentEventOutput({ ...eventBase(input.context.sessionId, turnInput.turnId, input.now()),
-        type: "turn.completed", payload: { outcome: "canceled", reason: "Fake provider interrupted." } });
+        type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled", reason: "Fake provider interrupted." } });
       return;
     }
     yield createAgentEventOutput({
@@ -512,7 +513,7 @@ function fakeSession(input: {
     yield createAgentEventOutput({
       ...eventBase(input.context.sessionId, turnInput.turnId, occurredAt),
       type: "turn.completed",
-      payload: { outcome: interruptedTurns.has(turnInput.turnId) ? "canceled" : "completed", reason: "Fake provider completed." },
+      payload: { structuredOutput: { kind: "not_requested" }, outcome: interruptedTurns.has(turnInput.turnId) ? "canceled" : "completed", reason: "Fake provider completed." },
     });
   };
 

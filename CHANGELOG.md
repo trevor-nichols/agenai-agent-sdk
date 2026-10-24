@@ -1,8 +1,164 @@
 # Changelog
 
-All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. Starting with
-`0.4.0`, the three core packages and four optional packages (orchestration, ACP transport, ACP provider
-and ACP registry) share one source version and a seven-package release inventory.
+All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. Releases
+`0.4.0` through `0.4.3` use the three core packages and four optional packages (orchestration, ACP
+transport, ACP provider and ACP registry). The unpublished `0.4.4` candidate adds optional history, neutral sandbox contracts
+and a local Docker backend, for ten coordinated packages.
+
+## 0.4.4 - Unpublished source candidate
+
+This candidate advances Agent Protocol to **V13** with native structured final responses and adds
+optional history and explicit optional sandbox execution. Managed store contract 4 and SQLite format 3 remain unchanged.
+All ten source packages and packed SDK dependency ranges are coordinated at `0.4.4`. The recorded
+npm `latest` and `beta` release remains the seven-package `0.4.3` set; no history or sandbox publication,
+registry tag change, new trusted-publisher setup or private deployment is performed here.
+See [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md).
+
+### Added
+
+- Add explicit single-subtree export with targeted Docker archive reads, checked ancestors and workspace-relative output paths.
+
+- Add optional `@agen-ai/sandbox` and `@agen-ai/sandbox-docker` packages with a separate
+  `@agen-ai/sandbox/acp` bridge. The neutral root has no Docker or ACP requirement; all backend
+  authority is explicitly supplied. Extend export, release admission and packed-consumer checks to
+  the exact ten-package candidate while leaving the core/runtime dependency graph unchanged.
+- Add the credential-free [sandbox walkthrough](examples/sandbox/README.md) and reusable
+  example lifecycle. One native connection/process and one SDK session support multiple turns;
+  eager materialization, whole-compute stop, retained-file export and final destruction share
+  exact cleanup ownership. Persisted recovery restores cleanup only, without execution replay.
+- Add exact local Docker image admission and finite CPU, memory, PID, tmpfs, stream and transfer
+  policy, disabled ACP host facilities, and explicit isolated or broad outbound networking.
+  Arbitrary workload image ENV metadata and host mounts are not admitted; required hard workspace quotas reject before reservation until native enforcement is qualified.
+- Add `generateObject` through the explicit `@agen-ai/agent-runtime/generation` entrypoint.
+  It borrows a validated instance, owns one fresh session/turn and its output reader, decodes an
+  authoritative JSON object and closes the session before returning a typed value. The caller
+  retains instance disposal, credentials, tool/sandbox policy and application persistence.
+- Add the bounded `agenai.output-schema.v1` JSON Schema draft 2020-12 profile, neutral
+  `createAgentOutputDefinition` and explicit `/zod` `zodOutput`. Inference comes from an actual
+  decoder/schema; decoders must preserve the JSON value and successful results are deeply frozen.
+  The Zod convenience rejects transforms, refinements, defaults, coercion, optional fields, and
+  string/array length checks. Neutral string and array bounds remain supported.
+- Add the public [title-generation example](examples/generate-title.ts), compiled and executed
+  from installed tarballs using only public entrypoints. It saves a typed title only after session
+  cleanup. Add deterministic installed failure, scope, deadline, observer, decoder, interaction and
+  cleanup-retry qualification without native model calls.
+- Add an explicit public Grok Build 1.0.62 structured-output mapping through stable ACP
+  `schema-v1.23.0`. Installed real-backend proof covers title/rich objects, a changed per-turn
+  schema, ordinary text afterward and independent cleanup on its exact qualified tuple.
+- Add optional `@agen-ai/agent-history` with plain contracts/parsers, explicit `/zod`, custom driver
+  composition, scoped catalogs, metadata lookup, transcript/run views, separate native search
+  ports and individually enabled saved-session management. Imports remain inert and native
+  dependencies are optional peers for their selected constructors.
+- Add qualified explicit readers for Claude SDK 0.3.306 / Code 2.1.306, Codex app-server 0.163.0,
+  OpenCode V2 2.1.2, Cursor SDK 1.0.40 JSONL/SQLite local stores and Grok Build 1.0.62. Generic
+  ACP stable `schema-v1.23.0` provides negotiated catalog discovery only.
+- Preserve live coverage, native retention/omissions, stable native anchors when available and
+  instance-sealed pagination. Metadata matching retains each provider's native title semantics;
+  only the qualified Grok mapping supplies ranked native content search. No SDK index or private
+  parser fallback is introduced.
+- Require explicit management selection and exact accepted effects. Preserve applied native
+  receipts across later failures, return honest unknown outcomes after uncertain dispatch,
+  fence further mutation without replay, and retain cleanup ownership until native work settles.
+- Add reusable public browsing and explicitly configured Claude examples with packed-consumer
+  acceptance across isolated compositions. Browsing needs no runtime session or model turn;
+  stored tools, instructions and attachment references remain inert.
+
+### Changed
+
+- Replace array file transfer with streaming `importTree` / callback-scoped `exportTree`, optional
+  caller quotas and no implicit total transfer timer. Preserve exact-length/body ownership,
+  provisional export completion, bounded external metadata sorting and retryable spill cleanup.
+  Add explicit `@agen-ai/sandbox/node` spill storage; Docker requires `spillDirectory` and uses
+  profile-bound backend revisions `engine-1.52-v4-<profile>`. Exact-file exports read only admitted selected paths.
+- Add exact borrowed read-only image datasets under `/datasets/<name>` on Engine 29.1.4+ with the admitted containerd/overlayfs image store, with separate private writable workspaces and no automatic pull or borrowed-image deletion.
+- Add explicit `workspaceDiskQuota` no-request/required allocated-block policies. Required enforcement rejects before reservation on the current unsupported backend; positive quota support remains deferred.
+- Bind cleanup recovery v2 to a separate immutable configuration digest covering profile, user, workload image and dataset attachments. Legacy records are rejected before effects.
+- Add explicit Docker controller/daemon/image profiles: existing `linux-x64` default and
+  Apple Virtualization native-arm64/Rosetta-amd64 candidates. Bind recovery to the selected
+  profile; old and cross-profile revisions reject before Engine access. Desktop settings are
+  explicit caller assertions, separate from Engine observations. Actual Mac qualification is
+  pending; a portable installed-consumer lane and daemon-side cleanup observer support the
+  documented Mac handoff without changing the full Linux proof lane.
+- Remove universal cumulative process-traffic and 256 MiB tmpfs ceilings while retaining explicit
+  CPU/RAM/PID resources and bounded stdin/output staging. Docker archive encoding currently
+  represents single files through `8 GiB - 1`; aggregate workspace size has no SDK ceiling.
+
+- Default sandbox execution to `until_stopped`, with no implicit execution or idle timer. Add
+  explicit `{ kind: 'deadline', timeoutMs }` execution policy without a business-duration ceiling,
+  including timer-safe multi-day durations. Transfers accept optional per-call `deadlineAt`;
+  retired `deadlines.executionMs` and `operationMs` inputs must migrate and are rejected. Input types permit
+  omission while parsed policies always carry the normalized choice. Smoke/eval budgets remain
+  explicit application configuration; resource, stream, cleanup and recovery safeguards remain.
+- Add explicit `/node` directory imports with descriptor reads and staged directory exports.
+  Export reserves a fresh private namespace, publishes its `files` child only after complete
+  validation, preserves existing destinations and retains local cleanup retry ownership.
+  Caller-owned source hierarchies must be stable and quiescent; no snapshot guarantee is added.
+- Preserve omitted ordinary ACP turn deadlines without a provider prompt timer. Caller-selected
+  `deadlineAt` uses native-confirmed cancellation and supports dates beyond Node's timer range.
+  Retire provider `promptTimeoutMs`; move finite execution budgets to caller turns and use separate
+  finite `terminalWaitTimeoutMs` for host terminal waiting. Direct transport requests keep finite
+  defaults and may explicitly select `lifetime: 'until_settled'`, mutually exclusive with numeric
+  timing fields. Pending request, response, cancellation and cleanup ownership remain enforced.
+- Advance current live protocol envelopes from V12 to V13. Require
+  `turns.structuredOutput` capability and `turn.completed.payload.structuredOutput` result variants
+  for every adapter, including explicit unsupported/not-requested declarations. Add optional
+  scope-correct output requests to fresh create and turn inputs; structured resume/branch remain
+  unsupported. Historical decoders preserve old stored data without accepting old live envelopes.
+- Keep native execution outcome separate from structured-result availability. Missing, refused,
+  incomplete, invalid, mismatched, oversized or exhausted native output never becomes a typed
+  success. There is no prompt-only fallback, automatic repair or automatic replay.
+- Bound generation, observers, request handling and cleanup independently. Retain exact callable
+  cleanup ownership and primary errors/results after incomplete cleanup; an abort or uncertain
+  response does not authorize repeating generation.
+- Admit only the complete matching ten-package source/archive set before publication can begin.
+  Reject incomplete, foreign, duplicate or mixed-version artifacts. The public root stays private.
+- Document the distinction between candidate source, historical installed archives and publication.
+  The seven existing npm trust relationships do not establish bootstrap or trust for history or either sandbox package.
+
+### Fixed
+
+- Complete Docker resource cleanup when cancellation or persistence failure occurs after a
+  `creating` checkpoint but before create dispatch. Only the original owner's dispatch record
+  proves that no effect entered; recovered uncertain acquisitions retain their existing safeguards.
+- Preserve process streams while Docker reports a non-running exec with a null exit code after
+  upgrade. Wait for a numeric terminal status under the selected execution policy without replay.
+- Keep generation request handlers active when a provider expiry falls beyond the generation
+  deadline. Only earlier provider expiries need a separate timer, avoiding Node timer overflow
+  for distant valid dates while preserving timely expiry and rejection of late answers.
+
+### Qualification limits
+
+Sandbox backend and installed proof covers Linux x86_64 / Node 24.18.0 / rootful Docker Engine
+29.1.3 API 1.52, cgroup v2/systemd, default seccomp, AppArmor and private cgroup namespaces.
+Separate Grok Build 1.0.62 (`1474f9cbdd91`) API-key evidence covers four portable turns: exact file
+task and follow-up, a fresh isolated repeat, and cancellation after observed content. It records
+six delivered once-only approvals and independent compute absence before export plus complete
+retained-resource absence after destruction. The [Docker package README](packages/sandbox-docker/README.md#qualification-scope)
+records the exact binary identity, requested model/reasoning and scope. This does not qualify
+other providers, subscription authentication, fleet execution or billing. Hosted Docker CI is
+configured but has no recorded hosted result; the credential-free source/packed and real-backend
+checks remain separate from authenticated native evidence.
+
+Native evidence remains specific to the recorded Linux x86_64 / Node 24.18.0 tuple and exact native
+inputs. The portable root supports Node >=22; Cursor construction requires Node >=22.13. Cursor
+IDE/legacy CLI stores and cloud replay are unqualified; the sampled retained cloud stream returned
+HTTP 410 and no cloud constructor ships. Grok mutation proof covers only the owned unauthenticated,
+networkless, caller-quiescent local composition. Native read storage effects remain explicit.
+Structured-output public qualification uses Grok Build 1.0.62 (`1474f9cbdd91`), `grok-4.3`, low
+reasoning and xAI API-key authentication through installed matching `0.4.4` packages. Private
+Codex app-server 0.163.0 and Claude SDK 0.3.269 / Code 2.1.269 have separate diagnostic native
+proof; no public Codex/Claude provider ships and production admission/containment remains
+unqualified. Claude history's 0.3.306 / 2.1.306 tuple remains separate. Generic ACP, OpenCode and
+Cursor structured execution remain unsupported. Successful values guarantee accepted shape and
+local decoding, not factual truth, completion of every invocation, backend call count or billing.
+
+The private monorepo's Host V26/catalog V18/Agent13 successor and immutable V25 recovery are
+source changes only. Public packages do not enable private member/managed structured requests,
+deploy services, migrate production storage or activate a fleet. Prior MS009 history example/native
+evidence retains its original archive identities; current installed assembly and structured-output
+proof are separate. No qualification establishes arbitrary stores/platforms or history backend
+authentication/billing. First publication/bootstrap and trust verification for history remain
+separately required.
 
 ## 0.4.3 - 2026-10-20
 

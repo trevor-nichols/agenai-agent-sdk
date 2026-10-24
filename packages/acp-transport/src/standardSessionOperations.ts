@@ -11,6 +11,8 @@ import type { AcpJsonObject, AcpJsonValue } from './json.js';
 
 type AcpStableAgentMethod = (
   typeof import('./generated/protocolMetadata.js').ACP_STABLE_PROTOCOL
+)['agentMethods'][number] | (
+  typeof import('./generated/schemaV1_23_0Metadata.js').ACP_V1_23_0_STABLE_PROTOCOL
 )['agentMethods'][number];
 type AcpStandardObject<T extends object> = AcpJsonObject & Readonly<T>;
 
@@ -175,6 +177,17 @@ export type AcpStandardCancelParams = AcpStandardObject<{
   _meta?: AcpStandardMeta;
 }>;
 
+export type AcpStandardListSessionsParams = AcpStandardObject<{
+  cwd?: string | null;
+  cursor?: string | null;
+  _meta?: AcpStandardMeta;
+}>;
+
+export type AcpStandardDeleteSessionParams = AcpStandardObject<{
+  sessionId: string;
+  _meta?: AcpStandardMeta;
+}>;
+
 // ------------------------------------------------------------------------------------------------
 //                Standard Operation Capability
 // ------------------------------------------------------------------------------------------------
@@ -192,6 +205,14 @@ export interface AcpStandardSessionOperations {
     params: AcpStandardLoadSessionParams,
     options?: AcpRequestOptions,
   ) => Promise<AcpJsonValue>;
+  readonly listSessions: (
+    params: AcpStandardListSessionsParams,
+    options?: AcpRequestOptions,
+  ) => Promise<AcpJsonValue>;
+  readonly deleteSession: (
+    params: AcpStandardDeleteSessionParams,
+    options?: AcpRequestOptions,
+  ) => Promise<AcpJsonValue>;
   readonly prompt: (
     params: AcpStandardPromptParams,
     options?: AcpRequestOptions,
@@ -203,6 +224,8 @@ const STANDARD_METHODS = Object.freeze({
   initialize: 'initialize',
   newSession: 'session/new',
   loadSession: 'session/load',
+  listSessions: 'session/list',
+  deleteSession: 'session/delete',
   prompt: 'session/prompt',
   cancel: 'session/cancel',
 } as const satisfies Readonly<
@@ -225,6 +248,16 @@ export function createAcpStandardSessionOperations(
     ),
     loadSession: (params, options) => client.request(
       STANDARD_METHODS.loadSession,
+      params,
+      options,
+    ),
+    listSessions: (params, options) => client.request(
+      STANDARD_METHODS.listSessions,
+      params,
+      options,
+    ),
+    deleteSession: (params, options) => client.request(
+      STANDARD_METHODS.deleteSession,
       params,
       options,
     ),

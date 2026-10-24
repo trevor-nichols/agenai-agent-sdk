@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-protocol",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": false,
   "description": "Provider-neutral sessions, turns, requests, capabilities, artifacts, and events for coding-agent runtimes.",
   "type": "module",
@@ -100,6 +100,10 @@
     "./environment": {
       "types": "./dist/public/environment.d.ts",
       "import": "./dist/public/environment.js"
+    },
+    "./structured-output": {
+      "types": "./dist/public/structuredOutput.d.ts",
+      "import": "./dist/public/structuredOutput.js"
     }
   },
   "scripts": {

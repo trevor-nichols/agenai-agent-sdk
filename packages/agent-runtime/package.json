@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-runtime",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": false,
   "description": "Provider-neutral driver, instance, adapter, session, output, and conformance contracts for coding-agent runtimes.",
   "type": "module",
@@ -28,6 +28,10 @@
     "./environment": {
       "types": "./dist/environment/index.d.ts",
       "import": "./dist/environment/index.js"
+    },
+    "./generation": {
+      "types": "./dist/generation/index.d.ts",
+      "import": "./dist/generation/index.js"
     }
   },
   "scripts": {

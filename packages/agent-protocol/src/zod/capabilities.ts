@@ -4,6 +4,8 @@
 
 import { z } from 'zod/v4';
 
+import { AgentStructuredOutputCapabilitySchema } from './structuredOutput.js';
+
 import { AgentEnvironmentCapabilitySchema } from './environment.js';
 import { AGENT_CONTENT_REFERENCES_MAX_LENGTH } from '../turns/types.js';
 
@@ -440,6 +442,7 @@ export const AgentCapabilitiesPortableSchema = z
           .meta({ uniqueItems: true })
           .readonly(),
         interrupt: z.boolean(),
+        structuredOutput: AgentStructuredOutputCapabilitySchema,
         steer: z.discriminatedUnion('kind', [
           z.object({ kind: z.literal('unsupported') }).strict().readonly(),
           z

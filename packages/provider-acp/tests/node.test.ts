@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
 import { parseAgentConfigurationRevisionId, parseAgentInstanceId, parseAgentProviderKey, parseAgentSessionId, parseAgentTurnId } from '@agen-ai/agent-protocol';
+import { parseAgentExecutionInputMessageId } from '@agen-ai/agent-runtime';
 import { createNodeAcpProviderDriver, type CreateNodeAcpProviderDriverOptions } from '../src/node/index.js';
 import { collectRemaining, takeUntilRequest } from './fixtures/session-peer.js';
 
@@ -41,21 +42,31 @@ test('node launch preserves literal argv, isolates environment, runs text, and c
   const { driver, cwd, entries } = setup(t, 'unknown_extension');
   const instance = await driver.materialize(definition);
   t.after(() => instance.dispose());
+  assert.equal(instance.adapter.executionInput?.kind ?? 'unsupported', 'unsupported');
   const session = await instance.adapter.createSession({
     sessionId: parseAgentSessionId('node:session'), workingDirectory: cwd,
     configuration: { kind: 'managed', revision: parseAgentConfigurationRevisionId('config:fixture') }, onBindingCreated() {},
   });
-  const outputs = await Array.fromAsync(session.startTurn({
+  const execution = session.startTurn({
     turnId: parseAgentTurnId('node:turn'), interactionMode: 'default', parts: [{ type: 'text', text: 'hello' }],
-  }).outputs);
-  assert.ok(outputs.some((output) => output.kind === 'event' && output.event.type === 'turn.completed'));
+  });
+  const inputResult = execution.input?.kind === 'supported'
+    ? await execution.input.sendMessage({ messageId: parseAgentExecutionInputMessageId('node:update'),
+      parts: [{ type: 'text', text: 'Change the requested answer.' }] }) : { status: 'unsupported' };
+  assert.deepEqual(inputResult, { status: 'unsupported' });
+  const outputs = await Array.fromAsync(execution.outputs);
+  assert.deepEqual(outputs.flatMap((output) => output.kind === 'event' && output.event.type === 'content.delta'
+    ? [output.event.payload.delta] : []), ['fixture output']);
+  assert.deepEqual(outputs.flatMap((output) => output.kind === 'event' && output.event.type === 'turn.completed'
+    ? [output.event.payload] : []), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   const started = entries()[0];
   assert.deepEqual(started?.argv, ['$HOME', `$(touch ${path.join(cwd, 'shell-executed')})`]);
   assert.equal(started?.inherited, null);
   assert.equal(started?.cwd, cwd);
   assert.equal(existsSync(path.join(cwd, 'shell-executed')), false);
-  assert.equal(entries().filter((entry) => entry.method === 'session/prompt').length, 1);
   await instance.dispose();
+  assert.deepEqual(entries().filter((entry) => entry.type === 'received').map((entry) => entry.method),
+    ['initialize', 'session/new', 'session/prompt']);
   assertExited(started?.pid);
 });
 

@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import {
   parseAgentConfigurationRevisionId, parseAgentSessionId, parseAgentSessionPlanReviewRequest,
-  type AgentSessionResponse, type AgentSessionRequest, type AgentTurnId,
+  type AgentCapabilities, type AgentSessionResponse, type AgentSessionRequest, type AgentTurnId,
 } from "@agen-ai/agent-protocol";
 import {
   createAgentEventOutput, validateAgentProviderAdapter,
@@ -17,6 +17,7 @@ import { createFakeAgentProvider } from "../../src/testing/index.js";
 import { deferred } from "./hostBindings/harness.js";
 
 export async function continuationFixture(options: {
+  capabilities?: AgentCapabilities;
   timing?: AgentNativeContinuationTiming;
   beforeBinding?: boolean;
   delayBinding?: Promise<void>;
@@ -34,7 +35,7 @@ export async function continuationFixture(options: {
   extraOutput?: (context: AgentProviderSessionContext, turnId: AgentTurnId) => ReturnType<typeof createAgentEventOutput>;
   transformSession?: (session: AgentProviderSession) => AgentProviderSession;
 } = {}) {
-  const fake = createFakeAgentProvider();
+  const fake = createFakeAgentProvider(options.capabilities ? { capabilities: options.capabilities } : {});
   const instance = await fake.driver.materialize(fake.definition);
   const events: string[] = [];
   const opened = deferred<void>();
@@ -101,14 +102,14 @@ export async function continuationFixture(options: {
                   await output.promise;
                   if (signal.aborted) return;
                   if (options.outcome === "not_started") return;
-                  const envelope = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId, occurredAt: "2026-10-16T12:00:00.000Z" };
+                  const envelope = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId, occurredAt: "2026-10-16T12:00:00.000Z" };
                   yield createAgentEventOutput({ ...envelope, type: "turn.started", payload: {} });
                   if (options.afterStarted) events.push("source_waiting");
                   await options.afterStarted;
                   if (options.afterStarted) events.push("source_released");
                   if (signal.aborted) return;
                   if (options.extraOutput) yield options.extraOutput(context, turnId);
-                  yield createAgentEventOutput({ ...envelope, type: "turn.completed", payload: { outcome: "completed" } });
+                  yield createAgentEventOutput({ ...envelope, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
                   events.push("source_complete");
                 })();
               },

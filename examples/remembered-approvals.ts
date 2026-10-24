@@ -20,9 +20,9 @@ import { exampleGate, independentApprovalProgress, runApprovalWalkthrough, selec
 const approval: AgentApprovalCapability = { kind: 'supported', providerManagedRemembrance: true,
   modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }] };
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 12, providerKey: 'example-remembered-approvals',
+  protocolVersion: 13, providerKey: 'example-remembered-approvals',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
-  turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
+  turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
   requests: { approval, elicitation: { kind: 'unsupported' } },
   context: { usage: { kind: 'unsupported' }, compaction: { kind: 'unsupported' } },
   input: { text: true, images: { kind: 'unsupported' }, contentReferences: { kind: 'unsupported' } },
@@ -62,7 +62,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
           ],
         });
         let accepted = false;
-        const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId: input.turnId,
+        const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime('2026-10-14T12:00:00.000Z') };
         async function* outputs(): AsyncGenerator<AgentProviderOutput, void> {
           signal.throwIfAborted();
@@ -89,7 +89,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
           yield createAgentEventOutput({ ...base, type: 'item.completed', payload: {
             itemId: 'remembered:message', itemKind: 'assistant_message', status: 'completed',
           } });
-          yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { outcome: 'completed' } });
+          yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { structuredOutput: { kind: 'not_requested' }, outcome: 'completed' } });
         }
         return {
           turnId: input.turnId,

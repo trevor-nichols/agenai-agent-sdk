@@ -55,7 +55,7 @@ for (const { action, mode, outcome } of [
     const outputs = events(await completed.promise);
     assert.equal(continuations, 1);
     assert.equal(outputs.filter((event) => event.type === 'turn.started').length, 1);
-    assert.deepEqual(outputs.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome }]);
+    assert.deepEqual(outputs.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome, structuredOutput: { kind: 'not_requested' } }]);
     assert.equal(outputs.flatMap((event) => event.type === 'content.delta' ? [event.payload.delta] : []).join(''),
       mode === 'plan-native-cancelled-before-output' ? '' : 'Native continued output.');
   }
@@ -180,7 +180,7 @@ for (const { phase, reason, outcome } of [
   assert.deepEqual(await session.interruption.interruptTurn({ turnId: continuation.execution.turnId, reason }), { status: 'canceled' });
   const outputs = events(await completed.promise);
   assert.equal(outputs.filter((event) => event.type === 'turn.started').length, 1);
-  assert.deepEqual(outputs.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome }]);
+  assert.deepEqual(outputs.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome, structuredOutput: { kind: 'not_requested' } }]);
   assert.equal(outputs.filter((event) => event.type === 'content.delta').length, phase === 'before-output' ? 0 : 1);
   assert.equal(fixture.frames().filter((frame) => frame.method === 'session/cancel').length, 1);
   assert.equal(fixture.frames().filter((frame) => frame.method === 'session/prompt').length, 0);
@@ -213,7 +213,7 @@ test('the adopted native continuation reserves the caller slot through its actua
   await completed.promise;
   await new Promise<void>((resolve) => setImmediate(resolve));
   const next = events(await collect(session.startTurn(turnInput('caller:after-native')).outputs));
-  assert.deepEqual(next.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(next.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   assert.equal(fixture.frames().filter((frame) => frame.method === 'session/prompt').length, 1);
   await session.close({ reason: 'idle' });
 });

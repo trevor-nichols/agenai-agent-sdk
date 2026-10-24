@@ -46,7 +46,7 @@ test('conformance accepts idle environment watches and closes both subscriptions
   const fake = createFakeAgentProvider({ capabilities: parseAgentCapabilities({
     ...base,
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
-    turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
+    turns: { structuredOutput: { kind: "unsupported" }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
     requests: { approval: { kind: 'unsupported' }, elicitation: { kind: 'unsupported' } },
     configuration: { kind: 'managed' }, operations: { kind: 'unsupported' },
     collaboration: { kind: 'unsupported' }, generatedResources: { kind: 'unsupported' },
@@ -113,7 +113,7 @@ test("the deterministic fake passes conformance with a provider retry after requ
                     && output.event.payload.state === "waiting_for_request") {
                     observedRetries += 1;
                     yield createAgentEventOutput({
-                      protocolVersion: 12,
+                      protocolVersion: 13,
                       sessionId: input.sessionId,
                       turnId: turnInput.turnId,
                       occurredAt: "2026-10-11T00:00:00.000Z",
@@ -220,6 +220,7 @@ test("the deterministic fake passes conformance with a provider retry after requ
     "create_session",
     "binding_callback",
     "environment_session",
+    "structured_output_unsupported",
     "abort",
     "turn_order",
     "request_resolution",
@@ -318,10 +319,11 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
       environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-      protocolVersion: 12,
+      protocolVersion: 13,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {
+        structuredOutput: { kind: "unsupported" },
         interactionModes: ["default"],
         interrupt: false,
         steer: { kind: "unsupported" },
@@ -456,7 +458,7 @@ test("conformance retains the original error and failed cleanup without disposin
   const fake = createFakeAgentProvider({ capabilities: parseAgentCapabilities({
     ...createFakeAgentProvider().capabilities,
     sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
-    turns: { interactionModes: ["default"], interrupt: false, steer: { kind: "unsupported" } },
+    turns: { structuredOutput: { kind: "unsupported" }, interactionModes: ["default"], interrupt: false, steer: { kind: "unsupported" } },
     configuration: { kind: "managed" }, operations: { kind: "unsupported" },
     collaboration: { kind: "unsupported" }, generatedResources: { kind: "unsupported" },
   }) });
@@ -492,7 +494,7 @@ test("conformance inspects a turn-produced resource after terminal output and be
   const fake = createFakeAgentProvider({ capabilities: parseAgentCapabilities({
     ...createFakeAgentProvider().capabilities,
     sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
-    turns: { interactionModes: ["default"], interrupt: false, steer: { kind: "unsupported" } },
+    turns: { structuredOutput: { kind: "unsupported" }, interactionModes: ["default"], interrupt: false, steer: { kind: "unsupported" } },
     requests: { approval: { kind: "unsupported" }, elicitation: { kind: "unsupported" } },
     configuration: { kind: "managed" }, operations: { kind: "unsupported" },
     collaboration: { kind: "unsupported" },

@@ -83,6 +83,32 @@ test('complete terminal leases preserve output bounds, independent wait/kill, ex
   peer.destroy();
 });
 
+test('a finite terminal wait expires independently while its lease remains available for output and explicit release', { timeout: 3000 }, async (t) => {
+  const peer = createHostPeer();
+  let releases = 0;
+  let waitSignal: AbortSignal | undefined;
+  const instance = await createAcpProviderDriver({ providerKey: hostProviderKey, createConnection: () => peer.lease,
+    limits: { terminalWaitTimeoutMs: 20, hostOperationTimeoutMs: 1000 },
+    host: { createTerminal() { return {
+      output() { return { output: 'still retained', truncated: false }; },
+      waitForExit(signal) { waitSignal = signal; return new Promise<never>(() => {}); },
+      kill() {}, release() { releases += 1; },
+    }; } },
+  }).materialize(hostDefinition);
+  t.after(async () => { await instance.dispose(); peer.destroy(); });
+  await instance.adapter.createSession(hostSessionContext());
+  const created = await peer.request('terminal/create', { sessionId: 'native-session', command: '/approved/tool' });
+  assert(created.result && typeof created.result === 'object' && !Array.isArray(created.result));
+  const terminalId = created.result.terminalId;
+  assert.equal((await peer.request('terminal/wait_for_exit', { sessionId: 'native-session', terminalId })).error?.code, -32603);
+  assert.equal(waitSignal?.aborted, true);
+  assert.equal(releases, 0);
+  assert.deepEqual((await peer.request('terminal/output', { sessionId: 'native-session', terminalId })).result,
+    { output: 'still retained', truncated: false });
+  assert.deepEqual((await peer.request('terminal/release', { sessionId: 'native-session', terminalId })).result, {});
+  assert.equal(releases, 1);
+});
+
 test('accepted session URLs retain bounded capacity until completion and never autoaccept declined consent', { timeout: 2_000 }, async (t) => {
   const peer = createHostPeer();
   peer.handle((frame) => frame.method === 'session/prompt');

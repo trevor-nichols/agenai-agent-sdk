@@ -53,7 +53,7 @@ async function collect(iterator: AsyncIterator<AgentProviderOutput>, untilReques
 
 function turn(fixture: InstalledFixture, suffix = '') {
   return { turnId: parseAgentTurnId(`${fixture.kind}-${fixture.mode}${suffix}`), interactionMode: 'default' as const,
-    parts: [{ type: 'text' as const, text: 'Exercise retained offline ACP' }], signal: AbortSignal.timeout(10_000) };
+    parts: [{ type: 'text' as const, text: 'Exercise retained offline ACP' }], deadlineAt: new Date(Date.now() + 10_000).toISOString(), signal: AbortSignal.timeout(10_000) };
 }
 
 async function provePermission(session: AgentProviderSession, fixture: InstalledFixture): Promise<void> {
@@ -135,7 +135,7 @@ async function executeFixture(store: AcpInstallationStore, root: string, fixture
   assert.ok(launch.args.includes(literalArgs[1]!));
   const driver = createNodeAcpProviderDriver({ providerKey: `packed-retained-${fixture.kind}-${fixture.mode}`, launch: {
     executable: launch.executable, args: launch.args, env: launch.env, cwd: root, shutdownTimeoutMs: 1_000,
-  }, limits: { initializationTimeoutMs: 5_000, cancellationTimeoutMs: 2_000, promptTimeoutMs: 10_000,
+  }, limits: { initializationTimeoutMs: 5_000, cancellationTimeoutMs: 2_000,
     maxQueuedMessages: 8, maxPendingRequests: 2, maxQueuedBytes: 128 * 1024 } });
   const instance = await driver.materialize({ providerKey: driver.providerKey,
     instanceId: parseAgentInstanceId(`${fixture.kind}-${fixture.mode}-instance`), driverConfiguration: {} });

@@ -1,0 +1,36 @@
+export const AGENT_OUTPUT_SCHEMA_PROFILE = 'agenai.output-schema.v1' as const;
+export const AGENT_OUTPUT_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema' as const;
+
+export const AGENT_OUTPUT_SCHEMA_BYTES_LIMIT = 16_384;
+export const AGENT_OUTPUT_SCHEMA_NODES_LIMIT = 256;
+export const AGENT_OUTPUT_SCHEMA_DEPTH_LIMIT = 8;
+export const AGENT_OUTPUT_SCHEMA_PROPERTIES_LIMIT = 100;
+export const AGENT_OUTPUT_SCHEMA_PROPERTY_NAME_MAX_LENGTH = 128;
+export const AGENT_OUTPUT_SCHEMA_DESCRIPTION_MAX_LENGTH = 2_000;
+export const AGENT_OUTPUT_SCHEMA_ENUM_VALUES_LIMIT = 100;
+export const AGENT_OUTPUT_SCHEMA_LENGTH_BOUND_LIMIT = 16_384;
+
+export const AGENT_OUTPUT_VALUE_BYTES_LIMIT = 16_384;
+export const AGENT_OUTPUT_VALUE_NODES_LIMIT = 1_024;
+export const AGENT_OUTPUT_VALUE_DEPTH_LIMIT = 16;
+export const AGENT_OUTPUT_VALUE_COLLECTION_LIMIT = 100;
+export const AGENT_OUTPUT_RAW_JSON_BYTES_LIMIT = 65_536;
+
+export const AGENT_STRUCTURED_OUTPUT_ISSUES_LIMIT = 8;
+export const AGENT_STRUCTURED_OUTPUT_ISSUES_BYTES_LIMIT = 4_096;
+export const AGENT_STRUCTURED_OUTPUT_ISSUE_CODE_MAX_LENGTH = 64;
+export const AGENT_STRUCTURED_OUTPUT_ISSUE_MESSAGE_MAX_LENGTH = 256;
+export const AGENT_STRUCTURED_OUTPUT_ISSUE_PATH_SEGMENTS_LIMIT = 16;
+export const AGENT_STRUCTURED_OUTPUT_ISSUE_PATH_BYTES_LIMIT = 1_024;
+export const AGENT_STRUCTURED_OUTPUT_TURN_REQUEST_BYTES_LIMIT = 1_085_440;
+
+export const AGENT_STRUCTURED_OUTPUT_UNAVAILABLE_REASONS = [
+  'refused',
+  'incomplete',
+  'missing_output',
+  'invalid_json',
+  'schema_mismatch',
+  'output_limit_exceeded',
+  'native_retries_exhausted',
+  'provider_error',
+] as const;

@@ -31,7 +31,7 @@ test('selected Grok isolates announced child queues, updates and terminals while
   assert.deepEqual(await execution.resolveRequest({ resolution: selection(permission.payload.request) }), { status: 'delivered' });
   const output = [...first, ...events(await collectRemaining(iterator))];
   assert.equal(output.flatMap((event) => event.type === 'content.delta' ? [event.payload.delta] : []).join(''), 'Parent survived.');
-  assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   assert.equal(output.filter((event) => event.type === 'request.opened').length, 1);
   assert.equal(JSON.stringify(output).includes('child-tool'), false);
   assert.equal(session.environment.kind, 'read_and_watch');
@@ -50,7 +50,7 @@ test('exact repeated announcements reserve one child observation and leave paren
   const session = await adapter.createSession(context(fixture.cwd));
   const output = events(await collect(session.startTurn(turnInput()).outputs));
   assert.equal(output.flatMap((event) => event.type === 'content.delta' ? [event.payload.delta] : []).join(''), 'Parent survived.');
-  assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   await session.close({ reason: 'idle' });
 });
 
@@ -78,7 +78,7 @@ test('historical and live child prompt identities cannot poison subsequent owned
       planId: request.plan.planId, revision: request.plan.revision, action: 'approve' }), { status: 'delivered' });
     const output = events(await outputs[index]!.promise);
     assert.equal(output.flatMap((event) => event.type === 'content.delta' ? [event.payload.delta] : []).join(''), `Parent continuation ${index + 1}.`);
-    assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+    assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
     if (index === 0) fixture.signal();
   }
   assert.equal(executions, 2);
@@ -96,7 +96,7 @@ for (const conflict of [false, true]) test(`child observation identities remain 
     await assert.rejects(next, (cause: unknown) => cause instanceof Error && 'reasonCode' in cause && cause.reasonCode === 'acp_descendant_identity_conflict');
     await assert.rejects(async () => session.close({ reason: 'shutdown' }));
   } else {
-    assert.deepEqual(events(await next).filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+    assert.deepEqual(events(await next).filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
     await session.close({ reason: 'idle' });
   }
 });

@@ -3,6 +3,7 @@ import type { AcpNegotiatedAgent } from './contracts.js';
 import { AcpProviderConnectionError } from './errors.js';
 import type { AcpPermissionMappingSelection } from '../permissions/contracts.js';
 import type { AcpSessionInteractionSelection } from '../sessionInteractions/contracts.js';
+import { assertAcpStructuredOutputIdentity, type AcpStructuredOutputMappingSelection } from '../structuredOutput/mapping.js';
 
 function immutableProtocolData(value: AcpJsonValue): AcpJsonValue {
   if (Array.isArray(value)) {
@@ -24,6 +25,7 @@ export function readNegotiatedAgent(
   response: AcpJsonValue,
   permissionMapping: AcpPermissionMappingSelection = { mapping: 'once-only-v1' },
   sessionInteractions?: AcpSessionInteractionSelection,
+  structuredOutputMapping?: AcpStructuredOutputMappingSelection,
 ): AcpNegotiatedAgent {
   const value = response as AcpJsonObject;
   if (value.protocolVersion !== 1) {
@@ -41,6 +43,8 @@ export function readNegotiatedAgent(
     agentInfo = Object.freeze({ name: info.name as string, version: info.version as string });
   }
   let agentVersion: string | undefined;
+  assertAcpStructuredOutputIdentity(value, structuredOutputMapping);
+  if (structuredOutputMapping) agentVersion = '1.0.62';
   if (sessionInteractions?.mapping === 'grok-build-1.0.60-session-requests-v1') {
     const meta = value._meta;
     if (meta === null || typeof meta !== 'object' || Array.isArray(meta) || meta.agentVersion !== '1.0.60') {

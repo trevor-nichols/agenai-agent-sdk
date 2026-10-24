@@ -23,7 +23,7 @@ export type AcpConnectionAcquisition =
 export interface AcpNegotiatedAgent {
   readonly protocolVersion: 1;
   readonly agentInfo?: Readonly<{ name: string; version: string }>;
-  /** Bounded compatibility observation retained only by the selected Grok permission profile. */
+  /** Bounded native version observation retained by explicitly selected Grok mappings. */
   readonly agentVersion?: string;
   readonly agentCapabilities: AcpJsonObject;
   readonly authMethods: readonly AcpJsonValue[];

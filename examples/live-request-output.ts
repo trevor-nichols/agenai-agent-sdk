@@ -43,10 +43,10 @@ const answerText = 'Archive';
 
 // This provider is a deterministic teaching fixture. It performs no native or network operation.
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 12,
+  protocolVersion: 13,
   providerKey: 'example-live-request',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
-  turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
+  turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
   requests: {
     approval: { kind: 'unsupported' },
     elicitation: { kind: 'supported', fieldKinds: ['text'], maxFields: 1, sensitiveFields: false },
@@ -94,7 +94,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
         const requestA = makeRequest('live-request:A');
         const request = makeRequest('live-request:B');
         let accepted = false;
-        const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId: input.turnId,
+        const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime('2026-10-12T12:00:00.000Z') };
         async function* outputs(): AsyncGenerator<AgentProviderOutput, void> {
           signal.throwIfAborted();
@@ -131,7 +131,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
           yield createAgentEventOutput({ ...base, type: 'item.completed', payload: {
             itemId: 'live-request:message', itemKind: 'assistant_message', status: 'completed',
           } });
-          yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { outcome: 'completed' } });
+          yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { structuredOutput: { kind: 'not_requested' }, outcome: 'completed' } });
         }
         return {
           turnId: input.turnId,

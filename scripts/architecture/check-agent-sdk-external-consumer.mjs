@@ -32,6 +32,9 @@ import {
   seedDependencyBaseline,
   verifyDependencyBaselineInstall,
 } from "./agent-sdk-consumers/dependency-baseline.mjs";
+import { assertAcpExecutionInputUnsupported, assertExecutionInputExample } from "./agent-sdk-consumers/execution-input/reports.mjs";
+import { runNeutralSandboxConsumer } from "./agent-sdk-consumers/sandbox/proof.mjs";
+import { runPortableSandboxConsumer, runSandboxPlatformCheck } from "./agent-sdk-consumers/sandbox/platform-proof.mjs";
 
 // ------------------------------------------------------------------------------------------------
 //                Release Policy
@@ -72,7 +75,9 @@ const PUBLIC_REPOSITORY_URL = "git+https://github.com/trevor-nichols/agenai-agen
 const PUBLIC_HOMEPAGE_URL = "https://github.com/trevor-nichols/agenai-agent-sdk#readme";
 const PUBLIC_BUGS_URL = "https://github.com/trevor-nichols/agenai-agent-sdk/issues";
 const PUBLIC_EXAMPLES_ROOT = "examples";
+const EXECUTION_INPUT_CONSUMER_ROOT = "scripts/architecture/agent-sdk-consumers/execution-input";
 const CORE_OPERATION_FILES = ["operations.ts", "operations/invoke.ts", "operations/fixture.ts"];
+const CORE_GENERATION_FILES = ["generate-title.ts", "fixtures/generate-title.ts"];
 const CORE_CONTINUATION_FILES = [
   "session-continuations.ts",
   "fixtures/session-continuations/provider.ts",
@@ -89,22 +94,22 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.4.3", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.4", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.3" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.4" },
   },
   {
     name: "@agen-ai/agent-orchestration",
     root: "packages/agent-orchestration",
     directory: "packages/agent-orchestration",
     dependencies: {
-      "@agen-ai/agent-runtime": "^0.4.3",
-      "@agen-ai/agent-protocol": "^0.4.3",
-      "@agen-ai/validation": "^0.4.3",
+      "@agen-ai/agent-runtime": "^0.4.4",
+      "@agen-ai/agent-protocol": "^0.4.4",
+      "@agen-ai/validation": "^0.4.4",
       zod: "4.4.3",
       "@modelcontextprotocol/sdk": "1.29.0",
     },
@@ -127,20 +132,60 @@ const PACKAGES = [
     root: "packages/provider-acp",
     directory: "packages/provider-acp",
     dependencies: {
-      "@agen-ai/acp-transport": "^0.4.3",
-      "@agen-ai/agent-runtime": "^0.4.3",
-      "@agen-ai/agent-protocol": "^0.4.3",
+      "@agen-ai/acp-transport": "^0.4.4",
+      "@agen-ai/agent-runtime": "^0.4.4",
+      "@agen-ai/agent-protocol": "^0.4.4",
     },
   },
   {
     name: "@agen-ai/acp-registry",
     root: "packages/acp-registry",
     directory: "packages/acp-registry",
-    dependencies: { "@agen-ai/validation": "^0.4.3", zod: "4.4.3",
+    dependencies: { "@agen-ai/validation": "^0.4.4", zod: "4.4.3",
       "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
+      "./package.json": "./package.json",
+    },
+  },
+  {
+    name: "@agen-ai/agent-history",
+    root: "packages/agent-history",
+    directory: "packages/agent-history",
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.4", "@agen-ai/validation": "^0.4.4", zod: "4.4.3" },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./zod": { types: "./dist/zod.d.ts", import: "./dist/zod.js" },
+      "./claude": { types: "./dist/claude.d.ts", import: "./dist/claude.js" },
+      "./codex": { types: "./dist/codex.d.ts", import: "./dist/codex.js" },
+      "./opencode": { types: "./dist/opencode.d.ts", import: "./dist/opencode.js" },
+      "./cursor": { types: "./dist/cursor.d.ts", import: "./dist/cursor.js" },
+      "./acp": { types: "./dist/acp.d.ts", import: "./dist/acp.js" },
+      "./grok": { types: "./dist/grok.d.ts", import: "./dist/grok.js" },
+      "./package.json": "./package.json",
+    },
+  },
+  {
+    name: "@agen-ai/sandbox",
+    root: "packages/sandbox",
+    directory: "packages/sandbox",
+    dependencies: { "@agen-ai/validation": "^0.4.4", zod: "4.4.3" },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./backend": { types: "./dist/backend/index.d.ts", import: "./dist/backend/index.js" },
+      "./acp": { types: "./dist/acp/index.d.ts", import: "./dist/acp/index.js" },
+      "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
+      "./package.json": "./package.json",
+    },
+  },
+  {
+    name: "@agen-ai/sandbox-docker",
+    root: "packages/sandbox-docker",
+    directory: "packages/sandbox-docker",
+    dependencies: { "@agen-ai/sandbox": "^0.4.4", "@agen-ai/validation": "^0.4.4", zod: "4.4.3" },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./package.json": "./package.json",
     },
   },
@@ -258,7 +303,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.4.3");
+  assert.equal(manifest.version, "0.4.4");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -275,6 +320,24 @@ function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.bugs?.url, PUBLIC_BUGS_URL);
   assert.deepEqual(manifest.dependencies ?? {}, definition.dependencies);
   if (definition.exports) assert.deepEqual(manifest.exports, definition.exports);
+  if (definition.name === "@agen-ai/sandbox") {
+    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/provider-acp": "^0.4.4" });
+    assert.deepEqual(manifest.peerDependenciesMeta, { "@agen-ai/provider-acp": { optional: true } });
+  }
+  if (definition.name === "@agen-ai/agent-history") {
+    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/acp-transport": "^0.4.4", "@anthropic-ai/claude-agent-sdk": "0.3.306", "@cursor/sdk": "1.0.40", "@opencode/client": "2.1.2" });
+    assert.deepEqual(manifest.peerDependenciesMeta, { "@agen-ai/acp-transport": { optional: true }, "@anthropic-ai/claude-agent-sdk": { optional: true }, "@cursor/sdk": { optional: true }, "@opencode/client": { optional: true } });
+    assert.equal(manifest.devDependencies?.["@anthropic-ai/claude-agent-sdk"], "0.3.306");
+    assert.equal(manifest.devDependencies?.["@openai/codex"], "0.163.0");
+    assert.equal(manifest.devDependencies?.["@cursor/sdk"], "1.0.40");
+    assert.equal(manifest.devDependencies?.["@opencode/client"], "2.1.2");
+    assert.equal(manifest.devDependencies?.["@opencode/cli"], "2.1.2");
+    assert.equal(manifest.devDependencies?.["@agen-ai/acp-transport"], "^0.4.4");
+    assert.equal(manifest.devDependencies?.["@xai-official/grok"], "1.0.62");
+    for (const section of ["optionalDependencies", "bundledDependencies"]) {
+      assert.deepEqual(manifest[section] ?? {}, {}, `History ${section} is outside the qualified core graph`);
+    }
+  }
 
   const serializedManifest = JSON.stringify(manifest);
   assert.doesNotMatch(serializedManifest, /(?:workspace|link|catalog):/u);
@@ -389,6 +452,7 @@ const CONSUMER_SOURCE = `import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { PassThrough, Writable } from "node:stream";
 import { runAcpProviderConsumer } from "./provider.js";
+import { runStructuredOutputRuntimeConsumer } from "./structured-output/runtime.js";
 
 import {
   ACP_TRANSPORT_PACKAGE_NAME,
@@ -447,6 +511,7 @@ import {
   type AgentEnvironmentObservationPort,
 } from "@agen-ai/agent-runtime/environment";
 import { parseAgentTurnRunInput } from "@agen-ai/agent-protocol/turns";
+import { parseAgentOutputSchema, validateAgentOutputValue } from "@agen-ai/agent-protocol/structured-output";
 import { parseAgentRequest } from "@agen-ai/agent-protocol/requests";
 import { parseAgentEvent } from "@agen-ai/agent-protocol/events";
 import { parseAgentCapabilities } from "@agen-ai/agent-protocol/capabilities";
@@ -456,6 +521,9 @@ import { AGENT_ERROR_JSON_SCHEMA, AGENT_EVENT_JSON_SCHEMA, AGENT_SESSION_DECISIO
   AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA, AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA,
   AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA, AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA,
   AGENT_SESSION_REQUEST_JSON_SCHEMA, AGENT_SESSION_RESPONSE_JSON_SCHEMA,
+  AGENT_OUTPUT_SCHEMA_JSON_SCHEMA, AGENT_STRUCTURED_OUTPUT_CAPABILITY_JSON_SCHEMA,
+  AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA, AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA,
+  AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA,
   AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY } from "@agen-ai/agent-protocol/json-schema";
 import {
   AGENT_PROVIDER_CONTRACT_ERROR_CODES,
@@ -486,7 +554,17 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.4.3");
+assert.equal(protocolManifest.version, "0.4.4");
+
+const titleOutputSchema = parseAgentOutputSchema({
+  type: "object", additionalProperties: false,
+  properties: { title: { type: "string", minLength: 1, maxLength: 80 } }, required: ["title"],
+});
+assert.deepEqual(validateAgentOutputValue(titleOutputSchema, { title: "Conversation title" }), {
+  success: true, data: { title: "Conversation title" },
+});
+assert.equal(validateAgentOutputValue(titleOutputSchema, { title: 42 }).success, false);
+assert.equal(validateAgentOutputValue(titleOutputSchema, { title: "Title", extra: true }).success, false);
 
 const packedFailure: AgentError = {
   category: "quota_exhausted", code: "allowance_unavailable", message: "The observed allowance is exhausted.",
@@ -500,9 +578,9 @@ const packedFailure: AgentError = {
 assert.deepEqual(parseAgentError(JSON.parse(JSON.stringify(packedFailure))), packedFailure);
 assert.deepEqual(AgentErrorSchema.parse(packedFailure), packedFailure);
 assert.equal(safeParseAgentError({ code: "legacy", message: "Legacy failure.", retryable: false }).success, false);
-assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 12);
+assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 13);
 const packedRetry: AgentRuntimeRetryingEvent = {
-  protocolVersion: 12, sessionId: parseAgentSessionId("packed-retry-session"),
+  protocolVersion: 13, sessionId: parseAgentSessionId("packed-retry-session"),
   turnId: parseAgentTurnId("packed-retry-turn"), occurredAt: parseAgentIsoDateTime("2026-10-11T12:00:00.000Z"),
   type: "runtime.retrying", payload: { owner: "provider", error: packedFailure, attempt: 1, maxAttempts: 2, delayMs: 0 },
 };
@@ -806,7 +884,7 @@ assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 12);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 13);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -852,10 +930,11 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 12,
+  protocolVersion: 13,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
+    structuredOutput: { kind: "unsupported" },
     interactionModes: ["default"],
     interrupt: false,
     steer: {
@@ -899,7 +978,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
     outputs: (async function* () {
       packedRunCount += 1;
       yield createAgentEventOutput({
-        protocolVersion: 12,
+        protocolVersion: 13,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -907,12 +986,12 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 12,
+        protocolVersion: 13,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
         occurredAt: "2026-08-04T00:00:01.000Z",
-        payload: { outcome: "completed" },
+        payload: { outcome: "completed", structuredOutput: { kind: "not_requested" } },
       });
     })(),
     resolveRequest: async () => { throw new Error("The steering fixture has no pending request."); },
@@ -944,7 +1023,7 @@ const decision: AgentSessionDecisionRequest = parseAgentSessionDecisionRequest({
     consequence: { kind: "decline", configuration: "remains_gated" } }],
 });
 assert.deepEqual(AgentSessionDecisionRequestSchema.parse(decision), decision);
-assert.equal(AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA.protocolVersion, 12);
+assert.equal(AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA.protocolVersion, 13);
 assert.throws(() => parseAgentSessionDecisionResponseFor(decision, { kind: "decision", choiceId: "unoffered" }));
 // The installed portable graph includes forms and exact plan snapshots independently of runtime support.
 const packedForm = parseAgentSessionFormRequest({
@@ -974,11 +1053,14 @@ const packedReviewResponse = parseAgentSessionResponseFor(packedReview, {
 assert.deepEqual(AgentSessionRequestSchema.parse(packedReview), packedReview);
 assert.deepEqual(AgentSessionResponseSchema.parse(packedReviewResponse), packedReviewResponse);
 assert.throws(() => parseAgentSessionResponseFor(packedReview, { ...packedReviewResponse, revision: "revision:2" }));
-assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 35);
+assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 40);
 for (const artifact of [AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA, AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA,
   AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA, AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA,
-  AGENT_SESSION_REQUEST_JSON_SCHEMA, AGENT_SESSION_RESPONSE_JSON_SCHEMA]) {
-  assert.equal(artifact.protocolVersion, 12);
+  AGENT_SESSION_REQUEST_JSON_SCHEMA, AGENT_SESSION_RESPONSE_JSON_SCHEMA,
+  AGENT_OUTPUT_SCHEMA_JSON_SCHEMA, AGENT_STRUCTURED_OUTPUT_CAPABILITY_JSON_SCHEMA,
+  AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA, AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA,
+  AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA]) {
+  assert.equal(artifact.protocolVersion, 13);
   assert.ok(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.includes(artifact));
 }
 // Installed declarations must keep producer authority separate from application handlers.
@@ -1272,10 +1354,11 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
+      structuredOutput: { kind: "unsupported" },
       interactionModes: ["default"],
       interrupt: false,
       steer: { kind: "unsupported" },
@@ -1336,7 +1419,7 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 12,
+  protocolVersion: 13,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -1358,7 +1441,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 12,
+  protocolVersion: 13,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -1503,6 +1586,7 @@ for (const { channel, profile } of [
 }
 
 await runAcpProviderConsumer();
+process.stdout.write(JSON.stringify({ proof: "packed-structured-output-runtime", ...(await runStructuredOutputRuntimeConsumer()) }) + "\\n");
 process.stdout.write("External packed agent SDK consumer passed.\\n");
 `;
 
@@ -2017,6 +2101,13 @@ const retiredProtocolVersion: AgentCapabilities["protocolVersion"] = 11;
 void retiredProtocolVersion;
 `;
 
+const INTENTIONALLY_INVALID_HISTORY_SCHEMA_CONSUMER_SOURCE = `import {
+  AgentHistorySourceSchema,
+} from "@agen-ai/agent-history";
+
+void AgentHistorySourceSchema;
+`;
+
 async function writePackedOverrides(consumerRoot, dependencies) {
   await writeFile(path.join(consumerRoot, ".pnpmfile.cjs"),
     packedOverridesSource(dependencies));
@@ -2111,6 +2202,403 @@ async function exampleIdentities(consumerRoot, files) {
   })));
 }
 
+const HISTORY_EXAMPLE_FILES = ["browse.ts", "summary.ts", "fixture.ts", "main.ts", "claude.ts"];
+
+const HISTORY_CONSUMER_PACKAGES = ["@agen-ai/validation", "@agen-ai/agent-protocol", "@agen-ai/agent-history"];
+
+async function prepareHistoryConsumer(tempRoot, artifacts, directory, files, additionalDependencies = {}) {
+  const consumerRoot = path.join(tempRoot, directory);
+  const sourceRoot = path.join(consumerRoot, "src");
+  await mkdir(sourceRoot, { recursive: true });
+  const dependencies = Object.fromEntries(HISTORY_CONSUMER_PACKAGES.map((name) => [name,
+    `file:${artifacts.find((artifact) => artifact.manifest.name === name).tarballPath}`]));
+  await writeFile(path.join(consumerRoot, "package.json"), JSON.stringify({
+    name: `agent-sdk-${directory}-proof`, version: "1.0.0", private: true, type: "module",
+    packageManager: "pnpm@11.7.0", engines: { node: ">=22.0.0" },
+    dependencies: { "@agen-ai/agent-history": dependencies["@agen-ai/agent-history"],
+      "@agen-ai/agent-protocol": dependencies["@agen-ai/agent-protocol"], ...additionalDependencies },
+    devDependencies: { "@types/node": "24.10.1", typescript: "5.9.3" },
+  }, null, 2) + "\n");
+  await writeFile(path.join(consumerRoot, "tsconfig.json"), JSON.stringify({ compilerOptions: {
+    target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", outDir: "dist", rootDir: "src",
+    strict: true, noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, skipLibCheck: false, types: ["node"],
+  }, include: ["src/**/*.ts"] }, null, 2) + "\n");
+  await mkdir(path.join(sourceRoot, "history-example"), { recursive: true });
+  for (const file of HISTORY_EXAMPLE_FILES) {
+    await copyFile(path.join(REPO_ROOT, "examples/history", file), path.join(sourceRoot, "history-example", file));
+  }
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/history/browse-example.ts"), path.join(sourceRoot, "browse-example.ts"));
+  for (const file of files) {
+    await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/history", file), path.join(sourceRoot, file));
+  }
+  await writeFile(path.join(consumerRoot, "pnpm-workspace.yaml"), "packages: []\n\nautoInstallPeers: false\n");
+  await writePackedOverrides(consumerRoot, dependencies);
+  return consumerRoot;
+}
+
+async function runHistoryConsumer(tempRoot, artifacts) {
+  const consumerRoot = await prepareHistoryConsumer(tempRoot, artifacts, "history-consumer", ["scenario.ts", "types.ts", "codex.ts"]);
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/history/offline-guard.mjs"),
+    path.join(consumerRoot, "offline-guard.mjs"));
+  await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], { cwd: consumerRoot });
+  const absent = ["@agen-ai/agent-runtime", "@agen-ai/agent-orchestration", "@agen-ai/acp-transport", "@agen-ai/provider-acp", "@agen-ai/acp-registry",
+    "@anthropic-ai/claude-agent-sdk", "@cursor/sdk", "@opencode-ai/sdk", "@opencode/client", "@openai/codex", "@xai-official/grok"];
+  await run(process.execPath, ["--input-type=module", "--eval", `
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+const root = createRequire(path.resolve('package.json'));
+const history = createRequire(root.resolve('@agen-ai/agent-history/package.json'));
+for (const name of ${JSON.stringify(absent)}) {
+  for (const resolver of [root, history]) assert.throws(() => resolver.resolve(name), { code: 'MODULE_NOT_FOUND' });
+}`], { cwd: consumerRoot });
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  await writeFile(path.join(consumerRoot, "intentionally-invalid-schema.ts"),
+    INTENTIONALLY_INVALID_HISTORY_SCHEMA_CONSUMER_SOURCE);
+  await writeFile(path.join(consumerRoot, "tsconfig.invalid.json"), JSON.stringify({
+    extends: "./tsconfig.json", compilerOptions: { noEmit: true, rootDir: "." },
+    include: ["intentionally-invalid-schema.ts"],
+  }, null, 2) + "\n");
+  await assert.rejects(run("pnpm", ["exec", "tsc", "--project", "tsconfig.invalid.json"], { cwd: consumerRoot }),
+    (error) => error instanceof Error && /error TS(?:2305|2724): (?:Module )?'"@agen-ai\/agent-history"' has no exported member(?: named)? 'AgentHistorySourceSchema'\./u.test(error.message),
+    "Composable history schemas must be unavailable from the ordinary packed entrypoint.");
+  const permissionFlag = process.allowedNodeEnvironmentFlags.has("--permission") ? "--permission" : "--experimental-permission";
+  const execution = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
+    "--import", "./offline-guard.mjs", "dist/scenario.js"], { cwd: consumerRoot, timeoutMs: 30_000 });
+  const proof = JSON.parse(execution.stdout.trim());
+  assert.deepEqual(proof, {
+    proof: "history-only-root", evidence: "synthetic", catalogTitles: ["First history", "Second history"],
+    transcriptTexts: ["Fixture question", "Fixture answer"], nativeDisposals: 1,
+    foreignCursorDelegations: 0, unsupportedRename: true, claudeImportWithoutPeer: true, codexImportWithoutPeer: true,
+    opencodeImportWithoutPeer: true, cursorImportWithoutPeer: true, acpImportWithoutPeer: true, grokImportWithoutPeer: true,
+  });
+  process.stdout.write(execution.stdout);
+  const exampleExecution = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
+    "--import", "./offline-guard.mjs", "dist/history-example/main.js"], { cwd: consumerRoot, timeoutMs: 30_000 });
+  const exampleProof = JSON.parse(exampleExecution.stdout.trim());
+  assert.deepEqual(exampleProof, {
+    source: { kind: "example-memory-snapshot", scopeKind: "provider_defined", resourceOwnership: "borrowed", storageEffects: { kind: "none" } },
+    capabilities: Object.fromEntries(["catalog", "lookup", "transcript", "views", "metadataSearch", "contentSearch", "rename", "archive", "restore", "delete"]
+      .map((name) => [name, ["catalog", "lookup", "transcript"].includes(name) ? { status: "supported" }
+        : { status: "unsupported", reason: "native_unavailable" }])),
+    catalog: { status: "read", traversal: "exhausted", pages: [1, 1].map((items) => ({ items, consistency: "snapshot",
+      coverage: { view: "catalog", children: "included", omissions: [] } })) },
+    selected: true, metadataRead: true,
+    transcript: { status: "read", traversal: "exhausted", pages: ["compaction", "message", "tool_call", "tool_result", "message"]
+      .map((kind) => ({ recordKinds: [kind], consistency: "snapshot",
+        coverage: { view: "retained_chain", children: "excluded", omissions: ["compacted", "subagents_excluded"] } })) },
+    cleanup: "closed",
+  });
+  process.stdout.write(exampleExecution.stdout);
+  const codexExecution = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
+    "--import", "./offline-guard.mjs", "dist/codex.js"], { cwd: consumerRoot, timeoutMs: 30_000 });
+  const codexProof = JSON.parse(codexExecution.stdout.trim());
+  assert.deepEqual(codexProof, { proof: "packed-codex-borrowed-history", evidence: "synthetic",
+    titles: ["Borrowed Alpha", "Borrowed Beta"], records: 4, nativeIdentityPreserved: true,
+    foreignCursorDelegations: 0, borrowedPortUsableAfterClose: true, executionMethods: 0, titleSearchMatches: 1, browseExample: { catalogCount: 2, transcriptStatus: "read", transcriptRecords: 4, coverageViews: ["retained_chain"], metadataRead: true } });
+  process.stdout.write(codexExecution.stdout);
+  return { packages: HISTORY_CONSUMER_PACKAGES, absentPackages: absent, proof, codexProof, exampleProof, exampleFiles: await Promise.all(HISTORY_EXAMPLE_FILES.map(async (file) => ({
+    path: `examples/history/${file}`, sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, "src/history-example", file))).digest("hex"),
+  }))), files: await Promise.all(["scenario.ts", "types.ts", "codex.ts", "offline-guard.mjs"].map(async (file) => ({
+    path: `scripts/architecture/agent-sdk-consumers/history/${file}`,
+    sha256: createHash("sha256").update(await readFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/history", file))).digest("hex"),
+  }))) };
+}
+
+async function runClaudeHistoryConsumer(tempRoot, artifacts) {
+  const consumerRoot = await prepareHistoryConsumer(tempRoot, artifacts, "claude-history-consumer", ["claude-native.ts"],
+    { "@anthropic-ai/claude-agent-sdk": "0.3.306" });
+  await writeFile(path.join(consumerRoot, "pnpm-workspace.yaml"),
+    "packages: []\n\nautoInstallPeers: false\n\nminimumReleaseAgeExclude:\n  - '@anthropic-ai/claude-agent-sdk@0.3.306'\n");
+  await run("pnpm", ["install", "--ignore-scripts", "--no-optional", "--prefer-offline"], { cwd: consumerRoot });
+  const identity = await run(process.execPath, ["--input-type=module", "--eval", `
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFile, readdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+const require = createRequire(path.resolve('package.json'));
+const entry = require.resolve('@anthropic-ai/claude-agent-sdk');
+const manifest = JSON.parse(await readFile(path.join(path.dirname(entry), 'package.json'), 'utf8'));
+assert.equal(manifest.name, '@anthropic-ai/claude-agent-sdk');
+assert.equal(manifest.version, '0.3.306');
+assert.equal(manifest.claudeCodeVersion, '2.1.306');
+const sdkSha256 = createHash('sha256').update(await readFile(entry)).digest('hex');
+assert.equal(sdkSha256, '48480d49d4493e2aec28227d8db8f8432743c7aa32facbdb9a7ce0a0363f7503');
+const nativePackages = (await readdir('node_modules/.pnpm')).filter((name) => name.startsWith('@anthropic-ai+claude-agent-sdk-'));
+assert.deepEqual(nativePackages, []);
+process.stdout.write(JSON.stringify({ sdkVersion: manifest.version, sdkSha256, sdkDeclaredCodeVersion: manifest.claudeCodeVersion, nativeBinaryPackages: 0 }));
+`], { cwd: consumerRoot });
+  const sdk = JSON.parse(identity.stdout);
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const execution = await run(process.execPath, ["dist/claude-native.js"], { cwd: consumerRoot, timeoutMs: 120_000 });
+  const proof = JSON.parse(execution.stdout.trim());
+  assert.deepEqual(proof, { proof: "packed-claude-history", evidence: "native-reader-synthetic-store", homes: [
+    { label: "HOME-A", catalogCount: 4, alphaRecords: 7, compactRecords: 3, browseExample: { catalogCount: 4, transcriptStatus: "read", transcriptRecords: 7, coverageViews: ["retained_chain"], metadataRead: true } },
+    { label: "HOME-B", catalogCount: 4, alphaRecords: 7, compactRecords: 3, browseExample: { catalogCount: 4, transcriptStatus: "read", transcriptRecords: 7, coverageViews: ["retained_chain"], metadataRead: true } },
+  ], missing: "not_found", emptyRecords: 0, workerRootsAfterClose: 0, readerStoreUnchanged: true,
+    management: { renamedTitle: "Packed renamed Beta", deleteStatus: "applied", subagentsRemoved: true,
+      foreignProjectPreserved: true, readerAlphaPreserved: true } });
+  process.stdout.write(execution.stdout);
+  const nativeExampleExecution = await run(process.execPath, ["dist/history-example/claude.js",
+    "--config-home", path.join(consumerRoot, "native-fixtures/HOME-A/config"),
+    "--project", path.join(consumerRoot, "native-fixtures/project"),
+    "--temporary-root", path.join(consumerRoot, "native-fixtures/HOME-A/workers"),
+    "--resource-launcher", "/usr/bin/prlimit", "--conversation-id", "20000001-1111-4111-8111-111111111111"],
+  { cwd: consumerRoot, timeoutMs: 120_000 });
+  const nativeExampleProof = JSON.parse(nativeExampleExecution.stdout.trim());
+  assert.equal(nativeExampleProof.selected, true);
+  assert.equal(nativeExampleProof.metadataRead, true);
+  assert.equal(nativeExampleProof.catalog.status, "read");
+  assert.equal(nativeExampleProof.catalog.traversal, "exhausted");
+  assert.equal(nativeExampleProof.catalog.pages.reduce((count, page) => count + page.items, 0), 3);
+  assert.equal(nativeExampleProof.transcript.status, "read");
+  assert.equal(nativeExampleProof.transcript.traversal, "exhausted");
+  assert.equal(nativeExampleProof.transcript.pages.reduce((count, page) => count + page.recordKinds.length, 0), 7);
+  for (const page of nativeExampleProof.transcript.pages) assert.equal(page.coverage.view, "retained_chain");
+  for (const name of ["rename", "archive", "restore", "delete"]) assert.equal(nativeExampleProof.capabilities[name].status, "unsupported");
+  assert.equal(nativeExampleProof.cleanup, "closed");
+  assert.deepEqual(await readdir(path.join(consumerRoot, "native-fixtures/HOME-A/workers")), []);
+  process.stdout.write(nativeExampleExecution.stdout);
+  return { packages: [...HISTORY_CONSUMER_PACKAGES, "@anthropic-ai/claude-agent-sdk"], sdk, proof, nativeExampleProof,
+    file: { path: "scripts/architecture/agent-sdk-consumers/history/claude-native.ts",
+      sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, "src/claude-native.ts"))).digest("hex") } };
+}
+
+async function runCodexHistoryConsumer(tempRoot, artifacts) {
+  const consumerRoot = await prepareHistoryConsumer(tempRoot, artifacts, "codex-history-consumer", ["codex-native.ts"],
+    { "@openai/codex": "0.163.0" });
+  const configPath = path.join(consumerRoot, "tsconfig.json");
+  const compilerProfile = JSON.parse(await readFile(configPath, "utf8"));
+  compilerProfile.compilerOptions.lib = ["ES2024"];
+  await writeFile(configPath, JSON.stringify(compilerProfile, null, 2) + "\n");
+  const definition = PACKAGES.find((entry) => entry.name === "@agen-ai/agent-history");
+  assert(definition);
+  const helperFiles = ["codex-fixture.ts", "codex-fixture-server.ts"];
+  for (const file of helperFiles) {
+    await copyFile(path.join(REPO_ROOT, definition.root, "tests/helpers", file), path.join(consumerRoot, "src", file));
+  }
+  await writeFile(path.join(consumerRoot, "pnpm-workspace.yaml"),
+    "packages: []\n\nautoInstallPeers: false\n\nminimumReleaseAgeExclude:\n  - '@openai/codex@0.163.0 || 0.163.0-linux-x64 || 0.163.0-linux-arm64 || 0.163.0-darwin-x64 || 0.163.0-darwin-arm64 || 0.163.0-win32-x64 || 0.163.0-win32-arm64'\n");
+  await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], { cwd: consumerRoot });
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const execution = await run(process.execPath, ["dist/codex-native.js"], { cwd: consumerRoot, timeoutMs: 180_000 });
+  const proof = JSON.parse(execution.stdout.trim());
+  assert.deepEqual(proof, {
+    proof: "packed-codex-native-history", evidence: "native-reader-synthetic-store", version: "0.163.0",
+    executableSha256: "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
+    fixtureProvenance: "https://github.com/openai/codex/blob/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/app-server/tests/common/rollout.rs",
+    coldCatalogCount: 1, coldCatalogContinuation: false, metadataSetup: "explicit-fixture-only-native-metadata-repair",
+    catalogCount: 5, strictBeforeRepair: 0, strictAfterRepair: 5, legacyRecords: 6, indexedRecords: 6,
+    variantRecords: 6, emptyRecords: 0, missing: "not_found", workerRootsAfterClose: 0, legacyReadRolloutsUnchanged: true,
+    indexedSetup: "explicit-fixture-only-native-migration", titleSearchMatches: 1,
+    rename: "applied", archive: "applied", restore: "applied", delete: "applied",
+    archiveCascade: true, restoreParentOnly: true, deleteCascade: true,
+    browseExample: { catalogCount: 5, transcriptStatus: "read", transcriptRecords: 6, coverageViews: ["retained_chain"], metadataRead: true },
+  });
+  process.stdout.write(execution.stdout);
+  const files = [
+    { source: "scripts/architecture/agent-sdk-consumers/history/codex-native.ts", copied: "codex-native.ts" },
+    ...helperFiles.map((file) => ({ source: `${definition.root}/tests/helpers/${file}`, copied: file })),
+  ];
+  return { packages: [...HISTORY_CONSUMER_PACKAGES, "@openai/codex"], proof,
+    files: await Promise.all(files.map(async ({ source, copied }) => ({ path: source,
+      sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, "src", copied))).digest("hex") }))) };
+}
+
+async function runOpenCodeHistoryConsumer(tempRoot, artifacts) {
+  const consumerRoot = await prepareHistoryConsumer(tempRoot, artifacts, "opencode-history-consumer", ["opencode-native.ts"],
+    { "@opencode/client": "2.1.2", "@opencode/cli": "2.1.2" });
+  const configPath = path.join(consumerRoot, "tsconfig.json");
+  const compilerProfile = JSON.parse(await readFile(configPath, "utf8"));
+  compilerProfile.compilerOptions.lib = ["ES2024"];
+  await writeFile(configPath, JSON.stringify(compilerProfile, null, 2) + "\n");
+  const definition = PACKAGES.find((entry) => entry.name === "@agen-ai/agent-history");
+  assert(definition);
+  await copyFile(path.join(REPO_ROOT, definition.root, "tests/helpers/opencode-fixture.ts"),
+    path.join(consumerRoot, "src/opencode-fixture.ts"));
+  const nativePackages = ["client", "protocol", "schema", "cli", "cli-linux-x64", "cli-darwin-x64", "cli-linux-arm64",
+    "cli-windows-x64", "cli-darwin-arm64", "cli-windows-arm64", "cli-linux-x64-musl", "cli-linux-arm64-musl",
+    "cli-linux-x64-baseline", "cli-darwin-x64-baseline", "cli-windows-x64-baseline", "cli-linux-x64-baseline-musl"];
+  await writeFile(path.join(consumerRoot, "pnpm-workspace.yaml"),
+    `packages: []\n\nautoInstallPeers: false\n\nminimumReleaseAgeExclude:\n${nativePackages.map((name) => `  - '@opencode/${name}@2.1.2'`).join("\n")}\n`);
+  await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], { cwd: consumerRoot });
+  const identity = await run(process.execPath, ["--input-type=module", "--eval", `
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const require = createRequire(path.resolve('package.json'));
+const entry = fileURLToPath(import.meta.resolve('@opencode/client/promise'));
+const manifest = JSON.parse(await readFile(path.join(path.dirname(entry), '../../package.json'), 'utf8'));
+assert.equal(manifest.name, '@opencode/client');
+assert.equal(manifest.version, '2.1.2');
+assert.deepEqual(manifest.dependencies, { '@opencode/schema': '2.1.2', '@opencode/protocol': '2.1.2' });
+for (const resolveFrom of [require, createRequire(entry)]) {
+  assert.throws(() => resolveFrom.resolve('solid-js'), { code: 'MODULE_NOT_FOUND' });
+}
+const promiseEntrySha256 = createHash('sha256').update(await readFile(entry)).digest('hex');
+assert.equal(promiseEntrySha256, '29e020d2ff626a7a230b7054eb86d2c4933bebe6feb3629cd934afd799816177');
+process.stdout.write(JSON.stringify({ clientVersion: manifest.version,
+  promiseEntrySha256,
+  dependencies: manifest.dependencies, optionalSolidPeerInstalled: false }));
+`], { cwd: consumerRoot });
+  const sdk = JSON.parse(identity.stdout);
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const execution = await run(process.execPath, ["dist/opencode-native.js"], { cwd: consumerRoot, timeoutMs: 120_000 });
+  const proof = JSON.parse(execution.stdout.trim());
+  assert.deepEqual(proof, {
+    proof: "packed-opencode-native-history", evidence: "native-reader-synthetic-store", version: "2.1.2",
+    executableSha256: "22636c800ba6c8dc5353e264183bb3927725d824cba412f007dea9c694740f52",
+    projectCatalogCount: 4, otherProjectCatalogCount: 1, transcriptRecords: 9, filteredUserRecords: 2,
+    emptyRecords: 0, missing: "not_found", foreignProject: "unsupported_scope", accessDenied: "access_denied", serverUsableAfterClose: true,
+    executionRequests: 0, titleSearchMatches: 1,
+    rename: "applied", archive: "applied", restore: "applied", delete: "applied",
+    archiveParentOnly: true, restoreParentOnly: true, deleteCascade: true,
+    browseExample: { catalogCount: 4, transcriptStatus: "read", transcriptRecords: 9, coverageViews: ["retained_chain"], metadataRead: true },
+  });
+  process.stdout.write(execution.stdout);
+  const files = [
+    { source: "scripts/architecture/agent-sdk-consumers/history/opencode-native.ts", copied: "opencode-native.ts" },
+    { source: `${definition.root}/tests/helpers/opencode-fixture.ts`, copied: "opencode-fixture.ts" },
+  ];
+  return { packages: [...HISTORY_CONSUMER_PACKAGES, "@opencode/client", "@opencode/cli"], sdk, proof,
+    files: await Promise.all(files.map(async ({ source, copied }) => ({ path: source,
+      sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, "src", copied))).digest("hex") }))) };
+}
+
+async function runCursorHistoryConsumer(tempRoot, artifacts) {
+  const consumerRoot = await prepareHistoryConsumer(tempRoot, artifacts, "cursor-history-consumer", ["cursor-native.ts"],
+    { "@cursor/sdk": "1.0.40", zod: "4.4.3" });
+  const manifestPath = path.join(consumerRoot, "package.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  manifest.engines.node = ">=22.13";
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+  const definition = PACKAGES.find((entry) => entry.name === "@agen-ai/agent-history");
+  assert(definition);
+  await copyFile(path.join(REPO_ROOT, definition.root, "tests/helpers/cursor-fixture.ts"),
+    path.join(consumerRoot, "src/cursor-fixture.ts"));
+  await writeFile(path.join(consumerRoot, "pnpm-workspace.yaml"),
+    "packages: []\n\nautoInstallPeers: false\n\nminimumReleaseAgeExclude:\n  - '@cursor/sdk@1.0.40'\n");
+  await run("pnpm", ["install", "--ignore-scripts", "--no-optional", "--prefer-offline"], { cwd: consumerRoot });
+  const identity = await run(process.execPath, ["--input-type=module", "--eval", `
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFile, readdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const [major, minor] = process.versions.node.split('.').map(Number);
+assert(major > 22 || (major === 22 && minor >= 13), 'Cursor native history requires Node >=22.13');
+const entry = fileURLToPath(import.meta.resolve('@cursor/sdk'));
+assert(entry.endsWith('/dist/esm/index.js'));
+const manifest = JSON.parse(await readFile(path.join(path.dirname(entry), '../../package.json'), 'utf8'));
+assert.equal(manifest.name, '@cursor/sdk');
+assert.equal(manifest.version, '1.0.40');
+assert.equal(manifest.engines.node, '>=22.13');
+const sdkEntrySha256 = createHash('sha256').update(await readFile(entry)).digest('hex');
+assert.equal(sdkEntrySha256, 'fa955abb770bd70961ce878e184adf431b3bf6ba034f8ffce69ff2104b2a5bfe');
+const sqliteEntry = fileURLToPath(import.meta.resolve('@cursor/sdk/sqlite'));
+assert.equal(sqliteEntry, path.join(path.dirname(entry), 'sqlite.js'));
+const sqliteEntrySha256 = createHash('sha256').update(await readFile(sqliteEntry)).digest('hex');
+assert.equal(sqliteEntrySha256, '3ca3eae5ed43241e6e393488981d07b2e93d8ddb278a0b13d509247f1de77b52');
+const sdkRequire = createRequire(entry);
+assert.equal(sdkRequire('zod/package.json').version, '4.4.3');
+assert(sdkRequire.resolve('zod/v3').includes('/zod/'));
+const executorPackages = (await readdir('node_modules/.pnpm')).filter((name) => /^@cursor\\+sdk-(?:linux|darwin|win32)-/u.test(name));
+assert.deepEqual(executorPackages, []);
+process.stdout.write(JSON.stringify({ sdkVersion: manifest.version, sdkEntrySha256, sqliteEntrySha256,
+  validatorVersion: '4.4.3', executorPackages: 0 }));
+`], { cwd: consumerRoot });
+  const sdk = JSON.parse(identity.stdout);
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const execution = await run(process.execPath, ["dist/cursor-native.js"], { cwd: consumerRoot, timeoutMs: 180_000 });
+  const proof = JSON.parse(execution.stdout.trim());
+  assert.deepEqual(proof, {
+    proof: "packed-cursor-native-history", evidence: "native-reader-synthetic-store",
+    stores: [
+      { backend: "jsonl", label: "STORE-A", catalogCount: 3, checkpointRecords: 9, terminalRunViews: 3, storedRunRecords: 2, checkpointOnlyRunRecords: 0, browseExample: { catalogCount: 3, transcriptStatus: "read", transcriptRecords: 9, coverageViews: ["current_checkpoint"], metadataRead: true } },
+      { backend: "jsonl", label: "STORE-B", catalogCount: 3, checkpointRecords: 9, terminalRunViews: 3, storedRunRecords: 2, checkpointOnlyRunRecords: 0, browseExample: { catalogCount: 3, transcriptStatus: "read", transcriptRecords: 9, coverageViews: ["current_checkpoint"], metadataRead: true } },
+      { backend: "sqlite", label: "SQLITE", catalogCount: 3, checkpointRecords: 9, terminalRunViews: 3, storedRunRecords: 2, checkpointOnlyRunRecords: 0, browseExample: { catalogCount: 3, transcriptStatus: "read", transcriptRecords: 9, coverageViews: ["current_checkpoint"], metadataRead: true } },
+    ], emptyRecords: 0, missing: "not_found", foreignProject: "unsupported_scope",
+    workerRootsAfterClose: 0, readPhase: { jsonlStoreUnchanged: true, sqliteSemanticRowsUnchanged: true },
+    management: ["jsonl", "sqlite"].map((backend) => ({ backend, archived: true, restored: true, deleted: true,
+      dependentRuns: 0, dependentEvents: 0, dependentCheckpoints: 0, foreignAgentPreserved: true })),
+  });
+  process.stdout.write(execution.stdout);
+  const files = [
+    { source: "scripts/architecture/agent-sdk-consumers/history/cursor-native.ts", copied: "cursor-native.ts" },
+    { source: `${definition.root}/tests/helpers/cursor-fixture.ts`, copied: "cursor-fixture.ts" },
+  ];
+  return { packages: [...HISTORY_CONSUMER_PACKAGES, "@cursor/sdk", "zod"], sdk, proof,
+    files: await Promise.all(files.map(async ({ source, copied }) => ({ path: source,
+      sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, "src", copied))).digest("hex") }))) };
+}
+
+async function runGrokHistoryConsumer(tempRoot, artifacts) {
+  const transport = artifacts.find((artifact) => artifact.manifest.name === "@agen-ai/acp-transport");
+  assert(transport);
+  const consumerRoot = await prepareHistoryConsumer(tempRoot, artifacts, "grok-history-consumer", ["acp-reader.ts", "grok-native.ts"],
+    { "@agen-ai/acp-transport": `file:${transport.tarballPath}`, "@xai-official/grok": "1.0.62" });
+  const definition = PACKAGES.find((entry) => entry.name === "@agen-ai/agent-history");
+  assert(definition);
+  const helpers = ["acp-peer.ts", "grok-fixture.ts"];
+  for (const file of helpers) await copyFile(path.join(REPO_ROOT, definition.root, "tests/helpers", file), path.join(consumerRoot, "src", file));
+  await writeFile(path.join(consumerRoot, "src/main.ts"), [
+    "import { proveAcpHistory } from './acp-reader.js';",
+    "import { proveGrokHistory } from './grok-native.js';",
+    "console.log(JSON.stringify({proof:'packed-acp-grok-history',acp:await proveAcpHistory(),grok:await proveGrokHistory()}));",
+    "",
+  ].join("\n"));
+  await writeFile(path.join(consumerRoot, "pnpm-workspace.yaml"),
+    `packages: []\n\nautoInstallPeers: false\n\nminimumReleaseAgeExclude:\n${["grok", "grok-darwin-arm64", "grok-darwin-x64", "grok-linux-arm64", "grok-linux-x64", "grok-win32-arm64", "grok-win32-x64"]
+      .map((name) => `  - '@xai-official/${name}@1.0.62'`).join("\n")}\n`);
+  await run("pnpm", ["install", "--ignore-scripts", "--prefer-offline"], { cwd: consumerRoot });
+  const identity = await run(process.execPath, ["--input-type=module", "--eval", `
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+const require = createRequire(path.resolve('package.json'));
+const wrapperPath = require.resolve('@xai-official/grok/package.json');
+const wrapper = require(wrapperPath);
+const nativePath = require.resolve('@xai-official/grok-linux-x64/package.json', { paths: [path.dirname(wrapperPath)] });
+const native = require(nativePath);
+assert.equal(wrapper.name, '@xai-official/grok');
+assert.equal(wrapper.version, '1.0.62');
+assert.equal(native.name, '@xai-official/grok-linux-x64');
+assert.equal(native.version, '1.0.62');
+assert.equal(wrapper.optionalDependencies['@xai-official/grok-linux-x64'], '1.0.62');
+const transport = require('@agen-ai/acp-transport/package.json');
+assert.equal(transport.version, '0.4.4');
+process.stdout.write(JSON.stringify({wrapperVersion:wrapper.version,platformVersion:native.version,transportVersion:transport.version,lifecycleScripts:false}));
+`], { cwd: consumerRoot });
+  const runtime = JSON.parse(identity.stdout);
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const execution = await run(process.execPath, ["dist/main.js"], { cwd: consumerRoot, timeoutMs: 180_000 });
+  const proof = JSON.parse(execution.stdout.trim());
+  assert.deepEqual(proof, { proof: "packed-acp-grok-history",
+    acp: { catalogIds: ["peer-alpha", "peer-beta", "peer-gamma"], transcript: "unsupported", absentCatalog: "unsupported",
+      callerTransportSurvived: true, executionMethods: [], browseExample: { catalogCount: 3, transcriptStatus: "unsupported", transcriptRecords: 0, coverageViews: [], metadataRead: false } },
+    grok: { runtimeVersion: "1.0.62", catalogIds: ["70000004-1111-4111-8111-111111111111", "70000002-1111-4111-8111-111111111111", "70000001-1111-4111-8111-111111111111"],
+      alphaRecords: 7, betaRecords: 4, emptyRecords: 0, missing: "not_found", otherProject: "unsupported_scope", sourceIsolation: true,
+      workerRootsAfterClose: 0, loadHistoryCode: -32601, executionMethods: [],
+      metadataSearch: "native-case-insensitive", contentSearch: "native-fts-user-prompts", nativeSearchHits: 2,
+      sourceBytesPreservedBySearch: true, localRename: "applied", localDelete: "applied", missingDelete: "applied",
+      childRetained: true, lostNativeReceipt: "outcome_unknown", duplicateMutationFenced: true, withheldNativeReceipts: 1, browseExample: { catalogCount: 3, transcriptStatus: "read", transcriptRecords: 7, coverageViews: ["stored_updates"], metadataRead: true } },
+  });
+  process.stdout.write(execution.stdout);
+  const files = [
+    ...["acp-reader.ts", "grok-native.ts"].map((file) => ({ source: `scripts/architecture/agent-sdk-consumers/history/${file}`, copied: file })),
+    ...helpers.map((file) => ({ source: `${definition.root}/tests/helpers/${file}`, copied: file })),
+  ];
+  return { packages: [...HISTORY_CONSUMER_PACKAGES, "@agen-ai/acp-transport", "@xai-official/grok"],
+    evidence: { acp: "synthetic-peer", grok: "native-reader-synthetic-store" }, runtime, proof,
+    files: await Promise.all(files.map(async ({ source, copied }) => ({ path: source,
+      sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, "src", copied))).digest("hex") }))) };
+}
+
 async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   const consumerRoot = path.join(tempRoot, "core-consumer");
   await mkdir(path.join(consumerRoot, "src"), { recursive: true });
@@ -2122,19 +2610,33 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   await writeFile(path.join(consumerRoot, "tsconfig.json"), JSON.stringify({ compilerOptions: {
     target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", outDir: "dist", rootDir: ".",
     strict: true, noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, skipLibCheck: false, types: ["node"],
-  }, include: ["src/*.ts", "examples/lifecycle-interactions.ts", "examples/remembered-approvals.ts", "examples/session-continuations.ts", "examples/operations.ts"] }, null, 2) + "\n");
+  }, include: ["src/*.ts", "examples/lifecycle-interactions.ts", "examples/remembered-approvals.ts", "examples/session-continuations.ts", "examples/operations.ts", "examples/execution-input/**/*.ts", ...CORE_GENERATION_FILES.map((file) => `examples/${file}`)] }, null, 2) + "\n");
   await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/session-interactions/core.ts"), path.join(consumerRoot, "src/core.ts"));
   await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/operation-lifecycle.ts"),
     path.join(consumerRoot, "src/operation-lifecycle.ts"));
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/structured-output/generation.ts"),
+    path.join(consumerRoot, "src/generation.ts"));
   await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/remembered-approvals/core-types.ts"),
     path.join(consumerRoot, "src/remembered-types.ts"));
-  for (const file of [...CORE_CONTINUATION_FILES, ...CORE_OPERATION_FILES]) {
+  const runtimeDefinition = PACKAGES.find((entry) => entry.name === "@agen-ai/agent-runtime");
+  await copyFile(path.join(REPO_ROOT, runtimeDefinition.root, "tests/externalProvider.typecheck.ts"),
+    path.join(consumerRoot, "src/external-provider-types.ts"));
+  for (const file of [...CORE_CONTINUATION_FILES, ...CORE_OPERATION_FILES, ...CORE_GENERATION_FILES]) {
     const destination = path.join(consumerRoot, "examples", file);
     await mkdir(path.dirname(destination), { recursive: true });
     await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, file), destination);
   }
   const continuationExamples = await exampleIdentities(consumerRoot, CORE_CONTINUATION_FILES);
   const operationExamples = await exampleIdentities(consumerRoot, CORE_OPERATION_FILES);
+  const generationExamples = await exampleIdentities(consumerRoot, CORE_GENERATION_FILES);
+  await cp(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "execution-input"),
+    path.join(consumerRoot, "examples/execution-input"), { recursive: true });
+  const executionInputExamples = await exampleIdentities(consumerRoot,
+    (await collectFiles(path.join(consumerRoot, "examples/execution-input")))
+      .map((file) => path.relative(path.join(consumerRoot, "examples"), file).split(path.sep).join("/")));
+  for (const [source, destination] of [["core.mjs", "execution-input.mjs"], ["offline-guard.mjs", "execution-input-offline-guard.mjs"]]) {
+    await copyFile(path.join(REPO_ROOT, EXECUTION_INPUT_CONSUMER_ROOT, source), path.join(consumerRoot, destination));
+  }
   const examplePath = path.join(consumerRoot, "examples/lifecycle-interactions.ts");
   await copyFile(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "lifecycle-interactions.ts"), examplePath);
   const exampleSha256 = createHash("sha256").update(await readFile(examplePath)).digest("hex");
@@ -2150,6 +2652,24 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   await run("pnpm", ["install", "--ignore-scripts", seed ? "--frozen-lockfile" : "--prefer-offline"], { cwd: consumerRoot });
   const dependencyEvidence = seed ? await verifyDependencyBaselineInstall(seed) : undefined;
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: consumerRoot });
+  const permissionFlag = process.allowedNodeEnvironmentFlags.has("--permission") ? "--permission" : "--experimental-permission";
+  const executionInput = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
+    "--import", "./execution-input-offline-guard.mjs", "execution-input.mjs", REPO_ROOT],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assertExecutionInputExample(JSON.parse(executionInput.stdout.trim()));
+  process.stdout.write(executionInput.stdout);
+  const generationDefinitions = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/src/generation.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.deepEqual(JSON.parse(generationDefinitions.stdout.trim()), {
+    proof: "packed-generation-definitions", inferred: "title:string", schemaOnly: "json-object",
+  });
+  process.stdout.write(generationDefinitions.stdout);
+  const generationExample = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/examples/fixtures/generate-title.js"],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assert.deepEqual(JSON.parse(generationExample.stdout.trim()), {
+    example: "generate-title", title: "Planning a garden", turns: 1, cleanup: "closed",
+  });
+  process.stdout.write(generationExample.stdout);
   const operationLifecycle = await run(process.execPath, ["--import", "./offline-guard.mjs", "dist/src/operation-lifecycle.js"],
     { cwd: consumerRoot, timeoutMs: 30_000 });
   assert.deepEqual(JSON.parse(operationLifecycle.stdout.trim()), {
@@ -2199,7 +2719,15 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
     { scenario: "opening-cleanup", openings: 1, callbacks: 1, answers: 0, nativeCloses: 1, hostReleases: 1, turns: 0, cleanup: "joined" },
   ]);
   process.stdout.write(core.stdout);
-  return { exampleSha256, rememberedExampleSha256, continuationExamples, operationExamples, packages: coreNames, dependencyEvidence };
+  const executionInputProofFiles = await Promise.all([["core.mjs", "execution-input.mjs"],
+    ["offline-guard.mjs", "execution-input-offline-guard.mjs"]].map(async ([source, destination]) => ({
+    path: `${EXECUTION_INPUT_CONSUMER_ROOT}/${source}`,
+    sha256: createHash("sha256").update(await readFile(path.join(consumerRoot, destination))).digest("hex"),
+  })));
+  executionInputProofFiles.push({ path: `${EXECUTION_INPUT_CONSUMER_ROOT}/reports.mjs`,
+    sha256: createHash("sha256").update(await readFile(path.join(REPO_ROOT, EXECUTION_INPUT_CONSUMER_ROOT, "reports.mjs"))).digest("hex") });
+  return { exampleSha256, rememberedExampleSha256, continuationExamples, operationExamples, generationExamples,
+    executionInputExamples, executionInputProofFiles, packages: coreNames, dependencyEvidence };
 }
 
 async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
@@ -2223,7 +2751,7 @@ async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
       skipLibCheck: false,
       types: ["node"],
     },
-    include: ["src/scenario.ts", "src/registry.ts", "src/registry-provider/*.ts", "src/orchestration/*.ts", "src/session-interactions/*.ts"],
+    include: ["src/scenario.ts", "src/registry.ts", "src/registry-provider/*.ts", "src/orchestration/*.ts", "src/session-interactions/*.ts", "src/execution-input/*.ts"],
   };
   await writeFile(
     path.join(consumerRoot, "package.json"),
@@ -2236,6 +2764,15 @@ async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
   await writeFile(path.join(sourceRoot, "scenario.ts"), CONSUMER_SOURCE);
   await writeFile(path.join(sourceRoot, "provider.ts"), ACP_PROVIDER_CONSUMER_SOURCE);
   await writeFile(path.join(sourceRoot, "registry.ts"), ACP_REGISTRY_CONSUMER_SOURCE);
+  await mkdir(path.join(sourceRoot, "execution-input"));
+  for (const file of ["acp.ts", "peer.ts"]) {
+    await copyFile(path.join(REPO_ROOT, EXECUTION_INPUT_CONSUMER_ROOT, file), path.join(sourceRoot, "execution-input", file));
+  }
+  await copyFile(path.join(REPO_ROOT, EXECUTION_INPUT_CONSUMER_ROOT, "offline-guard.mjs"),
+    path.join(consumerRoot, "execution-input-offline-guard.mjs"));
+  await mkdir(path.join(sourceRoot, "structured-output"));
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/structured-output/runtime.ts"),
+    path.join(sourceRoot, "structured-output/runtime.ts"));
   await mkdir(path.join(sourceRoot, "session-interactions"));
   for (const file of ["node.ts", "controlled-owner.ts", "registry-cleanup.ts", "execution-reference.ts"]) {
     await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/session-interactions", file),
@@ -2265,6 +2802,11 @@ async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
   }
   await copyFile(path.join(integratedFixtureRoot, "peer.mjs"), path.join(consumerRoot, "acp-peer.mjs"));
   await cp(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT), path.join(consumerRoot, "examples"), { recursive: true });
+  await copyFile(path.join(REPO_ROOT, "scripts/architecture/agent-sdk-consumers/sandbox/session-lifecycle.ts"),
+    path.join(consumerRoot, "sandbox-session-lifecycle.ts"));
+  await writeFile(path.join(consumerRoot, "tsconfig.sandbox.json"), `${JSON.stringify({
+    compilerOptions: { ...tsconfig.compilerOptions, lib: ["ES2024"], rootDir: ".", noEmit: true }, include: ["sandbox-session-lifecycle.ts"],
+  }, null, 2)}\n`);
   const liveExampleSha256 = createHash("sha256")
     .update(await readFile(path.join(consumerRoot, "examples/live-request-output.ts"))).digest("hex");
   const rememberedAcpExampleSha256 = createHash("sha256")
@@ -2293,7 +2835,23 @@ async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
     cwd: consumerRoot,
   });
   await run("pnpm", ["exec", "tsc", "--project", "examples/tsconfig.json", "--noEmit"], { cwd: consumerRoot });
+  await run("pnpm", ["exec", "tsc", "--project", "tsconfig.sandbox.json"], { cwd: consumerRoot });
+  const sandboxLifecycle = await run(process.execPath,
+    ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "sandbox-session-lifecycle.ts"], { cwd: consumerRoot, timeoutMs: 30_000 });
+  const sandboxLifecycleReport = JSON.parse(sandboxLifecycle.stdout.trim());
+  assert.deepEqual(sandboxLifecycleReport, { proof: "packed-sandbox-example-cleanup", evidence: "in-memory-public-acp", observations: [
+    { scenario: "materialization", nativeStarts: 1, initializeCount: 0, sessionCreates: 0, originalFailureRetained: true, explicitRetry: "joined", cleanup: "destroyed" },
+    { scenario: "session-opening", nativeStarts: 1, initializeCount: 1, sessionCreates: 1, originalFailureRetained: true, explicitRetry: "joined", cleanup: "destroyed" },
+    { scenario: "callback", nativeStarts: 1, initializeCount: 1, sessionCreates: 1, originalFailureRetained: true, explicitRetry: "joined", cleanup: "destroyed" },
+  ] });
+  process.stdout.write(sandboxLifecycle.stdout);
   const permissionFlag = process.allowedNodeEnvironmentFlags.has("--permission") ? "--permission" : "--experimental-permission";
+  const sandboxPlatformReport = await runSandboxPlatformCheck({ repoRoot: REPO_ROOT, consumerRoot, run });
+  const unsupportedInput = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
+    "--import", "./execution-input-offline-guard.mjs", "dist/execution-input/acp.js", REPO_ROOT],
+    { cwd: consumerRoot, timeoutMs: 30_000 });
+  assertAcpExecutionInputUnsupported(JSON.parse(unsupportedInput.stdout.trim()));
+  process.stdout.write(unsupportedInput.stdout);
   const executionReference = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
     "dist/session-interactions/execution-reference.js"], { cwd: consumerRoot, timeoutMs: 30_000 });
   assert.deepEqual(JSON.parse(executionReference.stdout.trim()), {
@@ -2479,7 +3037,14 @@ assert.throws(() => createAcpSchemaValidator("stable", ${JSON.stringify(profile)
       await writeFile(schemaPath, schemaBytes);
     }
   }
-  return { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence };
+  const executionInputAcpProofFiles = await Promise.all(["acp.ts", "peer.ts", "offline-guard.mjs"].map(async (file) => ({
+    path: `${EXECUTION_INPUT_CONSUMER_ROOT}/${file}`,
+    sha256: createHash("sha256").update(await readFile(path.join(consumerRoot,
+      file === "offline-guard.mjs" ? "execution-input-offline-guard.mjs" : `src/execution-input/${file}`))).digest("hex"),
+  })));
+  executionInputAcpProofFiles.push({ path: `${EXECUTION_INPUT_CONSUMER_ROOT}/reports.mjs`,
+    sha256: createHash("sha256").update(await readFile(path.join(REPO_ROOT, EXECUTION_INPUT_CONSUMER_ROOT, "reports.mjs"))).digest("hex") });
+  return { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence, executionInputAcpProofFiles, sandboxPlatformReport };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -2487,24 +3052,44 @@ assert.throws(() => createAcpSchemaValidator("stable", ${JSON.stringify(profile)
 // ------------------------------------------------------------------------------------------------
 
 function parseArguments(argv) {
-  const usage = "Usage: test:agent-sdk-external-consumer [--output <new-absolute-directory> [--dependency-baseline <retained-consumer-root>]]";
+  const usage = "Usage: test:agent-sdk-external-consumer [--profile full|sandbox-platform] [--output <new-absolute-directory> [--dependency-baseline <retained-consumer-root>]]\nThe sandbox-platform profile requires --output and excludes --dependency-baseline.\n";
+  if (argv.length === 1 && argv[0] === "--help") return { help: usage };
   const options = {};
   for (let index = 0; index < argv.length; index += 2) {
     const option = argv[index];
     const value = argv[index + 1];
-    assert.ok((option === "--output" || option === "--dependency-baseline") && typeof value === "string"
-      && path.isAbsolute(value) && !Object.hasOwn(options, option), usage);
-    options[option] = path.resolve(value);
+    assert.ok(typeof value === "string" && !Object.hasOwn(options, option), usage);
+    if (option === "--profile") {
+      assert.ok(value === "full" || value === "sandbox-platform", usage);
+      options[option] = value;
+    } else {
+      assert.ok((option === "--output" || option === "--dependency-baseline") && path.isAbsolute(value), usage);
+      options[option] = path.resolve(value);
+    }
   }
   assert.ok(!options["--dependency-baseline"] || options["--output"], usage);
-  return { outputRoot: options["--output"], baselineRoot: options["--dependency-baseline"] };
+  const profile = options["--profile"] ?? "full";
+  assert.ok(profile !== "sandbox-platform" || (options["--output"] && !options["--dependency-baseline"]), usage);
+  return { profile, outputRoot: options["--output"], baselineRoot: options["--dependency-baseline"] };
+}
+
+async function packedArtifactIdentities(artifacts) {
+  return Promise.all(artifacts.map(async ({ manifest, tarballPath }) => ({
+    name: manifest.name, version: manifest.version,
+    sha256: createHash("sha256").update(await readFile(tarballPath)).digest("hex"),
+  })));
 }
 
 async function main() {
-  const { outputRoot, baselineRoot } = parseArguments(process.argv.slice(2));
+  const options = parseArguments(process.argv.slice(2));
+  if (options.help) { process.stdout.write(options.help); return; }
+  const { outputRoot, baselineRoot, profile } = options;
   if (baselineRoot) {
     assert.ok(outputRoot !== baselineRoot && !outputRoot.startsWith(`${baselineRoot}${path.sep}`)
       && !baselineRoot.startsWith(`${outputRoot}${path.sep}`), "Output and dependency baseline must not overlap");
+    assert.equal(await realpath(baselineRoot), baselineRoot, "Dependency baseline root must be an existing physical directory");
+    assert.equal(PACKAGES.length, 7,
+      "--dependency-baseline is historical seven-package 0.4.2 qualification; the current ten-package source needs a separately qualified baseline");
   }
   const dependencyBaseline = baselineRoot ? await readDependencyBaseline(baselineRoot, PACKAGES.map(({ name }) => name)) : undefined;
   let tempRoot;
@@ -2538,8 +3123,26 @@ async function main() {
         await inspectTarball(definition, tarballPath, extractedRoot),
       );
     }
+    const sandboxConsumer = await runNeutralSandboxConsumer({ repoRoot: REPO_ROOT, tempRoot, artifacts, run, publicExamplesRoot: PUBLIC_EXAMPLES_ROOT });
+    if (profile === "sandbox-platform") {
+      const sandboxPlatformConsumer = await runPortableSandboxConsumer({ repoRoot: REPO_ROOT, tempRoot, artifacts, run, publicExamplesRoot: PUBLIC_EXAMPLES_ROOT });
+      process.stdout.write(`${JSON.stringify({ proof: "agent-sdk-sandbox-platform-artifact-identities", profile,
+        scope: "portable sandbox configuration/examples only; full SDK runtime and native platform execution not run",
+        sandboxConsumer, sandboxPlatformConsumer, packages: await packedArtifactIdentities(artifacts),
+      })}\n`);
+      process.stdout.write(`Sandbox-platform installed proof passed; consumer retained at ${outputRoot}.\n`);
+      passed = true;
+      return;
+    }
+    const { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence,
+      executionInputAcpProofFiles, sandboxPlatformReport } = await runConsumer(tempRoot, artifacts, dependencyBaseline);
     const coreConsumer = await runCoreConsumer(tempRoot, artifacts, dependencyBaseline);
-    const { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence } = await runConsumer(tempRoot, artifacts, dependencyBaseline);
+    const historyConsumer = await runHistoryConsumer(tempRoot, artifacts);
+    const claudeHistoryConsumer = await runClaudeHistoryConsumer(tempRoot, artifacts);
+    const codexHistoryConsumer = await runCodexHistoryConsumer(tempRoot, artifacts);
+    const opencodeHistoryConsumer = await runOpenCodeHistoryConsumer(tempRoot, artifacts);
+    const cursorHistoryConsumer = await runCursorHistoryConsumer(tempRoot, artifacts);
+    const grokHistoryConsumer = await runGrokHistoryConsumer(tempRoot, artifacts);
     const dependencyEvidencePath = dependencyBaseline ? path.join(tempRoot, "dependency-baseline.json") : undefined;
     if (dependencyEvidencePath) await writeFile(dependencyEvidencePath, JSON.stringify({
       schema: "agenai.agent-sdk.consumer-dependency-baseline.v1", baselineRoot,
@@ -2547,11 +3150,24 @@ async function main() {
     }, null, 2) + "\n", { flag: "wx" });
     process.stdout.write(`${JSON.stringify({
       proof: "agent-sdk-packed-artifact-identities",
+      sandboxConsumer,
+      sandboxPlatformConsumer: sandboxPlatformReport,
+      historyConsumer,
+      claudeHistoryConsumer,
+      codexHistoryConsumer,
+      opencodeHistoryConsumer,
+      cursorHistoryConsumer,
+      grokHistoryConsumer,
       example: {
         path: "examples/live-request-output.ts",
         sha256: liveExampleSha256,
       },
       operationsExample: { files: coreConsumer.operationExamples, installedSdkPackages: coreConsumer.packages },
+      generationExample: { files: coreConsumer.generationExamples, installedSdkPackages: coreConsumer.packages },
+      executionInputExample: { files: coreConsumer.executionInputExamples, proofFiles: coreConsumer.executionInputProofFiles,
+        installedSdkPackages: coreConsumer.packages, scope: "neutral synthetic provider; no public native input provider" },
+      executionInputAcpProof: { files: executionInputAcpProofFiles, scope: "actual packed ACP constructors with a synthetic serialized peer",
+        profiles: ["generic-acp", "grok-labels-and-adverts", "grok-1.0.62-structured-output"], ownership: ["borrowed", "owned"] },
       sessionContinuationExample: { files: coreConsumer.continuationExamples, installedSdkPackages: coreConsumer.packages },
       sessionContinuationAcpExample: { files: continuationAcpFiles },
       lifecycleExample: { path: "examples/lifecycle-interactions.ts", sha256: coreConsumer.exampleSha256, installedSdkPackages: coreConsumer.packages },
@@ -2559,10 +3175,7 @@ async function main() {
         installedSdkPackages: coreConsumer.packages },
       rememberedAcpExample: { path: "examples/remembered-approvals-acp.ts", sha256: rememberedAcpExampleSha256 },
       ...(dependencyEvidencePath ? { dependencyBaselineEvidence: dependencyEvidencePath } : {}),
-      packages: await Promise.all(artifacts.map(async ({ manifest, tarballPath }) => ({
-        name: manifest.name, version: manifest.version,
-        sha256: createHash("sha256").update(await readFile(tarballPath)).digest("hex"),
-      }))),
+      packages: await packedArtifactIdentities(artifacts),
     })}\n`);
     process.stdout.write(
       "Agent SDK tarballs, manifests, declarations, and external consumer passed.\n",
@@ -2572,8 +3185,10 @@ async function main() {
       process.stdout.write(`Agent SDK external consumer retained at ${outputRoot}.\n`);
     }
   } finally {
-    if (outputRoot === undefined || !passed) {
+    if (outputRoot === undefined) {
       await rm(tempRoot, { recursive: true, force: true });
+    } else if (!passed) {
+      process.stderr.write(`Failed agent SDK packed consumer retained at ${outputRoot}.\n`);
     }
   }
 }

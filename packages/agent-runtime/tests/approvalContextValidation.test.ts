@@ -52,10 +52,11 @@ const configuration = {
 
 const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 12,
+  protocolVersion: 13,
   providerKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
+    structuredOutput: { kind: "unsupported" },
     interactionModes: ["default"],
     interrupt: false,
     steer: { kind: "unsupported" },
@@ -164,7 +165,7 @@ function event<TType extends AgentEvent["type"]>(
   payload: Extract<AgentEvent, { readonly type: TType }>["payload"],
 ) {
   return createAgentEventOutput({
-    protocolVersion: 12,
+    protocolVersion: 13,
     sessionId,
     turnId,
     occurredAt,
@@ -180,7 +181,7 @@ function candidateSession(
     binding: { conversationId: "v8-session-validation" as never },
     startTurn: fixtureTurn(async function* ({ turnId }) {
       yield event(turnId, "turn.started", {});
-      yield event(turnId, "turn.completed", { outcome: "completed" });
+      yield event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
     }, async function* () {}),
 
     interruption: { kind: "unsupported" },
@@ -308,7 +309,7 @@ test("remembered approval and denial retain exact selection and the original pen
         yield* waitingApprovalOutputs(turnId, request);
       }, async function* ({ resolution }) {
         answers.push(resolution);
-        yield event(turnId, "turn.completed", { outcome: "completed" });
+        yield event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
       }),
     }));
     const execution = opened.startTurn({ turnId, interactionMode: "default",
@@ -327,7 +328,7 @@ test("remembered approval and denial retain exact selection and the original pen
       error instanceof AgentProviderContractError && error.code === "request_resolution_mismatch");
     const terminal = await pending;
     assert.deepEqual(!terminal.done && terminal.value.kind === "event" ? terminal.value.event.payload : null,
-      { outcome: "completed" });
+      { outcome: "completed", structuredOutput: { kind: "not_requested" } });
     assert.deepEqual(await iterator.next(), { done: true, value: undefined });
     assert.equal(starts, 1);
     await opened.close({ reason: "idle" });
@@ -411,7 +412,7 @@ test("admits only neutral cancellation after approval expiry", async () => {
           requestId: request.requestId,
           disposition: "canceled",
         });
-        yield event(turnId, "turn.completed", { outcome: "canceled" });
+        yield event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "canceled" });
       }),
 
     }),
@@ -875,7 +876,7 @@ test("preserves the in-progress watermark through unknown item updates", async (
           itemKind: "dynamic_tool_call",
           status: "pending",
         });
-        yield event(turnId, "turn.completed", { outcome: "completed" });
+        yield event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
       }),
     }),
   );
@@ -946,7 +947,7 @@ test("accepts monotonic usage and one post-compaction occupancy decrease", async
         } else {
           yield contextUsage(activeTurnId, 50, 120, 2);
         }
-        yield event(activeTurnId, "turn.completed", { outcome: "completed" });
+        yield event(activeTurnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
       }),
     }),
   );
@@ -986,7 +987,7 @@ test("resets only materialization usage at an observed process boundary", async 
               turns: 1,
             },
           });
-          yield event(turnId, "turn.completed", { outcome: "completed" });
+          yield event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
         }),
       }),
     );
@@ -1045,7 +1046,7 @@ test("accepts unknown compaction only as a supported-provider fallback", async (
             status: "completed",
             details: { trigger },
           });
-          yield event(turnId, "turn.completed", { outcome: "completed" });
+          yield event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
         }),
       }),
     );
@@ -1123,7 +1124,7 @@ test("rejects duplicate, regressing, and post-terminal context samples", async (
     {
       name: "sample after terminal",
       outputs: (turnId) => [
-        event(turnId, "turn.completed", { outcome: "completed" }),
+        event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" }),
         contextUsage(turnId, 50, 100, 1),
       ],
     },

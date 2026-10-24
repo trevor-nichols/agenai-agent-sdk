@@ -99,7 +99,7 @@ test("failed cleanup overrides classified terminal failure and retains both stag
       startTurn: mapTurnOutputs(session, async function* (input) {
         const base = eventBase(context, input.turnId);
         yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "failed", error: {
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "failed", error: {
           category: "authentication", code: "login_required", message: "Authentication is required.", recovery: { kind: "user_action", action: "authenticate" },
         } } });
       }),

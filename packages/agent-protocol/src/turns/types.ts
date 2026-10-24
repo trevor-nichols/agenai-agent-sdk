@@ -11,6 +11,12 @@ import type {
   AgentTurnId,
 } from '../foundation/index.js';
 
+import type {
+  AgentStructuredOutputNonJsonResult,
+  AgentStructuredOutputRequest,
+  AgentStructuredOutputResult,
+} from '../structuredOutput/types.js';
+
 // ------------------------------------------------------------------------------------------------
 //                Input Parts and Turn Operations
 // ------------------------------------------------------------------------------------------------
@@ -95,6 +101,7 @@ export interface AgentTurnRunInput extends AgentTurnInputContent {
   readonly turnId: AgentTurnId;
   readonly interactionMode: AgentTurnInteractionMode;
   readonly deadlineAt?: AgentIsoDateTime;
+  readonly output?: AgentStructuredOutputRequest;
 }
 
 export type AgentTurnInterruptionReason =
@@ -438,8 +445,22 @@ export interface AgentDiffSummary {
   readonly truncated?: boolean;
 }
 
-export interface AgentTurnCompletedPayload {
-  readonly outcome: AgentTurnOutcome;
-  readonly reason?: string;
-  readonly error?: AgentError;
-}
+export type AgentTurnCompletedPayload =
+  | Readonly<{
+      outcome: 'completed';
+      structuredOutput: AgentStructuredOutputResult;
+      reason?: string;
+      error?: never;
+    }>
+  | Readonly<{
+      outcome: 'failed';
+      structuredOutput: AgentStructuredOutputNonJsonResult;
+      reason?: string;
+      error: AgentError;
+    }>
+  | Readonly<{
+      outcome: 'canceled' | 'expired';
+      structuredOutput: AgentStructuredOutputNonJsonResult;
+      reason?: string;
+      error?: never;
+    }>;

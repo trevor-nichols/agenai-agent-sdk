@@ -156,5 +156,19 @@ export * from './accountQuota.js';
 export * from './environmentFacts.js';
 export * from './effectiveContent.js';
 export * from './commands.js';
+export { zodOutput } from './outputDefinition.js';
 export * from './extensions.js';
 export * from './environment.js';
+
+export {
+  AgentOutputSchemaPortableSchema,
+  AgentOutputSchemaSchema,
+  AgentStructuredOutputCapabilityPortableSchema,
+  AgentStructuredOutputCapabilitySchema,
+  AgentStructuredOutputRequestPortableSchema,
+  AgentStructuredOutputRequestSchema,
+  AgentStructuredOutputResultPortableSchema,
+  AgentStructuredOutputResultSchema,
+  AgentStructuredOutputNonJsonResultPortableSchema,
+  AgentStructuredOutputNonJsonResultSchema,
+} from './structuredOutput.js';

@@ -31,7 +31,7 @@ async function prompt(session: AgentProviderSession, command: Readonly<Record<st
   let completed = 0;
   let outputCount = 0;
   for await (const output of session.startTurn({ turnId: parseAgentTurnId(randomUUID()), interactionMode: 'default',
-    parts: [{ type: 'text', text: JSON.stringify(command) }], signal: AbortSignal.timeout(15_000) }).outputs) {
+    parts: [{ type: 'text', text: JSON.stringify(command) }], deadlineAt: new Date(Date.now() + 10_000).toISOString(), signal: AbortSignal.timeout(15_000) }).outputs) {
     assert.ok(++outputCount <= 64, 'Qualification consumes a bounded native output stream.');
     assert.equal(output.kind, 'event');
     if (output.kind !== 'event') continue;

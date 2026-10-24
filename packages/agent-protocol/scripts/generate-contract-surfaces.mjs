@@ -17,6 +17,7 @@ const checkOnly = process.argv.includes('--check');
 const publicSurfaces = {
   'public/index.ts': [
     '../foundation/index.js',
+    '../structuredOutput/index.js',
     '../failures/index.js',
     '../accountQuota/index.js',
     '../sessions/index.js',
@@ -37,6 +38,7 @@ const publicSurfaces = {
     '../artifacts/index.js',
     '../events/index.js',
   ],
+  'public/structuredOutput.ts': ['../structuredOutput/index.js'],
   'public/accountQuota.ts': ['../accountQuota/index.js'],
   'public/sessions.ts': ['../sessions/index.js'],
   'public/sessionInteractions.ts': ['../sessionInteractions/index.js'],
@@ -58,6 +60,12 @@ const publicSurfaces = {
 };
 
 const equalityRecords = [
+  ['AgentOutputSchema', 'AgentOutputSchemaSchema', 'structuredOutput'],
+  ['AgentStructuredOutputCapability', 'AgentStructuredOutputCapabilitySchema', 'structuredOutput'],
+  ['AgentStructuredOutputRequest', 'AgentStructuredOutputRequestSchema', 'structuredOutput'],
+  ['AgentStructuredOutputResult', 'AgentStructuredOutputResultSchema', 'structuredOutput'],
+  ['AgentStructuredOutputNonJsonResult', 'AgentStructuredOutputNonJsonResultSchema', 'structuredOutput'],
+  ['AgentTurnCompletedPayload', 'AgentTurnCompletedPayloadSchema', 'turns'],
   ['AgentSessionWorkspaceTarget', 'AgentSessionWorkspaceTargetSchema', 'sessionInteractions'],
   ['AgentSessionDecisionConsequence', 'AgentSessionDecisionConsequenceSchema', 'sessionInteractions'],
   ['AgentSessionDecisionChoice', 'AgentSessionDecisionChoiceSchema', 'sessionInteractions'],

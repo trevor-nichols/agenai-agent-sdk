@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/acp-transport",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": false,
   "type": "module",
   "sideEffects": false,

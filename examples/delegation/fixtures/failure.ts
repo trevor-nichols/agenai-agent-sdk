@@ -63,7 +63,7 @@ export async function settleDurableFailure(root: string, policy: DelegationCompl
   const reference = await createReferenceHost({ root, onInvoke: () => recordInvocation(root, "child"), async *outputs(_session, context, turn) {
     const base = eventBase(context, turn.turnId);
     yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-    yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "failed", error } });
+    yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "failed", error } });
   } });
   let notificationId: string | undefined;
   const store = withCommit(opened.store, async (command) => {

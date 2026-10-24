@@ -113,12 +113,13 @@ test('remembered-only and combined capabilities require an explicit nonempty tot
 function capabilitiesWithApproval(approval: unknown) {
   return {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: 'v8-contract-provider',
     sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
     turns: {
       interactionModes: ['default'],
       interrupt: false,
+      structuredOutput: { kind: 'unsupported' },
       steer: { kind: 'unsupported' },
     },
     requests: {
@@ -195,7 +196,7 @@ test('approval capability and request freeze exact bounded once semantics', () =
 
 test('context usage and compaction examples retain only bounded neutral facts', () => {
   const usage = {
-    protocolVersion: 12,
+    protocolVersion: 13,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -382,7 +383,7 @@ test('capability freeze rejects duplicate and noncanonical modes/scopes', () => 
 
 test('context freeze rejects impossible usage and compaction measurements', () => {
   const usageBase = {
-    protocolVersion: 12,
+    protocolVersion: 13,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',
