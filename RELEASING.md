@@ -1,8 +1,10 @@
 # Releasing
 
 The three core packages and seven optional packages (orchestration, ACP transport, ACP provider,
-ACP registry, history, sandbox and Docker sandbox) form the coordinated ten-package `0.4.4` source candidate. This candidate
-is unpublished. A later separately authorized release must publish the complete set in dependency order:
+ACP registry, history, sandbox and Docker sandbox) form the published coordinated ten-package
+`0.4.4` release. npm `beta` and `latest` select `0.4.4` for all ten names; see the
+[v0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4).
+Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
 2. `@agen-ai/agent-protocol`
@@ -15,23 +17,23 @@ is unpublished. A later separately authorized release must publish the complete 
 9. `@agen-ai/sandbox` (optional neutral sandbox lifecycle, processes, files and explicit ACP bridge)
 10. `@agen-ai/sandbox-docker` (optional local Docker execution backend)
 
-The coordinated `0.4.3` release is published with Agent Protocol V12, and npm `latest`
-and `beta` select that verified seven-package release. Preserve earlier `0.4.2`/V12,
+The coordinated `0.4.4` release uses Agent Protocol V13. Preserve the historical seven-package
+`0.4.3`/V12 release, earlier `0.4.2`/V12,
 `0.4.1`/V11 and `0.4.0`/V10 releases and their historical evidence. Verify current
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for the candidate,
+[UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for the current release,
 [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for the published patch,
 [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for the V12 boundary and
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
-The seven previously published packages use npm trusted publishing. GitHub Actions receives a
-short-lived npm credential through OIDC, and npm attaches provenance to workflow releases. Those
-existing relationships do not establish initial package ownership/bootstrap or trust for the new
-`@agen-ai/agent-history`, `@agen-ai/sandbox` or `@agen-ai/sandbox-docker` names. Their first publications require separately authorized setup and
-verification before the complete ten-package publication can proceed; source checks do not
-perform or attest that setup.
+All ten packages have configured npm trusted publishers for this repository's `release.yml`
+workflow with publication and staging permissions, without separate dist-tag promotion permission. GitHub Actions
+receives a short-lived npm credential through OIDC, and npm attaches provenance to workflow
+releases. The separately authorized initial setup for `@agen-ai/agent-history`, `@agen-ai/sandbox` and `@agen-ai/sandbox-docker`, including
+temporary-stage cleanup, is complete. Source checks do not create or modify those relationships;
+future trust changes, publication and dist-tag promotion retain their separate authorization.
 
 ## Source preparation
 
@@ -67,7 +69,8 @@ The ordinary `pnpm check` includes hermetic sandbox and CI-tooling tests and req
 The [sandbox walkthrough](examples/sandbox/README.md) documents admitted image metadata and exact
 ownership; the [Docker package](packages/sandbox-docker/README.md#qualification-scope) records the
 real backend tuple and separate four-turn Grok API-key evidence. Hosted Docker CI is configured
-but has no recorded hosted result. Retain that distinction in release evidence.
+separately; retain its actual workflow result and exact inputs rather than inferring hosted
+qualification from a local pass or package publication.
 `node scripts/release/verify-release-set.mjs` additionally admits the exact coordinated source
 inventory without publishing anything.
 
@@ -153,22 +156,35 @@ relationships before a later authorized release; do not recreate them merely bec
 version changed. Their historical staging and publication evidence remains tied to the original
 release.
 
-`@agen-ai/agent-history`, `@agen-ai/sandbox` and `@agen-ai/sandbox-docker` were absent from those releases.
-This candidate does not establish their npm package bootstrap, ownership or trusted-publisher configuration. Resolve and verify those
-prerequisites under separate release authorization before first publication; do not infer readiness
-from the other seven names or publish an unreviewed placeholder. Source preparation creates no
-stage, trusted publisher, release tag or registry dist-tag.
+`@agen-ai/agent-history`, `@agen-ai/sandbox` and `@agen-ai/sandbox-docker` were absent from those
+releases. Their separately authorized initial setup and trusted-publisher verification completed
+for `0.4.4`, and the temporary setup stages were removed. All ten package names now have the
+reviewed relationship below, permitting publication and staging without separate dist-tag promotion permission.
+Inspect each relationship before a future release; setup for one name never establishes ownership
+or trust for another. A new package still needs separately authorized setup; source preparation creates no registry stage or trust relationship.
+
+### Bootstrap a new package safely
+
+Use a distinct temporary setup version when staging a new name to configure ownership and trust.
+Keep that setup stage unapproved until the real release version has published and its original
+bytes and provenance pass readback. Staged and published versions share a unique version index,
+so a pending setup stage must not use the version the workflow will publish. Reject the exact
+setup stage only after the real version exists; then recheck the published version, empty stage
+queue and trusted publisher. The 0.4.4 preparation observed missing package access and trust after
+rejecting the last setup stage before first publication; do not rely on an empty placeholder to
+retain that identity. See [npm's staging contract](https://docs.npmjs.com/cli/v11/commands/npm-stage/).
 
 ## Routine release
 
 1. Obtain separate authorization for the exact release operation. Verify package setup/trust for
-   all ten names, including the three new-package prerequisites above. Review all package versions and
+   all ten names. Review all package versions and
    release notes in the private source repository.
 2. Export the approved SDK snapshot to this repository.
 3. Merge the projection to `main` and wait for CI.
 4. Tag the public commit as `v<version>` and push the tag.
 5. Open **Actions**, choose **Publish to npm**, and run it from the version tag.
-6. Keep prerelease builds on `beta` or `next`. Use `latest` only for the default stable release.
+6. Publish the reviewed set on `beta` and verify it before promoting a stable release to `latest`.
+   Prerelease builds remain on `beta` or `next`.
 7. Verify all ten registry entries, their provenance, and a clean registry consumer before any
    `latest` promotion.
 8. When separately approved, sign in with the maintainer account and move `latest` to the exact
@@ -227,9 +243,10 @@ accepted original publications retain their original tag provenance. Keep the im
 
 ## Promoting an exact release to latest
 
-This workflow and its trust configuration authorize `npm publish` only. Promotion uses a
-maintainer-authenticated npm session after the immutable version and provenance pass readback;
-the release does not request OIDC dist-tag permission:
+The workflow uses npm trusted publishing. Its configured permissions allow package publication
+and staging, without separate dist-tag promotion permission. Promotion uses a maintainer-authenticated npm session
+after the immutable version and provenance pass readback; the release does not request OIDC
+dist-tag permission:
 
 ```sh
 VERSION=0.4.4
@@ -257,15 +274,15 @@ These commands remain a separately authorized release procedure, not a source-re
 ## Trusted publisher configuration
 
 The following trust relationship is required for every package in the ten-package release.
-It is recorded as existing for the seven published names; history and both sandbox names require separate
-bootstrap and trust verification:
+It is configured for all ten published names, including history and both sandbox packages:
 
 ```text
 Provider: GitHub Actions
 GitHub owner: trevor-nichols
 Repository: agenai-agent-sdk
 Workflow: release.yml
-Allowed action: npm publish
+Allowed permissions: createPackage, createStagedPackage
+Dist-tag authority: none
 ```
 
 The npm CLI can create missing relationships after each package exists. Inspect existing
@@ -315,10 +332,11 @@ npm trust github @agen-ai/acp-registry \
   --yes
 ```
 
-Confirm the result with `npm trust list <package>`. The seven commands above describe the existing
-package relationships. After separately authorized bootstrap establishes each new package,
-configure its missing relationship with the same reviewed repository/workflow/action and
-verify it explicitly:
+Confirm each relationship with `npm trust list <package>`. The seven commands above and the
+three below describe the configured ten-package set. They are reference commands for separately
+authorized trust maintenance; do not recreate working relationships merely to prepare a release.
+If an authorized repair is needed, preserve the reviewed repository/workflow/action and verify
+that package explicitly:
 
 ```sh
 npm trust github @agen-ai/agent-history \
@@ -343,5 +361,6 @@ npm trust github @agen-ai/sandbox-docker \
 npm trust list @agen-ai/sandbox-docker
 ```
 
-These are future release procedures, not actions performed or readiness facts established by the
-unpublished source candidate.
+These commands document trust maintenance; they do not grant permission to change it. The
+`0.4.4` setup is complete. Future publication, trust changes, tag creation, promotion and deployment
+remain separately authorized operations.

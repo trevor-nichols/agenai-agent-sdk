@@ -2,17 +2,19 @@
 
 All notable changes to the coordinated AgenAI Agent SDK package set are recorded here. Releases
 `0.4.0` through `0.4.3` use the three core packages and four optional packages (orchestration, ACP
-transport, ACP provider and ACP registry). The unpublished `0.4.4` candidate adds optional history, neutral sandbox contracts
+transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
-## 0.4.4 - Unpublished source candidate
+## 0.4.4 - 2026-10-24
 
-This candidate advances Agent Protocol to **V13** with native structured final responses and adds
+This release advances Agent Protocol to **V13** with native structured final responses and adds
 optional history and explicit optional sandbox execution. Managed store contract 4 and SQLite format 3 remain unchanged.
-All ten source packages and packed SDK dependency ranges are coordinated at `0.4.4`. The recorded
-npm `latest` and `beta` release remains the seven-package `0.4.3` set; no history or sandbox publication,
-registry tag change, new trusted-publisher setup or private deployment is performed here.
-See [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md).
+All ten published packages and SDK dependency ranges are coordinated at `0.4.4`; npm `latest`
+and `beta` select that complete release. History and both sandbox packages complete their first
+publication with verified trusted publishers; temporary setup stages have been removed. Package
+publication makes no private deployment change. See the
+[v0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4) and
+[UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md).
 
 ### Added
 
@@ -21,7 +23,7 @@ See [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md).
 - Add optional `@agen-ai/sandbox` and `@agen-ai/sandbox-docker` packages with a separate
   `@agen-ai/sandbox/acp` bridge. The neutral root has no Docker or ACP requirement; all backend
   authority is explicitly supplied. Extend export, release admission and packed-consumer checks to
-  the exact ten-package candidate while leaving the core/runtime dependency graph unchanged.
+  the exact ten-package release while leaving the core/runtime dependency graph unchanged.
 - Add the credential-free [sandbox walkthrough](examples/sandbox/README.md) and reusable
   example lifecycle. One native connection/process and one SDK session support multiple turns;
   eager materialization, whole-compute stop, retained-file export and final destruction share
@@ -112,8 +114,10 @@ See [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md).
   response does not authorize repeating generation.
 - Admit only the complete matching ten-package source/archive set before publication can begin.
   Reject incomplete, foreign, duplicate or mixed-version artifacts. The public root stays private.
-- Document the distinction between candidate source, historical installed archives and publication.
-  The seven existing npm trust relationships do not establish bootstrap or trust for history or either sandbox package.
+- Preserve the distinction between historical development archives and the published ten-package
+  release. Retain exact release bytes, provenance and registry-consumer proof separately from
+  native qualification. All ten package names have verified trusted publishers with publication
+  and staging permissions, without separate dist-tag promotion permission.
 
 ### Fixed
 
@@ -135,9 +139,9 @@ task and follow-up, a fresh isolated repeat, and cancellation after observed con
 six delivered once-only approvals and independent compute absence before export plus complete
 retained-resource absence after destruction. The [Docker package README](packages/sandbox-docker/README.md#qualification-scope)
 records the exact binary identity, requested model/reasoning and scope. This does not qualify
-other providers, subscription authentication, fleet execution or billing. Hosted Docker CI is
-configured but has no recorded hosted result; the credential-free source/packed and real-backend
-checks remain separate from authenticated native evidence.
+other providers, subscription authentication, fleet execution or billing. Hosted Docker CI results,
+credential-free source/packed checks and authenticated native evidence retain their separate
+workflow, artifact and qualification identities.
 
 Native evidence remains specific to the recorded Linux x86_64 / Node 24.18.0 tuple and exact native
 inputs. The portable root supports Node >=22; Cursor construction requires Node >=22.13. Cursor
@@ -157,8 +161,8 @@ source changes only. Public packages do not enable private member/managed struct
 deploy services, migrate production storage or activate a fleet. Prior MS009 history example/native
 evidence retains its original archive identities; current installed assembly and structured-output
 proof are separate. No qualification establishes arbitrary stores/platforms or history backend
-authentication/billing. First publication/bootstrap and trust verification for history remain
-separately required.
+authentication/billing. First-publication setup and trusted-publisher verification for history
+and both sandbox packages are complete for this release; future operations require authorization.
 
 ## 0.4.3 - 2026-10-20
 

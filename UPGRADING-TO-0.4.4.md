@@ -1,6 +1,6 @@
-# Upgrade to SDK 0.4.4 candidate
+# Upgrade to SDK 0.4.4
 
-`0.4.4` is an unpublished, coordinated **ten-package source candidate**. It advances Agent
+`0.4.4` is the published, coordinated **ten-package release** selected by npm `latest` and `beta`. It advances Agent
 Protocol from V12 to **V13**, adds native structured final responses and `generateObject`, optional
 runtime execution input, optional `@agen-ai/agent-history`, and optional `@agen-ai/sandbox` /
 `@agen-ai/sandbox-docker` for explicit isolated command execution. Execution adapters must update their
@@ -9,16 +9,32 @@ and SQLite physical format 3 remain unchanged. History stays independent of runt
 and requires no history port on an execution adapter. Execution input is an optional process-local
 runtime domain; it adds no further protocol version change or package.
 
-The recorded npm `latest` and `beta` release is still the **seven-package `0.4.3`** set, which did
-not include agent-history or either sandbox package. Candidate checks do not publish packages or change tags. Use the reviewed
-candidate checkout or its matching tarballs; do not treat an npm install of `0.4.4` as a completed
-release. Earlier protocol upgrades still follow [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md).
+The earlier **seven-package `0.4.3`** release did not include agent-history or either sandbox
+package. The [v0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4)
+identifies the coordinated published family. Earlier protocol upgrades still follow
+[MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md); users of pre-publication candidates must also
+apply the API migrations below.
 
-## Validate the candidate
+## Validate the installation
 
-Use the exact exported candidate revision supplied for review. The public repository's default
-branch is not evidence that this candidate has been exported or published. From the standalone
-candidate root, with the [documented tooling](CONTRIBUTING.md#local-setup):
+Install the published runtime and only the optional packages your application selects:
+
+```sh
+pnpm add @agen-ai/agent-runtime@0.4.4
+pnpm add @agen-ai/agent-history@0.4.4
+pnpm add @agen-ai/sandbox@0.4.4 @agen-ai/sandbox-docker@0.4.4
+```
+
+The runtime brings protocol and validation transitively. Keep every directly selected SDK package
+at `0.4.4`, including optional orchestration and ACP packages. Install exact optional native peers
+only for the chosen constructor; the history root needs no vendor SDK or execution package.
+Current public examples target this published family. Repository example commands require the
+matching built `v0.4.4` checkout; example files are source rather than additional npm entrypoints.
+
+### Optional source and local-archive validation
+
+Source development and local archive review are separate from npm consumption. From a reviewed
+standalone checkout with the [documented tooling](CONTRIBUTING.md#local-setup):
 
 ```sh
 corepack enable
@@ -28,27 +44,27 @@ node scripts/release/verify-release-set.mjs
 ```
 
 The source verifier checks the exact ten-package inventory and coordinated version without
-contacting npm publication APIs. After packing all ten candidate packages into an owned directory,
+contacting npm publication APIs. After packing all ten source packages into an owned directory,
 verify the actual archive set as well:
 
 ```sh
 node scripts/release/verify-release-set.mjs \
-  --release-directory /absolute/owned/candidate-tarballs
+  --release-directory /absolute/owned/development-tarballs
 ```
 
 Retain the source revision, lockfile, complete archive filenames, versions, hashes and check results.
 The archive directory must contain exactly the matching ten tarballs; incomplete, duplicate,
-foreign or mixed-version sets fail admission. To consume the reviewed candidate in a separate
-project, install that verified local set rather than unpublished npm versions:
+foreign or mixed-version sets fail admission. To test a local development build in a separate
+project, install that verified archive set explicitly:
 
 ```sh
-pnpm add /absolute/owned/candidate-tarballs/*.tgz
+pnpm add /absolute/owned/development-tarballs/*.tgz
 ```
 
 Keep every selected SDK package at `0.4.4`. Install only the exact optional native peers required
 by the chosen constructor. The history root does not require vendor SDKs, execution packages,
-ACP, credentials or a native process. Tarball installation is distinct from source checks,
-exact-native qualification and publication.
+ACP, credentials or a native process. Local tarballs are an optional development route, distinct
+from published npm installation, source checks and exact-native qualification.
 
 ## Select optional sandbox execution
 
@@ -59,7 +75,7 @@ local Docker resources. Select `@agen-ai/sandbox/acp` and its optional matching
 `@agen-ai/provider-acp` peer to compose those resources with the existing Node ACP constructor.
 Neither sandbox package is included in published `0.4.3`.
 
-Current candidate inputs default to execution until explicitly stopped. Omit `policy.execution`
+Release `0.4.4` inputs default to execution until explicitly stopped. Omit `policy.execution`
 or set `{ kind: 'until_stopped' }`; neither schedules an execution or idle timer. For a finite
 budget, set `execution: { kind: 'deadline', timeoutMs }` using a positive safe-integer duration
 in milliseconds. There is no SDK business-duration ceiling, including for multi-day values.
@@ -143,7 +159,7 @@ profile. Its separate installed native proof uses exact Grok Build 1.0.62, reque
 reasoning and API-key authentication for four turns with exact artifacts, cancellation and complete
 resource cleanup. It does not qualify other providers, subscription authentication, fleet execution
 or billing, and does not expand structured-output, history or execution-input support. Hosted
-Docker CI is configured but has no recorded hosted result.
+Docker CI requires separate workflow evidence; local native results do not establish a hosted pass.
 
 ## ACP prompt lifetime
 
@@ -226,7 +242,7 @@ quiescence before joining entered sends, callbacks and readers; cleanup retries 
 
 ### Public unsupported boundary and exact private qualification
 
-No public native provider in the ten-package candidate supports execution input. Public ACP/Grok
+No public native provider in the ten-package release supports execution input. Public ACP/Grok
 adapters remain absent/unsupported; there is no public Claude execution constructor or Grok input
 selection. Stable ACP `schema-v1.23.0` negotiation, vendor metadata and extension advertisements
 grant no input capability. Grok Build `1.0.67` has native input facilities, but its inspected behavior
@@ -459,7 +475,7 @@ by the caller; native stores are never scratch cleanup targets.
 
 ## Run the public examples
 
-From the built candidate checkout:
+From the matching built `v0.4.4` checkout:
 
 ```sh
 pnpm examples:history
@@ -477,8 +493,9 @@ identify the newly packed 0.4.4 bytes. The earlier history/generation candidate 
 eight-package 0.4.4 installed-consumer check, including the history and generation examples.
 Retained history qualification does not establish backend authentication, billing, arbitrary
 stores/platforms or private Hostd deployment; the structured execution tuple above has its own
-scope. [RELEASING.md](RELEASING.md) also retains the separate first
-publication/bootstrap and trusted-publisher verification requirements for history and both sandbox packages.
+scope. The published ten-package release retains its own archive, provenance and registry-consumer
+identities. [RELEASING.md](RELEASING.md) records completed setup for all ten package names and
+preserves separate authorization for future publication, trust changes and promotion.
 
 Selective exports accept `{ kind: 'files', paths }` for streamed exact regular files or
 `{ kind: 'subtree', path }` for one directory and its descendants. Subtrees preserve their

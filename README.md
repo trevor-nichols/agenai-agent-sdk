@@ -2,9 +2,9 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Current source is the coordinated **ten-package `0.4.4` candidate**, with Agent Protocol V13, native structured final responses, optional runtime execution input and optional history and sandbox packages. This candidate is unpublished; execution input has no supported public native provider.
-> The recorded npm `latest` and `beta` state remains the verified **seven-package `0.4.3` release**, which did not include history or either sandbox package.
-> See [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for candidate setup, the V13 adapter upgrade, execution-input ownership, structured-output support, native history scope and sandbox execution.
+> The coordinated **ten-package `0.4.4` release** is published under npm `latest` and `beta`, with Agent Protocol V13, native structured final responses, optional runtime execution input and optional history and sandbox packages. Execution input has no supported public native provider.
+> See the [v0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4) and [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for installation, the V13 adapter upgrade, earlier-candidate migration, execution-input ownership, structured-output support, native history scope and sandbox execution.
+> The preceding seven-package `0.4.3` release did not include history or either sandbox package.
 > See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for the preceding patch’s lifecycle fixes. Earlier `0.4.1` artifacts retain V11 and their original qualification.
 > See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
@@ -50,7 +50,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten source package versions are coordinated at candidate version `0.4.4`.
+schema assets. All ten published package versions are coordinated at `0.4.4`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -62,7 +62,7 @@ The dependency chain is intentionally narrow:
        -> @agen-ai/validation
        -> zod
 
-@agen-ai/agent-history (optional source candidate)
+@agen-ai/agent-history (optional)
   -> @agen-ai/agent-protocol
   -> @agen-ai/validation
   -> zod
@@ -114,31 +114,31 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published `0.4.3` runtime:
+Install the published `0.4.4` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.3
+pnpm add @agen-ai/agent-runtime@0.4.4
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.3 @agen-ai/agent-protocol@0.4.3
+pnpm add @agen-ai/validation@0.4.4 @agen-ai/agent-protocol@0.4.4
 ```
 
 Keep every SDK package you install at the same coordinated version, including optional packages.
-The source Agent Protocol V13 replaces V12 at the live boundary; the current parser has no
+Agent Protocol V13 replaces V12 at the live boundary; the current parser has no
 older-version compatibility mode. Published `0.4.3` and `0.4.2` retain V12, `0.4.1` retains V11 and
-`0.4.0` retains V10. Current source examples require matching built or packed `0.4.4` candidate packages; their decision responses carry
+`0.4.0` retains V10. Current examples target the published `0.4.4` family; their decision responses carry
 `{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
 documents the implemented generic lifecycle and exact native qualification limits.
 Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
 the generalized session-interaction API is available in the matching published `0.4.3` packages.
-Run current examples from the built candidate checkout or its complete matching tarball set.
-The `0.4.3` npm installation above provides the previously published API and examples; it does not
-include execution input, structured generation, history or sandbox execution. [Candidate setup](UPGRADING-TO-0.4.4.md#validate-the-candidate) uses local artifacts
-rather than an unpublished npm version.
+Use published `0.4.4` packages when adopting these examples in an application. Repository
+`pnpm examples:*` commands run from the matching built `v0.4.4` checkout; example files are source,
+not additional npm entrypoints. The [installation guide](UPGRADING-TO-0.4.4.md#validate-the-installation)
+also describes optional source/local-archive validation and migration from earlier candidate APIs.
 
 ## Generate a typed object
 
@@ -265,7 +265,7 @@ properties per object. Values are limited to 16,384 serialized bytes, 1,024 node
 rejects schemas whose minimum required value exceeds those limits. See the
 [protocol README](packages/agent-protocol/README.md) for the full limits and neutral validation APIs.
 
-| Composition | Structured-output support in this candidate |
+| Composition | Structured-output support in this release |
 | --- | --- |
 | Public `@agen-ai/provider-acp` with Grok Build 1.0.62 | Explicit `structuredOutputMapping: { mapping: 'grok-build-1.0.62-structured-output-v1' }`, stable ACP `schema-v1.23.0`, per-turn schemas. Qualified from installed `0.4.4` packages on Linux x86_64 / Node 24.18.0 with `grok-4.3`, low reasoning and xAI API-key authentication. |
 | Generic ACP, including the provider's default configuration | Unsupported. ACP metadata acceptance alone does not establish native final-output semantics. |
@@ -439,7 +439,7 @@ pnpm examples:session-continuations:acp
 
 ## Send input during an owned execution
 
-The unpublished `0.4.4` candidate adds an optional, process-local `execution.input` port to the
+The `0.4.4` release adds an optional, process-local `execution.input` port to the
 existing runtime. It adds no package or Agent Protocol/Host Protocol version change. No public
 native provider ships input support: public ACP/Grok ports remain absent or unsupported, and
 there is no public Claude execution constructor. Existing strict `turns.steer` semantics are
@@ -457,7 +457,7 @@ native processes or network access.
 pnpm examples:execution-input
 ```
 
-Use matching built or packed `0.4.4` candidate packages. The five hermetic scenarios are explicitly
+Use matching `0.4.4` packages. The five hermetic scenarios are explicitly
 synthetic: accepted/consumed, accepted/unconfirmed, definite native rejection, uncertain delivery,
 and unsupported input. They teach the neutral API and establish no native mapping.
 
@@ -686,7 +686,7 @@ agent, an authenticated account, inference, or production containment.
 
 ## Run an agent in a sandbox
 
-The optional `0.4.4` candidate packages add an explicitly selected execution boundary around one
+The optional `0.4.4` packages add an explicitly selected execution boundary around one
 native process. `@agen-ai/sandbox` owns policy, streams, file transfer and cleanup; its root has no
 Docker or ACP dependency. `@agen-ai/sandbox-docker` selects a local Docker Engine, namespace,
 exact existing image ID, non-root user and explicit caller-owned spill directory. The explicit `@agen-ai/sandbox/acp` entrypoint composes
@@ -703,7 +703,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching candidate checkout:
+run from the built matching `v0.4.4` checkout:
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \
@@ -860,7 +860,7 @@ correlation and cleanup limits. Known or registered methods still use their exac
 validators. A vendor feature that needs an extension requires an explicit mapping
 and separate behavior evidence.
 
-| Surface | Provider support in `0.4.4` candidate source |
+| Surface | Provider support in `0.4.4` |
 | --- | --- |
 | Sessions and turns | Create, default text turns, streamed text/reasoning/tool progress, and settlement-backed interruption. Exact resume requires advertised `session/resume` or `session/load`; load replay is bounded and suppressed. |
 | Execution input | Unsupported in all public ACP/Grok compositions. Stable schema negotiation, vendor input advertisements and unknown-extension policy grant no native input mapping. |
@@ -1129,9 +1129,9 @@ Package-specific API and lifecycle notes live in each package README:
 - [`@agen-ai/acp-transport`](packages/acp-transport/README.md)
 - [`@agen-ai/provider-acp`](packages/provider-acp/README.md)
 - [`@agen-ai/acp-registry`](packages/acp-registry/README.md)
-- [`@agen-ai/agent-history`](packages/agent-history/README.md) (optional `0.4.4` candidate)
-- [`@agen-ai/sandbox`](packages/sandbox/README.md) (optional `0.4.4` candidate)
-- [`@agen-ai/sandbox-docker`](packages/sandbox-docker/README.md) (optional `0.4.4` candidate)
+- [`@agen-ai/agent-history`](packages/agent-history/README.md) (optional)
+- [`@agen-ai/sandbox`](packages/sandbox/README.md) (optional)
+- [`@agen-ai/sandbox-docker`](packages/sandbox-docker/README.md) (optional)
 
 ## Prepared changes in 0.4.0
 
