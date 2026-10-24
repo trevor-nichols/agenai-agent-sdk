@@ -62,7 +62,7 @@ function closed(socket: Socket): Promise<void> {
   return new Promise((resolve) => socket.once('close', resolve));
 }
 
-function chunkedRequestLength(bytes: Buffer, start: number): number | undefined {
+function chunkedMessageLength(bytes: Buffer, start: number, payloadLimit: number): number | undefined {
   let cursor = start;
   let payloadBytes = 0;
   for (;;) {
@@ -74,11 +74,11 @@ function chunkedRequestLength(bytes: Buffer, start: number): number | undefined 
     const encoded = bytes.subarray(cursor, end).toString('latin1');
     if (!/^(?:0|[1-9a-f][0-9a-f]*)$/iu.test(encoded)) throw new Error('Fault proxy requires canonical chunk sizes without extensions.');
     const size = Number.parseInt(encoded, 16);
-    if (!Number.isSafeInteger(size) || size > REQUEST_LIMIT - payloadBytes) throw new Error('Fault proxy chunked body exceeds its byte limit.');
+    if (!Number.isSafeInteger(size) || size > payloadLimit - payloadBytes) throw new Error('Fault proxy chunked body exceeds its byte limit.');
     cursor = end + 2;
     if (size === 0) {
       if (bytes.length < cursor + 2) return undefined;
-      if (bytes.subarray(cursor, cursor + 2).toString('latin1') !== '\r\n') throw new Error('Fault proxy does not admit request trailers.');
+      if (bytes.subarray(cursor, cursor + 2).toString('latin1') !== '\r\n') throw new Error('Fault proxy does not admit HTTP trailers.');
       return cursor + 2;
     }
     if (bytes.length < cursor + size + 2) return undefined;
@@ -86,6 +86,27 @@ function chunkedRequestLength(bytes: Buffer, start: number): number | undefined 
     payloadBytes += size;
     cursor += size + 2;
   }
+}
+
+type ResponseFraming = { readonly kind: 'length'; readonly endOffset: number }
+  | { readonly kind: 'chunked' } | { readonly kind: 'eof' };
+
+function responseFraming(header: string, method: string, status: number, headerBytes: number): ResponseFraming {
+  const lines = header.split('\r\n').slice(1);
+  const lengths = lines.filter((line) => /^content-length:/iu.test(line));
+  const encodings = lines.filter((line) => /^transfer-encoding:/iu.test(line));
+  const lengthText = lengths[0]?.slice(lengths[0].indexOf(':') + 1).trim();
+  const encoding = encodings[0]?.slice(encodings[0].indexOf(':') + 1).trim().toLowerCase();
+  if (lengths.length > 1 || encodings.length > 1 || lengthText !== undefined && !/^\d+$/u.test(lengthText)
+    || encoding !== undefined && (lengthText !== undefined || encoding !== 'chunked')) {
+    throw new Error('Fault proxy requires unambiguous response framing.');
+  }
+  if (method === 'HEAD' || status === 204 || status === 304) return { kind: 'length', endOffset: headerBytes };
+  if (encoding !== undefined) return { kind: 'chunked' };
+  if (lengthText === undefined) return { kind: 'eof' };
+  const length = Number(lengthText);
+  if (!Number.isSafeInteger(length) || length > RESPONSE_LIMIT - headerBytes) throw new Error('Fault proxy response body exceeds its byte limit.');
+  return { kind: 'length', endOffset: headerBytes + length };
 }
 
 function readRequest(socket: Socket): Promise<{ request: ProxyRequest; bytes: Buffer }> {
@@ -141,7 +162,7 @@ function readRequest(socket: Socket): Promise<{ request: ProxyRequest; bytes: Bu
         if (!chunked) total = headerEnd + length;
       }
       if (chunked && total === undefined) {
-        try { total = chunkedRequestLength(Buffer.concat(chunks, received), headerEnd); }
+        try { total = chunkedMessageLength(Buffer.concat(chunks, received), headerEnd, REQUEST_LIMIT); }
         catch (cause) { finish(cause instanceof Error ? cause : new Error('Invalid proxy chunk framing.', { cause })); return; }
       }
       if (total !== undefined && received >= total) {
@@ -189,6 +210,8 @@ export async function createFaultProxy(options: { readonly upstreamEndpoint: str
     let status: number | undefined;
     let upgraded = false;
     let responseComplete = false;
+    let framing: ResponseFraming | undefined;
+    const chunkedResponse: Buffer[] = [];
     const responseChunks: Buffer[] = [];
     const pendingHeader: Buffer[] = [];
     const deadline = setTimeout(() => {
@@ -224,40 +247,57 @@ export async function createFaultProxy(options: { readonly upstreamEndpoint: str
         fault?.responded.resolve(observation);
       };
       upstream.on('data', (chunk: Buffer) => {
-        responseBytes += chunk.byteLength;
-        if (responseBytes > RESPONSE_LIMIT) { upstream?.destroy(new Error('Fault proxy upstream bytes exceed their lifetime bound.')); return; }
-        if (prefix.byteLength < CAPTURE_LIMIT) prefix = Buffer.concat([prefix, chunk.subarray(0, CAPTURE_LIMIT - prefix.byteLength)]);
-        if (fault?.mode === 'hold_reply') responseChunks.push(chunk);
-        let outgoing = chunk;
-        if (headerEnd === undefined) {
-          pendingHeader.push(chunk);
-          const end = prefix.indexOf('\r\n\r\n');
-          if (end < 0) {
-            if (prefix.byteLength > HEADER_LIMIT) upstream?.destroy(new Error('Fault proxy response header exceeds its bound.'));
-            return;
+        try {
+          responseBytes += chunk.byteLength;
+          if (responseBytes > RESPONSE_LIMIT) { upstream?.destroy(new Error('Fault proxy upstream bytes exceed their lifetime bound.')); return; }
+          if (prefix.byteLength < CAPTURE_LIMIT) prefix = Buffer.concat([prefix, chunk.subarray(0, CAPTURE_LIMIT - prefix.byteLength)]);
+          if (fault?.mode === 'hold_reply') responseChunks.push(chunk);
+          let outgoing = chunk;
+          if (headerEnd === undefined) {
+            pendingHeader.push(chunk);
+            const end = prefix.indexOf('\r\n\r\n');
+            if (end < 0) {
+              if (prefix.byteLength > HEADER_LIMIT) upstream?.destroy(new Error('Fault proxy response header exceeds its bound.'));
+              return;
+            }
+            if (end + 4 > HEADER_LIMIT) { upstream?.destroy(new Error('Fault proxy response header exceeds its bound.')); return; }
+            const match = /^HTTP\/1\.[01] (\d{3}) /u.exec(prefix.subarray(0, end).toString('latin1'));
+            if (!match) { upstream?.destroy(new Error('Fault proxy upstream returned an invalid status line.')); return; }
+            headerEnd = end + 4;
+            status = Number(match[1]);
+            outgoing = Buffer.concat(pendingHeader);
+            pendingHeader.length = 0;
+            upgraded = status === 101;
+            if (upgraded) {
+              downstream.pipe(upstream!, { end: true });
+              downstream.resume();
+              observe();
+            } else framing = responseFraming(prefix.subarray(0, end).toString('latin1'), request!.method, status, headerEnd);
           }
-          if (end + 4 > HEADER_LIMIT) { upstream?.destroy(new Error('Fault proxy response header exceeds its bound.')); return; }
-          const match = /^HTTP\/1\.[01] (\d{3}) /u.exec(prefix.subarray(0, end).toString('latin1'));
-          if (!match) { upstream?.destroy(new Error('Fault proxy upstream returned an invalid status line.')); return; }
-          headerEnd = end + 4;
-          status = Number(match[1]);
-          outgoing = Buffer.concat(pendingHeader);
-          pendingHeader.length = 0;
-          upgraded = status === 101;
-          if (upgraded) {
-            downstream.pipe(upstream!, { end: true });
-            downstream.resume();
+          if (fault?.mode !== 'hold_reply' && fault?.mode !== 'drop_reply' && !downstream.destroyed && !downstream.write(outgoing)) upstream?.pause();
+          if (framing?.kind === 'chunked') chunkedResponse.push(outgoing);
+          const endOffset = framing?.kind === 'length' ? framing.endOffset : framing?.kind === 'chunked'
+            ? chunkedMessageLength(Buffer.concat(chunkedResponse, responseBytes), headerEnd!, RESPONSE_LIMIT - headerEnd!) : undefined;
+          if (endOffset !== undefined && responseBytes >= endOffset) {
+            if (responseBytes !== endOffset) { upstream?.destroy(new Error('Fault proxy received bytes beyond its single HTTP response.')); return; }
+            responseComplete = true;
             observe();
+            reply.resolve();
+            upstream?.end();
           }
+        } catch (cause) {
+          upstream?.destroy(cause instanceof Error ? cause : new Error('Invalid fault proxy response framing.', { cause }));
         }
-        if (fault?.mode !== 'hold_reply' && fault?.mode !== 'drop_reply' && !downstream.destroyed && !downstream.write(outgoing)) upstream?.pause();
       });
       downstream.on('drain', () => upstream?.resume());
       upstream.once('error', reply.reject);
       upstream.once('end', () => {
         if (status === undefined) { reply.reject(new Error('Fault proxy upstream ended without an HTTP response.')); return; }
-        responseComplete = true;
-        if (!upgraded) observe();
+        if (!responseComplete) {
+          if (!upgraded && framing?.kind !== 'eof') { reply.reject(new Error('Fault proxy upstream ended inside its framed response.')); return; }
+          responseComplete = true;
+          if (!upgraded) observe();
+        }
         reply.resolve();
         if (fault?.mode !== 'hold_reply' && fault?.mode !== 'drop_reply') downstream.end();
         upstream?.end();
@@ -272,8 +312,8 @@ export async function createFaultProxy(options: { readonly upstreamEndpoint: str
       });
       await new Promise<void>((resolve, reject) => { upstream!.once('connect', resolve); upstream!.once('error', reject); });
       upstream.write(input.bytes);
-      // The complete HTTP request is already buffered. Only a confirmed hijack owns more
-      // client input; an aborted held caller must not end the dispatched HTTP request socket.
+      // Only a confirmed hijack owns more client input. Ordinary HTTP finishes the write side
+      // after its complete framed response, so keep-alive does not retain an owned request.
       if (fault?.mode === 'drop_reply') {
         await Promise.race([reply.promise, fault.released.promise]);
         await fault.released.promise;

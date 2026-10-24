@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { parseAgentProviderConversationId } from '@agen-ai/agent-protocol';
 import { createCursorHistory } from '../dist/cursor.js';
@@ -249,7 +250,7 @@ async function enteredWorker(previous: ReadonlySet<number>): Promise<number> {
       try { command = await readFile(`/proc/${pid}/cmdline`, 'utf8'); }
       catch (error) { if (code('ENOENT')(error)) continue; throw error; }
       const args = command.split('\0');
-      if (args[0] === process.execPath && args.includes('--jitless') && args.includes('--max-old-space-size=128')) return pid;
+      if (args[0] === process.execPath && args.includes(fileURLToPath(new URL('../dist/providers/cursor/worker/main.js', import.meta.url)))) return pid;
     }
   }
   assert.fail('The actual Cursor resource worker must enter before cancellation.');
@@ -269,6 +270,12 @@ test('Cursor cancellation and close join entered native workers and empty their 
     const limits = await readFile(`/proc/${pid}/limits`, 'utf8');
     assert.match(limits, /Max address space\s+4294967296\s+4294967296/u);
     assert.match(limits, /Max cpu time\s+12\s+12/u);
+    const workerArguments = (await readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0');
+    assert(workerArguments.includes('--max-old-space-size=128'));
+    if (process.versions.node.split('.')[0] === '22') {
+      assert(workerArguments.includes('--disable-wasm-trap-handler'));
+      assert.equal(workerArguments.includes('--jitless'), false);
+    } else assert(workerArguments.includes('--jitless'));
     let closing: Promise<void> | undefined;
     if (interruption === 'cancel') controller.abort(); else closing = history.close();
     const result = await reading;

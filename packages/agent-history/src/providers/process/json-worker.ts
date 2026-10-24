@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { AgentHistoryError } from '../../lifecycle/errors.js';
 import { HistoryProcessOwner } from './owner.js';
 import { terminateProcessGroup, waitForGroupExit } from './group.js';
+import { historyJsonWorkerArguments, type HistoryJsonWorkerRuntime } from './runtime.js';
 
 interface JsonWorkerResources {
   readonly executable: string;
@@ -18,10 +19,12 @@ interface JsonMutationObserver {
 const MUTATION_PERMIT = '{"version":1,"kind":"dispatch"}\n';
 
 export class HistoryJsonWorkerOwner {
-  private constructor(private readonly owner: HistoryProcessOwner, private readonly resources: JsonWorkerResources, private readonly worker: URL) {}
+  private constructor(private readonly owner: HistoryProcessOwner, private readonly resources: JsonWorkerResources,
+    private readonly worker: URL, private readonly runtime: HistoryJsonWorkerRuntime) {}
 
-  static async create(resources: JsonWorkerResources, worker: URL, prefix: string): Promise<HistoryJsonWorkerOwner> {
-    return new HistoryJsonWorkerOwner(await HistoryProcessOwner.create(resources.temporaryRoot, prefix), resources, worker);
+  static async create(resources: JsonWorkerResources, worker: URL, prefix: string,
+    runtime: HistoryJsonWorkerRuntime = 'jitless'): Promise<HistoryJsonWorkerOwner> {
+    return new HistoryJsonWorkerOwner(await HistoryProcessOwner.create(resources.temporaryRoot, prefix), resources, worker, runtime);
   }
 
   async run(input: string, signal: AbortSignal, environment: Readonly<Record<string, string>> = {}): Promise<unknown> {
@@ -46,7 +49,7 @@ export class HistoryJsonWorkerOwner {
       scope.signal.throwIfAborted();
       const child = spawn(this.resources.executable, [
         '--as=4294967296', '--cpu=12', '--nofile=128', '--core=0', '--', process.execPath,
-        '--jitless', '--max-old-space-size=128', fileURLToPath(this.worker),
+        ...historyJsonWorkerArguments(this.runtime), fileURLToPath(this.worker),
       ], { cwd: operationRoot, detached: true, stdio: ['pipe', 'pipe', 'pipe'], env: {
         ...environment, PATH: '/usr/bin:/bin', HOME: paths.home, XDG_CONFIG_HOME: paths.config, XDG_CACHE_HOME: paths.cache,
         XDG_DATA_HOME: paths.data, XDG_STATE_HOME: paths.state, TMPDIR: paths.tmp,

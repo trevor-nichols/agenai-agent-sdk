@@ -17,6 +17,8 @@ async function fixture(replyDelayMs = 0, releaseMutationBody?: Promise<void>) {
   const sockets = new Set<Socket>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let mutations = 0;
+  let rejectedUpgrades = 0;
+  const rejectedUpgradeInputEnded = Promise.withResolvers<void>();
   const server = createServer((incoming, response) => {
     const chunks: Buffer[] = [];
     incoming.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -50,8 +52,19 @@ async function fixture(replyDelayMs = 0, releaseMutationBody?: Promise<void>) {
     socket.on('error', () => {});
     socket.once('close', () => sockets.delete(socket));
   });
-  server.on('upgrade', (_incoming, socket, head) => {
+  server.on('upgrade', (incoming, socket, head) => {
     socket.on('error', () => {});
+    if (incoming.url === '/v1.52/exec/missing/start' || incoming.url === '/v1.52/exec/chunked-missing/start') {
+      rejectedUpgrades += 1;
+      const body = JSON.stringify({ message: 'No such exec instance' });
+      const chunked = incoming.url === '/v1.52/exec/chunked-missing/start';
+      const framing = chunked ? 'Transfer-Encoding: chunked' : `Content-Length: ${Buffer.byteLength(body)}`;
+      socket.write(`HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n${framing}\r\nConnection: keep-alive\r\n\r\n`);
+      socket.write(chunked ? `${Buffer.byteLength(body).toString(16)}\r\n${body}\r\n0\r\n\r\n` : body);
+      socket.once('end', () => { rejectedUpgradeInputEnded.resolve(); socket.end(); });
+      socket.resume();
+      return;
+    }
     socket.write('HTTP/1.1 101 Switch');
     setImmediate(() => socket.write(Buffer.concat([
       Buffer.from('ing Protocols\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n'), Buffer.from([0, 255]), head,
@@ -61,7 +74,8 @@ async function fixture(replyDelayMs = 0, releaseMutationBody?: Promise<void>) {
   });
   await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(backendPath, resolve); });
   const proxy = await createFaultProxy({ upstreamEndpoint: `unix://${backendPath}`, directory });
-  return { proxy, get mutations() { return mutations; }, async close() {
+  return { proxy, get mutations() { return mutations; }, get rejectedUpgrades() { return rejectedUpgrades; },
+    rejectedUpgradeInputEnded: rejectedUpgradeInputEnded.promise, async close() {
     try { await proxy.close(); }
     finally {
       for (const timer of timers) clearTimeout(timer);
@@ -162,6 +176,34 @@ test('held real dispatch remains owned after caller abort and joins its delayed 
     assert.equal(owned.mutations, 1);
     assert.equal(owned.proxy.observations[0]?.responsePrefix.includes('"mutations":1'), true);
   } finally { await owned.close(); }
+});
+
+test('held upgrade rejection settles its keep-alive response after the original caller closes', { timeout: 5000 }, async (t) => {
+  for (const framing of ['length', 'chunked'] as const) await t.test(framing, async () => {
+    const owned = await fixture();
+    const route = framing === 'length' ? '/v1.52/exec/missing/start' : '/v1.52/exec/chunked-missing/start';
+    try {
+      const gate = owned.proxy.arm({ method: 'POST', path: route, mode: 'hold_request', timeoutMs: 1000 });
+      const sent = request({ socketPath: owned.proxy.endpoint.slice(7), path: route, method: 'POST', agent: false,
+        headers: { connection: 'Upgrade', upgrade: 'tcp', 'content-length': 0 } });
+      const rejected = new Promise<Error>((resolve) => sent.once('error', resolve));
+      const callerClosed = new Promise<void>((resolve) => sent.once('close', resolve));
+      sent.end();
+      await gate.entered;
+      sent.destroy(new Error('Cancel the held upgrade before its original dispatch.'));
+      assert.equal((await rejected).message, 'Cancel the held upgrade before its original dispatch.');
+      await callerClosed;
+      assert.equal(owned.rejectedUpgrades, 0);
+      gate.release();
+      const response = await gate.responded;
+      assert.equal(response.status, 404);
+      assert.equal(response.upgraded, false);
+      const body = JSON.stringify({ message: 'No such exec instance' });
+      assert.equal(response.responsePrefix, framing === 'length' ? body : `${Buffer.byteLength(body).toString(16)}\r\n${body}\r\n0\r\n\r\n`);
+      await Promise.all([gate.settled, gate.callerClosed, owned.rejectedUpgradeInputEnded]);
+      assert.equal(owned.rejectedUpgrades, 1);
+    } finally { await owned.close(); }
+  });
 });
 
 test('lost reply reports the completed original mutation and never resends it', { timeout: 5000 }, async () => {

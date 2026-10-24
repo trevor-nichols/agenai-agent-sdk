@@ -6,12 +6,16 @@ import { readCursorTranscript } from '../transcript.js';
 import { connectCursorSdk } from './sdk.js';
 import { mutateCursorAgent } from '../mutations.js';
 import { HistoryWorkerChannel } from '../../process/worker-channel.js';
+import { historyJsonWorkerArguments } from '../../process/runtime.js';
+import { cursorHistoryWorkerRuntime } from '../runtime.js';
 import {
   parseCursorWorkerRequest, parseCursorWorkerResponse, type CursorWorkerResponse,
 } from './protocol.js';
 
 async function assertResourcePolicy(): Promise<void> {
-  if (process.platform !== 'linux' || !process.execArgv.includes('--jitless') || !process.execArgv.includes('--max-old-space-size=128')) {
+  const runtime = cursorHistoryWorkerRuntime();
+  if (process.platform !== 'linux' || !historyJsonWorkerArguments(runtime).every((argument) => process.execArgv.includes(argument))
+    || runtime === 'bounded_webassembly' && process.execArgv.includes('--jitless')) {
     throw new AgentHistoryError('unsupported_scope', 'Cursor local history requires the qualified Linux worker resource policy.');
   }
   const limits = await readFile('/proc/self/limits', 'utf8');

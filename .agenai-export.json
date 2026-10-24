@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "70b7ad7a5d37f5b67630180ab74b7a4c4cc7cf7b",
+  "sourceRevision": "80a417a3718a4e0164779393b930a0c9c38cda01",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -465,6 +465,7 @@
     "packages/agent-history/src/providers/cursor/native.ts",
     "packages/agent-history/src/providers/cursor/options.ts",
     "packages/agent-history/src/providers/cursor/process.ts",
+    "packages/agent-history/src/providers/cursor/runtime.ts",
     "packages/agent-history/src/providers/cursor/session.ts",
     "packages/agent-history/src/providers/cursor/transcript.ts",
     "packages/agent-history/src/providers/cursor/worker/main.ts",
@@ -501,6 +502,7 @@
     "packages/agent-history/src/providers/process/group.ts",
     "packages/agent-history/src/providers/process/json-worker.ts",
     "packages/agent-history/src/providers/process/owner.ts",
+    "packages/agent-history/src/providers/process/runtime.ts",
     "packages/agent-history/src/providers/process/worker-channel.ts",
     "packages/agent-history/src/validation/bounds.ts",
     "packages/agent-history/src/validation/errors.ts",

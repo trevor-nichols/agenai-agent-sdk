@@ -2,6 +2,7 @@ import { AgentHistoryError } from '../../lifecycle/errors.js';
 import type { AgentHistoryMutationDriverContext } from '../../contracts/index.js';
 import { HistoryJsonWorkerOwner } from '../process/json-worker.js';
 import type { CursorHistoryResourcePolicy } from './contracts.js';
+import { cursorHistoryWorkerRuntime } from './runtime.js';
 import { parseCursorWorkerRequest, parseCursorWorkerResponse, type CursorWorkerRequest, type CursorWorkerResponse } from './worker/protocol.js';
 
 export class CursorWorkerOwner {
@@ -9,7 +10,7 @@ export class CursorWorkerOwner {
 
   static async create(resources: CursorHistoryResourcePolicy): Promise<CursorWorkerOwner> {
     return new CursorWorkerOwner(await HistoryJsonWorkerOwner.create(resources,
-      new URL('./worker/main.js', import.meta.url), 'agenai-cursor-history-'));
+      new URL('./worker/main.js', import.meta.url), 'agenai-cursor-history-', cursorHistoryWorkerRuntime()));
   }
 
   async run(raw: CursorWorkerRequest, signal: AbortSignal): Promise<CursorWorkerResponse> {
