@@ -25,7 +25,7 @@ export const parent: DelegationParentScope = { parentId: "parent", scopeId: "qua
 export const input = { parts: [{ type: "text" as const, text: "Perform the delegated task." }] };
 
 export function eventBase(context: AgentProviderSessionContext, turnId: AgentTurnId) {
-  return { protocolVersion: 12 as const, sessionId: context.sessionId, turnId, occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
+  return { protocolVersion: 13 as const, sessionId: context.sessionId, turnId, occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
 }
 
 export async function* completedOutputs(context: AgentProviderSessionContext, turnId: AgentTurnId, deltas = ["Durable result."]): AsyncIterable<AgentProviderOutput> {
@@ -33,7 +33,7 @@ export async function* completedOutputs(context: AgentProviderSessionContext, tu
   yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
   yield createAgentEventOutput({ ...base, type: "item.started", payload: { itemId: "answer", itemKind: "assistant_message", status: "in_progress" } });
   for (const delta of deltas) yield createAgentEventOutput({ ...base, type: "content.delta", payload: { itemId: "answer", streamKind: "assistant_text", delta } });
-  yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+  yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
 }
 
 export async function createReferenceHost(options: {

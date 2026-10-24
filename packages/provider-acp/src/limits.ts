@@ -7,7 +7,7 @@ export interface AcpProviderLimits {
   readonly authenticationTimeoutMs: number;
   readonly cancellationTimeoutMs: number;
   readonly initializationTimeoutMs: number;
-  readonly promptTimeoutMs: number;
+  readonly terminalWaitTimeoutMs: number;
 }
 
 export const DEFAULT_ACP_PROVIDER_LIMITS: AcpProviderLimits = Object.freeze({
@@ -19,7 +19,7 @@ export const DEFAULT_ACP_PROVIDER_LIMITS: AcpProviderLimits = Object.freeze({
   authenticationTimeoutMs: 15 * 60_000,
   cancellationTimeoutMs: 5_000,
   initializationTimeoutMs: 30_000,
-  promptTimeoutMs: 30 * 60_000,
+  terminalWaitTimeoutMs: 30 * 60_000,
 });
 
 const BOUNDS: Readonly<Record<keyof AcpProviderLimits, readonly [number, number]>> = {
@@ -31,7 +31,7 @@ const BOUNDS: Readonly<Record<keyof AcpProviderLimits, readonly [number, number]
   authenticationTimeoutMs: [10, 30 * 60_000],
   cancellationTimeoutMs: [10, 60_000],
   initializationTimeoutMs: [10, 30 * 60_000],
-  promptTimeoutMs: [10, 30 * 60_000],
+  terminalWaitTimeoutMs: [10, 30 * 60_000],
 };
 
 export function resolveAcpProviderLimits(

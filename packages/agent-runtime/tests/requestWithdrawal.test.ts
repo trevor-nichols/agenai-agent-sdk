@@ -57,7 +57,7 @@ async function scenario(options: {
   const session = await harness.open("create");
   const context = harness.contexts[0];
   assert.ok(context);
-  const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId,
+  const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId,
     occurredAt: parseAgentIsoDateTime("2026-10-16T00:00:00.000Z") };
   const execution = session.startTurn(turnInput);
   const iterator = execution.outputs[Symbol.asyncIterator]();
@@ -72,7 +72,7 @@ async function scenario(options: {
   }
   async function finish() {
     await next({ ...base, type: "item.completed", payload: { itemId, itemKind: "assistant_message", status: "completed" } });
-    await next({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+    await next({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
     ended = true; controller!.close();
     assert.deepEqual(await iterator.next(), { done: true, value: undefined });
   }
@@ -226,7 +226,7 @@ test("temporarily withheld approval must retire before its item or turn complete
     const interruption = fixture.session.interruption.interruptTurn({ turnId, reason: "user_requested" });
     const invalid = completion === "item"
       ? fixture.next({ ...fixture.base, type: "item.completed", payload: { itemId, itemKind: "assistant_message", status: "completed" } })
-      : fixture.next({ ...fixture.base, type: "turn.completed", payload: { outcome: "completed" } });
+      : fixture.next({ ...fixture.base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
     await assert.rejects(invalid, hasContractCode("invalid_turn_sequence"));
     interruptionReceipt.resolve({ status: "failed", error: refusal });
     assert.deepEqual(await interruption, { status: "failed", error: refusal });
@@ -248,7 +248,7 @@ test("a late pending refusal is preserved without restoring an approval for a co
   assert.deepEqual(await answering, receipt);
   await assert.rejects(fixture.execution.resolveRequest({ resolution: answer("A") }), hasContractCode("request_resolution_mismatch"));
   await fixture.withdraw("A");
-  await fixture.next({ ...fixture.base, type: "turn.completed", payload: { outcome: "completed" } });
+  await fixture.next({ ...fixture.base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
   assert.deepEqual(fixture.answers, [answer("A")]);
 });
 

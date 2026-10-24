@@ -180,7 +180,7 @@ test("registry validates materialized instance identity and capability ownership
       instanceId: parseAgentInstanceId("another-instance"),
       capabilities: parseAgentCapabilities({
         environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-        protocolVersion: 12,
+        protocolVersion: 13,
         providerKey,
         sessions: {
           create: true,
@@ -188,6 +188,7 @@ test("registry validates materialized instance identity and capability ownership
           branch: { kind: "unsupported" },
         },
         turns: {
+          structuredOutput: { kind: "unsupported" },
           interactionModes: ["default"],
           interrupt: false,
           steer: { kind: "unsupported" },
@@ -285,7 +286,7 @@ test("registry cleans earlier instances when a rejected instance also fails clea
       instanceId: parseAgentInstanceId("wrong-instance"),
       capabilities: parseAgentCapabilities({
         environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-        protocolVersion: 12,
+        protocolVersion: 13,
         providerKey,
         sessions: {
           create: true,
@@ -293,6 +294,7 @@ test("registry cleans earlier instances when a rejected instance also fails clea
           branch: { kind: "unsupported" },
         },
         turns: {
+          structuredOutput: { kind: "unsupported" },
           interactionModes: ["default"],
           interrupt: false,
           steer: { kind: "unsupported" },

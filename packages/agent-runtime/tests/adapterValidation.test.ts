@@ -66,10 +66,11 @@ import { deferred } from "./fixtures/hostBindings/harness.js";
 const providerKey = parseAgentProviderKey("contract-fixture");
 const capabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 12,
+  protocolVersion: 13,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
+    structuredOutput: { kind: "unsupported" },
     interactionModes: ["default"],
     interrupt: false,
     steer: { kind: "unsupported" },
@@ -112,6 +113,7 @@ const requestCapabilities: AgentCapabilities = parseAgentCapabilities({
 const steeringCapabilities: AgentCapabilities = parseAgentCapabilities({
   ...capabilities,
   turns: {
+    structuredOutput: { kind: "unsupported" },
     interactionModes: ["default"],
     interrupt: false,
     steer: {
@@ -178,7 +180,7 @@ function allowOnceResolution(requestId: ReturnType<typeof parseAgentRequestId>) 
 }
 
 function eventBase(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
-  return { protocolVersion: 12 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 13 as const, sessionId, turnId, occurredAt };
 }
 
 function retryingOutput(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
@@ -257,7 +259,7 @@ function completedTurnOutputs(
     createAgentEventOutput({
       ...eventBase(turnId, occurredAt),
       type: "turn.completed",
-      payload: { outcome: "completed" },
+      payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
     }),
   ];
 }
@@ -277,7 +279,7 @@ function session(
     binding: { conversationId: "contract-conversation" as never },
     startTurn: fixtureTurn(async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 12,
+        protocolVersion: 13,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -285,12 +287,12 @@ function session(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 12,
+        protocolVersion: 13,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
         occurredAt: "2026-08-04T00:00:00.000Z",
-        payload: { outcome: "completed" },
+        payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
       });
     }, async function* () {}),
 
@@ -2026,7 +2028,7 @@ test("session operation observations preserve backpressure and reject turn lifec
               invokeOperation: async (operationInput) => {
                 operationInput.onProviderExecutionStarted?.();
                 await operationInput.onOutput?.(createAgentEventOutput({
-                  protocolVersion: 12,
+                  protocolVersion: 13,
                   type: "item.completed",
                   sessionId,
                   turnId: operationInput.observationTurnId,
@@ -2040,9 +2042,9 @@ test("session operation observations preserve backpressure and reject turn lifec
                 }));
                 if (turnCompletionFromOperation) {
                   await operationInput.onOutput?.(createAgentEventOutput({
-                    protocolVersion: 12, type: "turn.completed", sessionId,
+                    protocolVersion: 13, type: "turn.completed", sessionId,
                     turnId: operationInput.observationTurnId, occurredAt: "2026-10-11T00:00:00.000Z",
-                    payload: { outcome: "completed" },
+                    payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
                   }));
                 }
                 return {
@@ -2434,7 +2436,7 @@ test("final_diff permits late canonical retirement after an unavailable response
           payload: { summary: "One file changed.", fileCount: 1, byteSize: 32 } });
         yield createAgentEventOutput({ ...base, type: "request.unavailable",
           payload: { requestId: request.requestId, reason: "withdrawn" } });
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
       })(),
       async resolveRequest() { answerEntries += 1; return receipt; },
     }) });
@@ -2515,7 +2517,7 @@ test("final_diff enforces one terminal materialization while structured diffs re
     createAgentEventOutput({
       ...eventBase(turnId, occurredAt),
       type: "turn.completed",
-      payload: { outcome: "completed" },
+      payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
     });
   const scenarios: readonly Readonly<{
     name: string;
@@ -2645,7 +2647,7 @@ test("final_diff enforces one terminal materialization while structured diffs re
               });
               yield* scenario.outputs(turnId);
               if (scenario.name === "structured diff at request-waiting boundary") {
-                yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.completed", payload: { outcome: "canceled" } });
+                yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled" } });
               }
             }),
           });
@@ -2766,7 +2768,7 @@ test("elicitation capability admits only declared bounded field kinds", async ()
             })) {
               yield output;
             }
-            yield createAgentEventOutput({ ...eventBase(turnInput.turnId, occurredAt), type: "turn.completed", payload: { outcome: "canceled" } });
+            yield createAgentEventOutput({ ...eventBase(turnInput.turnId, occurredAt), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled" } });
           }),
         });
         input.onBindingCreated(opened.binding);
@@ -2853,7 +2855,7 @@ test("validated sessions reject cross-session output and malformed turn ordering
       const opened = session({
         startTurn: fixtureTurn(async function* (turnInput) {
           yield createAgentEventOutput({
-            protocolVersion: 12,
+            protocolVersion: 13,
             type: "turn.started",
             sessionId: "another-session",
             turnId: turnInput.turnId,
@@ -2909,7 +2911,7 @@ test("provider retry preserves turn ownership and output backpressure until one 
             createAgentEventOutput({
               ...eventBase(turnId, occurredAt),
               type: "turn.completed",
-              payload: { outcome: "completed" },
+              payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
             }),
           ]) {
             producedOutputs += 1;
@@ -2992,7 +2994,7 @@ test("provider retry does not clear a pending request or prevent its continuatio
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.completed",
-            payload: { outcome: "completed" },
+            payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
           });
         }),
 
@@ -3047,7 +3049,7 @@ test("provider retries before turn start or after completion retire the validate
             providerRuns += 1;
             if (placement === "after_completion") {
               yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.started", payload: {} });
-              yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.completed", payload: { outcome: "completed" } });
+              yield createAgentEventOutput({ ...eventBase(turnId, occurredAt), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
             }
             yield retryingOutput(turnId, occurredAt);
           }),
@@ -3091,7 +3093,7 @@ test("run delegation observation follows validated prechecks and precedes the ca
               parseAgentIsoDateTime("2026-08-04T00:00:01.000Z"),
             ),
             type: "turn.completed",
-            payload: { outcome: "completed" },
+            payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
           });
         }),
       });
@@ -3799,6 +3801,7 @@ test("steering remains active while a request continuation executes", async () =
     parseAgentCapabilities({
       ...requestCapabilities,
       turns: {
+        structuredOutput: { kind: "unsupported" },
         interactionModes: ["default"],
         interrupt: false,
         steer: {
@@ -3828,7 +3831,7 @@ test("steering remains active while a request continuation executes", async () =
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.completed",
-            payload: { outcome: "completed" },
+            payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
           });
         }),
 
@@ -4038,7 +4041,7 @@ test("concurrent steering settles before the original run closes and owns no out
             yield createAgentEventOutput({
               ...eventBase(turnId, occurredAt),
               type: "turn.completed",
-              payload: { outcome: "completed" },
+              payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
             });
             markProviderTerminal();
             return;
@@ -4046,7 +4049,7 @@ test("concurrent steering settles before the original run closes and owns no out
           yield createAgentEventOutput({
             ...eventBase(turnId, occurredAt),
             type: "turn.completed",
-            payload: { outcome: "completed" },
+            payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
           });
         }),
         steering: {

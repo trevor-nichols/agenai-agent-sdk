@@ -10,6 +10,9 @@ import {
 import { AgentProviderContractError, AgentProviderDelegatedOperationError, throwAgentProviderContractError } from "../contractErrors.js";
 import { throwIfAgentOperationAborted } from "../foundation.js";
 import { hasExactOwnKeys } from "../internal/objectShape.js";
+import type { AgentExecutionInputSupport } from "../executionInput/types.js";
+import { validateAgentExecutionInputPort } from "../executionInput/validation.js";
+import { createExecutionInputOwner, type createExecutionInputCensus } from "../executionInput/lifetime.js";
 import type { AgentProviderOutput } from "../outputs.js";
 import type { AgentSessionAdmission } from "../sessionAdmission.js";
 import type {
@@ -18,6 +21,7 @@ import type {
 } from "../sessions.js";
 import { validateAgentRequestResolutionResult } from "./receipts.js";
 import { createAgentTurnRequestAdmission, type AgentTurnRequestAdmission, type PendingAgentRequest, type SuspendedAgentTurnRequests } from "./requests.js";
+import { createAgentTurnTerminalBuffer } from "./terminalBuffer.js";
 
 type ExecutionState =
   | Readonly<{ kind: "reserved" }>
@@ -30,7 +34,8 @@ type ExecutionState =
 export interface ValidatedAgentTurnExecution {
   readonly execution: AgentProviderTurnExecution;
   readonly hasEntered: () => boolean;
-  readonly stop: (reason: Error) => void;
+  readonly stop: (reason: Error, inputReason?: "closed" | "interrupted" | "native_failed") => void;
+  readonly closeInputAdmission: () => void;
   readonly join: () => Promise<void>;
   readonly suspendRequests: () => SuspendedAgentTurnRequests;
   readonly completed: Promise<void>;
@@ -38,6 +43,11 @@ export interface ValidatedAgentTurnExecution {
 
 type ExecutionOptions = Readonly<{
   providerKey: AgentProviderKey;
+  executionInputSupport?: AgentExecutionInputSupport;
+  executionInputCensus: ReturnType<typeof createExecutionInputCensus>;
+  ownsExecution: () => boolean;
+  requireInputContext: () => void;
+  structuredOutputBound: boolean;
   pendingRequests: Map<string, PendingAgentRequest>;
   sessionAdmission: AgentSessionAdmission;
   inFlightOperations: Set<Promise<void>>;
@@ -73,13 +83,17 @@ function createExecution(input: ExecutionOptions, origin:
   const turnId = origin.kind === "caller" ? origin.input.turnId : origin.turnId;
   const callerSignal = origin.kind === "caller" ? origin.input.signal : undefined;
   const lifetime = new AbortController();
+  let inputOwner: ReturnType<typeof createExecutionInputOwner> | undefined;
   const validateCandidate = (candidate: AgentProviderTurnExecution) => {
     if (candidate === null || typeof candidate !== "object" || candidate.turnId !== turnId
-      || !hasExactOwnKeys(candidate, ["turnId", "outputs", "resolveRequest"]) || typeof candidate.resolveRequest !== "function"
+      || !hasExactOwnKeys(candidate, ["turnId", "outputs", "resolveRequest", ...(Object.hasOwn(candidate, "input") ? ["input"] : [])])
+      || typeof candidate.resolveRequest !== "function"
       || !candidate.outputs || typeof candidate.outputs[Symbol.asyncIterator] !== "function") {
       throwAgentProviderContractError(input.providerKey, origin.kind === "native" ? "invalid_native_continuation" : "invalid_operation_result",
         "Provider returned an invalid turn execution.");
     }
+    const port = validateAgentExecutionInputPort(candidate.input, input.executionInputSupport, input.providerKey);
+    if (port?.kind === "supported") inputOwner?.attach(port);
     return candidate;
   };
   let state: ExecutionState;
@@ -104,9 +118,32 @@ function createExecution(input: ExecutionOptions, origin:
   let resolveDisposition!: (kind: "started" | "not_started") => void;
   const disposition = new Promise<"started" | "not_started">((resolve) => { resolveDisposition = resolve; });
   let source: AsyncIterator<AgentProviderOutput> | undefined;
+  let sourceExhausted = false;
+  let terminalTail: ReturnType<typeof createAgentTurnTerminalBuffer> | undefined;
   const requests = createAgentTurnRequestAdmission({ providerKey: input.providerKey,
     sessionAdmission: input.sessionAdmission, pendingRequests: input.pendingRequests,
     canRestore: () => state.kind === "entered" && !input.isTerminal(), canRestoreRequest: input.canRestoreRequest });
+  let resolvingRequests = 0;
+  if (origin.kind === "caller" && input.executionInputSupport?.kind === "supported") {
+    inputOwner = createExecutionInputOwner({ providerKey: input.providerKey, turnId,
+      support: input.executionInputSupport, census: input.executionInputCensus, signal: lifetime.signal,
+      fence: input.retire,
+      requireAdmission() {
+        input.requireUsable();
+        if (state.kind !== "entered" || !input.ownsExecution() || input.isTerminal()) {
+          throwAgentProviderContractError(input.providerKey, "active_turn_mismatch",
+            "Execution input does not identify the exact active entered execution.");
+        }
+        if (input.structuredOutputBound) throwAgentProviderContractError(input.providerKey, "structured_output_unsupported",
+          "Schema-bound execution cannot admit additional input.");
+        input.requireInputContext();
+        if (requests.hasUnclaimedRequest() || resolvingRequests > 0) {
+          throwAgentProviderContractError(input.providerKey, "request_pending",
+            "Execution input cannot enter while a human request or its response remains unsettled.");
+        }
+      },
+    });
+  }
   let acquired = false;
   let pulling = false;
   let returnPromise: Promise<IteratorResult<AgentProviderOutput>> | undefined;
@@ -120,8 +157,11 @@ function createExecution(input: ExecutionOptions, origin:
     return new DOMException("The turn execution was stopped.", "AbortError");
   };
   const detachAbort = () => callerSignal?.removeEventListener("abort", abort);
-  const stop = (reason: Error): void => {
+  const stop = (reason: Error, inputReason: "closed" | "interrupted" | "native_failed" = "native_failed"): void => {
     if (state.kind === "settled" || state.kind === "stopped") return;
+    inputOwner?.closeAdmission(inputReason);
+    terminalTail?.clear();
+    terminalTail = undefined;
     const entered = dispatched || state.kind === "entered" || state.kind === "entering";
     state = { kind: "stopped", reason };
     requests.withdraw();
@@ -136,7 +176,7 @@ function createExecution(input: ExecutionOptions, origin:
     try { throwIfAgentOperationAborted(callerSignal); } catch (error) {
       if (error instanceof Error) reason = error;
     }
-    stop(reason);
+    stop(reason, "interrupted");
   };
   callerSignal?.addEventListener("abort", abort, { once: true });
 
@@ -145,6 +185,10 @@ function createExecution(input: ExecutionOptions, origin:
     void operation.then(() => nativeOperations.delete(operation), () => nativeOperations.delete(operation));
     return operation;
   };
+  const pullNative = () => track(Promise.resolve().then(() => state.kind === "entered"
+    ? sourceExhausted ? { done: true as const, value: undefined } : state.iterator.next()
+    : origin.kind === "native" && state.kind === "settled"
+      ? { done: true as const, value: undefined } : Promise.reject(abortError())));
   let joinPromise: Promise<void> | undefined;
   const join = (): Promise<void> => {
     if (joinPromise) return joinPromise;
@@ -153,6 +197,7 @@ function createExecution(input: ExecutionOptions, origin:
       await Promise.allSettled([...nativeOperations, ...input.inFlightOperations]);
     }
     if (source?.return) await source.return();
+    await inputOwner?.join();
     })();
     joinPromise = attempt;
     void attempt.catch(() => { if (joinPromise === attempt) joinPromise = undefined; });
@@ -185,6 +230,7 @@ function createExecution(input: ExecutionOptions, origin:
     let settle!: () => void;
     const settlement = new Promise<void>((resolve) => { settle = resolve; });
     input.inFlightOperations.add(settlement);
+    resolvingRequests += 1;
     try {
       try {
         requestInput.onProviderExecutionStarted?.();
@@ -207,6 +253,7 @@ function createExecution(input: ExecutionOptions, origin:
       if (result.status === "delivery_uncertain") input.retire();
       return result;
     } finally {
+      resolvingRequests -= 1;
       input.inFlightOperations.delete(settlement);
       settle();
     }
@@ -219,6 +266,12 @@ function createExecution(input: ExecutionOptions, origin:
     pulling = true;
     let removeAbort = () => {};
     try {
+      if (terminalTail) {
+        throwIfAgentOperationAborted(lifetime.signal);
+        const trailing = terminalTail.take();
+        if (trailing !== undefined) return { done: false, value: trailing };
+        terminalTail = undefined;
+      }
       if (state.kind === "parked") {
         ready();
         await dispatch;
@@ -255,9 +308,7 @@ function createExecution(input: ExecutionOptions, origin:
         }
       }
       if (state.kind !== "entered") throw abortError();
-      const nativePull = track(Promise.resolve().then(() => state.kind === "entered"
-        ? state.iterator.next() : origin.kind === "native" && state.kind === "settled"
-          ? { done: true as const, value: undefined } : Promise.reject(abortError())));
+      const nativePull = pullNative();
       const stopped = new Promise<never>((_, reject) => {
         const onAbort = () => reject(abortError());
         lifetime.signal.addEventListener("abort", onAbort, { once: true });
@@ -269,6 +320,21 @@ function createExecution(input: ExecutionOptions, origin:
         if (origin.kind === "native" && currentState().kind === "settled") throwAgentProviderContractError(input.providerKey, "invalid_native_continuation", "A no-work execution emitted native output.");
         observedOutput = true;
         const output = input.observe(result.value, requests);
+        if (inputOwner && output.kind === "event" && output.event.type === "turn.completed") {
+          inputOwner.closeAdmission();
+          const buffer = createAgentTurnTerminalBuffer(input.providerKey, output);
+          const exhaustSource = (async () => {
+            for (;;) {
+              const trailing = await Promise.race([pullNative(), stopped]);
+              throwIfAgentOperationAborted(lifetime.signal);
+              if (trailing.done) { sourceExhausted = true; return; }
+              buffer.append(input.observe(trailing.value, requests));
+            }
+          })();
+          await Promise.race([inputOwner.drain(exhaustSource), stopped]);
+          throwIfAgentOperationAborted(lifetime.signal);
+          terminalTail = buffer;
+        }
         return { done: false, value: output };
       }
       while (input.inFlightOperations.size > 0) {
@@ -280,13 +346,15 @@ function createExecution(input: ExecutionOptions, origin:
       requests.withdraw();
       state = { kind: "settled" };
       detachAbort();
-      input.release(); complete();
+      if (!inputOwner?.retainsOwnership) input.release();
+      complete();
       return { done: true, value: undefined };
     } catch (error) {
       if (state.kind === "entered" || state.kind === "entering") stop(error instanceof Error ? error : new Error("Provider output failed.", { cause: error }));
       if (error instanceof AgentProviderContractError && error.code === "request_identity_limit_exceeded") {
         void input.abandon().catch(() => {});
       }
+      if (inputOwner?.failed) void input.abandon().catch(() => {});
       throw error;
     } finally { removeAbort(); pulling = false; }
   };
@@ -296,7 +364,7 @@ function createExecution(input: ExecutionOptions, origin:
       if (returnPromise) return returnPromise;
       if (state.kind === "settled") return Promise.resolve({ done: true, value: undefined });
       const entered = dispatched || state.kind === "entered" || source !== undefined;
-      stop(new DOMException("The turn output consumer returned.", "AbortError"));
+      stop(new DOMException("The turn output consumer returned.", "AbortError"), "closed");
       if (entered && origin.kind === "native") {
         // The host callback may await return(). Its own completion is joined by close.
         void input.abandon().catch(() => {});
@@ -313,9 +381,12 @@ function createExecution(input: ExecutionOptions, origin:
     },
   });
   return {
-    execution: Object.freeze({ turnId: turnId, outputs, resolveRequest }),
+    execution: Object.freeze({ turnId: turnId, outputs, resolveRequest,
+      ...(inputOwner === undefined ? (origin.kind === "native" && input.executionInputSupport?.kind === "supported"
+        ? { input: Object.freeze({ kind: "unsupported" as const }) } : {}) : { input: inputOwner.port }) }),
     hasEntered: () => (dispatched && state.kind === "parked") || state.kind === "entering" || state.kind === "entered",
-    stop, join, suspendRequests: requests.suspend, completed, readerReady,
+    stop, join, closeInputAdmission: () => inputOwner?.closeAdmission(),
+    suspendRequests: requests.suspend, completed, readerReady,
     admitDispatch() {
       if (state.kind !== "parked") throwAgentProviderContractError(input.providerKey, "invalid_native_continuation", "Prepared execution is no longer dispatchable.");
       dispatched = true; allowDispatch();

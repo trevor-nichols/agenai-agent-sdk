@@ -3,7 +3,10 @@
 // ------------------------------------------------------------------------------------------------
 
 import {
+  AGENT_PROTOCOL_EVENT_BYTES_LIMIT,
+  agentProtocolSerializedJsonBytes,
   parseAgentError,
+  parseAgentEvent,
   type AgentCapabilities,
   type AgentCollaborationId,
   type AgentContentStreamKind,
@@ -22,6 +25,8 @@ import {
   type AgentProviderOutput,
 } from "./outputs.js";
 import type { AgentProviderOperationResult } from "./sessions.js";
+import type { AgentStructuredOutputBinding } from "./structuredOutput/admission.js";
+import { validateAgentStructuredOutputResult } from "./structuredOutput/validation.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Validation Context
@@ -36,6 +41,7 @@ export interface AgentProviderOutputValidationContext {
   readonly operationInvocationId?: AgentOperationInvocationId;
   readonly collaborationId?: AgentCollaborationId;
   readonly generatedResourceId?: AgentGeneratedResourceId;
+  readonly structuredOutputBinding?: AgentStructuredOutputBinding;
 }
 
 function unsupportedCapabilitySemantic(value: never): never {
@@ -327,6 +333,37 @@ export function validateAgentProviderOutputForContext(
     );
   }
   assertOutputCapability(context, output);
+  if (output.kind === "event" && output.event.type === "turn.completed") {
+    let structuredOutput = validateAgentStructuredOutputResult({
+      providerKey: context.providerKey,
+      ...(context.structuredOutputBinding === undefined
+        ? {}
+        : { binding: context.structuredOutputBinding }),
+      result: output.event.payload.structuredOutput,
+    });
+    if (output.event.payload.outcome !== "completed") return output;
+    let event = {
+      ...output.event,
+      payload: { ...output.event.payload, structuredOutput },
+    };
+    if (
+      structuredOutput.kind === "unavailable"
+      && structuredOutput.reason === "schema_mismatch"
+      && structuredOutput.issues !== undefined
+      && agentProtocolSerializedJsonBytes(event) > AGENT_PROTOCOL_EVENT_BYTES_LIMIT
+    ) {
+      structuredOutput = Object.freeze({ kind: "unavailable", reason: "schema_mismatch" });
+      event = { ...event, payload: { ...event.payload, structuredOutput } };
+    }
+    parseAgentEvent(event);
+    return Object.freeze({
+      ...output,
+      event: Object.freeze({
+        ...event,
+        payload: Object.freeze(event.payload),
+      }),
+    });
+  }
   return output;
 }
 

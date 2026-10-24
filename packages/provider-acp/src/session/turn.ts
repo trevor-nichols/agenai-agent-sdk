@@ -1,5 +1,5 @@
 import type { AcpJsonObject } from '@agen-ai/acp-transport';
-import type { AgentRequestId, AgentTurnCompletedPayload, AgentTurnId } from '@agen-ai/agent-protocol';
+import type { AgentOutputSchema, AgentRequestId, AgentTurnCompletedPayload, AgentTurnId } from '@agen-ai/agent-protocol';
 import type { TurnMapping } from './mapping.js';
 import type { deferred } from './queue.js';
 import type { PendingSessionRequest } from './requests/pending.js';
@@ -12,6 +12,7 @@ export type SessionMessage =
 
 export interface NativeTurn {
   readonly turnId: AgentTurnId;
+  readonly outputSchema?: AgentOutputSchema;
   readonly mapping: TurnMapping;
   readonly settled: ReturnType<typeof deferred<AgentTurnCompletedPayload>>;
   readonly cleanup: (() => void)[];

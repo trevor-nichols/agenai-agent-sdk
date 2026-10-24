@@ -12,7 +12,7 @@ export interface PendingRequest {
   readonly extension: boolean;
   readonly resolve: (value: AcpJsonValue) => void;
   readonly reject: (error: Error) => void;
-  readonly timer: ReturnType<typeof setTimeout>;
+  readonly timer: ReturnType<typeof setTimeout> | undefined;
   readonly removeAbortListener: () => void;
   readonly onResponseReceived?: AcpRequestOptions['onResponseReceived'];
 }
@@ -36,17 +36,26 @@ export function isCriticalExtensionMethod(method: string): boolean {
   return method.startsWith('_') || method.startsWith('$/');
 }
 
-export function boundedTimeout(input: {
+export function resolveRequestTimeout(input: {
   readonly options: AcpRequestOptions;
   readonly now: number;
   readonly defaultMs: number;
   readonly maximumMs: number;
-}): number {
+}): number | undefined {
+  if (input.options.lifetime === 'until_settled') {
+    if (Reflect.has(input.options, 'timeoutMs') || Reflect.has(input.options, 'deadlineAt')) {
+      throw new TypeError('Until-settled ACP requests cannot select finite timing.');
+    }
+    return undefined;
+  }
+  if (input.options.lifetime !== undefined && input.options.lifetime !== 'bounded') {
+    throw new TypeError('ACP request lifetime is invalid.');
+  }
   const requested = input.options.timeoutMs ?? input.defaultMs;
   if (!Number.isSafeInteger(requested) || requested <= 0 || requested > input.maximumMs) {
     throw new TypeError('ACP request timeout is outside the supported range.');
   }
-  if (!input.options.deadlineAt) return requested;
+  if (input.options.deadlineAt === undefined) return requested;
   const deadline = input.options.deadlineAt instanceof Date
     ? input.options.deadlineAt.getTime()
     : input.options.deadlineAt;

@@ -132,12 +132,13 @@ const supportedNativeDomains = {
 export const providerCapabilityFixtures = {
   fixture: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: 'fixture',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
       interactionModes: ['default'],
       interrupt: true,
+      structuredOutput: { kind: 'unsupported' },
       steer: { kind: 'supported', input: supportedInput },
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
@@ -165,12 +166,13 @@ export const providerCapabilityFixtures = {
   },
   codex: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: 'codex',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
       interactionModes: ['default'],
       interrupt: true,
+      structuredOutput: { kind: 'unsupported' },
       steer: { kind: 'supported', input: unsupportedInput },
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
@@ -189,12 +191,13 @@ export const providerCapabilityFixtures = {
   },
   claudeCode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: 'claude_code',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
       interactionModes: ['default'],
       interrupt: true,
+      structuredOutput: { kind: 'unsupported' },
       steer: { kind: 'unsupported' },
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
@@ -213,12 +216,13 @@ export const providerCapabilityFixtures = {
   },
   opencode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: 'opencode',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
       interactionModes: ['default'],
       interrupt: true,
+      structuredOutput: { kind: 'unsupported' },
       steer: { kind: 'unsupported' },
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
@@ -237,12 +241,13 @@ export const providerCapabilityFixtures = {
   },
   cursor: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: 'cursor_acp',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
       interactionModes: ['default'],
       interrupt: true,
+      structuredOutput: { kind: 'unsupported' },
       steer: { kind: 'unsupported' },
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
@@ -261,12 +266,13 @@ export const providerCapabilityFixtures = {
   },
   grokBuild: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 12,
+    protocolVersion: 13,
     providerKey: 'grok_build',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
       interactionModes: ['default'],
       interrupt: true,
+      structuredOutput: { kind: 'unsupported' },
       steer: { kind: 'unsupported' },
     },
     requests: { approval: onceApproval, elicitation: { kind: 'unsupported' } },
@@ -286,7 +292,7 @@ export const providerCapabilityFixtures = {
 } as const;
 
 const eventBase = {
-  protocolVersion: 12,
+  protocolVersion: 13,
   sessionId: 'session:external-42',
   turnId: 'turn:external-9',
   occurredAt: protocolTimestamp,
@@ -302,7 +308,7 @@ export const eventFixtureCorpus = [
   {
     ...eventBase,
     type: 'turn.completed',
-    payload: { outcome: 'completed', reason: 'Done.' },
+    payload: { outcome: 'completed', structuredOutput: { kind: 'not_requested' }, reason: 'Done.' },
   },
   {
     ...eventBase,

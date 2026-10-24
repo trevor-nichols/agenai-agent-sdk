@@ -33,7 +33,7 @@ test('the reverse callback ceiling refuses only the excess request and cancellat
   await canceled.promise;
   const remaining = events(await collectRemaining(iterator));
   assert.equal(remaining.filter((event) => event.type === 'request.opened').length, 0);
-  assert.deepEqual(remaining.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'canceled' }]);
+  assert.deepEqual(remaining.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'canceled', structuredOutput: { kind: 'not_requested' } }]);
   assert.deepEqual(peer.frames.filter((frame) => !frame.method).map((frame) => ({ id: frame.id, result: frame.result, error: frame.error })), [
     { id: 'excess', result: undefined, error: { code: -32000, message: 'Inbound request limit reached' } },
     { id: 'retained:1', result: { outcome: { outcome: 'cancelled' } }, error: undefined },

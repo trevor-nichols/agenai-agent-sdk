@@ -6,14 +6,15 @@ import { nativeObject, nativeString } from './native.js';
 
 export function acpTurnCompletion(response: AcpResponseReceived, cancelReason: string | undefined): AgentTurnCompletedPayload {
   if (response.kind === 'error') return {
+    structuredOutput: { kind: 'not_requested' },
     outcome: 'failed', error: promptFailure(response.error.code),
   };
   const reason = nativeString(nativeObject(response.result, 'prompt response').stopReason, 'prompt stop reason');
-  if (reason === 'cancelled') return { outcome: cancelReason === 'timeout' ? 'expired' : 'canceled' };
-  if (reason === 'end_turn') return { outcome: 'completed' };
-  if (reason === 'max_tokens') return { outcome: 'completed', reason: 'The agent reached its token limit.' };
-  if (reason === 'max_turn_requests') return { outcome: 'completed', reason: 'The agent reached its request limit.' };
-  if (reason === 'refusal') return { outcome: 'completed', reason: 'The agent declined the request.' };
+  if (reason === 'cancelled') return { structuredOutput: { kind: 'not_requested' }, outcome: cancelReason === 'timeout' ? 'expired' : 'canceled' };
+  if (reason === 'end_turn') return { structuredOutput: { kind: 'not_requested' }, outcome: 'completed' };
+  if (reason === 'max_tokens') return { structuredOutput: { kind: 'not_requested' }, outcome: 'completed', reason: 'The agent reached its token limit.' };
+  if (reason === 'max_turn_requests') return { structuredOutput: { kind: 'not_requested' }, outcome: 'completed', reason: 'The agent reached its request limit.' };
+  if (reason === 'refusal') return { structuredOutput: { kind: 'not_requested' }, outcome: 'completed', reason: 'The agent declined the request.' };
   throw new AcpProviderSessionError('acp_stop_reason_invalid', 'ACP returned an unsupported prompt stop reason.');
 }
 

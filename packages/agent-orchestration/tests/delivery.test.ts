@@ -171,7 +171,7 @@ for (const policy of ["next_turn", "automatic"] as const) test(`${policy} classi
     return { ...session, startTurn: mapTurnOutputs(session, async function* (turn) {
       const base = eventBase(context, turn.turnId);
       yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-      yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "failed", error } });
+      yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "failed", error } });
     }) };
   } } });
   t.after(() => harness.close());
@@ -268,7 +268,7 @@ test("definitive inbox dispositions preserve independent success, failure, cance
     } }, provider: { transformSession(session, context) { return { ...session, startTurn: mapTurnOutputs(session, async function* (turn) {
       const base = eventBase(context, turn.turnId);
       yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-      if (outcome !== "incomplete") yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome,
+      if (outcome !== "incomplete") yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome,
         ...(outcome === "failed" ? { error: { code: "authentication_required", message: "The child requires authentication.", category: "authentication", recovery: { kind: "user_action", action: "authenticate" } } } : {}) } });
     }) }; } } });
     st.after(() => harness.close());

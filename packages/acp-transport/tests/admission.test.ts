@@ -1,14 +1,80 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { AcpRemoteError, type AcpJsonValue, type AcpResponseReceived } from '../src/index.js';
-import { createAcpTestHarness, withTestDeadline } from './harness.js';
+import { AcpRemoteError, type AcpJsonValue, type AcpResponseReceived, type AcpRequestOptions } from '../src/index.js';
+import { createAcpTestHarness, INITIALIZE_PARAMS, INITIALIZE_RESULT, withTestDeadline } from './harness.js';
 
 function update(text: string) {
   return { jsonrpc: '2.0', method: 'session/update', params: {
     sessionId: 'native-session',
     update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } },
   } };
+}
+
+test('an explicit until-settled request retains its exact response and capacity across simulated days', async (t) => {
+  const harness = createAcpTestHarness({ limits: { maxOutstandingRequests: 1 } });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const pending = harness.client.request('initialize', INITIALIZE_PARAMS, { lifetime: 'until_settled' });
+  let settled = false;
+  void pending.then(() => { settled = true; }, () => { settled = true; });
+  try {
+    const wire = await harness.nextOutbound();
+    t.mock.timers.tick(7 * 24 * 60 * 60 * 1000);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(settled, false, 'The original request must still own its pending slot.');
+    await assert.rejects(harness.client.request('initialize', INITIALIZE_PARAMS), { reasonCode: 'acp_outstanding_request_limit_exceeded' });
+    harness.send({ jsonrpc: '2.0', id: wire.id, result: INITIALIZE_RESULT });
+    assert.deepEqual(await pending, INITIALIZE_RESULT);
+    const next = harness.client.request('initialize', INITIALIZE_PARAMS, { timeoutMs: 1000 });
+    const nextWire = await harness.nextOutbound();
+    assert.notEqual(nextWire.id, wire.id);
+    harness.send({ jsonrpc: '2.0', id: nextWire.id, result: INITIALIZE_RESULT });
+    assert.deepEqual(await next, INITIALIZE_RESULT);
+  } finally { await harness.client.dispose(); }
+});
+
+test('until-settled timing rejects contradictory or unknown choices before request dispatch', async () => {
+  // @ts-expect-error Until-settled ownership excludes finite timeout selection.
+  const timeout: AcpRequestOptions = { lifetime: 'until_settled', timeoutMs: 10 };
+  // @ts-expect-error Until-settled ownership excludes an absolute deadline.
+  const deadline: AcpRequestOptions = { lifetime: 'until_settled', deadlineAt: new Date() };
+  const harness = createAcpTestHarness();
+  let dispatches = 0;
+  try {
+    for (const options of [timeout, deadline, { lifetime: 'until_settled', timeoutMs: undefined },
+      { lifetime: 'until_settled', deadlineAt: undefined }, { lifetime: 'unknown' },
+      Object.assign(Object.create({ timeoutMs: 10 }), { lifetime: 'until_settled' })]) {
+      await assert.rejects(Reflect.apply(harness.client.request, undefined, ['initialize', INITIALIZE_PARAMS,
+        Object.assign(options, { onRequestDispatch() { dispatches += 1; } })]), TypeError);
+    }
+    assert.equal(dispatches, 0);
+    const pending = harness.client.request('initialize', INITIALIZE_PARAMS, {
+      lifetime: 'bounded', timeoutMs: 1000, deadlineAt: Date.now() + 1000,
+      onRequestDispatch() { dispatches += 1; },
+    });
+    const wire = await harness.nextOutbound();
+    harness.send({ jsonrpc: '2.0', id: wire.id, result: INITIALIZE_RESULT });
+    assert.deepEqual(await pending, INITIALIZE_RESULT);
+    assert.equal(dispatches, 1);
+  } finally { await harness.client.dispose(); }
+});
+
+for (const settlement of ['abort', 'dispose'] as const) {
+  test(`until-settled requests retain explicit ${settlement} ownership without a timer`, async (t) => {
+    const harness = createAcpTestHarness();
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const controller = new AbortController();
+    const pending = harness.client.request('initialize', INITIALIZE_PARAMS, { lifetime: 'until_settled', signal: controller.signal });
+    const rejected = assert.rejects(pending, { reasonCode: settlement === 'abort' ? 'acp_request_aborted' : 'acp_client_disposed' });
+    const wire = await harness.nextOutbound();
+    t.mock.timers.tick(7 * 24 * 60 * 60 * 1000);
+    if (settlement === 'abort') {
+      controller.abort();
+      assert.deepEqual(await harness.nextOutbound(), { jsonrpc: '2.0', method: '$/cancel_request', params: { requestId: wire.id } });
+    } else await harness.client.dispose();
+    await rejected;
+    await harness.client.dispose();
+  });
 }
 
 test('dispatch exposes the exact request identity before synchronous peer traffic and never on rejected admission', async () => {

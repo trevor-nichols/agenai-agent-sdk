@@ -5,6 +5,7 @@ import type { AcpProviderLimits } from './limits.js';
 import type { AcpStandardMcpServer, AcpUnknownExtensionPolicy } from '@agen-ai/acp-transport';
 import type { AcpAuthenticationMethods, AcpHostFacilities } from './host/contracts.js';
 import type { AcpPermissionMappingSelection } from './permissions/contracts.js';
+import type { AcpStructuredOutputMappingSelection } from './structuredOutput/mapping.js';
 
 export type { AcpProviderLimits } from './limits.js';
 
@@ -66,6 +67,8 @@ export interface CreateAcpProviderDriverOptions {
   readonly unknownExtensionPolicy?: AcpUnknownExtensionPolicy;
   /** Defaults to once-only choices; complete profiles require independently qualified native semantics. */
   readonly permissionMapping?: AcpPermissionMappingSelection;
+  /** Opts into the exact qualified native schema contract; absent means unsupported. */
+  readonly structuredOutputMapping?: AcpStructuredOutputMappingSelection;
   readonly limits?: Partial<AcpProviderLimits>;
   readonly configuration?: 'managed' | 'selectable';
   readonly authentication?: AcpAuthenticationMethods;

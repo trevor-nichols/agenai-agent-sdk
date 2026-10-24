@@ -56,7 +56,7 @@ export async function createOperationExample(scenario: Scenario, cancel: AbortCo
             throwIfAgentOperationAborted(input.signal);
           }
           if (scenario === 'effect') {
-            await input.onOutput?.(createAgentEventOutput({ protocolVersion: 12, type: 'item.completed',
+            await input.onOutput?.(createAgentEventOutput({ protocolVersion: 13, type: 'item.completed',
               sessionId: context.sessionId, turnId: input.observationTurnId,
               occurredAt: parseAgentIsoDateTime('2026-10-20T12:00:00.000Z'),
               payload: { itemId: 'example:compaction', itemKind: 'context_compaction', status: 'completed',

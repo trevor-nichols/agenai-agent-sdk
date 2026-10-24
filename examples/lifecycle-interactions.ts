@@ -21,10 +21,10 @@ import {
 
 // This consumer-owned adapter is a deterministic fixture with no native, network, or storage effect.
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 12,
+  protocolVersion: 13,
   providerKey: 'example-lifecycle-interactions',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
-  turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
+  turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
   requests: { approval: { kind: 'unsupported' }, elicitation: { kind: 'unsupported' } },
   context: { usage: { kind: 'unsupported' }, compaction: { kind: 'unsupported' } },
   input: { text: true, images: { kind: 'unsupported' }, contentReferences: { kind: 'unsupported' } },

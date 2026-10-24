@@ -1,0 +1,15 @@
+export {
+  AgentHistorySourceIdentitySchema, AgentHistoryScopeSchema, AgentHistoryStorageEffectsSchema, AgentHistorySourceSchema,
+  AgentHistoryConversationRefSchema, AgentHistoryConversationSummarySchema, AgentHistoryNativeReferencesSchema,
+  AgentHistoryAttachmentReferenceSchema, AgentHistoryOmissionSchema, AgentHistoryContentSchema, AgentHistoryRecordSchema,
+  AgentHistoryCoverageSchema, AgentHistoryCatalogPageSchema, AgentHistoryTranscriptPageSchema,
+  AgentHistorySearchHitSchema, AgentHistorySearchPageSchema, AgentHistoryTranscriptViewSchema,
+  AgentHistoryNamedTranscriptViewSchema, AgentHistoryViewSummarySchema, AgentHistoryViewPageSchema,
+} from './validation/records.js';
+export {
+  AgentHistoryCatalogFilterSchema, AgentHistoryOrderSchema, AgentHistoryListInputSchema, AgentHistoryLookupInputSchema,
+  AgentHistoryReadInputSchema, AgentHistorySearchInputSchema, AgentHistoryCatalogDescriptorSchema, AgentHistoryLookupDescriptorSchema,
+  AgentHistoryTranscriptDescriptorSchema, AgentHistorySearchDescriptorSchema, AgentHistoryMutationEffectsSchema,
+  AgentHistoryMutationDescriptorSchema, AgentHistoryMutationInputSchema, AgentHistoryRenameInputSchema,
+  AgentHistoryMutationResultSchema, AgentHistoryUnsupportedReasonSchema, AgentHistoryViewListInputSchema, AgentHistoryViewDescriptorSchema,
+} from './validation/operations.js';

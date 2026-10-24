@@ -35,7 +35,7 @@ test("observation saturation continues consuming outputs and retains bounded fin
           outputs += 1;
           yield createAgentEventOutput({ ...base, type: "content.delta", payload: { itemId: "answer", streamKind: "assistant_text", delta } });
         }
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
       }) };
     } } });
     st.after(() => harness.close());
@@ -73,7 +73,7 @@ test("ordinary ledger saturation rejects new steering while reserved cancellatio
       yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
       entered.resolve();
       await finish.promise;
-      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "canceled" } });
+      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled" } });
     }), interruption: { kind: "supported", async interruptTurn(input) {
       const result = await interruption.interruptTurn(input);
       finish.resolve();

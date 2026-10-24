@@ -9,6 +9,12 @@ import {
   type AgentProviderSession,
   type AgentTurnSteeringResult,
   type AgentSessionHostBinding,
+  parseAgentExecutionInputMessageId,
+  type AgentExecutionInputMessageId,
+  type AgentExecutionInputOutcome,
+  type AgentExecutionInputReceipt,
+  type AgentExecutionInputSupport,
+  type AgentProviderTurnExecution,
 } from "@agen-ai/agent-runtime";
 import {
   parseAgentCapabilities,
@@ -18,6 +24,8 @@ import {
   parseAgentProviderConversationId,
   parseAgentProviderKey,
   parseAgentSessionId,
+  parseAgentTurnId,
+  type AgentTurnId,
   type AgentItemSnapshot,
 } from "@agen-ai/agent-protocol";
 
@@ -42,10 +50,11 @@ export const externalHostBinding: AgentSessionHostBinding = {
 };
 const capabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 12,
+  protocolVersion: 13,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
+    structuredOutput: { kind: "unsupported" },
     interactionModes: ["default"],
     interrupt: false,
     steer: {
@@ -109,7 +118,7 @@ function providerSession(
     startTurn(input) {
       return { turnId: input.turnId, async resolveRequest() { return { status: "delivered" }; }, outputs: (async function* () {
       yield createAgentEventOutput({
-        protocolVersion: 12,
+        protocolVersion: 13,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -117,7 +126,7 @@ function providerSession(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 12,
+        protocolVersion: 13,
         type: "item.completed",
         sessionId,
         turnId: input.turnId,
@@ -125,12 +134,12 @@ function providerSession(
         payload: commandItem,
       });
       yield createAgentEventOutput({
-        protocolVersion: 12,
+        protocolVersion: 13,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
         occurredAt: "2026-08-04T00:00:00.000Z",
-        payload: { outcome: "completed" },
+        payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
       });
     })() };
     },
@@ -210,3 +219,49 @@ delivered.outputs;
 type RemovedActiveTurnInput = import("@agen-ai/agent-runtime").AgentActiveTurnInput;
 
 void (null as unknown as RemovedActiveTurnInput);
+
+export const externalInputSupport: AgentExecutionInputSupport = {
+  kind: "supported", delivery: "current_or_owned_continuation", consumptionReporting: "message_ids",
+  input: { text: true, images: { kind: "unsupported" }, contentReferences: { kind: "unsupported" } },
+  limits: { maxOutstandingMessages: 2, maxMessagesPerExecution: 16, maxBufferedBytes: 1_048_576 },
+};
+
+const externalMessageId = parseAgentExecutionInputMessageId("external-update");
+const externalTurnId = parseAgentTurnId("external-turn");
+// @ts-expect-error A submission identity cannot identify an execution turn.
+const messageAsTurn: AgentTurnId = externalMessageId;
+// @ts-expect-error A turn identity cannot identify a submitted input message.
+const turnAsMessage: AgentExecutionInputMessageId = externalTurnId;
+// @ts-expect-error Native acceptance requires its independent settlement handle.
+const incompleteAcceptance: AgentExecutionInputReceipt = { status: "accepted", messageId: externalMessageId };
+void messageAsTurn;
+void turnAsMessage;
+void incompleteAcceptance;
+
+function describeInputOutcome(outcome: AgentExecutionInputOutcome): string {
+  switch (outcome.status) {
+    case "consumed": return `${outcome.messageId}:${outcome.turnId}:${outcome.placement}`;
+    case "unconfirmed": return `${outcome.messageId}:${outcome.reason}`;
+    default: {
+      const exhaustive: never = outcome;
+      return exhaustive;
+    }
+  }
+}
+
+/** The application retains the original outputs consumer throughout this operation. */
+export async function sendExternalExecutionInput(execution: AgentProviderTurnExecution): Promise<string> {
+  if (execution.input?.kind !== "supported") return "unsupported";
+  execution.input.support.delivery satisfies "current_or_owned_continuation";
+  const receipt = await execution.input.sendMessage({ messageId: externalMessageId,
+    parts: [{ type: "text", text: "Use the updated acceptance criteria." }] });
+  switch (receipt.status) {
+    case "accepted": return describeInputOutcome(await receipt.settled);
+    case "rejected": return `${receipt.messageId}:rejected:${receipt.error.code}`;
+    case "delivery_uncertain": return `${receipt.messageId}:delivery_uncertain:${receipt.error.code}`;
+    default: {
+      const exhaustive: never = receipt;
+      return exhaustive;
+    }
+  }
+}

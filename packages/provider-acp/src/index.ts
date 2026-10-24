@@ -2,6 +2,7 @@ export { createAcpProviderDriver } from './driver.js';
 export { DEFAULT_ACP_PROVIDER_LIMITS, type AcpProviderLimits } from './limits.js';
 export { AcpProviderConnectionError } from './connection/errors.js';
 export { AcpProviderSessionError } from './session/errors.js';
+export type { AcpStructuredOutputMappingSelection } from './structuredOutput/mapping.js';
 export type {
   AcpPermissionOptionSignature,
   AcpPermissionMenuSignature,

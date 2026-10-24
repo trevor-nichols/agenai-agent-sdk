@@ -28,7 +28,7 @@ async function createContinuingHarness(limits: Partial<DelegationLimits> = {}, s
       yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
       entered.resolve();
       await finish.promise;
-      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "canceled" } });
+      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled" } });
     }), interruption: { kind: "supported", async interruptTurn(input) {
       const result = await interruption.interruptTurn(input);
       finish.resolve();
@@ -145,7 +145,7 @@ test("grant revocation blocks a queued next_turn while a fresh follow_up remains
         yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
         entered.resolve();
         await finish.promise;
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "canceled" } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled" } });
       }), interruption: { kind: "supported", async interruptTurn(input) {
         const result = await interruption.interruptTurn(input);
         finish.resolve();
@@ -265,7 +265,7 @@ test("a definite successful terminal event wins a concurrent accepted cancellati
       yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
       entered.resolve();
       await finish.promise;
-      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "completed" } });
+      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
       terminalConsumed.resolve();
     }), interruption: { kind: "supported", async interruptTurn() {
       finish.resolve();
@@ -316,7 +316,7 @@ test("the original turn owns cancellation-time output through its terminal or bo
         yield createAgentEventOutput({ ...base, type: "content.delta", payload: { itemId: "answer", streamKind: "assistant_text", delta: "After." } });
         yield createAgentArtifactOutput({ descriptor: { artifactId: parseAgentArtifactId("cancellation-artifact"), kind: "diff", displayName: "final.diff", mediaType: "text/x-diff" },
           source: { kind: "bytes", bytes: new TextEncoder().encode("Final change") }, delivery: "best_effort" });
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
         mainEnded.resolve();
       }), interruption: { kind: "supported", async interruptTurn(input) {
         await interruption.interruptTurn(input);

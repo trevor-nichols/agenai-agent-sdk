@@ -25,7 +25,8 @@ import type { AgentApprovalConsequence, AgentRequest, AgentRequestResolution } f
 import type { AgentGeneratedResourceDescriptor } from '../resources/types.js';
 import type { AgentSessionDecisionChoice, AgentSessionDecisionConsequence, AgentSessionDecisionRequest, AgentSessionDecisionResponse, AgentSessionFormChoice, AgentSessionFormRequest, AgentSessionFormResponse, AgentSessionPlanReviewChoice, AgentSessionPlanReviewRequest, AgentSessionPlanReviewResponse, AgentSessionPlanSnapshot, AgentSessionRequest, AgentSessionResponse, AgentSessionWorkspaceTarget } from '../sessionInteractions/types.js';
 import type { AgentSessionBinding, AgentSessionConfiguration, AgentSessionOpenInput } from '../sessions/types.js';
-import type { AgentContentReferenceInputPart, AgentItemSnapshot, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
+import type { AgentOutputSchema, AgentStructuredOutputCapability, AgentStructuredOutputNonJsonResult, AgentStructuredOutputRequest, AgentStructuredOutputResult } from '../structuredOutput/types.js';
+import type { AgentContentReferenceInputPart, AgentItemSnapshot, AgentTurnCompletedPayload, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
 import { AgentAccountQuotaResetSchema, AgentAccountQuotaSnapshotSchema, AgentAccountQuotaWindowSchema } from './accountQuota.js';
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
 import { AgentApprovalCapabilitySchema, AgentCapabilitiesSchema } from './capabilities.js';
@@ -45,12 +46,25 @@ import { AgentApprovalConsequenceSchema, AgentRequestResolutionSchema, AgentRequ
 import { AgentGeneratedResourceDescriptorSchema } from './resources.js';
 import { AgentSessionDecisionChoiceSchema, AgentSessionDecisionConsequenceSchema, AgentSessionDecisionRequestSchema, AgentSessionDecisionResponseSchema, AgentSessionFormChoiceSchema, AgentSessionFormRequestSchema, AgentSessionFormResponseSchema, AgentSessionPlanReviewChoiceSchema, AgentSessionPlanReviewRequestSchema, AgentSessionPlanReviewResponseSchema, AgentSessionPlanSnapshotSchema, AgentSessionRequestSchema, AgentSessionResponseSchema, AgentSessionWorkspaceTargetSchema } from './sessionInteractions.js';
 import { AgentSessionBindingSchema, AgentSessionConfigurationSchema, AgentSessionOpenInputSchema } from './sessions.js';
-import { AgentContentReferenceInputPartSchema, AgentItemSnapshotSchema, AgentTurnInputContentSchema, AgentTurnInterruptionInputSchema, AgentTurnRunInputSchema } from './turns.js';
+import { AgentOutputSchemaSchema, AgentStructuredOutputCapabilitySchema, AgentStructuredOutputNonJsonResultSchema, AgentStructuredOutputRequestSchema, AgentStructuredOutputResultSchema } from './structuredOutput.js';
+import { AgentContentReferenceInputPartSchema, AgentItemSnapshotSchema, AgentTurnCompletedPayloadSchema, AgentTurnInputContentSchema, AgentTurnInterruptionInputSchema, AgentTurnRunInputSchema } from './turns.js';
 
 type Extends<Left, Right> = [Left] extends [Right] ? true : false;
 type Assert<Value extends true> = Value;
 
 export type AgentProtocolSchemaTypeAssertions = readonly [
+  Assert<Extends<z.output<typeof AgentOutputSchemaSchema>, AgentOutputSchema>>,
+  Assert<Extends<AgentOutputSchema, z.output<typeof AgentOutputSchemaSchema>>>,
+  Assert<Extends<z.output<typeof AgentStructuredOutputCapabilitySchema>, AgentStructuredOutputCapability>>,
+  Assert<Extends<AgentStructuredOutputCapability, z.output<typeof AgentStructuredOutputCapabilitySchema>>>,
+  Assert<Extends<z.output<typeof AgentStructuredOutputRequestSchema>, AgentStructuredOutputRequest>>,
+  Assert<Extends<AgentStructuredOutputRequest, z.output<typeof AgentStructuredOutputRequestSchema>>>,
+  Assert<Extends<z.output<typeof AgentStructuredOutputResultSchema>, AgentStructuredOutputResult>>,
+  Assert<Extends<AgentStructuredOutputResult, z.output<typeof AgentStructuredOutputResultSchema>>>,
+  Assert<Extends<z.output<typeof AgentStructuredOutputNonJsonResultSchema>, AgentStructuredOutputNonJsonResult>>,
+  Assert<Extends<AgentStructuredOutputNonJsonResult, z.output<typeof AgentStructuredOutputNonJsonResultSchema>>>,
+  Assert<Extends<z.output<typeof AgentTurnCompletedPayloadSchema>, AgentTurnCompletedPayload>>,
+  Assert<Extends<AgentTurnCompletedPayload, z.output<typeof AgentTurnCompletedPayloadSchema>>>,
   Assert<Extends<z.output<typeof AgentSessionWorkspaceTargetSchema>, AgentSessionWorkspaceTarget>>,
   Assert<Extends<AgentSessionWorkspaceTarget, z.output<typeof AgentSessionWorkspaceTargetSchema>>>,
   Assert<Extends<z.output<typeof AgentSessionDecisionConsequenceSchema>, AgentSessionDecisionConsequence>>,

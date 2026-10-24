@@ -12,9 +12,9 @@ import {
 import { deferred } from './shared.js';
 
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 12, providerKey: 'example-session-continuations',
+  protocolVersion: 13, providerKey: 'example-session-continuations',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
-  turns: { interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
+  turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
   requests: { approval: { kind: 'unsupported' }, elicitation: { kind: 'unsupported' } },
   context: { usage: { kind: 'unsupported' }, compaction: { kind: 'unsupported' } },
   input: { text: true, images: { kind: 'unsupported' }, contentReferences: { kind: 'unsupported' } },
@@ -123,7 +123,7 @@ export function sessionContinuationProvider(kind: 'form' | 'plan_review', contin
                     try {
                       await sourceReleased.promise;
                       signal.throwIfAborted();
-                      const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId,
+                      const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId,
                         occurredAt: '2026-10-16T12:00:00.000Z' };
                       yield createAgentEventOutput({ ...base, type: 'turn.started', payload: {} });
                       yield createAgentEventOutput({ ...base, type: 'item.started', payload: {
@@ -135,7 +135,7 @@ export function sessionContinuationProvider(kind: 'form' | 'plan_review', contin
                       yield createAgentEventOutput({ ...base, type: 'item.completed', payload: {
                         itemId: 'session-example:message', itemKind: 'assistant_message', status: 'completed',
                       } });
-                      yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { outcome: 'completed' } });
+                      yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { structuredOutput: { kind: 'not_requested' }, outcome: 'completed' } });
                     } finally { statistics.producerJoins += 1; transcript.push('producer.joined'); }
                   })();
                   return producer;

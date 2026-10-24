@@ -20,7 +20,7 @@ test("real MCP initialization, discovery and invocation keep tokens and parent t
   const harness = await createToolHarness({ policyForScope(requested, current) { return { ...current, scope: requested }; },
     provider: { transformSession(session) { return { ...session, startTurn: mapTurnOutputs(session, async function* (input, outputs) {
       for await (const output of outputs) yield output.kind === "event" && output.event.type === "turn.completed"
-        ? createAgentEventOutput({ ...output.event, payload: { outcome: "failed", error } }) : output;
+        ? createAgentEventOutput({ ...output.event, payload: { outcome: "failed", error, structuredOutput: { kind: "not_requested" } } }) : output;
     }) }; } },
   });
   const other = await harness.coordinator.bindParent({ scope: { ...scope, parentId: "other-parent" } });

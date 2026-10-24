@@ -56,6 +56,13 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "native_continuation_reader_not_ready",
   "native_continuation_limit_exceeded",
   "invalid_native_continuation",
+  "structured_output_unsupported",
+  "structured_output_scope_mismatch",
+  "invalid_structured_output",
+  "execution_input_capacity_exhausted",
+  "execution_input_identity_reused",
+  "execution_input_identity_limit_exceeded",
+  "execution_input_correlation_lost",
 ] as const;
 
 export type AgentProviderContractErrorCode =
@@ -64,6 +71,7 @@ export type AgentProviderContractErrorCode =
 export type AgentProviderDelegatedOperation =
   | "resolve_request"
   | "steer_turn"
+  | "send_execution_input"
   | "invoke_operation"
   | "apply_configuration"
   | "spawn_collaboration"

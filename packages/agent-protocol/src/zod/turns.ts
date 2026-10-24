@@ -5,9 +5,19 @@
 import { z } from 'zod/v4';
 
 import { AgentErrorSchema } from './failures.js';
+import { AGENT_STRUCTURED_OUTPUT_TURN_REQUEST_BYTES_LIMIT } from '../structuredOutput/constants.js';
+import {
+  AgentStructuredOutputNonJsonResultPortableSchema,
+  AgentStructuredOutputNonJsonResultSchema,
+  AgentStructuredOutputRequestPortableSchema,
+  AgentStructuredOutputRequestSchema,
+  AgentStructuredOutputResultPortableSchema,
+  AgentStructuredOutputResultSchema,
+} from './structuredOutput.js';
 
 import {
   AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
+  AGENT_PROTOCOL_EVENT_BYTES_LIMIT,
   AGENT_PROTOCOL_SUMMARY_MAX_LENGTH,
   AGENT_PROTOCOL_TEXT_MAX_LENGTH,
   AGENT_PROTOCOL_TURN_INPUT_CONTENT_BYTES_LIMIT,
@@ -53,6 +63,7 @@ import {
   AgentIsoDateTimeSchema,
   AgentItemIdSchema,
   AgentTurnIdSchema,
+  withAcyclicProtocolInput,
   createAgentCanonicalNonBlankStringSchema,
 } from './foundation.js';
 
@@ -240,18 +251,32 @@ export const AgentTurnRunInputPortableSchema = z
     interactionMode: AgentTurnInteractionModeSchema,
     ...AgentTurnInputContentShape,
     deadlineAt: AgentIsoDateTimeSchema.optional(),
+    output: AgentStructuredOutputRequestPortableSchema.optional(),
   })
   .strict()
   .readonly();
 
 export const AgentTurnRunInputSchema: z.ZodType<AgentTurnRunInput> =
-  AgentTurnInputContentRefinedSchema.safeExtend({
+  withAcyclicProtocolInput(AgentTurnInputContentRefinedSchema.safeExtend({
     turnId: AgentTurnIdSchema,
     interactionMode: AgentTurnInteractionModeSchema,
     deadlineAt: AgentIsoDateTimeSchema.optional(),
+    output: AgentStructuredOutputRequestSchema.optional(),
   })
     .strict()
-    .readonly();
+    .superRefine((input, context) => {
+      if (agentProtocolSerializedJsonBytes(input) > AGENT_STRUCTURED_OUTPUT_TURN_REQUEST_BYTES_LIMIT) {
+        context.addIssue({
+          code: 'custom',
+          message: `Turn run input cannot exceed ${AGENT_STRUCTURED_OUTPUT_TURN_REQUEST_BYTES_LIMIT} serialized bytes.`,
+        });
+      }
+    })
+    .readonly(), {
+      maxDepth: 64,
+      maxNodes: AGENT_STRUCTURED_OUTPUT_TURN_REQUEST_BYTES_LIMIT,
+      maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
+    });
 
 export const AgentTurnInterruptionInputSchema: z.ZodType<AgentTurnInterruptionInput> =
   z
@@ -706,29 +731,45 @@ export const AgentDiffSummarySchema: z.ZodType<AgentDiffSummary> = z
   .strict()
   .readonly();
 
-export const AgentTurnCompletedPayloadPortableSchema = z
-  .object({
-    outcome: z.enum(['completed', 'failed', 'canceled', 'expired']),
-    reason: z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional(),
-    error: AgentErrorSchema.optional(),
-  })
-  .strict()
-  .readonly();
+function createTurnCompletedPayloadSchema<
+  Result extends z.ZodType,
+  NonJsonResult extends z.ZodType,
+>(result: Result, nonJsonResult: NonJsonResult) {
+  const reason = z.string().max(AGENT_PROTOCOL_SUMMARY_MAX_LENGTH).optional();
+  return z.discriminatedUnion('outcome', [
+    z.object({
+      outcome: z.literal('completed'),
+      structuredOutput: result,
+      reason,
+    }).strict(),
+    z.object({
+      outcome: z.literal('failed'),
+      structuredOutput: nonJsonResult,
+      reason,
+      error: AgentErrorSchema,
+    }).strict(),
+    z.object({
+      outcome: z.enum(['canceled', 'expired']),
+      structuredOutput: nonJsonResult,
+      reason,
+    }).strict(),
+  ]).readonly();
+}
+
+export const AgentTurnCompletedPayloadPortableSchema = createTurnCompletedPayloadSchema(
+  AgentStructuredOutputResultPortableSchema,
+  AgentStructuredOutputNonJsonResultPortableSchema,
+);
 
 export const AgentTurnCompletedPayloadSchema: z.ZodType<AgentTurnCompletedPayload> =
-  AgentTurnCompletedPayloadPortableSchema.superRefine((payload, context) => {
-    if (payload.outcome === 'failed' && payload.error === undefined) {
-      context.addIssue({
-        code: 'custom',
-        path: ['error'],
-        message: 'Failed turns require an error.',
-      });
-    }
-    if (payload.outcome !== 'failed' && payload.error !== undefined) {
-      context.addIssue({
-        code: 'custom',
-        path: ['error'],
-        message: 'Only failed turns may contain an error.',
-      });
-    }
-  });
+  withAcyclicProtocolInput(
+    createTurnCompletedPayloadSchema(
+      AgentStructuredOutputResultSchema,
+      AgentStructuredOutputNonJsonResultSchema,
+    ),
+    {
+      maxDepth: 32,
+      maxNodes: AGENT_PROTOCOL_EVENT_BYTES_LIMIT,
+      maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
+    },
+  );

@@ -51,7 +51,7 @@ export class TurnMapping {
 
   event(type: string, payload: unknown): AgentProviderOutput {
     return createAgentEventOutput({
-      protocolVersion: 12,
+      protocolVersion: 13,
       sessionId: this.context.sessionId,
       turnId: this.context.turnId,
       occurredAt: this.context.now(),

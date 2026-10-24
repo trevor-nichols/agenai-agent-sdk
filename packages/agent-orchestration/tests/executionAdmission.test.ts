@@ -154,7 +154,7 @@ test("live descendants retain the ancestor ceiling, enforce depth and fence orig
       yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
       (isParent ? parentEntered : childEntered).resolve();
       await (isParent ? parentFinish : childFinish).promise;
-      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "completed" } });
+      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: 'not_requested' }, outcome: "completed" } });
     }) }; } },
   });
   t.after(async () => { parentFinish.resolve(); childFinish.resolve(); await harness.close(); });

@@ -130,7 +130,7 @@ export async function runAcpDelegationExample(driver: AgentProviderDriver, root:
       try {
         assertCurrent();
         for await (const part of parentSession.startTurn({ turnId: parseAgentTurnId(`example-parent:${randomUUID()}`),
-          interactionMode: 'default', parts: [{ type: 'text', text: JSON.stringify(command) }], signal: AbortSignal.any([parentLifetime.signal, AbortSignal.timeout(10_000)]),
+          interactionMode: 'default', parts: [{ type: 'text', text: JSON.stringify(command) }], deadlineAt: new Date(Date.now() + 10_000).toISOString(), signal: AbortSignal.any([parentLifetime.signal, AbortSignal.timeout(10_000)]),
           onProviderExecutionStarted: assertCurrent }).outputs) {
           if (part.kind !== 'event') continue;
           if (part.event.type === 'content.delta') output += part.event.payload.delta;
@@ -172,7 +172,7 @@ export async function runAcpDelegationExample(driver: AgentProviderDriver, root:
           ? { status: 'accepted', inboxId: retained.inboxId, acceptedAt: retained.acceptedAt } : { status: 'absent' };
       },
     };
-    const limits = parseDelegationLimits({ runTimeoutMs: 20_000, maxWaitMs: 5_000 });
+    const limits = parseDelegationLimits({ runTimeoutMs: 15_000, maxWaitMs: 5_000 });
     coordinator = await createDelegationCoordinator({ host: example.host, store: createInMemoryDelegationStore({ limits }), limits, parentDelivery });
     const client = await coordinator.bindParent({ scope: example.parent });
     const hostBinding = await createDelegationHostBinding({ client });
@@ -226,7 +226,7 @@ async function main() {
     const driver = createNodeAcpProviderDriver({ providerKey: 'example-acp', configuration: 'selectable',
       launch: { executable: process.execPath, args: [fileURLToPath(new URL('./fixtures/delegation-peer.mjs', import.meta.url))],
         env: {}, cwd: root, shutdownTimeoutMs: 1_000 },
-      limits: { initializationTimeoutMs: 5_000, promptTimeoutMs: 15_000, cancellationTimeoutMs: 2_000 },
+      limits: { initializationTimeoutMs: 5_000, cancellationTimeoutMs: 2_000 },
       sessionMcpBinding: { transport: 'http', async create(context) {
         const facade = context.hostBinding;
         const bridge = await startDelegationMcpBridge({ signal: context.signal, shutdownTimeoutMs: 2_000,

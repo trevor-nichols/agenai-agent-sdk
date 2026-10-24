@@ -4,11 +4,15 @@
 
 import {
   parseAgentConfigurationRevisionId,
+  createAgentOutputDefinition,
+  type AgentJsonObject,
   parseAgentInstanceId,
   parseAgentProviderKey,
   parseAgentSessionId,
   type AgentInstanceId,
   type AgentSessionId,
+  type AgentStructuredOutputRequest,
+  type AgentTurnInputContent,
 } from "@agen-ai/agent-protocol";
 
 import {
@@ -29,7 +33,43 @@ import {
   type AgentHostToolInputSchema,
   type AgentHostToolResult,
   type AgentSessionHostBindingSupport,
+  type AgentCreateSessionInput,
+  type AgentResumeSessionInput,
+  type AgentBranchSessionInput,
+  type AgentProviderCreateSessionInput,
+  type AgentProviderResumeSessionInput,
+  type AgentProviderBranchSessionInput,
+  type AgentProviderSteerTurnInput,
 } from "../src/index.js";
+import { generateObject, type AgentGenerateObjectInput } from "../src/generation/index.js";
+
+function generatedValueInference(input: Omit<AgentGenerateObjectInput<never>, "output">) {
+  const schema = { type: "object", properties: { title: { type: "string" } }, required: ["title"], additionalProperties: false } as const;
+  const title = createAgentOutputDefinition(schema, (value) => typeof value.title === "string"
+    ? { success: true, data: { title: value.title } }
+    : { success: false, issues: [{ code: "title_required", path: ["title"], message: "A title is required." }] });
+  const generated = generateObject({ ...input, output: title });
+  generated.then((result) => {
+    result.value.title satisfies string;
+    // @ts-expect-error Decoder inference exposes only actual title fields.
+    result.value.missing;
+    // @ts-expect-error A title decoder cannot claim a numeric result.
+    result.value.title satisfies number;
+  });
+  const untyped = generateObject({ ...input, output: createAgentOutputDefinition(schema) });
+  untyped.then((result) => {
+    result.value satisfies AgentJsonObject;
+    // @ts-expect-error A schema without a real decoder cannot promise a string title.
+    result.value.title satisfies string;
+  });
+  // @ts-expect-error Schema-only definitions cannot assert an arbitrary generic output type.
+  createAgentOutputDefinition<{ title: string }>(schema);
+  // @ts-expect-error The helper owns output placement and cannot accept a session-level override.
+  generateObject({ ...input, session: { ...input.session, output: { kind: "json_schema", schema } }, output: title });
+  // @ts-expect-error The helper cannot run schema-bound native continuations.
+  generateObject({ ...input, session: { ...input.session, nativeContinuations: { onExecution() {} } }, output: title });
+}
+void generatedValueInference;
 
 const instanceId: AgentInstanceId = parseAgentInstanceId("instance:external");
 const sessionId: AgentSessionId = parseAgentSessionId("session:external");
@@ -41,6 +81,34 @@ void invalidInstanceId;
 // @ts-expect-error Branded instance IDs cannot identify a provider session.
 const invalidSessionId: AgentSessionId = instanceId;
 void invalidSessionId;
+
+function structuredOutputPlacement(
+  request: AgentStructuredOutputRequest,
+  create: AgentCreateSessionInput,
+  nativeCreate: AgentProviderCreateSessionInput,
+  turn: AgentProviderStartTurnInput,
+  resume: AgentResumeSessionInput,
+  nativeResume: AgentProviderResumeSessionInput,
+  branch: AgentBranchSessionInput,
+  nativeBranch: AgentProviderBranchSessionInput,
+) {
+  ({ ...create, output: request }) satisfies AgentCreateSessionInput;
+  ({ ...nativeCreate, output: request }) satisfies AgentProviderCreateSessionInput;
+  ({ ...turn, output: request }) satisfies AgentProviderStartTurnInput;
+  // @ts-expect-error Resume cannot restore a structured output binding.
+  ({ ...resume, output: request }) satisfies AgentResumeSessionInput;
+  // @ts-expect-error Native resume cannot silently restore a structured output binding.
+  ({ ...nativeResume, output: request }) satisfies AgentProviderResumeSessionInput;
+  // @ts-expect-error Branch cannot inherit a structured output binding.
+  ({ ...branch, output: request }) satisfies AgentBranchSessionInput;
+  // @ts-expect-error Native branch cannot silently inherit a structured output binding.
+  ({ ...nativeBranch, output: request }) satisfies AgentProviderBranchSessionInput;
+  // @ts-expect-error Steering cannot change a structured output binding.
+  ({ ...turn, output: request }) satisfies AgentProviderSteerTurnInput;
+  // @ts-expect-error Persistable turn content excludes structured output options.
+  ({ parts: turn.parts, output: request }) satisfies AgentTurnInputContent;
+}
+void structuredOutputPlacement;
 
 const driver = defineAgentProviderDriver({
   providerKey: parseAgentProviderKey("typed-provider"),

@@ -101,6 +101,9 @@ async function reduceOutput(state: CoordinatorState, live: LiveRun, output: Agen
     }
   }
   else if (event.type === "turn.completed") {
+    if (event.payload.structuredOutput.kind !== "not_requested") {
+      throw new Error("Managed delegation does not admit structured final responses.");
+    }
     return { terminal: event.payload.outcome === "completed" ? { kind: "succeeded", result: { text: live.summary, truncated: live.truncated, references: [...live.references] } }
       : event.payload.outcome === "canceled" ? { kind: "canceled", confirmation: "provider_terminal" }
       : { kind: "failed", error: projectDelegationFailure(event.payload.error) } };

@@ -2,6 +2,7 @@
 //                types.ts - Technical provider capabilities - Dependencies: foundation
 // ------------------------------------------------------------------------------------------------
 
+import type { AgentStructuredOutputCapability } from '../structuredOutput/types.js';
 import type { AgentEnvironmentCapability } from '../environment/types.js';
 import type { AgentArtifactKind } from '../artifacts/index.js';
 import type {
@@ -209,7 +210,7 @@ export type AgentTurnSteeringCapability =
     }>;
 
 export interface AgentCapabilities {
-  readonly protocolVersion: 12;
+  readonly protocolVersion: 13;
   readonly providerKey: AgentProviderKey;
   readonly sessions: Readonly<{
     create: true;
@@ -219,6 +220,7 @@ export interface AgentCapabilities {
   readonly turns: Readonly<{
     interactionModes: readonly AgentTurnInteractionMode[];
     interrupt: boolean;
+    structuredOutput: AgentStructuredOutputCapability;
     steer: AgentTurnSteeringCapability;
   }>;
   readonly requests: Readonly<{

@@ -36,7 +36,7 @@ async function fixture(options: { timing?: AgentOperationTiming; output?: boolea
         signal = input.signal;
         dispatches += 1;
         entered.resolve();
-        if (options.output) await input.onOutput?.(createAgentEventOutput({ protocolVersion: 12,
+        if (options.output) await input.onOutput?.(createAgentEventOutput({ protocolVersion: 13,
           sessionId: context.sessionId, turnId: input.observationTurnId, occurredAt: "2026-10-19T00:00:00.000Z",
           ...(options.output === 'retry'
             ? { type: 'runtime.retrying', payload: { owner: 'provider', attempt: 1, maxAttempts: 3, delayMs: 1250,

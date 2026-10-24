@@ -93,6 +93,12 @@ import { validateAgentProviderTurnInterruptionResult } from "./turnExecution/rec
 import { createAgentTurnRequestAdmission, type AgentTurnRequestAdmission, type PendingAgentRequest } from "./turnExecution/requests.js";
 import { createAgentSessionAdmission } from "./sessionAdmission.js";
 import type { SessionInteractionOwner } from "./sessionInteractions/lifetime.js";
+import type { AgentExecutionInputSupport } from "./executionInput/types.js";
+import { createExecutionInputCensus } from "./executionInput/lifetime.js";
+import {
+  admitAgentStructuredOutputTurn,
+  type AgentStructuredOutputBinding,
+} from "./structuredOutput/admission.js";
 
 //                Session Validation
 // ------------------------------------------------------------------------------------------------
@@ -939,7 +945,7 @@ function trackActiveTurnOperation(
   };
 }
 
-function assertAgentTurnInputCapability(input: {
+export function assertAgentTurnInputCapability(input: {
   readonly capability: AgentOperationInputCapability;
   readonly parts: AgentProviderStartTurnInput["parts"];
   readonly providerKey: AgentProviderKey;
@@ -1033,7 +1039,12 @@ function assertAgentTurnInputCapability(input: {
   if (textIssue) rejectReference(`${textIssue.target} must use ${textIssue.format} text`);
 }
 
-export function createAgentSessionValidationOwner(capabilities: AgentCapabilities, sessionId: AgentSessionId) {
+export function createAgentSessionValidationOwner(
+  capabilities: AgentCapabilities,
+  sessionId: AgentSessionId,
+  structuredOutputBinding?: AgentStructuredOutputBinding,
+  executionInputSupport?: AgentExecutionInputSupport,
+) {
   const providerKey = capabilities.providerKey;
   const sessionLifetime = new AbortController();
 
@@ -1056,6 +1067,11 @@ export function createAgentSessionValidationOwner(capabilities: AgentCapabilitie
   let closed = false;
   let unusable = false;
   let closing: (() => Promise<void>) | undefined;
+  let requireInputContext = () => {};
+  const executionInputCensus = createExecutionInputCensus(providerKey, () => {
+    unusable = true;
+    queueMicrotask(() => { void closing?.().catch(() => {}); });
+  });
 
   const requireOpen = (): void => {
     if (closed)
@@ -1084,7 +1100,7 @@ export function createAgentSessionValidationOwner(capabilities: AgentCapabilitie
     ...(turnId === undefined ? {} : { turnId }),
   });
 
-  type CallerExecution = { kind: "caller"; input: AgentProviderStartTurnInput; start: (input: AgentProviderStartTurnInput) => AgentProviderTurnExecution };
+  type CallerExecution = { kind: "caller"; input: AgentProviderStartTurnInput; binding?: AgentStructuredOutputBinding; start: (input: AgentProviderStartTurnInput) => AgentProviderTurnExecution };
   type NativeExecution = { kind: "native"; createCandidate: (signal: AbortSignal) => AgentProviderTurnExecution };
   function installExecution(token: object, turnId: AgentTurnId, source: CallerExecution): ValidatedAgentTurnExecution;
   function installExecution(token: object, turnId: AgentTurnId, source: NativeExecution): AdoptedAgentTurnExecution;
@@ -1100,12 +1116,22 @@ export function createAgentSessionValidationOwner(capabilities: AgentCapabilitie
     const inFlightOperations = new Set<Promise<void>>();
     const common: Omit<Parameters<typeof createValidatedAgentTurnExecution>[0], "turnInput" | "start"> = {
       providerKey,
+      ...(executionInputSupport === undefined ? {} : { executionInputSupport }),
+      executionInputCensus,
+      ownsExecution: () => sessionAdmission.ownsExecution(token),
+      requireInputContext: () => requireInputContext(),
+      structuredOutputBound: source.kind === "caller" && source.binding !== undefined,
       pendingRequests, sessionAdmission, inFlightOperations,
       requireUsable,
       isTerminal: () => state.terminal,
       canRestoreRequest: (pending) => hasLiveApprovalSubject(pending.request, state),
       observe(candidate, requests) {
-        const output = validateAgentProviderOutputForContext(candidate, outputContext(turnId));
+        const output = validateAgentProviderOutputForContext(candidate, {
+          ...outputContext(turnId),
+          ...(source.kind !== "caller" || source.binding === undefined
+            ? {}
+            : { structuredOutputBinding: source.binding }),
+        });
         observeTurnOutput({ capabilities, providerKey, output, state, pendingRequests, requests,
           contextUsageState, interactionState });
         return output;
@@ -1129,6 +1155,12 @@ export function createAgentSessionValidationOwner(capabilities: AgentCapabilitie
     }
     return owner;
   }
+  const requireNativeContinuationSupport = (): void => {
+    if (structuredOutputBinding !== undefined) {
+      throwAgentProviderContractError(providerKey, "structured_output_unsupported",
+        "Schema-bound sessions cannot dispatch native continuations without structured-output admission.");
+    }
+  };
   return {
     sessionAdmission, sessionLifetime, contextUsageState, interactionState, outputContext, requireUsable,
     get activeTurn() { return sessionAdmission.execution; },
@@ -1138,14 +1170,26 @@ export function createAgentSessionValidationOwner(capabilities: AgentCapabilitie
     stop() { unusable = true; sessionAdmission.stop(); sessionLifetime.abort(new DOMException("The provider session was closed.", "AbortError")); },
     completeClose() { closed = true; },
     installClose(close: () => Promise<void>) { closing = close; },
+    installInputContextGuard(guard: () => void) { requireInputContext = guard; },
     reserveExecution: sessionAdmission.reserveExecution,
     ownsExecution: sessionAdmission.ownsExecution,
     releaseExecution: sessionAdmission.releaseExecution,
+    admitTurnOutput(output: unknown, hasOutput: boolean) {
+      if (structuredOutputBinding !== undefined && hasOutput) {
+        throwAgentProviderContractError(providerKey, "structured_output_scope_mismatch",
+          "A schema-bound session cannot override or remove its opening structured-output request.");
+      }
+      return admitAgentStructuredOutputTurn({ capabilities,
+        ...(structuredOutputBinding === undefined ? {} : { binding: structuredOutputBinding }), output });
+    },
+    requireNativeContinuationSupport,
     installNativeExecution(token: object, turnId: AgentTurnId, createCandidate: (signal: AbortSignal) => AgentProviderTurnExecution) {
+      requireNativeContinuationSupport();
       return installExecution(token, turnId, { kind: "native", createCandidate });
     },
-    installCallerExecution(token: object, turnInput: AgentProviderStartTurnInput, start: (input: AgentProviderStartTurnInput) => AgentProviderTurnExecution) {
-      return installExecution(token, turnInput.turnId, { kind: "caller", input: turnInput, start });
+    installCallerExecution(token: object, turnInput: AgentProviderStartTurnInput, start: (input: AgentProviderStartTurnInput) => AgentProviderTurnExecution, binding?: AgentStructuredOutputBinding) {
+      return installExecution(token, turnInput.turnId, { kind: "caller", input: turnInput, start,
+        ...(binding === undefined ? {} : { binding }) });
     },
   };
 }
@@ -1204,6 +1248,11 @@ export function validateAgentProviderSession(input: {
   validateSessionPorts(capabilities, input.candidate);
 
   const validationOwner = input.validationOwner ?? createAgentSessionValidationOwner(capabilities, sessionId);
+  validationOwner.installInputContextGuard(() => {
+    input.sessionInteractionOwner?.requireUsable();
+    if (input.sessionInteractionOwner?.hasLiveRequests) throwAgentProviderContractError(providerKey, "request_pending",
+      "Execution input cannot enter while a session interaction remains unsettled.");
+  });
   const { sessionLifetime, contextUsageState, interactionState, outputContext } = validationOwner;
   const collaborationNodes = interactionState.collaborationNodes;
   const collaborationSpawnReservations = interactionState.collaborationSpawnReservations;
@@ -1273,6 +1322,7 @@ export function validateAgentProviderSession(input: {
       turnId: turnInput.turnId,
       interactionMode: turnInput.interactionMode,
       parts: turnInput.parts,
+      ...(turnInput.output === undefined ? {} : { output: turnInput.output }),
       ...(turnInput.summary === undefined ? {} : { summary: turnInput.summary }),
       ...(turnInput.deadlineAt === undefined ? {} : { deadlineAt: turnInput.deadlineAt }),
     });
@@ -1281,13 +1331,15 @@ export function validateAgentProviderSession(input: {
       throwAgentProviderContractError(providerKey, "input_capability_mismatch",
         `Provider ${providerKey} does not support ${parsedInput.interactionMode} turn interaction mode.`);
     }
+    const binding = validationOwner.admitTurnOutput(parsedInput.output, Reflect.has(turnInput, "output"));
 
     const token = validationOwner.reserveExecution();
     try {
       return validationOwner.installCallerExecution(token, { ...parsedInput,
+        ...(parsedInput.output === undefined || binding === undefined ? {} : { output: binding.request }),
         ...(turnInput.signal === undefined ? {} : { signal: turnInput.signal }),
         ...(turnInput.onProviderExecutionStarted === undefined ? {} : { onProviderExecutionStarted: turnInput.onProviderExecutionStarted }),
-      }, (inputTurn) => input.candidate.startTurn(inputTurn)).execution;
+      }, (inputTurn) => input.candidate.startTurn(inputTurn), binding).execution;
     } catch (error) { validationOwner.releaseExecution(token); throw error; }
   };
 
@@ -1319,6 +1371,7 @@ export function validateAgentProviderSession(input: {
             const settleActiveInterruption = trackActiveTurnOperation(
               targetedActiveTurn,
             );
+            targetedTurn.owner.closeInputAdmission();
             try {
               const suspendedRequests = targetedTurn.owner.suspendRequests();
               let result: AgentProviderTurnInterruptionResult;
@@ -1359,6 +1412,10 @@ export function validateAgentProviderSession(input: {
           ): Promise<AgentTurnSteeringResult> => {
             requireUsable();
             throwIfAgentOperationAborted(steeringInput.signal);
+            if (Reflect.has(steeringInput, "output")) {
+              throwAgentProviderContractError(providerKey, "structured_output_scope_mismatch",
+                "Steering cannot change a turn's structured-output request.");
+            }
             const turnId = parseAgentTurnId(steeringInput.turnId);
             if (
               validationOwner.activeTurn?.turnId !== turnId ||
@@ -2008,7 +2065,7 @@ export function validateAgentProviderSession(input: {
     validationOwner.stop();
     input.hostBindingLease?.stop();
     const closingTurn = validationOwner.activeTurn;
-    closingTurn?.owner.stop(new DOMException("The provider session was closed.", "AbortError"));
+    closingTurn?.owner.stop(new DOMException("The provider session was closed.", "AbortError"), "closed");
     const cleanup = async (): Promise<void> => {
       if (!providerClosed) {
         await input.candidate.close(closeInput);

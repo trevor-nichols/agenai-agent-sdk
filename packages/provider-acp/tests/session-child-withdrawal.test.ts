@@ -40,7 +40,7 @@ test('the exact live child resolution and canceled root finish withdraw its root
   ]);
   assert.deepEqual(await execution.resolveRequest({ resolution: selection(survivor.payload.request) }), { status: 'delivered' });
   const tail = events(await collectRemaining(iterator));
-  assert.deepEqual(tail.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(tail.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   assert.equal(tail.flatMap((event) => event.type === 'content.delta' ? [event.payload.delta] : []).join(''), 'Surviving parent output.');
   assert.equal(fixture.frames('outbound').some((frame) => frame.method === '$/cancel_request'), false);
   assert.equal(fixture.frames().some((frame) => frame.method === 'session/cancel'), false);
@@ -60,7 +60,7 @@ test('the composite child cancellation removes an unseen queued permission while
   assert.deepEqual(await execution.resolveRequest({ resolution: selection(active.payload.request) }), { status: 'delivered' });
   const output = events(await collectRemaining(iterator));
   assert.equal(output.filter((event) => event.type === 'request.opened' || event.type === 'request.unavailable').length, 0);
-  assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(output.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   await session.close({ reason: 'idle' });
 });
 
@@ -112,7 +112,7 @@ test('a permission answer entered before the native facts keeps its delivered re
   assert.ok(survivor?.type === 'request.opened');
   assert.deepEqual(await execution.resolveRequest({ resolution: selection(survivor.payload.request) }), { status: 'delivered' });
   const tail = events(await collectRemaining(iterator));
-  assert.deepEqual(tail.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+  assert.deepEqual(tail.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
   assert.deepEqual(receipt, { status: 'delivered' });
   await session.close({ reason: 'idle' });
 });
@@ -131,7 +131,7 @@ for (const mode of ['no-precursor', 'wrong-requester', 'wrong-tool', 'wrong-kind
     assert.deepEqual(await execution.resolveRequest({ resolution: selection(active.payload.request) }), { status: 'delivered' });
     const tail = events(await collectRemaining(iterator));
     assert.equal(tail.filter((event) => event.type === 'request.unavailable').length, 0);
-    assert.deepEqual(tail.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed' }]);
+    assert.deepEqual(tail.filter((event) => event.type === 'turn.completed').map((event) => event.payload), [{ outcome: 'completed', structuredOutput: { kind: 'not_requested' } }]);
     await session.close({ reason: 'idle' });
   });
 }

@@ -97,8 +97,8 @@ function discoveryFixture() {
   const unsupported = { kind: 'unsupported' };
   return { version: 1, outcome: 'qualified', failedGates: [], noPrompt: true, elapsedMs: 100, modelAcknowledged: true, reasoningAcknowledged: true,
     configurationStarts: 2, cleanup: { ...cleanup(), bridgesAcquired: 0, bridgesReleased: 0 }, configuration: selection(),
-    capabilities: { protocolVersion: 12, providerKey: 'native-proof', sessions: { create: true, resume: false, branch: unsupported },
-      turns: { interactionModes: ['default'], interrupt: true, steer: unsupported }, requests: { approval: unsupported, elicitation: unsupported },
+    capabilities: { protocolVersion: 13, providerKey: 'native-proof', sessions: { create: true, resume: false, branch: unsupported },
+      turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: true, steer: unsupported }, requests: { approval: unsupported, elicitation: unsupported },
       context: { usage: unsupported, compaction: unsupported }, input: { text: true, images: unsupported, contentReferences: unsupported },
       output: { streaming: true, plans: false, fileChanges: 'none', artifactKinds: [] }, configuration: { kind: 'selectable', fieldKinds: ['single_select'], maxFields: 2 },
       operations: unsupported, managedContent: unsupported, integrations: unsupported, environment: { instance: unsupported, session: unsupported },

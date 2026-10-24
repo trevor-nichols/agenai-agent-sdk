@@ -61,7 +61,7 @@ for (const lateStatus of ["delivered", "rejected"] as const) test(`retired A pre
         yield createAgentEventOutput({ ...base, type: "request.unavailable", payload: { requestId: first.requestId, reason: "withdrawn" } });
         yield createAgentEventOutput({ ...base, type: "request.opened", payload: { request: second } });
         await finish.promise;
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
       })(), async resolveRequest(response) {
         if (response.resolution.requestId === first.requestId) { firstEntered.resolve(); return firstReceipt.promise; }
         assert.equal(response.resolution.requestId, second.requestId);
@@ -155,7 +155,7 @@ for (const retainedCallback of [false, true]) test(`canonical retirement after A
         await retireA.promise;
         yield createAgentEventOutput({ ...base, type: "request.unavailable", payload: { requestId: first.requestId, reason: "withdrawn" } });
         await finish.promise;
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
       })(), async resolveRequest(response) {
         if (response.resolution.requestId === first.requestId) answeredA.resolve();
         else assert.equal(response.resolution.requestId, second.requestId);

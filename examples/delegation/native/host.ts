@@ -145,7 +145,7 @@ function assertAuthority(owner: HostState, signal?: AbortSignal): void {
 async function createRegistry(owner: HostState, allocation: NativeProcessAllocation, role: 'parent' | 'child' | 'comparison' | 'discovery') {
   const driver = createNodeAcpProviderDriver({ providerKey: `native-grok-${role}`, configuration: 'selectable',
     launch: allocation.launch,
-    limits: { initializationTimeoutMs: B.discoveryMs, promptTimeoutMs: B.delegationMs, cancellationTimeoutMs: 10_000 },
+    limits: { initializationTimeoutMs: B.discoveryMs, cancellationTimeoutMs: 10_000 },
     ...(role !== 'parent' ? {} : { sessionMcpBinding: { transport: 'http' as const, async create(context) {
       const bridge = await startDelegationMcpBridge({ binding: context.hostBinding, signal: context.signal, shutdownTimeoutMs: 5_000 });
       owner.parentMcpServerName = bridge.server.name;

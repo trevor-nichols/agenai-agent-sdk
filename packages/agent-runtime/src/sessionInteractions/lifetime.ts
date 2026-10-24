@@ -89,6 +89,10 @@ export class SessionInteractionOwner {
   }
 
   get accepting(): boolean { return this.state === "opening" || this.state === "open"; }
+  get hasLiveRequests(): boolean {
+    for (const request of this.requests.values()) if (request.blocksExecutionInput) return true;
+    return false;
+  }
 
   requireUsable(): void {
     if (this.fatal) throw this.fatal.cause;

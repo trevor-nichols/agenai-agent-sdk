@@ -31,7 +31,7 @@ test("collect preserves classified terminal failures with bounded public recover
       return { ...session, startTurn: mapTurnOutputs(session, async function* (input) {
         const base = eventBase(context, input.turnId);
         yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: error ? "failed" : "expired", ...(error ? { error } : {}) } });
+        yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: error ? "failed" : "expired", ...(error ? { error } : {}) } });
       }) };
     } } });
     st.after(() => harness.close());
@@ -65,7 +65,7 @@ for (const malformed of [false, true]) test(`${malformed ? "a malformed failed t
     return { ...session, startTurn: mapTurnOutputs(session, async function* (input) {
       const base = eventBase(context, input.turnId);
       yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
-      if (malformed) yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "failed" } });
+      if (malformed) yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "failed" } });
       else throw parseAgentError({ category: "transport", code: "connection_reset", message: "The connection was reset.", recovery: { kind: "retry" } });
     }) };
   } } });
@@ -97,7 +97,7 @@ test("one output owner awaits each observation commit before pulling the provide
       yield createAgentEventOutput({ ...base, type: "item.started", payload: { itemId: "answer", itemKind: "assistant_message", status: "in_progress" } });
       yield createAgentEventOutput({ ...base, type: "content.delta", payload: { itemId: "answer", streamKind: "assistant_text", delta: "Answer" } });
       fetchedAfterText = true;
-      yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "completed" } });
+      yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
     }) }; } },
   });
   t.after(() => harness.close());

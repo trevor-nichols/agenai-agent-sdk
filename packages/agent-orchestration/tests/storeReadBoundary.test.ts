@@ -52,6 +52,9 @@ test("closed command parsing rejects sensitive or executable additions without r
   const fixture = await createStoreFixture();
   const invalid = [
     { ...fixture.admission, requestContext: { nativeSecret: "private-provider-context" } },
+    { ...fixture.admission, output: { kind: "json_schema", schema: {} } },
+    { ...fixture.admission, admission: { ...fixture.admission.admission, output: { kind: "json_schema", schema: {} } } },
+    { ...fixture.admission, admission: { ...fixture.admission.admission, input: { ...fixture.admission.admission.input, output: { kind: "json_schema", schema: {} } } } },
     { ...fixture.admission, admission: { ...fixture.admission.admission, input: { parts: [{ type: "text", text: "x".repeat(16_001) }] } } },
     { ...fixture.admission, owner: { ...fixture.owner, nativeToken: "secret" } },
     { ...fixture.admission, admission: { ...fixture.admission.admission, rawRequest: { prompt: "secret" } } },

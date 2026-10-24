@@ -2,12 +2,17 @@
 //                conformance.ts - Reusable provider SPI conformance runner - Dependencies: runtime
 // ------------------------------------------------------------------------------------------------
 
+import { isDeepStrictEqual } from "node:util";
+
 import {
   matchesAgentSessionBinding,
   parseAgentEnvironmentId,
   parseAgentRequestResolutionFor,
   parseAgentTurnId,
   type AgentCollaborationSpawnInput,
+  type AgentJsonObject,
+  type AgentOutputSchema,
+  type AgentStructuredOutputCapability,
   type AgentConfigurationSelectionInput,
   type AgentEnvironmentId,
   type AgentEnvironmentInvalidation,
@@ -25,6 +30,7 @@ import {
 } from "@agen-ai/agent-protocol";
 
 import { isAgentOperationAbortError } from "../foundation.js";
+import { AgentProviderContractError } from "../contractErrors.js";
 import {
   createAgentProviderRegistry,
   AgentProviderRegistryError,
@@ -39,6 +45,7 @@ import type {
   AgentProviderStartTurnInput,
   AgentProviderSession,
   AgentProviderTurnExecution,
+  AgentValidatedProviderAdapter,
 } from "../sessions.js";
 
 // ------------------------------------------------------------------------------------------------
@@ -71,6 +78,20 @@ export interface AgentProviderConformanceScenario {
     turnId: AgentTurnId,
   ) => AgentSessionBranchSource;
   readonly steeringInput?: AgentTurnInputContent;
+  readonly structuredOutput?: AgentStructuredOutputConformanceScenario;
+}
+
+export interface AgentStructuredOutputConformanceScenario {
+  readonly sessionId: AgentSessionId;
+  readonly plainSessionId: AgentSessionId;
+  readonly schema: AgentOutputSchema;
+  readonly alternateSchema: AgentOutputSchema;
+  /** Turn scope uses schema then alternateSchema; session scope uses schema for both turns. */
+  readonly turns: readonly [
+    Readonly<{ turn: Omit<AgentProviderStartTurnInput, "output">; expectedValue: AgentJsonObject }>,
+    Readonly<{ turn: Omit<AgentProviderStartTurnInput, "output">; expectedValue: AgentJsonObject }>,
+  ];
+  readonly plainTurn: Omit<AgentProviderStartTurnInput, "output">;
 }
 
 export interface AgentProviderConformanceReport {
@@ -165,6 +186,7 @@ async function collectRemainingOutputs(
   started: StartedAgentProviderTurn,
   resolutionFor?: AgentProviderConformanceScenario["resolutionFor"],
   beforeClose?: () => Promise<void>,
+  closeOnSuccess = true,
 ): Promise<Readonly<{ outputs: readonly AgentProviderOutput[]; deliveredRequests: number }>> {
   const requests = new Map<AgentRequest["requestId"], AbortController>();
   const tasks: Promise<void>[] = [];
@@ -215,7 +237,6 @@ async function collectRemainingOutputs(
         requests.delete(event.payload.requestId);
       } else if (event.type === "turn.completed") {
         abortRequests();
-        return;
       }
     }
   })();
@@ -230,7 +251,9 @@ async function collectRemainingOutputs(
   }
   acceptingRequests = false;
   abortRequests();
-  const closing = started.session.close({ reason: failures.size > 0 ? "contract_rejected" : "idle" });
+  const closing = failures.size > 0 || closeOnSuccess
+    ? started.session.close({ reason: failures.size > 0 ? "contract_rejected" : "idle" })
+    : Promise.resolve();
   const [closed, read, inspected, returned] = await Promise.allSettled([closing, reader, checked, started.iterator.return?.()]);
   if (closed?.status === "rejected") failures.add(closed.reason);
   for (const result of [read, inspected]) {
@@ -268,6 +291,82 @@ function hasStableTurnBoundary(events: readonly AgentEvent[]): boolean {
   return boundary?.type === "turn.completed"
     || (boundary?.type === "turn.state_changed"
       && boundary.payload.state === "waiting_for_request");
+}
+
+async function requireStructuredRejection(operation: () => unknown, code: "structured_output_unsupported" | "structured_output_scope_mismatch") {
+  let rejected = false;
+  try { await operation(); } catch (error) {
+    requireCheck(error instanceof AgentProviderContractError && error.code === code,
+      "structured_output", "Structured output rejection did not preserve its admission classification.");
+    rejected = true;
+  }
+  requireCheck(rejected, "structured_output", "Unsupported structured output was admitted.");
+}
+
+async function checkStructuredOutput(input: {
+  readonly adapter: AgentValidatedProviderAdapter;
+  readonly capability: AgentStructuredOutputCapability;
+  readonly plainSession: AgentProviderSession;
+  readonly scenario: AgentProviderConformanceScenario;
+}): Promise<readonly string[]> {
+  const { adapter, capability, scenario } = input;
+  const schema: AgentOutputSchema = scenario.structuredOutput?.schema ?? {
+    type: "object", properties: { title: { type: "string" } }, required: ["title"], additionalProperties: false,
+  };
+  const request = { kind: "json_schema" as const, schema };
+  if (capability.kind === "unsupported") {
+    await requireStructuredRejection(async () => {
+      const unexpected = await adapter.createSession({ sessionId: scenario.abortedSessionId,
+        workingDirectory: scenario.workingDirectory, configuration: scenario.configuration,
+        onBindingCreated() {}, output: request });
+      await unexpected.close({ reason: "contract_rejected" });
+    }, "structured_output_unsupported");
+    await requireStructuredRejection(() => input.plainSession.startTurn({ ...scenario.turn, output: request }), "structured_output_unsupported");
+    return ["structured_output_unsupported"];
+  }
+  const fixture = scenario.structuredOutput;
+  requireCheck(fixture !== undefined, "structured_output", "Supported structured output requires two schema/result fixtures and an ordinary turn.");
+  let bound: AgentProviderSession | undefined;
+  let plain: AgentProviderSession | undefined;
+  let failure: Readonly<{ error: unknown }> | undefined;
+  const open = (sessionId: AgentSessionId, bind: boolean) => adapter.createSession({ sessionId,
+    workingDirectory: scenario.workingDirectory, configuration: scenario.configuration,
+    onBindingCreated() {}, ...(bind ? { output: request } : {}) });
+  try {
+    bound = await open(fixture.sessionId, capability.scope === "session");
+    for (const [index, turnFixture] of fixture.turns.entries()) {
+      const selected = { kind: "json_schema" as const, schema: index === 0 ? schema : fixture.alternateSchema };
+      if (capability.scope === "session") {
+        await requireStructuredRejection(() => bound!.startTurn({ ...turnFixture.turn, output: selected }), "structured_output_scope_mismatch");
+      }
+      const started = await advanceToStartedTurn(bound, { ...turnFixture.turn, ...(capability.scope === "turn" ? { output: selected } : {}) });
+      const observed = await collectRemainingOutputs(started, scenario.resolutionFor, undefined, false);
+      const terminal = semanticEvents(observed.outputs).at(-1);
+      requireCheck(terminal?.type === "turn.completed" && terminal.payload.outcome === "completed"
+        && terminal.payload.structuredOutput.kind === "json"
+        && isDeepStrictEqual(terminal.payload.structuredOutput.value, turnFixture.expectedValue),
+      "structured_output", "Structured turn did not finish with the expected schema-valid native value.");
+    }
+    if (capability.scope === "session") {
+      await bound.close({ reason: "idle" });
+      plain = await open(fixture.plainSessionId, false);
+    } else plain = bound;
+    const started = await advanceToStartedTurn(plain, fixture.plainTurn);
+    const observed = await collectRemainingOutputs(started, scenario.resolutionFor, undefined, false);
+    const terminal = semanticEvents(observed.outputs).at(-1);
+    requireCheck(terminal?.type === "turn.completed" && terminal.payload.outcome === "completed"
+      && terminal.payload.structuredOutput.kind === "not_requested",
+    "structured_output_lifetime", "An ordinary turn inherited a structured output binding.");
+    return ["structured_output", "structured_output_lifetime"];
+  } catch (error) {
+    failure = { error };
+    throw error;
+  } finally {
+    const settled = await Promise.allSettled([bound?.close({ reason: "idle" }), plain === bound ? undefined : plain?.close({ reason: "idle" })]);
+    const failures = settled.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+    if (failures.length > 0) throw new AggregateError(failure ? [failure.error, ...failures] : failures,
+      "Structured conformance cleanup failed.", failure ? { cause: failure.error } : undefined);
+  }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -462,6 +561,9 @@ export async function runAgentProviderConformance(
       }
     }
     checks.push("environment_session");
+
+    checks.push(...await checkStructuredOutput({ adapter: instance.adapter,
+      capability: instance.capabilities.turns.structuredOutput, plainSession: created, scenario }));
 
     const aborted = new AbortController();
     aborted.abort(new DOMException("Conformance abort.", "AbortError"));

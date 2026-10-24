@@ -8,6 +8,7 @@ import {
 } from '@agen-ai/acp-transport';
 import {
   parseAgentRequestId,
+  type AgentOutputSchema,
   type AgentSessionBinding,
   type AgentTurnCompletedPayload,
   type AgentTurnId,
@@ -43,6 +44,9 @@ import { canceledRequestReply, PendingSessionRequests, type PendingSessionReques
 import { nativeBytes, nativeObject, nativeString, SESSION_METADATA_UPDATES } from './native.js';
 import { deferred, SessionQueue, type QueueEntry } from './queue.js';
 import type { NativeTurn, SessionMessage } from './turn.js';
+import { prepareAcpStructuredOutput } from '../structuredOutput/request.js';
+import { acpStructuredOutputCompletion } from '../structuredOutput/completion.js';
+import { scheduleTurnDeadline } from './deadline.js';
 
 export class SessionState {
   private readonly queue: SessionQueue<SessionMessage>;
@@ -290,17 +294,19 @@ export class SessionState {
       throw new AcpProviderSessionError('acp_input_unsupported', 'ACP supports only the default interaction mode.');
     }
     const prompt = prepareAcpPrompt(input.parts, this.input.capabilities);
-    const turn = this.createNativeTurn(input.turnId);
-    return this.execution(turn, () => this.streamTurn(turn, input, prompt));
+    const output = prepareAcpStructuredOutput(input.output, this.input.capabilities);
+    const turn = this.createNativeTurn(input.turnId, output?.schema);
+    return this.execution(turn, () => this.streamTurn(turn, input, prompt, output?.promptMeta));
   }
 
-  private createNativeTurn(turnId: AgentTurnId): NativeTurn {
+  private createNativeTurn(turnId: AgentTurnId, outputSchema?: AgentOutputSchema): NativeTurn {
     this.requireUsable();
     if (this.turn && !this.turn.sourceSettled) throw new AcpProviderSessionError('acp_turn_active', 'The ACP session already has an active or waiting turn.');
     const settled = deferred<AgentTurnCompletedPayload>();
     void settled.promise.catch(() => undefined);
     const turn: NativeTurn = {
       turnId,
+      ...(outputSchema ? { outputSchema } : {}),
       mapping: new TurnMapping({
         sessionId: this.input.context.sessionId,
         turnId,
@@ -357,7 +363,7 @@ export class SessionState {
     turn.settled.resolve(payload);
   }
 
-  private launchTurn(turn: NativeTurn, input: AgentProviderStartTurnInput, prompt: ReturnType<typeof prepareAcpPrompt>): void {
+  private launchTurn(turn: NativeTurn, input: AgentProviderStartTurnInput, prompt: ReturnType<typeof prepareAcpPrompt>, promptMeta?: AcpJsonObject): void {
     this.requireUsable();
     throwIfAgentOperationAborted(input.signal);
     if (turn.nativeSettled) return;
@@ -366,10 +372,12 @@ export class SessionState {
     turn.prompt = this.operations.prompt({
       sessionId: this.nativeSessionId!,
       prompt,
+      ...(promptMeta ? { _meta: promptMeta } : {}),
     }, {
-      timeoutMs: this.input.limits.promptTimeoutMs,
+      lifetime: 'until_settled',
       onResponseReceived: (response) => {
-        const payload = acpTurnCompletion(response, turn.cancelReason);
+        const payload = acpStructuredOutputCompletion(acpTurnCompletion(response, turn.cancelReason),
+          response, turn.outputSchema, this.nativeSessionId!);
         this.completeNativeTurn(turn, payload);
       },
     }).then(() => undefined, (error) => {
@@ -385,8 +393,7 @@ export class SessionState {
       if (input.signal.aborted) abort();
     }
     if (input.deadlineAt !== undefined) {
-      const timer = setTimeout(() => cancel('timeout'), Math.min(2_147_483_647, Math.max(0, Date.parse(input.deadlineAt) - Date.now())));
-      turn.cleanup.push(() => clearTimeout(timer));
+      turn.cleanup.push(scheduleTurnDeadline(input.deadlineAt, () => cancel('timeout')));
     }
   }
 
@@ -500,10 +507,10 @@ export class SessionState {
     yield* this.emit(turn.mapping.event('turn.state_changed', { state: 'waiting_for_request', requestId: canonical.requestId }));
   }
 
-  private async *streamTurn(turn: NativeTurn, input: AgentProviderStartTurnInput, prompt: ReturnType<typeof prepareAcpPrompt>): AsyncGenerator<AgentProviderOutput> {
+  private async *streamTurn(turn: NativeTurn, input: AgentProviderStartTurnInput, prompt: ReturnType<typeof prepareAcpPrompt>, promptMeta?: AcpJsonObject): AsyncGenerator<AgentProviderOutput> {
     let stable = false;
     try {
-      this.launchTurn(turn, input, prompt);
+      this.launchTurn(turn, input, prompt, promptMeta);
       yield* this.emit(turn.mapping.event('turn.started', {}));
       yield* this.drain(turn);
       await this.requests.join();
@@ -535,7 +542,8 @@ export class SessionState {
     this.requests.cancelAll();
     turn.hostInteractions.abort(new DOMException('The ACP turn was canceled.', 'AbortError'));
     if (!turn.nativeStarted) {
-      const payload: AgentTurnCompletedPayload = { outcome: reason === 'timeout' ? 'expired' : 'canceled' };
+      const payload: AgentTurnCompletedPayload = { structuredOutput: turn.outputSchema
+        ? { kind: 'unavailable', reason: 'incomplete' } : { kind: 'not_requested' }, outcome: reason === 'timeout' ? 'expired' : 'canceled' };
       turn.nativeSettled = true;
       this.queue.admit({ kind: 'terminal', payload }, nativeBytes(payload), true);
       turn.settled.resolve(payload);

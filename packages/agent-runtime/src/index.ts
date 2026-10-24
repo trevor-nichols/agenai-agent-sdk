@@ -19,5 +19,20 @@ export * from "./readiness.js";
 export * from "./sessions.js";
 export * from "./sessionInteractions/index.js";
 export * from "./nativeContinuations/index.js";
+export {
+  parseAgentExecutionInputMessageId,
+  type AgentExecutionInput,
+  type AgentExecutionInputMessage,
+  type AgentExecutionInputMessageId,
+  type AgentExecutionInputOutcome,
+  type AgentExecutionInputReceipt,
+  type AgentExecutionInputSupport,
+} from "./executionInput/index.js";
+export { createAgentStructuredOutputCandidate } from "./structuredOutput/candidate.js";
+export type {
+  AgentStructuredOutputCandidate,
+  AgentStructuredOutputCandidateResult,
+  CreateAgentStructuredOutputCandidateInput,
+} from "./structuredOutput/candidate.js";
 export { createAgentProviderSessionCleanupError, isAgentProviderSessionCleanupErrorFor } from "./sessionCleanup.js";
 export * from "./text.js";

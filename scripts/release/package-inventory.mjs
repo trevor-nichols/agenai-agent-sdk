@@ -47,4 +47,19 @@ export const PUBLIC_PACKAGE_POLICIES = Object.freeze([
     dependencies: { "@agen-ai/validation": "workspace:^", zod: "catalog:",
       "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
   },
+  {
+    root: "packages/agent-history",
+    name: "@agen-ai/agent-history",
+    dependencies: { "@agen-ai/agent-protocol": "workspace:^", "@agen-ai/validation": "workspace:^", zod: "catalog:" },
+  },
+  {
+    root: "packages/sandbox",
+    name: "@agen-ai/sandbox",
+    dependencies: { "@agen-ai/validation": "workspace:^", zod: "catalog:" },
+  },
+  {
+    root: "packages/sandbox-docker",
+    name: "@agen-ai/sandbox-docker",
+    dependencies: { "@agen-ai/sandbox": "workspace:^", "@agen-ai/validation": "workspace:^", zod: "catalog:" },
+  },
 ].map((policy) => Object.freeze({ ...policy, dependencies: Object.freeze(policy.dependencies) })));

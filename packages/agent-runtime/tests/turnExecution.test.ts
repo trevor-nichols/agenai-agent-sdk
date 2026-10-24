@@ -56,7 +56,7 @@ async function scenario(options: Readonly<{
         starts += 1;
         options.constructing?.();
         input.signal?.addEventListener("abort", () => terminal.resolve(), { once: true });
-        const base = { protocolVersion: 12 as const, sessionId: context.sessionId,
+        const base = { protocolVersion: 13 as const, sessionId: context.sessionId,
           turnId: input.turnId, occurredAt: parseAgentIsoDateTime("2026-10-12T00:00:00.000Z") };
         const outputs: AsyncIterable<AgentProviderOutput> = (async function* () {
           await options.firstPull;
@@ -75,7 +75,7 @@ async function scenario(options: Readonly<{
           throwIfAgentOperationAborted(input.signal);
           if (nativeClosed) return;
           produced += 1;
-          yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "canceled" } });
+          yield createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled" } });
         })();
         const execution: AgentProviderTurnExecution = {
           turnId: input.turnId, outputs,
@@ -429,10 +429,10 @@ test("A08: interruption cannot transfer terminal or content output away from the
     const iterator = await openedRequest(execution);
     const context = fixture.harness.contexts[0];
     if (context === undefined) throw new Error("Missing native session context.");
-    const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId,
+    const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId,
       occurredAt: parseAgentIsoDateTime("2026-10-12T00:00:00.000Z") };
     const unexpectedOutput = kind === "terminal"
-      ? createAgentEventOutput({ ...base, type: "turn.completed", payload: { outcome: "canceled" } })
+      ? createAgentEventOutput({ ...base, type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "canceled" } })
       : createAgentEventOutput({ ...base, type: "content.delta", payload: { itemId, streamKind: "assistant_text", delta: "Output from the wrong owner." } });
     if (session.interruption.kind !== "supported") throw new Error("Missing interruption fixture.");
 

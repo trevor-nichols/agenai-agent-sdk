@@ -70,6 +70,10 @@ export class SessionInteractionRequest {
       () => { this.callbackSettled = true; this.maybeRetire(); });
   }
 
+  get blocksExecutionInput(): boolean {
+    return this.state.kind !== "terminal" || this.responseWork > 0 || !this.rawTerminalSettled;
+  }
+
   private scheduleExpiry(): void {
     if (this.candidate.deadlineAt === undefined || this.state.kind === "terminal") return;
     const remainingMs = this.candidate.deadlineAt - Date.now();

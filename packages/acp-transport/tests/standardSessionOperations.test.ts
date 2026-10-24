@@ -143,3 +143,32 @@ test('standard operations retain pinned schema rejection and request cancellatio
   });
   await harness.client.dispose();
 });
+
+test('standard discovery and deletion retain exact schema-profile admission and opaque cursors', async () => {
+  for (const profile of ['v0.11.4', 'schema-v1.23.0'] as const) {
+    const harness = createAcpTestHarness({ schemaChannel: 'stable', schemaProfile: profile });
+    const operations = createAcpStandardSessionOperations(harness.client);
+    try {
+      await completeRequest({
+        pending: operations.listSessions({ cwd: '/workspace', cursor: 'opaque/next?x=1' }),
+        harness,
+        expectedMethod: 'session/list',
+        expectedParams: { cwd: '/workspace', cursor: 'opaque/next?x=1' },
+        result: { sessions: [{ sessionId: 'saved-1', cwd: '/workspace', title: 'Saved session' }], nextCursor: 'opaque-final' },
+      });
+      if (profile === 'schema-v1.23.0') {
+        await completeRequest({
+          pending: operations.deleteSession({ sessionId: 'saved-1' }),
+          harness,
+          expectedMethod: 'session/delete',
+          expectedParams: { sessionId: 'saved-1' },
+          result: {},
+        });
+      } else {
+        await assert.rejects(operations.deleteSession({ sessionId: 'saved-1' }),
+          (error: unknown) => error instanceof Error && 'reasonCode' in error
+            && error.reasonCode === 'acp_outbound_method_not_registered');
+      }
+    } finally { await harness.client.dispose(); }
+  }
+});

@@ -23,8 +23,10 @@ import { containsAgentControlCharacter } from "./internal/controlCharacters.js";
 import { withAgentSessionHostBinding } from "./hostBindings/lifetime.js";
 import { invokeAgentSessionOpening } from "./hostBindings/opening.js";
 import { validateAgentSessionHostBindingSupport } from "./hostBindings/validation.js";
+import { validateAgentExecutionInputSupport } from "./executionInput/validation.js";
 import { createSessionInteractionOwner } from "./sessionInteractions/lifetime.js";
 import { validateSessionInteractionSupport, validateNativeContinuationSupport } from "./sessionInteractions/validation.js";
+import { admitAgentStructuredOutputOpening } from "./structuredOutput/admission.js";
 import {
   validateAgentProviderOperationResult,
   validateAgentProviderOutputForContext,
@@ -138,6 +140,13 @@ export function validateAgentProviderAdapter(
   const declaredResumption = adapter.resumption;
   const sessionInteractions = validateSessionInteractionSupport(capabilities, adapter);
   const nativeContinuations = validateNativeContinuationSupport(capabilities, adapter, sessionInteractions);
+  let executionInput: ReturnType<typeof validateAgentExecutionInputSupport>;
+  try {
+    executionInput = validateAgentExecutionInputSupport(adapter.executionInput);
+  } catch {
+    return throwAgentProviderContractError(capabilities.providerKey, "invalid_adapter",
+      "Provider declared invalid execution-input support.");
+  }
   let hostBinding: ReturnType<typeof validateAgentSessionHostBindingSupport>;
   try {
     hostBinding = validateAgentSessionHostBindingSupport(adapter.hostBinding);
@@ -163,6 +172,10 @@ export function validateAgentProviderAdapter(
             support: hostBinding,
             open: async (lease) => {
               throwIfAgentOperationAborted(resumeInput.signal);
+              if (Reflect.has(resumeInput, "output")) {
+                throwAgentProviderContractError(capabilities.providerKey, "structured_output_unsupported",
+                  "Structured-output requests are unsupported when resuming a session.");
+              }
               const parsed = parseAgentSessionOpenInput({
                 operation: "resume",
                 sessionId: resumeInput.sessionId,
@@ -180,7 +193,7 @@ export function validateAgentProviderAdapter(
                 resumeInput.workingDirectory,
               );
               const binding = parsed.binding;
-              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId);
+              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId, undefined, executionInput);
               const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
                 sessionId: parsed.sessionId, operation: "resume", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
                 ...(resumeInput.nativeContinuations === undefined ? {} : { continuations: resumeInput.nativeContinuations }),
@@ -241,6 +254,10 @@ export function validateAgentProviderAdapter(
             support: hostBinding,
             open: async (lease) => {
               throwIfAgentOperationAborted(branchInput.signal);
+              if (Reflect.has(branchInput, "output")) {
+                throwAgentProviderContractError(capabilities.providerKey, "structured_output_unsupported",
+                  "Structured-output requests are unsupported when branching a session.");
+              }
               const parsed = parseAgentSessionOpenInput({
                 operation: "branch",
                 sessionId: branchInput.sessionId,
@@ -258,7 +275,7 @@ export function validateAgentProviderAdapter(
                 branchInput.workingDirectory,
               );
               const sourceBinding = parsed.source.binding;
-              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId);
+              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId, undefined, executionInput);
               const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
                 sessionId: parsed.sessionId, operation: "branch", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
                 ...(branchInput.nativeContinuations === undefined ? {} : { continuations: branchInput.nativeContinuations }),
@@ -404,6 +421,7 @@ export function validateAgentProviderAdapter(
           operation: "create",
           sessionId: createInput.sessionId,
           configuration: createInput.configuration,
+          ...(createInput.output === undefined ? {} : { output: createInput.output }),
         });
         assertAgentSessionConfigurationSupported(
           capabilities,
@@ -412,7 +430,12 @@ export function validateAgentProviderAdapter(
         const workingDirectory = parseWorkingDirectory(
           createInput.workingDirectory,
         );
-        const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId);
+        const structuredOutputBinding = admitAgentStructuredOutputOpening({
+          capabilities,
+          operation: "create",
+          output: parsed.operation === "create" ? parsed.output : undefined,
+        });
+        const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId, structuredOutputBinding, executionInput);
               const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
           sessionId: parsed.sessionId, operation: "create", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
                 ...(createInput.nativeContinuations === undefined ? {} : { continuations: createInput.nativeContinuations }),
@@ -436,6 +459,7 @@ export function validateAgentProviderAdapter(
                 sessionId: parsed.sessionId,
                 workingDirectory,
                 configuration: parsed.configuration,
+                ...(structuredOutputBinding === undefined ? {} : { output: structuredOutputBinding.request }),
                 onBindingCreated: observer,
                 ...(lease === undefined ? {} : { hostBinding: lease.binding }),
                 ...(interactions === undefined ? {} : { interactions: interactions.facade }),
@@ -449,6 +473,7 @@ export function validateAgentProviderAdapter(
     });
 
   const openingAdapter: AgentValidatedProviderAdapter = Object.freeze({
+    ...(executionInput === undefined ? {} : { executionInput }),
     hostBinding,
     sessionInteractions,
     nativeContinuations,

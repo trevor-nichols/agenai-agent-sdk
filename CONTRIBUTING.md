@@ -30,15 +30,41 @@ pins deliberately with rebuilt artifact comparisons and affected qualification; 
 dependency range does not guarantee identical JavaScript output. Retain the destination's own
 lockfile and use `pnpm install --frozen-lockfile` for subsequent validation.
 
-`pnpm test:external-consumer` builds and packs all seven packages, installs those tarballs in an
+`pnpm test:external-consumer` builds and packs all ten candidate packages, installs those tarballs in an
 independent temporary workspace, and compiles their emitted declarations. Its process fixtures
 exercise registry plans, binary/npm/uv installation, retained offline launch, permission
 continuation, session-lifetime decisions, retained startup/opening cleanup, cancellation, malformed
 peers and slow consumers. The fixture sources are part of
-this public projection, so the proof can run without access to the private monorepo.
+this public projection, so the proof can run without access to the private monorepo. It also
+compiles and executes the public history examples across isolated native-store compositions,
+including a history-only installation without execution packages or vendor peers. The recorded
+native history evidence uses Linux x86_64 / Node 24.18.0; the Cursor constructor additionally
+requires Node >=22.13. Ordinary portable checks do not broaden that native qualification.
 
-The current source and published package family are coordinated at `0.4.2` with Agent Protocol V12.
-Earlier `0.4.1` artifacts retain V11. Read [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before changing lifecycle behavior.
+Sandbox package checks are hermetic and need no Docker daemon or provider credentials. Real
+backend checks are an explicit separate lane:
+
+```sh
+pnpm test:sandbox-integration \
+  --engine unix:///var/run/docker.sock \
+  --output /absolute/new/evidence
+```
+
+That lane explicitly pulls its pinned fixture source if absent, prepares an owned image, runs
+Docker integration and the installed [public sandbox example](examples/sandbox/README.md), and
+makes no model request. Its runner owns this fixture preparation; the backend itself never pulls
+or builds images.
+The local Engine/profile prerequisites, admitted image environment and exact native evidence
+scope are documented in [the Docker package](packages/sandbox-docker/README.md). Do not infer
+hosted CI success from its configured workflow; no hosted Docker result is recorded. Preserve
+original operation/cleanup failures and exact resource identities when changing lifecycle code.
+Recovery is cleanup-only, and uncertain command outcomes must never be replayed automatically.
+
+Current source is the unpublished ten-package `0.4.4` candidate with Agent Protocol V13.
+The recorded published family remains seven packages at `0.4.3`; it did not include history or either sandbox package.
+Read [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for candidate compatibility, history and sandbox setup,
+and [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before changing V12 lifecycle behavior.
+Earlier `0.4.1` artifacts retain V11.
 After building, `pnpm examples:lifecycle-interactions` runs the generic core-only walkthrough:
 an early handler receives a setup question, opening returns while it is pending, a bound response
 settles it and cleanup joins without starting a model turn. Turn requests have the separate

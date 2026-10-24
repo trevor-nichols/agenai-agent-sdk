@@ -10,6 +10,7 @@ import { resolveHostFacilities } from './host/validation.js';
 import { resolveAcpMcpServers, resolveAcpSessionMcpBinding } from './mcp.js';
 import type { AcpConnectionSource } from './connection/contracts.js';
 import { resolveAcpPermissionMapping } from './permissions/selection.js';
+import { resolveAcpStructuredOutputMapping } from './structuredOutput/mapping.js';
 
 export function createAcpProviderDriverInternal(
   options: Omit<CreateAcpProviderDriverOptions, 'createConnection'> & Readonly<{ connectionSource: AcpConnectionSource }>,
@@ -28,6 +29,7 @@ export function createAcpProviderDriverInternal(
   const mcpServers = resolveAcpMcpServers(options.mcpServers);
   const sessionMcpBinding = resolveAcpSessionMcpBinding(options.sessionMcpBinding);
   const permissionMapping = resolveAcpPermissionMapping(options.permissionMapping);
+  const structuredOutputMapping = resolveAcpStructuredOutputMapping(options.structuredOutputMapping);
   const usedStreams = new WeakSet<object>();
   return defineAgentProviderDriver({
     providerKey,
@@ -45,6 +47,7 @@ export function createAcpProviderDriverInternal(
       host,
       mcpServers,
       permissionMapping,
+      ...(structuredOutputMapping ? { structuredOutputMapping } : {}),
       ...(sessionMcpBinding ? { sessionMcpBinding } : {}),
       ...(sessionInteractions ? { sessionInteractions } : {}),
     }),

@@ -4,8 +4,14 @@
 
 import { z } from 'zod/v4';
 
+import {
+  AgentStructuredOutputRequestPortableSchema,
+  AgentStructuredOutputRequestSchema,
+} from './structuredOutput.js';
+
 import { compareStringsByUnicodeCodePoint } from '../foundation/ordering.js';
 import {
+  AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
   AGENT_PROTOCOL_JSON_BYTES_LIMIT,
   agentProtocolSerializedJsonBytes,
 } from '../foundation/types.js';
@@ -26,6 +32,7 @@ import {
   AgentProviderHistoryAnchorSchema,
   AgentSessionIdSchema,
   AgentTurnIdSchema,
+  withAcyclicProtocolInput,
 } from './foundation.js';
 import { AgentConfigurationValueSchema } from './configuration.js';
 
@@ -127,6 +134,7 @@ export const AgentSessionConfigurationSchema: z.ZodType<AgentSessionConfiguratio
 export const AgentSessionCreateInputPortableSchema = z
   .object({
     operation: z.literal('create'),
+    output: AgentStructuredOutputRequestPortableSchema.optional(),
     sessionId: AgentSessionIdSchema,
     configuration: AgentSessionConfigurationPortableSchema,
   })
@@ -196,13 +204,34 @@ function validateSessionOpenInput(
   }
 }
 
+const AgentSessionCreateInputFullSchema = AgentSessionCreateInputPortableSchema
+  .unwrap()
+  .extend({ output: AgentStructuredOutputRequestSchema.optional() })
+  .readonly();
+
+const sessionOpenPreflight = {
+  maxDepth: 64,
+  maxNodes: AGENT_PROTOCOL_JSON_BYTES_LIMIT * 2,
+  maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,
+} as const;
+
 export const AgentSessionCreateInputSchema: z.ZodType<AgentSessionCreateInput> =
-  AgentSessionCreateInputPortableSchema.superRefine(validateSessionOpenInput);
+  withAcyclicProtocolInput(
+    AgentSessionCreateInputFullSchema.superRefine(validateSessionOpenInput),
+    sessionOpenPreflight,
+  );
 export const AgentSessionResumeInputSchema: z.ZodType<AgentSessionResumeInput> =
   AgentSessionResumeInputPortableSchema.superRefine(validateSessionOpenInput);
 export const AgentSessionBranchInputSchema: z.ZodType<AgentSessionBranchInput> =
   AgentSessionBranchInputPortableSchema.superRefine(validateSessionOpenInput);
 export const AgentSessionOpenInputSchema: z.ZodType<AgentSessionOpenInput> =
-  AgentSessionOpenInputPortableSchema.superRefine(validateSessionOpenInput);
+  withAcyclicProtocolInput(
+    z.discriminatedUnion('operation', [
+      AgentSessionCreateInputFullSchema,
+      AgentSessionResumeInputPortableSchema,
+      AgentSessionBranchInputPortableSchema,
+    ]).superRefine(validateSessionOpenInput),
+    sessionOpenPreflight,
+  );
 
 export { AgentSessionOpenInputPortableSchema };

@@ -27,7 +27,7 @@ test("steering delivers once across policy revisions and rechecks control author
       yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
       entered.resolve();
       await finish.promise;
-      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "completed" } });
+      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
     }) };
   } } });
   const revokeControl = () => harness.denyControlAccess();
@@ -70,7 +70,7 @@ test("unsupported steering rejects without creating a queued fallback", { timeou
     yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
     entered.resolve();
     await finish.promise;
-    yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "completed" } });
+    yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
   }) }; } } });
   t.after(async () => { finish.resolve(); await harness.close(); });
   const admitted = await harness.spawn();
@@ -92,7 +92,7 @@ test("next_turn reserves one queued run and resumes only after a definite termin
       yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
       entered.resolve();
       await finish.promise;
-      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "completed" } });
+      yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
     }) };
   } } });
   t.after(() => harness.close());
@@ -155,7 +155,7 @@ test("uncertain steering serializes later controls, cannot be replayed and forbi
         yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.started", payload: {} });
         entered.resolve();
         await finish.promise;
-        yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { outcome: "completed" } });
+        yield createAgentEventOutput({ ...eventBase(context, input.turnId), type: "turn.completed", payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" } });
       }), steering: { kind: "supported", async steerTurn(input) {
         nativeSteers += 1;
         const result = await steering.steerTurn(input);

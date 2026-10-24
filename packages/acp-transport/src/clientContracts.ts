@@ -61,15 +61,18 @@ export interface CreateAcpClientOptions {
   readonly disposeTransport?: () => void | Promise<void>;
 }
 
-export interface AcpRequestOptions {
-  readonly timeoutMs?: number;
-  readonly deadlineAt?: number | Date;
+interface AcpRequestContextOptions {
   readonly signal?: AbortSignal;
   /** Runs synchronously after local admission and immediately before the transport write. */
   readonly onRequestDispatch?: (context: AcpRequestDispatchContext) => void;
   /** Runs synchronously after response validation, before promise settlement and the next frame. */
   readonly onResponseReceived?: (response: AcpResponseReceived) => void;
 }
+
+export type AcpRequestOptions = AcpRequestContextOptions & (
+  | Readonly<{ lifetime?: 'bounded'; timeoutMs?: number; deadlineAt?: number | Date }>
+  | Readonly<{ lifetime: 'until_settled'; timeoutMs?: never; deadlineAt?: never }>
+);
 
 export interface AcpClientCloseResult {
   readonly kind: 'disposed' | 'peer_closed' | 'fatal';

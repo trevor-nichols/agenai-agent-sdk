@@ -10,6 +10,7 @@ import type {
   AgentTurnId,
 } from '../foundation/index.js';
 import type { AgentConfigurationValue } from '../configuration/index.js';
+import type { AgentStructuredOutputRequest } from '../structuredOutput/types.js';
 
 // ------------------------------------------------------------------------------------------------
 //                Binding and Effective Configuration
@@ -44,6 +45,7 @@ export type AgentSessionConfiguration =
 
 export interface AgentSessionCreateInput {
   readonly operation: 'create';
+  readonly output?: AgentStructuredOutputRequest;
   readonly sessionId: AgentSessionId;
   readonly configuration: AgentSessionConfiguration;
 }

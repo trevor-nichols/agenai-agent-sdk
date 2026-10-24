@@ -114,7 +114,7 @@ export async function createExampleProvider(options: Readonly<{
             if (text.startsWith('[approve]')) { approval = session.startTurn(turn); yield* approval.outputs; return; }
             const wait = text.startsWith('[steer]') || text.startsWith('[cancel]')
               ? new Promise<void>((resolve) => { releaseActive = resolve; }) : undefined;
-            const base = { protocolVersion: 12 as const, sessionId: context.sessionId, turnId: turn.turnId,
+            const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: turn.turnId,
               occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
             yield createAgentEventOutput({ ...base, type: 'turn.started', payload: {} });
             yield createAgentEventOutput({ ...base, type: 'item.started', payload: {
@@ -129,7 +129,7 @@ export async function createExampleProvider(options: Readonly<{
               try { await wait; turn.signal?.throwIfAborted(); }
               finally { turn.signal?.removeEventListener('abort', abort); releaseActive = undefined; }
             }
-            yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { outcome: canceled ? 'canceled' : 'completed' } });
+            yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: { structuredOutput: { kind: 'not_requested' }, outcome: canceled ? 'canceled' : 'completed' } });
           })(),
         };
       },

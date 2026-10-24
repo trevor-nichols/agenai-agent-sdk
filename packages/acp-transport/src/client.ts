@@ -26,7 +26,7 @@ import type {
   CreateAcpClientOptions,
 } from './clientContracts.js';
 import {
-  boundedTimeout,
+  resolveRequestTimeout,
   cleanupPendingRequest,
   deferred,
   isCriticalExtensionMethod,
@@ -495,13 +495,13 @@ export function createAcpClient(options: CreateAcpClientOptions): AcpClient {
         );
       }
       const extension = validateOutbound('request', method, params);
-      const timeoutMs = boundedTimeout({
+      const timeoutMs = resolveRequestTimeout({
         options: requestOptions,
         now: now(),
         defaultMs: limits.defaultRequestTimeoutMs,
         maximumMs: limits.maxRequestTimeoutMs,
       });
-      if (timeoutMs <= 0 || requestOptions.signal?.aborted) {
+      if ((timeoutMs !== undefined && timeoutMs <= 0) || requestOptions.signal?.aborted) {
         throw new AcpRequestError('acp_request_aborted', 0);
       }
       const id = allocateRequestId();
@@ -516,7 +516,7 @@ export function createAcpClient(options: CreateAcpClientOptions): AcpClient {
           sendCancellation(id);
         };
         requestOptions.signal?.addEventListener('abort', abort, { once: true });
-        const timer = setTimeout(() => {
+        const timer = timeoutMs === undefined ? undefined : setTimeout(() => {
           const entry = pending.get(key);
           if (!entry) return;
           cleanupPending(entry);

@@ -35,6 +35,12 @@ import {
   AgentOperationInvocationPortableSchema,
   AgentOperationResultPortableSchema,
 } from '../src/zod/operations.ts';
+import {
+  AgentOutputSchemaPortableSchema,
+  AgentStructuredOutputCapabilityPortableSchema,
+  AgentStructuredOutputRequestPortableSchema,
+  AgentStructuredOutputResultPortableSchema,
+} from '../src/zod/structuredOutput.ts';
 import { AGENT_PROTOCOL_VERSION } from '../src/foundation/types.ts';
 import {
   AgentRequestPortableSchema,
@@ -57,6 +63,7 @@ import {
   AgentSessionResponsePortableSchema,
 } from '../src/zod/sessionInteractions.ts';
 import {
+  AgentTurnCompletedPayloadPortableSchema,
   AgentTurnInputContentSchema,
   AgentTurnRunInputPortableSchema,
 } from '../src/zod/turns.ts';
@@ -75,7 +82,59 @@ const failureParserInvariants = [
   'serialized_failure_bytes',
 ];
 
+const structuredSchemaParserInvariants = [
+  'bounded_plain_json_data',
+  'serialized_utf8_bytes',
+  'schema_node_and_depth_limits',
+  'exact_required_properties',
+  'consistent_schema_bounds',
+  'unique_string_enum_values',
+  'normalized_nullable_branches',
+  'root_schema_dialect_only',
+];
+const structuredResultParserInvariants = [
+  'bounded_plain_json_data',
+  'structured_value_node_and_depth_limits',
+  'structured_value_collection_limits',
+  'serialized_utf8_bytes',
+  'structured_issue_utf8_bytes',
+];
+
 const definitions = [
+  {
+    exportName: 'AGENT_OUTPUT_SCHEMA_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.output-schema',
+    direction: 'input',
+    schema: AgentOutputSchemaPortableSchema,
+    parserInvariants: structuredSchemaParserInvariants,
+  },
+  {
+    exportName: 'AGENT_STRUCTURED_OUTPUT_CAPABILITY_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.structured-output-capability',
+    direction: 'output',
+    schema: AgentStructuredOutputCapabilityPortableSchema,
+  },
+  {
+    exportName: 'AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.structured-output-request',
+    direction: 'input',
+    schema: AgentStructuredOutputRequestPortableSchema,
+    parserInvariants: structuredSchemaParserInvariants,
+  },
+  {
+    exportName: 'AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.structured-output-result',
+    direction: 'output',
+    schema: AgentStructuredOutputResultPortableSchema,
+    parserInvariants: structuredResultParserInvariants,
+  },
+  {
+    exportName: 'AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.turn-completed-payload',
+    direction: 'output',
+    schema: AgentTurnCompletedPayloadPortableSchema,
+    parserInvariants: [...failureParserInvariants, ...structuredResultParserInvariants],
+  },
   {
     exportName: 'AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.session-decision-request',
@@ -197,6 +256,7 @@ const definitions = [
       'configuration_entry_count',
       'distinct_branch_session_ids',
       'serialized_bytes',
+      ...structuredSchemaParserInvariants,
     ],
   },
   {
@@ -211,7 +271,7 @@ const definitions = [
     contractId: 'agenai.agent-protocol.turn-run-input',
     direction: 'input',
     schema: AgentTurnRunInputPortableSchema,
-    parserInvariants: ['inline_image_decoded_byte_size', 'serialized_bytes', 'content_reference_limits', 'unique_content_references'],
+    parserInvariants: ['inline_image_decoded_byte_size', 'serialized_bytes', 'content_reference_limits', 'unique_content_references', 'turn_run_request_bytes', ...structuredSchemaParserInvariants],
   },
   {
     exportName: 'AGENT_REQUEST_JSON_SCHEMA',
@@ -407,7 +467,7 @@ const definitions = [
       'request_semantics',
       'retry_counter_ordering',
       'serialized_bytes',
-      'terminal_error_consistency',
+      ...structuredResultParserInvariants,
     ],
   },
 ];

@@ -272,7 +272,7 @@ test('native response metadata is discarded before reserving the terminal under 
   const next = await iterator.next();
   assert.equal(next.value?.kind === 'event' ? next.value.event.type : undefined, 'turn.completed');
   if (next.value?.kind === 'event' && next.value.event.type === 'turn.completed') {
-    assert.deepEqual(next.value.event.payload, { outcome: 'completed' });
+    assert.deepEqual(next.value.event.payload, { outcome: 'completed', structuredOutput: { kind: 'not_requested' } });
   }
   assert.equal((await iterator.next()).done, true);
 });
@@ -459,16 +459,19 @@ test('pre-aborted public turn rejects before candidate execution observation or 
   assert.equal(peer.frames.filter((frame) => frame.method === 'session/prompt').length, 0);
 });
 
-for (const failure of ['malformed', 'peer_exit', 'timeout'] as const) {
+for (const failure of ['malformed', 'peer_exit', 'unconfirmed cancellation'] as const) {
   test(`${failure} after native prompt delegation retires rather than replaying an uncertain prompt`, { timeout: 3_000 }, async (t) => {
-    const peer = createSessionPeer({ onPrompt(peer) {
+    const peer = createSessionPeer({ confirmCancel: failure !== 'unconfirmed cancellation', onPrompt(peer) {
       if (failure === 'malformed') peer.raw('{malformed\n');
       if (failure === 'peer_exit') peer.stdout.end();
     } });
-    const { registry, session } = await open(peer, { promptTimeoutMs: 20 });
+    const { registry, session } = await open(peer, { cancellationTimeoutMs: 20 });
     t.after(async () => { await registry.dispose(); peer.dispose(); });
     let started = 0;
-    await assert.rejects(async () => collect(session.startTurn({ ...turnInput(), onProviderExecutionStarted: () => { started += 1; } }).outputs));
+    await assert.rejects(async () => collect(session.startTurn({ ...turnInput(),
+      deadlineAt: new Date(Date.now() + 20).toISOString(), onProviderExecutionStarted: () => { started += 1; } }).outputs),
+    hasReason(failure === 'unconfirmed cancellation' ? 'acp_cancel_uncertain'
+      : failure === 'malformed' ? 'acp_json_invalid' : 'acp_provider_peer_closed'));
     assert.equal(started, 1);
     await assert.rejects(async () => collect(session.startTurn(turnInput('turn:2')).outputs));
     assert.equal(peer.frames.filter((frame) => frame.method === 'session/prompt').length, 1);
