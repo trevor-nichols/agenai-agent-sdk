@@ -7,12 +7,162 @@ import test from 'node:test';
 import { SandboxCleanupError, SandboxOperationError, SandboxRunError, SandboxStartError, SandboxStateError, SandboxUnsupportedError, SandboxValidationError,
   parseSandboxRelativePath, withSandbox } from '../src/index.js';
 import { parseSandboxRecoveryRecord } from '../src/index.js';
-import type { SandboxRecoveryRecord, SandboxReconciliation, SandboxRequest } from '../src/index.js';
+import type { SandboxNetworkPolicy, SandboxRecoveryRecord, SandboxReconciliation, SandboxRequest } from '../src/index.js';
 import { createSandboxBackend } from '../src/backend/index.js';
+import type { SandboxDriverStartOptions } from '../src/backend/index.js';
 import { artifactPath, exportFiles, fixture, gate, inputFile, nextTurn, processSpec, request } from './fixtures/backend.js';
+import type { FixtureOptions } from './fixtures/backend.js';
 
 const inProcess = Object.freeze({ kind: 'in_process' as const });
 const bounded = { timeout: 3000 };
+
+function infrastructureFixture(options: FixtureOptions = {}) {
+  const physical = fixture(options);
+  let opening: SandboxDriverStartOptions | undefined;
+  const backend = createSandboxBackend({ ...physical.driver, reserve(input) {
+    const reservation = physical.driver.reserve(input);
+    return { ...reservation, start(context) { opening = context; return reservation.start(context); } };
+  } });
+  return Object.assign(physical, { backend, fail(error: SandboxOperationError) {
+    if (!opening) throw new Error('Infrastructure cannot fail before its driver opening.');
+    opening.onInfrastructureFailure(error);
+  } });
+}
+
+test('restricted HTTPS rejects before reservation when absent and compares complete effective destinations', bounded, async () => {
+  const desired = { kind: 'restricted_https' as const, destinations: [{ hostname: 'api.example.com', port: 443 }, { hostname: 'assets.example.com', port: 8443 }] };
+  const input = { policy: { ...request().policy, network: desired } };
+  const unsupported = fixture();
+  let entries = 0;
+  const unsupportedBackend = createSandboxBackend({ ...unsupported.driver, reserve(value) { entries++; return unsupported.driver.reserve(value); } });
+  assert.throws(() => unsupportedBackend.reserve(input, inProcess), SandboxUnsupportedError);
+  assert.equal(entries, 0); assert.deepEqual([...unsupported.resources], []);
+  const variants: readonly SandboxNetworkPolicy[] = [
+    { kind: 'restricted_https', destinations: [{ hostname: 'other.example.com', port: 443 }, desired.destinations[1]!] },
+    { kind: 'restricted_https', destinations: [{ hostname: 'api.example.com', port: 8443 }, desired.destinations[1]!] },
+    { kind: 'restricted_https', destinations: [desired.destinations[0]!] },
+    { kind: 'restricted_https', destinations: [...desired.destinations, { hostname: 'extra.example.com', port: 443 }] },
+    { kind: 'outbound' },
+    { kind: 'restricted_https', destinations: [...desired.destinations].reverse() },
+  ];
+  for (const [index, network] of variants.entries()) {
+    const physical = fixture({ decorateReady: (ready) => ({ ...ready, effective: { ...ready.effective, network } }) });
+    const backend = createSandboxBackend({ ...physical.driver, support: { ...physical.driver.support,
+      networkModes: ['isolated', 'restricted_https'], networkAllowlist: { kind: 'https_connect', maxDestinations: 128 } } });
+    const owner = backend.reserve(input, inProcess);
+    try {
+      if (index === variants.length - 1) {
+        const sandbox = await owner.start();
+        assert.deepEqual(sandbox.effective.network, desired);
+        await sandbox.importTree([inputFile('exact effective destinations admitted')]);
+        assert.deepEqual([...physical.files], [['input.txt', Buffer.from('exact effective destinations admitted')]]);
+      } else {
+        await assert.rejects(owner.start(), (error: unknown) => error instanceof SandboxStartError && error.cause instanceof SandboxUnsupportedError);
+        await assert.rejects(owner.start(), SandboxStateError);
+      }
+    } finally { await owner.destroy(); }
+    assert.deepEqual([...physical.resources], []);
+  }
+});
+
+test('infrastructure failure during driver opening fences synchronously and preserves its first cause', bounded, async () => {
+  const physical = fixture();
+  const failed = new SandboxOperationError('driver_failure', 'broker failed during startup');
+  const backend = createSandboxBackend({ ...physical.driver, reserve(input) {
+    const reservation = physical.driver.reserve(input);
+    return { ...reservation, async start(context) {
+      context.onInfrastructureFailure(failed);
+      context.onInfrastructureFailure(new SandboxOperationError('driver_failure', 'later failure'));
+      context.signal?.throwIfAborted();
+      return reservation.start(context);
+    } };
+  } });
+  const owner = backend.reserve(request(), inProcess);
+  await assert.rejects(owner.start(), (error: unknown) => error instanceof SandboxStartError && error.cause === failed);
+  await owner.stop();
+  assert.equal(owner.state.kind, 'stopped');
+  assert.equal(physical.stopAttempts, 1); assert.deepEqual([...physical.resources], []);
+  await owner.destroy();
+});
+
+test('startup infrastructure failure stops effects before joining a late driver reply and retains cleanup ownership', bounded, async () => {
+  const reply = gate();
+  const physical = infrastructureFixture({ startupReply: reply.promise });
+  const owner = physical.backend.reserve(request({ cleanupMs: 15 }), inProcess);
+  const startup = owner.start();
+  const failed = new SandboxOperationError('driver_failure', 'relay lost before readiness');
+  const rejected = assert.rejects(startup, (error: unknown) => error instanceof SandboxStartError && error.cause === failed);
+  await physical.acquired.promise;
+  physical.fail(failed);
+  await rejected;
+  assert.deepEqual([...physical.resources], ['storage']);
+  await assert.rejects(owner.destroy(), (error: unknown) => error instanceof SandboxCleanupError && error.owner === owner);
+  assert.equal(physical.destroyAttempts, 0);
+  reply.resolve();
+  await owner.destroy();
+  assert.equal(owner.state.kind, 'destroyed'); assert.deepEqual([...physical.resources], []);
+});
+
+test('ready infrastructure failure aborts an entered import and closes admission before returning', bounded, async () => {
+  const blocked = gate();
+  const physical = infrastructureFixture({ importGate: blocked.promise });
+  const owner = physical.backend.reserve(request(), inProcess);
+  const sandbox = await owner.start();
+  physical.files.set(artifactPath, Uint8Array.from([31, 41]));
+  const importing = sandbox.importTree([inputFile('must not publish')]);
+  const failed = new SandboxOperationError('driver_failure', 'broker disappeared');
+  const rejected = assert.rejects(importing, (error: unknown) => error === failed);
+  await physical.importing.promise;
+  physical.fail(failed);
+  assert.throws(() => sandbox.reserveProcess(processSpec), SandboxStateError);
+  assert.throws(() => sandbox.importTree([inputFile('must not enter')]), SandboxStateError);
+  assert.throws(() => sandbox.exportTree({ kind: 'files', paths: [artifactPath] }, async () => {}), SandboxStateError);
+  await rejected; await sandbox.stop();
+  assert.equal(physical.importCount, 1);
+  assert.deepEqual([...physical.files], [['artifact.bin', Uint8Array.from([31, 41])]]);
+  assert.deepEqual(await exportFiles(sandbox, [artifactPath]), [{ path: 'artifact.bin', bytes: Uint8Array.from([31, 41]), executable: false }]);
+  await sandbox.destroy(); assert.deepEqual([...physical.resources], []);
+});
+
+test('infrastructure failure owns a pending process reply until its late streams settle', bounded, async () => {
+  const reply = gate();
+  const physical = infrastructureFixture({ processReply: reply.promise });
+  const owner = physical.backend.reserve(request({ cleanupMs: 15 }), inProcess);
+  const sandbox = await owner.start();
+  const reservation = sandbox.reserveProcess(processSpec);
+  const starting = reservation.start();
+  const failed = new SandboxOperationError('driver_failure', 'broker lost during process startup');
+  const rejected = assert.rejects(starting, (error: unknown) => error === failed);
+  await physical.processEntered.promise;
+  physical.fail(failed);
+  await rejected;
+  await assert.rejects(reservation.start(), SandboxStateError);
+  assert.deepEqual([...physical.resources], ['storage']);
+  await assert.rejects(sandbox.destroy(), (error: unknown) => error instanceof SandboxCleanupError && error.owner === owner);
+  assert.equal(physical.destroyAttempts, 0);
+  reply.resolve();
+  await sandbox.destroy();
+  assert.equal(physical.output.destroyed, true); assert.equal(physical.errorOutput.destroyed, true);
+  assert.deepEqual([...physical.resources], []);
+});
+
+test('infrastructure stop failure is observable with the original cleanup owner and explicit retry', bounded, async () => {
+  const physical = infrastructureFixture({ failFirstStop: true });
+  const owner = physical.backend.reserve(request(), inProcess);
+  const sandbox = await owner.start();
+  physical.fail(new SandboxOperationError('driver_failure', 'broker failure'));
+  physical.fail(new SandboxOperationError('driver_failure', 'duplicate report'));
+  assert.throws(() => sandbox.reserveProcess(processSpec), SandboxStateError);
+  let retained: SandboxCleanupError | undefined;
+  await assert.rejects(sandbox.stop(), (error: unknown) => {
+    assert.ok(error instanceof SandboxCleanupError); retained = error;
+    assert.equal(error.owner, owner); assert.equal(error.operation, 'stop'); return true;
+  });
+  assert.equal(physical.stopAttempts, 1); assert.deepEqual([...physical.resources].sort(), ['compute', 'storage']);
+  assert.ok(retained); await retained.retryCleanup();
+  assert.equal(physical.stopAttempts, 2); assert.deepEqual([...physical.resources], ['storage']);
+  await sandbox.destroy(); assert.deepEqual([...physical.resources], []);
+});
 
 test('required workspace disk quota rejects before driver reservation while ordinary work remains usable', bounded, async () => {
   const physical = fixture();
@@ -35,7 +185,7 @@ test('required workspace disk quota rejects before driver reservation while ordi
   assert.deepEqual([...physical.resources], []);
 });
 
-test('recovery v2 rejects legacy and missing configuration identity before driver reconciliation', bounded, async () => {
+test('recovery v3 rejects older formats and missing configuration identity before driver reconciliation', bounded, async () => {
   const physical = fixture();
   const original = physical.backend.reserve(request(), inProcess).recoveryRecord;
   let reconciliations = 0;
@@ -46,8 +196,10 @@ test('recovery v2 rejects legacy and missing configuration identity before drive
   void configurationDigest;
   // @ts-expect-error A legacy format cannot carry current recovery authority.
   await assert.rejects(backend.reconcile({ ...legacy, format: 'agenai.sandbox-recovery.v1' }), SandboxValidationError);
+  // @ts-expect-error v2 resources require their original controller and cannot be adopted by v3.
+  await assert.rejects(backend.reconcile({ ...original, format: 'agenai.sandbox-recovery.v2' }), SandboxValidationError);
   // @ts-expect-error Current recovery records require the complete backend configuration identity.
-  await assert.rejects(backend.reconcile({ ...legacy, format: 'agenai.sandbox-recovery.v2' }), SandboxValidationError);
+  await assert.rejects(backend.reconcile({ ...legacy, format: 'agenai.sandbox-recovery.v3' }), SandboxValidationError);
   await assert.rejects(backend.reconcile({ ...original, configurationDigest: 'sha256:invalid' }), SandboxValidationError);
   assert.equal(reconciliations, 0);
   assert.deepEqual([...physical.resources], []);

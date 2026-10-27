@@ -39,4 +39,16 @@ test('disposed observer cleanup verifies exact absence without executing histori
     { method: 'GET', path: '/v1.52/info' }, { method: 'GET', path: `/v1.52/containers/${containerId}/json` },
     { method: 'GET', path: '/v1.52/info' }, { method: 'GET', path: `/v1.52/containers/${containerId}/json` },
   ]);
+  const scopes = (count) => Array.from({ length: count }, (_, index) => ({ computeId: (index + 1).toString(16).padStart(64, '0'), emptyObservations: 2 }));
+  for (const changed of [
+    { ...record, maxScopes: 129 },
+    { ...record, scopes: scopes(129), finalCensus: { kernelEmpty: true, scopes: 129 } },
+    { ...record, maxScopes: 256, scopes: scopes(257), finalCensus: { kernelEmpty: true, scopes: 257 } },
+    { ...record, scopes: [record.scopes[0], record.scopes[0]], finalCensus: { kernelEmpty: true, scopes: 2 } },
+    { ...record, maxScopes: 256, finalCensus: { kernelEmpty: true, scopes: 0 } },
+  ]) {
+    await writeFile(recordPath, JSON.stringify(changed)); const before = calls.length;
+    await assert.rejects(cleanupDaemonObserver({ endpoint: record.endpoint, recordPath }), { name: 'AssertionError' });
+    assert.equal(calls.length, before, 'Invalid retained capacity or census must reject before Engine effects.');
+  }
 });

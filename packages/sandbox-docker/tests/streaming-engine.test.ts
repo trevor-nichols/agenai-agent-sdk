@@ -128,6 +128,73 @@ test('abort waits for cooperative producer finally and does not fabricate noncoo
   });
 });
 
+test('producer failure preserves its identity across its derived abort and retains distinct cleanup failures', { timeout: 5000 }, async (context) => {
+  for (const separateCleanupFailure of [false, true]) await context.test(separateCleanupFailure ? 'independent cleanup failure' : 'same producer and abort cause', async () => {
+    const original = new Error('original caller producer failure');
+    const cleanup = new Error('independent caller iterator cleanup failure');
+    const controller = new AbortController();
+    const received = Promise.withResolvers<void>();
+    const returning = Promise.withResolvers<void>();
+    const releaseReturn = Promise.withResolvers<void>();
+    const peerClosed = Promise.withResolvers<void>();
+    const peerReaderJoined = Promise.withResolvers<void>();
+    const input: Buffer[] = [];
+    let socket: Socket | undefined;
+    let nextCalls = 0; let returnCalls = 0; let finalized = false; let settled = false;
+    await withEngine(async (request) => {
+      socket = request.socket; socket.once('close', () => peerClosed.resolve());
+      try {
+        for await (const chunk of request) { input.push(Buffer.from(chunk)); received.resolve(); }
+      } catch { /* The caller aborts its incomplete HTTP upload after the entered bytes. */ }
+      finally { peerReaderJoined.resolve(); }
+    }, async (client) => {
+      const body = { [Symbol.asyncIterator]() { return {
+        async next(): Promise<IteratorResult<Uint8Array>> {
+          nextCalls++;
+          if (nextCalls === 1) return { done: false, value: Buffer.from('entered') };
+          await received.promise;
+          controller.abort(original);
+          throw original;
+        },
+        async return(): Promise<IteratorResult<Uint8Array>> {
+          returnCalls++; returning.resolve(); await releaseReturn.promise; finalized = true;
+          if (separateCleanupFailure) throw cleanup;
+          return { done: true, value: undefined };
+        },
+      }; } };
+      const work = client.stream('PUT', '/archive', { body, signal: controller.signal, chunkBytes: 65536 }, smallResponse);
+      void work.then(() => { settled = true; }, () => { settled = true; });
+      const rejected = assert.rejects(work, (error: unknown) => {
+        if (!separateCleanupFailure) { assert.equal(error, original); return true; }
+        assert(error instanceof AggregateError);
+        const pending: unknown[] = [error]; const retained = new Set<unknown>();
+        while (pending.length) {
+          const current = pending.pop();
+          if (retained.has(current)) continue;
+          retained.add(current); assert(retained.size <= 16);
+          if (current instanceof AggregateError) pending.push(...current.errors);
+          if (current instanceof Error && current.cause !== undefined) pending.push(current.cause);
+        }
+        assert(retained.has(original)); assert(retained.has(cleanup));
+        return true;
+      });
+      try {
+        await returning.promise;
+        assert.deepEqual(Buffer.concat(input), Buffer.from('entered'));
+        assert.equal(nextCalls, 2); assert.equal(returnCalls, 1);
+        assert.equal(settled, false); assert.equal(finalized, false);
+        releaseReturn.resolve(); await rejected;
+        await peerClosed.promise; await peerReaderJoined.promise;
+        assert.equal(finalized, true); assert.equal(returnCalls, 1);
+        assert.equal(socket?.destroyed, true);
+      } finally {
+        releaseReturn.resolve(); await work.catch(() => {});
+        await peerClosed.promise; await peerReaderJoined.promise;
+      }
+    });
+  });
+});
+
 test('falsy callback failures, abandoned bodies and concurrent response pulls preserve failure ownership', async () => {
   await withEngine((_request, response) => { response.end('visible bytes'); }, async (client) => {
     for (const marker of [undefined, null, false, 0, '']) await assert.rejects(client.stream('GET', '/archive', { chunkBytes: 65536 }, () => Promise.reject(marker)), (error) => error === marker);

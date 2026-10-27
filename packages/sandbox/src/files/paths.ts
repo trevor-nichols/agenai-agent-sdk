@@ -3,8 +3,9 @@
 // ------------------------------------------------------------------------------------------------
 
 import { parseData } from '../internal/parse.js';
-import { guestPathSchema, relativePathSchema } from './pathSchemas.js';
-import type { SandboxGuestPath, SandboxRelativePath } from './types.js';
+import { guestPathSchema, relativePathSchema, symlinkTargetSchema } from './pathSchemas.js';
+import type { SandboxGuestPath, SandboxRelativePath, SandboxSymlinkTarget } from './types.js';
 
 export function parseSandboxRelativePath(input: unknown): SandboxRelativePath { return parseData(relativePathSchema, input); }
 export function parseSandboxGuestPath(input: unknown): SandboxGuestPath { return parseData(guestPathSchema, input); }
+export function parseSandboxSymlinkTarget(input: unknown): SandboxSymlinkTarget { return parseData(symlinkTargetSchema, input); }

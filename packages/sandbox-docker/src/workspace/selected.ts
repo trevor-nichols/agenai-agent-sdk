@@ -29,8 +29,10 @@ export async function exportSelectedPath(api: DockerApi, containerId: string, pa
           relative = `${path}${entry.path.slice(stat.name.length)}`;
         }
         await consume(entry.kind === 'directory' ? { kind: 'directory', path: relative }
+          : entry.kind === 'symlink' ? { kind: 'symlink', path: relative, target: entry.target }
           : { kind: 'file', path: relative, byteLength: entry.size, executable: (entry.mode & 0o111) !== 0, bytes: entry.body }, { signal: options.signal });
-      }, { signal: options.signal, chunkBytes: options.buffers.chunkBytes, limitCode: 'output_limit', maxArchiveBytes });
+      }, { signal: options.signal, chunkBytes: options.buffers.chunkBytes, limitCode: 'output_limit', maxArchiveBytes,
+        symlinks: kind === 'file' ? 'reject' : options.symlinks });
       if (!observedRoot) unsafeArchive('selected root is missing from its archive.');
       return summary;
     });

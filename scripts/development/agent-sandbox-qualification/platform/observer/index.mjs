@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                index.mjs - Exact compute kernel registry, private reader port and diagnostic cleanup
+//                index.mjs - Exact workload kernel registry, private reader port and diagnostic cleanup
 // ------------------------------------------------------------------------------------------------
 
 import assert from 'node:assert/strict';
@@ -12,19 +12,39 @@ import { failure, physicalDirectory } from '../../scalability/configuration.mjs'
 import { ObserverContainer } from './container.mjs';
 import { Engine } from '../../engine.mjs';
 import { createObserverCheckpoint } from './checkpoint.mjs';
+import { admitObservedContainer, observerPolicy } from './admission.mjs';
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
 
+function scopeLimit(value) {
+  const selected = value === undefined ? 128 : value;
+  assert(selected === 128 || selected === 256, 'Observer maxScopes must explicitly select 128 or 256.');
+  return selected;
+}
+
+function validateRegistry(record) {
+  const maximum = scopeLimit(record.maxScopes);
+  assert(Array.isArray(record.scopes) && record.scopes.length <= maximum, 'Observer record exceeds its admitted scope capacity.');
+  const ids = record.scopes.map((scope) => {
+    assert(scope && /^[a-f0-9]{64}$/u.test(scope.computeId), 'Observer record has an invalid scope identity.');
+    return scope.computeId;
+  });
+  assert.equal(new Set(ids).size, ids.length, 'Observer record repeats a scope identity.');
+  if (record.observerRemoved && record.containerId !== null) {
+    assert.equal(record.finalCensus?.kernelEmpty, true);
+    assert.equal(record.finalCensus.scopes, record.scopes.length, 'Disposed observer census must cover every retained scope.');
+  }
+}
+
 async function openObserver(options, retained) {
+  const maxScopes = scopeLimit((retained ?? options).maxScopes);
   const output = options.output;
   if (!retained) await physicalDirectory(output);
   const recordPath = retained ? options.recordPath : join(output, 'record.json');
-  const record = retained ?? { ...ObserverContainer.planned(options), allowedImages: options.allowedImages,
-    namespacePrefixes: options.namespacePrefixes, observationsPath: join(output, 'observations.jsonl') };
-  assert(Array.isArray(record.allowedImages) && record.allowedImages.length > 0 && record.allowedImages.length <= 8);
-  record.allowedImages.forEach((id) => assert(/^sha256:[a-f0-9]{64}$/u.test(id)));
-  assert(Array.isArray(record.namespacePrefixes) && record.namespacePrefixes.length > 0 && record.namespacePrefixes.length <= 8);
-  record.namespacePrefixes.forEach((prefix) => assert(/^[a-z][a-z0-9-]{0,62}$/u.test(prefix)));
+  const policy = observerPolicy(retained ?? options);
+  const record = retained ?? { ...ObserverContainer.planned(options), ...policy, maxScopes,
+    observationsPath: join(output, 'observations.jsonl') };
+  validateRegistry(record);
   const checkpoint = createObserverCheckpoint(recordPath);
   const persist = () => checkpoint.write(record);
   const container = new ObserverContainer(record, persist);
@@ -45,20 +65,14 @@ async function openObserver(options, retained) {
   const find = (id) => record.scopes.find((scope) => scope.computeId === id);
   const capture = async (id) => {
     const inspection = await container.engine.request('GET', `/containers/${id}/json`, undefined, { allowed: [200, 404] });
-    assert.equal(inspection.status, 200, 'Started compute disappeared before kernel capture.');
+    assert.equal(inspection.status, 200, 'Started container disappeared before kernel capture.');
     const actual = inspection.data;
-    const labels = actual.Config?.Labels ?? {};
-    // Export accessors, sentinels and unrelated fixture resources never become kernel authority.
-    if (labels['ai.agen.sandbox.role'] !== 'compute' || labels['ai.agen.sandbox.backend'] !== 'agenai-docker') return;
-    const namespace = labels['ai.agen.sandbox.namespace'];
-    assert(typeof namespace === 'string' && record.namespacePrefixes.some((prefix) => namespace.startsWith(prefix)), 'Started compute namespace is outside this qualification run.');
-    assert(record.allowedImages.includes(actual.Image) && labels['ai.agen.sandbox.image'] === actual.Image);
-    const operationId = labels['ai.agen.sandbox.operation']; assert(uuid.test(operationId));
-    assert.equal(actual.Id, id); assert.equal(actual.State.Running, true); assert(Number.isSafeInteger(actual.State.Pid) && actual.State.Pid > 0);
+    const identity = admitObservedContainer(policy, actual, id);
+    if (identity === null) return;
     let scope = find(id);
     if (!scope) {
-      assert(record.scopes.length < 128, 'Kernel registry exceeds its finite qualification budget.');
-      scope = { computeId: id, namespace, operationId, imageDigest: actual.Image, keeperPid: actual.State.Pid,
+      assert(record.scopes.length < maxScopes, 'Kernel registry exceeds its finite qualification budget.');
+      scope = { ...identity,
         relativePath: null, knownPids: [], captureFailure: null, emptyObservations: 0 };
       record.scopes.push(scope); await persist();
     }
@@ -76,7 +90,7 @@ async function openObserver(options, retained) {
   };
   const readKernel = async (path) => {
     assert(typeof path === 'string' && path.length <= 8192);
-    const observed = await container.call({ operation: 'read', path, scopes: record.scopes
+    const observed = await container.call({ operation: 'read', path, maxScopes, scopes: record.scopes
       .filter((scope) => typeof scope.relativePath === 'string' && scope.captureFailure === null).map((scope) => ({
       computeId: scope.computeId, relativePath: scope.relativePath, knownPids: [],
     })) });
@@ -184,8 +198,10 @@ async function openObserver(options, retained) {
 }
 
 export async function createDaemonObserver(options) {
+  const maxScopes = scopeLimit(options.maxScopes);
+  const policy = observerPolicy(options);
   await mkdir(options.output, { mode: 0o700 });
-  return openObserver(options);
+  return openObserver({ ...options, ...policy, maxScopes });
 }
 
 export async function cleanupDaemonObserver({ endpoint, recordPath }) {
@@ -194,6 +210,7 @@ export async function cleanupDaemonObserver({ endpoint, recordPath }) {
   assert.equal(record.format, 'agenai.sandbox-daemon-observer.v1'); assert.equal(record.endpoint, endpoint);
   assert(uuid.test(record.operationId) && record.name === `agenai-kernel-observer-${record.operationId}`);
   assert.equal(record.observationsPath, join(dirname(recordPath), 'observations.jsonl'));
+  validateRegistry(record);
   if (record.observerRemoved) {
     if (record.containerId !== null) {
       assert(/^[a-f0-9]{64}$/u.test(record.containerId));

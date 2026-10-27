@@ -5,7 +5,7 @@
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { finished } from 'node:stream/promises';
+import { finished, pipeline } from 'node:stream/promises';
 
 async function upgradeBody(request, socket, head, signal) {
   assert.equal(request.headers['transfer-encoding'], undefined, 'Qualified upgrade requests require an explicit bounded JSON content length.');
@@ -37,7 +37,7 @@ async function upgradeBody(request, socket, head, signal) {
   return { body, remainingHead };
 }
 
-export async function forwardUpgrade({ request, socket, head, socketPath, record, trace, signal }) {
+export async function forwardUpgrade({ request, socket, head, socketPath, record, trace, signal, observeUpgrade }) {
   let peer;
   let upstream;
   const local = new AbortController();
@@ -85,15 +85,43 @@ export async function forwardUpgrade({ request, socket, head, socketPath, record
       return;
     }
     peer = opened.target;
-    if (opened.initial.length) socket.write(opened.initial);
-    if (input.remainingHead.length) peer.write(input.remainingHead);
     const peerClosed = finished(peer, { cleanup: true });
     void peerClosed.catch(() => {});
-    socket.pipe(peer);
-    peer.pipe(socket);
+    const connection = () => ({
+      downstream: { destroyed: socket.destroyed, readableEnded: socket.readableEnded, writableEnded: socket.writableEnded },
+      upstream: { destroyed: peer.destroyed, readableEnded: peer.readableEnded, writableEnded: peer.writableEnded },
+    });
+    const observer = observeUpgrade?.({ method: request.method, target: request.url, status: opened.response.statusCode, record, connection });
+    let observing; let observingInput;
+    if (observer) {
+      const observeInput = async (bytes) => {
+        activeSignal.throwIfAborted();
+        await observer.input(bytes);
+        if (peer.destroyed) cancellation();
+        activeSignal.throwIfAborted();
+      };
+      if (input.remainingHead.length) { await observeInput(input.remainingHead); peer.write(input.remainingHead); }
+      observingInput = pipeline(socket, async function* (source) {
+        for await (const chunk of source) { await observeInput(chunk); yield chunk; }
+      }, peer, { signal: activeSignal });
+      void observingInput.catch(() => { socket.destroy(); peer.destroy(); });
+      observing = (async () => {
+        if (opened.initial.length && await observer.response(opened.initial, write) === 'close') { socket.destroy(); peer.destroy(); return; }
+        for await (const chunk of peer) {
+          if (await observer.response(chunk, write) === 'close') { socket.destroy(); peer.destroy(); return; }
+        }
+      })();
+      void observing.catch(() => { socket.destroy(); peer.destroy(); });
+    } else {
+      if (input.remainingHead.length) peer.write(input.remainingHead);
+      socket.pipe(peer);
+      if (opened.initial.length) socket.write(opened.initial);
+      peer.pipe(socket);
+    }
     socket.once('close', () => peer.destroy());
     peer.once('close', () => socket.destroy());
-    await Promise.allSettled([closed, peerClosed]);
+    await Promise.allSettled([closed, peerClosed, observing, observingInput]);
+    await observing;
   } catch (error) {
     record.failure = { name: error instanceof Error ? error.name : 'ThrownValue', message: String(error instanceof Error ? error.message : error).slice(0, 512) };
   } finally {

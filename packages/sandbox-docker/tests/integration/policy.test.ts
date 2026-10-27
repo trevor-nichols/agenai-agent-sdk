@@ -4,15 +4,14 @@
 
 import { importFixtures, exportFixtures } from '../fixtures/trees.js';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:http';
 import path from 'node:path';
 import test from 'node:test';
 import { SandboxOperationError, SandboxValidationError, parseSandboxRelativePath } from '@agen-ai/sandbox';
 import type { Sandbox, SandboxReservation } from '@agen-ai/sandbox';
 import { atomicJson, collectBytes, engineGet, failureSummary, inspectAbsent, openSuite, reservePersisted,
   resourceId, sandboxRequest, type ResourceObservation } from './support/common.js';
+import { desktopHostRoute, linuxBridgeRoute, withPolicyHostListener } from './support/policy-network.js';
 
 test('real guest files and network follow explicit sandbox policy', { timeout: 300_000 }, async (context) => {
   const suite = await openSuite('policy');
@@ -106,42 +105,80 @@ test('real guest files and network follow explicit sandbox policy', { timeout: 3
   }
 
   await context.test('isolated cannot reach a task-owned host listener while explicit outbound can', async () => run('network', async (owners, checkpoints, facts) => {
-    const outbound = await reserve(owners, 'network-outbound', { network: 'outbound' }).start();
-    const isolated = await reserve(owners, 'network-isolated').start();
-    const network = await engineGet(suite.endpoint, `/networks/${resourceId(outbound.recoveryRecord, 'network')}`);
-    assert.equal(network.status, 200);
-    const inspection = network.body as { IPAM: { Config: Array<{ Gateway: string }> } };
-    const gateway = inspection.IPAM.Config[0].Gateway;
-    assert(/^(?:\d{1,3}\.){3}\d{1,3}$/u.test(gateway));
-    const marker = randomUUID();
-    const requests: string[] = [];
-    const server = createServer((request, response) => {
-      requests.push(request.url ?? '');
-      response.writeHead(request.url === `/${marker}` ? 200 : 404, { 'content-type': 'text/plain' });
-      response.end(request.url === `/${marker}` ? marker : 'missing');
-    });
-    try {
-      await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, gateway, resolve); });
-      const address = server.address();
-      assert(address !== null && typeof address === 'object');
-      const target = `http://${gateway}:${address.port}/${marker}`;
-      for (const sandbox of [outbound, isolated]) await importFixtures(sandbox, [{ path: 'policy-peer.mjs', bytes: peer, executable: false }]);
-      const denied = await execute(isolated, ['network', target]);
-      assert.equal(denied.error, 'ENETUNREACH');
-      assert.deepEqual(requests, []);
-      const allowed = await execute(outbound, ['network', target]);
-      assert.equal(allowed.status, 200);
-      assert.equal(allowed.body, marker);
-      assert.deepEqual(requests, [`/${marker}`]);
-      for (const sandbox of [outbound, isolated]) {
-        await sandbox.stop();
-        await inspectAbsent(suite.endpoint, sandbox.recoveryRecord, 'sdk-stop', checkpoints, ['compute']);
-      }
-      facts.push({ listenerBoundToOwnedBridge: gateway, requests: requests.length, isolated: denied, outbound: allowed,
-        internetRequests: 0, outboundHostReachabilityExplicit: true });
-    } finally {
-      server.closeAllConnections();
-      await new Promise<void>((resolve, reject) => server.close((error) => error && 'code' in error && error.code !== 'ERR_SERVER_NOT_RUNNING' ? reject(error) : resolve()));
+    type ProbeRole = 'discovery' | 'outbound-before' | 'isolated' | 'outbound-after';
+    const peerOwners: unknown[] = [];
+    facts.push({ peerOwners });
+    const startPeer = async (role: ProbeRole) => {
+      const network = role === 'isolated' ? 'isolated' : 'outbound';
+      const owner = reserve(owners, `network-${role}`, { network });
+      const { sandboxId, operationId } = owner.recoveryRecord;
+      peerOwners.push({ role, network, sandboxId, operationId });
+      const sandbox = await owner.start();
+      await importFixtures(sandbox, [{ path: 'policy-peer.mjs', bytes: peer, executable: false }]);
+      return { role, sandboxId, sandbox };
+    };
+    const stopPeer = async (peer: Awaited<ReturnType<typeof startPeer>>) => {
+      await peer.sandbox.stop();
+      await inspectAbsent(suite.endpoint, peer.sandbox.recoveryRecord, `${peer.role}-stop`, checkpoints, ['compute']);
+    };
+    const destroyPeer = async (peer: Awaited<ReturnType<typeof startPeer>>) => {
+      await peer.sandbox.destroy();
+      await inspectAbsent(suite.endpoint, peer.sandbox.recoveryRecord, `${peer.role}-destroy`, checkpoints);
+    };
+    const bridgeRoute = async (sandbox: Sandbox) => {
+      const network = await engineGet(suite.endpoint, `/networks/${resourceId(sandbox.recoveryRecord, 'network')}`);
+      assert.equal(network.status, 200);
+      return linuxBridgeRoute(network.body);
+    };
+    let desktopRoute: ReturnType<typeof desktopHostRoute> | undefined;
+    if (process.platform === 'darwin') {
+      const discoveryPeer = await startPeer('discovery');
+      const discovery = await execute(discoveryPeer.sandbox, ['resolve-host']);
+      facts.push({ desktopHostDiscovery: discovery });
+      desktopRoute = desktopHostRoute(discovery);
+      await stopPeer(discoveryPeer);
+      await destroyPeer(discoveryPeer);
+    } else {
+      assert.equal(process.platform, 'linux', 'The host listener fixture requires Linux or Darwin.');
     }
+    const outboundBefore = await startPeer('outbound-before');
+    const route = desktopRoute ?? await bridgeRoute(outboundBefore.sandbox);
+    facts.push({ hostRoute: route });
+    await withPolicyHostListener(route.bindAddress, async (listener) => {
+      const target = `http://${route.targetAddress}:${listener.port}${listener.path}`;
+      const probes: unknown[] = [];
+      facts.push({ target, listener: { bindAddress: listener.bindAddress, port: listener.port,
+        temporaryWildcard: listener.bindAddress === '0.0.0.0', method: 'GET', path: listener.path, marker: listener.marker,
+        requests: listener.requests, census: listener.census, cleanup: listener.cleanup }, probes,
+        internetRequests: 0, outboundHostReachabilityExplicit: true });
+      const allowed = await execute(outboundBefore.sandbox, ['network', target]);
+      probes.push({ phase: 'outbound-before-denial', sandboxId: outboundBefore.sandboxId, observed: allowed });
+      assert.equal(allowed.status, 200);
+      assert.equal(allowed.body, listener.marker);
+      assert.deepEqual(listener.requests, [{ method: 'GET', path: listener.path, matched: true }]);
+      assert.equal(listener.census.total, 1);
+      await stopPeer(outboundBefore);
+      const isolated = await startPeer('isolated');
+      const denied = await execute(isolated.sandbox, ['network', target]);
+      probes.push({ phase: 'isolated', sandboxId: isolated.sandboxId, observed: denied });
+      assert.equal(denied.error, 'ENETUNREACH');
+      assert.deepEqual(listener.requests, [{ method: 'GET', path: listener.path, matched: true }]);
+      assert.equal(listener.census.total, 1);
+      await stopPeer(isolated);
+      await destroyPeer(isolated);
+      const outboundAfter = await startPeer('outbound-after');
+      const confirmed = await execute(outboundAfter.sandbox, ['network', target]);
+      probes.push({ phase: 'outbound-after-denial', sandboxId: outboundAfter.sandboxId, observed: confirmed });
+      assert.equal(confirmed.status, 200);
+      assert.equal(confirmed.body, listener.marker);
+      assert.deepEqual(listener.requests, [
+        { method: 'GET', path: listener.path, matched: true },
+        { method: 'GET', path: listener.path, matched: true },
+      ]);
+      assert.equal(listener.census.total, 2);
+      await stopPeer(outboundAfter);
+      await destroyPeer(outboundAfter);
+    });
+    await destroyPeer(outboundBefore);
   }));
 });

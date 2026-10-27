@@ -2,6 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
+> Current source is the coordinated **unpublished 0.4.5 candidate**. It adds opt-in Linux and explicitly prepared Desktop restricted HTTPS, live workspace files, confined symbolic-link transfers, consumer-owned Claude/Grok bridges and recovery v3 without changing Agent Protocol V13. Exact Linux native tool/cancellation and API-key compositions retain their qualification. The recorded M3/macOS 26.5.1 baseline separately qualifies native arm64 and AVF/Rosetta amd64 execution, APFS host helpers and pinned Grok eager initialization. Separate Desktop live-file native N7 and Rosetta R2 campaigns each passed 18 installed cases with complete cleanup. Native Mac model/authentication and product integration remain unqualified. Use matching reviewed source/local archives; see the [exact sandbox platform record and limits](examples/sandbox/HANDOFF.md#recorded-mac-baseline-2026-10-26). Read [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) before changing controllers or recovery records.
 > The coordinated **ten-package `0.4.4` release** is published under npm `latest` and `beta`, with Agent Protocol V13, native structured final responses, optional runtime execution input and optional history and sandbox packages. Execution input has no supported public native provider.
 > See the [v0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4) and [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for installation, the V13 adapter upgrade, earlier-candidate migration, execution-input ownership, structured-output support, native history scope and sandbox execution.
 > The preceding seven-package `0.4.3` release did not include history or either sandbox package.
@@ -50,7 +51,8 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published package versions are coordinated at `0.4.4`.
+schema assets. All ten published package versions are coordinated at `0.4.4`; all ten current
+source versions are the matching unpublished `0.4.5` candidate.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -130,15 +132,16 @@ pnpm add @agen-ai/validation@0.4.4 @agen-ai/agent-protocol@0.4.4
 Keep every SDK package you install at the same coordinated version, including optional packages.
 Agent Protocol V13 replaces V12 at the live boundary; the current parser has no
 older-version compatibility mode. Published `0.4.3` and `0.4.2` retain V12, `0.4.1` retains V11 and
-`0.4.0` retains V10. Current examples target the published `0.4.4` family; their decision responses carry
+`0.4.0` retains V10. Current source examples target the matching `0.4.5` candidate; the published
+`v0.4.4` checkout remains the example source for npm 0.4.4. Decision responses carry
 `{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
 documents the implemented generic lifecycle and exact native qualification limits.
 Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
 the generalized session-interaction API is available in the matching published `0.4.3` packages.
-Use published `0.4.4` packages when adopting these examples in an application. Repository
-`pnpm examples:*` commands run from the matching built `v0.4.4` checkout; example files are source,
-not additional npm entrypoints. The [installation guide](UPGRADING-TO-0.4.4.md#validate-the-installation)
-also describes optional source/local-archive validation and migration from earlier candidate APIs.
+Use the published `v0.4.4` example checkout with npm 0.4.4, or matching reviewed 0.4.5 source/local
+archives for current examples. Repository `pnpm examples:*` commands require the matching built
+checkout; example files are source, not additional npm entrypoints. The [published installation guide](UPGRADING-TO-0.4.4.md#validate-the-installation)
+and [candidate migration guide](UPGRADING-TO-0.4.5.md) keep these artifact families separate.
 
 ## Generate a typed object
 
@@ -686,24 +689,48 @@ agent, an authenticated account, inference, or production containment.
 
 ## Run an agent in a sandbox
 
-The optional `0.4.4` packages add an explicitly selected execution boundary around one
+The optional packages introduced in published `0.4.4` add an explicitly selected execution boundary around one
 native process. `@agen-ai/sandbox` owns policy, streams, file transfer and cleanup; its root has no
 Docker or ACP dependency. `@agen-ai/sandbox-docker` selects a local Docker Engine, namespace,
 exact existing image ID, non-root user and explicit caller-owned spill directory. The explicit `@agen-ai/sandbox/acp` entrypoint composes
 that sandbox with `@agen-ai/provider-acp/node`; install that optional peer only when using ACP.
-Streaming `importTree` and `exportTree` use optional caller quotas and no default complete-transfer timer; exact-file exports avoid whole-workspace scans. The explicit `/node` entrypoint owns directory helpers and selected filesystem spill storage, while the root/backend graphs remain free of filesystem authority. Directory export reserves a new private namespace and returns its published `files` child only after validation; existing destinations are preserved. Source hierarchies remain caller-quiescent rather than becoming snapshots. The core/runtime dependency graph and Agent Protocol V13 remain unchanged.
+Streaming `importTree` and `exportTree` use optional caller quotas and no default complete-transfer timer; exact-file exports avoid whole-workspace scans. The explicit `@agen-ai/sandbox/node` entrypoint owns directory helpers and selected filesystem spill storage, while the root/backend graphs remain free of filesystem authority. Directory export reserves a new private namespace and returns its published `files` child only after validation; existing destinations are preserved. Source hierarchies remain caller-quiescent rather than becoming snapshots. The core/runtime dependency graph and Agent Protocol V13 remain unchanged.
 
 The optional Docker `profile` defaults to `linux-x64`. Explicit
 `desktop-apple-virtualization-native-arm64` and
-`desktop-apple-virtualization-rosetta-amd64` candidates separate the macOS controller, Linux
-daemon and guest-image architectures. Actual Mac verification is pending; selecting a profile
-does not establish native qualification. See the [platform verification instructions](scripts/development/agent-sandbox-qualification/platform/README.md)
+`desktop-apple-virtualization-rosetta-amd64` profiles separate the macOS controller, Linux
+daemon and guest-image architectures. Both passed 30 baseline checks and the installed two-turn
+controlled ACP example on the exact M3/macOS 26.5.1, Node 24.18.0, Docker Desktop 4.54.0 /
+Engine 29.1.2 tuple. The [qualification record](examples/sandbox/HANDOFF.md#recorded-mac-baseline-2026-10-26)
+binds these results to the retained candidate bytes and records separate 183-test internal/external
+APFS runs. Current candidate source admits explicit live-file grants with a configured native
+arm64 helper on either Desktop profile; the Rosetta workload remains amd64. The separate
+[18-case-per-profile campaigns](examples/sandbox/HANDOFF.md#desktop-live-files-native-campaigns-2026-10-26)
+passed native N7 and Rosetta R2 with complete cleanup and 43 final-empty scopes each.
+It includes healthy read/write
+backpressure beyond the full control lease and paused-controller native expiry, separate from
+the earlier Linux MS003 29-case campaign and original Mac baseline. Current source also admits
+per-transfer `preserve_internal` on both Desktop profiles. The separate
+[MS004 packed-r2 campaigns](examples/sandbox/HANDOFF.md#desktop-preserving-transfer-native-campaigns-2026-10-27)
+passed all 136 cases per profile across both APFS roots and baseline/private-live layouts, with
+complete cleanup and 230 final-empty scopes each. Qualification binds the recorded archives,
+controller and helper; historical Linux and Mac baseline tuples remain separate.
+The separate [MS005 N12/R2 restricted-HTTPS record](examples/sandbox/HANDOFF.md#desktop-restricted-https-native-campaigns-2026-10-27)
+passes 26 installed cases and 98 final-empty scopes per profile on its exact IPv4-only
+caller-quiescent tuple. Separate [MS006 combined campaigns](examples/sandbox/HANDOFF.md#desktop-and-linux-combined-native-campaigns-2026-10-27)
+passed thirteen cases and 62 final-empty scopes on each Desktop profile using packed-ms006-r3.
+Real Linux x64 R1 passed eleven combined cases plus fresh eighteen-case live-file and 68-case
+preserving-transfer rows. Fresh MS006 Linux network R1 also passed all 46 network/recovery cases
+and 378 independent absence observations against the current installed candidate and controller.
+Mac datasets, large-workspace scale
+and native model/authentication remain unqualified. See the
+[platform verification instructions](scripts/development/agent-sandbox-qualification/platform/README.md)
 for fresh installed-package proof and independently observed guest cleanup. The SDK never
 discovers Docker contexts, changes Desktop settings or falls back between architectures.
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching `v0.4.4` checkout:
+run from the built matching 0.4.5 candidate checkout (use the `v0.4.4` checkout for the published baseline):
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \
@@ -720,7 +747,33 @@ the whole compute boundary and joins streams while retaining files; selected exp
 final destruction. Failed cleanup retains the original error and exact retry owner.
 
 Choose the network policy explicitly. Isolated mode has no network; outbound mode permits broad
-reachable host, LAN and internet access. Logical transfer quotas do not enforce guest disk use. Explicit required allocated-block quotas reject before reservation until enforcement is qualified; omission means no requested hard quota. Docker can attach exact pre-existing image datasets read-only under `/datasets/<name>` on its admitted containerd image-store profile. Dataset images remain borrowed, while each sandbox owns its writable workspace. Recovery v2 binds dataset and execution configuration separately from request policy; legacy records reject before effects.
+reachable host, LAN and internet access. Current 0.4.5 source adds opt-in
+`{ kind: 'restricted_https', destinations: [{ hostname, port }] }` through the separately configured Linux x64 Docker composition.
+Its explicit `@agen-ai/sandbox-docker/node` API emits a helper build context and creates an opaque pinned Linux route
+observer handle; image builds remain explicit caller operations. Broker/relay CPU, memory, PID,
+tmpfs and control lease budgets are additional to workload resources. The caller owns same-host
+route/interface/VPN quiescence. Workload network `none`, a loopback relay and a separate external
+broker enforce exact CONNECT hostname/port and resolved-address exclusion without host-wide
+network changes. Clients must explicitly use `HTTPS_PROXY`/`HTTP_PROXY` and authenticate their TLS
+endpoint. The broker tunnels bytes; it does not terminate/validate TLS, filter paths, prevent
+allowed-service relaying or hide guest-readable credentials. Infrastructure loss fences and stops
+the workload without broad outbound fallback. Native client/account qualification remains separate.
+
+Current 0.4.5 source also adds explicit `policy.files` grants: `disabled` by default,
+`read_only`, or `read_write`. A matching prepared native helper supplies no-follow
+stat, streamed direct-child listing, callback-scoped binary reads and explicitly
+selected atomic writes through `sandbox.files`. New files use mode 0644;
+replacement preserves observed rwx permissions. Changed and uncertain effects
+remain distinct, and missing write acknowledgement never triggers replay.
+The helper owns private staging outside the guest mount and joins whole-owner
+shutdown before final export. Common relative paths admit up to 4,079 UTF-8 bytes
+and 128 components. See the [live capture and listing examples](examples/sandbox/live/README.md)
+for fixed preview bytes and generation-bound disk-backed pages; their Node SQLite
+listing example requires Node >=22.13. The [Docker preparation contract](packages/sandbox-docker/README.md)
+documents exact images, layout, grants and qualification scope. This feature does
+not implicitly enable ACP host callbacks or move controller-side tools into the guest.
+
+Logical transfer quotas do not enforce guest disk use. Explicit required allocated-block quotas reject before reservation until enforcement is qualified; omission means no requested hard quota. Docker can attach exact pre-existing image datasets read-only under `/datasets/<name>` on its admitted containerd image-store profile. Dataset images remain borrowed, while each sandbox owns its writable workspace. Candidate recovery v3 and Docker revision v5 bind dataset, execution and helper configuration separately from request policy; legacy records reject before effects. Drain v2 with its original 0.4.4 controller, and retain the original trusted checkpoint and matching controller for v3 cleanup. See [the candidate upgrade guide](UPGRADING-TO-0.4.5.md) and [Docker preparation contract](packages/sandbox-docker/README.md#restricted-https-egress).
 The bridge disables host facilities, while separately supplied callbacks, MCP servers and host
 bindings keep the authority of their caller. Explicit guest credentials remain visible to guest
 code and the trusted Docker controller. Recovery records support exact cleanup after controller

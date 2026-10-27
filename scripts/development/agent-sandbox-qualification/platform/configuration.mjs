@@ -4,17 +4,27 @@
 
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { absolutePath, boundedFile, harnessSha256 } from '../native/configuration.mjs';
+import { absolutePath, harnessSha256 } from '../native/configuration.mjs';
+import { acquireJsonInput } from './capabilities/input.mjs';
+import { advancedRows } from './capabilities/manifest.mjs';
 
 export const usage = `Usage:
-  node scripts/development/agent-sandbox-qualification/platform/run.mjs --row core|datasets|observer|grok-initialize --manifest /absolute/platform.json --consumer /absolute/current/consumer --output /new/absolute/output [--mode monorepo|standalone]
+  node scripts/development/agent-sandbox-qualification/platform/run.mjs --row core|datasets|observer|grok-initialize|live-files|preserve-internal|restricted-https|combined --manifest /absolute/platform.json --consumer /absolute/current/consumer --output /new/absolute/output [--mode monorepo|standalone] [--test-concurrency 1..8] [--capabilities-manifest /absolute/capabilities.json]
 
 Select an existing local Engine, exact existing source images and an explicit platform profile.
 Core runs baseline source scenarios and the installed two-turn controlled ACP example.
 Datasets independently runs shared-image/workspace isolation, cleanup recovery and its installed example.
 Observer runs only the two-turn example. Grok initializes the selected pinned native binary without a
 model turn or credentials. All rows observe daemon-side process/cgroup cleanup independently.
+Test-file concurrency is optional for core/datasets; omission preserves Node's default scheduling.
 No image pull, context discovery, Desktop settings change or privileged fallback is performed.
+Advanced rows require one exact row-matching capability manifest and run serially. Live-files runs
+installed public grants, operations, confinement and lifecycle cases. Preserve-internal runs
+installed transfer, confinement and host-publication cases across the selected roots and layouts.
+Restricted-https runs installed Desktop network and lifecycle cases. Combined runs installed public
+link/network/live workflows and recovery for Desktop and Linux. Linux restricted-https validates
+captured inputs then fails UNIMPLEMENTED before effects.
+Baseline rows reject --capabilities-manifest.
 `;
 
 export const profiles = Object.freeze({
@@ -34,16 +44,23 @@ function text(value) {
 
 export function parseArguments(argv) {
   const args = new Map();
-  assert(argv.length === 8 || argv.length === 10, 'Explicit row, manifest, consumer and output required; mode is optional.');
+  assert(argv.length >= 8 && argv.length <= 14 && argv.length % 2 === 0,
+    'Explicit row, manifest, consumer and output required; mode, test concurrency and capability manifest are optional.');
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index], value = argv[index + 1];
-    assert(['--row', '--manifest', '--consumer', '--output', '--mode'].includes(key) && !args.has(key)
+    assert(['--row', '--manifest', '--consumer', '--output', '--mode', '--test-concurrency', '--capabilities-manifest'].includes(key) && !args.has(key)
       && typeof value === 'string' && !value.startsWith('--'), 'Unknown, repeated or missing argument.');
     args.set(key, value);
   }
   const row = args.get('--row'), mode = args.get('--mode') ?? 'monorepo';
-  assert(['core', 'datasets', 'observer', 'grok-initialize'].includes(row), 'Unknown qualification row.');
+  assert(['core', 'datasets', 'observer', 'grok-initialize', ...advancedRows].includes(row), 'Unknown qualification row.');
+  const capabilitiesManifest = args.get('--capabilities-manifest');
+  assert(advancedRows.includes(row) ? capabilitiesManifest !== undefined : capabilitiesManifest === undefined,
+    advancedRows.includes(row) ? 'Advanced rows require --capabilities-manifest.' : 'Baseline rows reject --capabilities-manifest.');
   assert(['monorepo', 'standalone'].includes(mode), 'Unknown source layout.');
+  const concurrency = args.get('--test-concurrency');
+  assert(concurrency === undefined || /^[1-8]$/u.test(concurrency), 'Test concurrency must be an integer between 1 and 8.');
+  assert(concurrency === undefined || row === 'core' || row === 'datasets', 'Test concurrency is only supported for core and datasets rows.');
   const output = absolutePath(args.get('--output'));
   assert(Buffer.byteLength(join(output, 'kernel.sock')) <= 100, 'Use a shorter output path for portable Unix sockets.');
   if (row === 'core') {
@@ -55,11 +72,18 @@ export function parseArguments(argv) {
         'Use a shorter output path for nested dataset Unix sockets.');
     }
   }
-  return { row, mode, manifestPath: absolutePath(args.get('--manifest')), consumer: absolutePath(args.get('--consumer')), output };
+  return { row, mode, testConcurrency: concurrency === undefined ? null : Number(concurrency),
+    manifestPath: absolutePath(args.get('--manifest')), consumer: absolutePath(args.get('--consumer')), output,
+    ...(capabilitiesManifest === undefined ? {} : { capabilitiesManifestPath: absolutePath(capabilitiesManifest) }) };
 }
 
 export async function readManifest(path, row) {
-  const value = JSON.parse((await boundedFile(path, 16 * 1024)).toString('utf8'));
+  return (await readManifestInput(path, row)).manifest;
+}
+
+export async function readManifestInput(path, row) {
+  const selected = await acquireJsonInput(path, 16 * 1024);
+  const value = selected.value;
   keys(value, ['format', 'engine', 'profile', 'sourceImage', 'observerImage', 'expected', 'desktop',
     ...(Object.hasOwn(value, 'harness') ? ['harness'] : [])]);
   assert.equal(value.format, 'agenai.sandbox-platform-manifest.v1');
@@ -95,7 +119,7 @@ export async function readManifest(path, row) {
     assert(value.harness, 'The Grok row requires an explicit selected binary.');
     assert.equal(profile.imageArchitecture, 'amd64', 'This exact Grok artifact requires the amd64 guest row.');
   }
-  return value;
+  return Object.freeze({ manifest: value, input: selected.input, utf8: selected.utf8 });
 }
 
 export function verifyObservedTuple(manifest, version, info) {

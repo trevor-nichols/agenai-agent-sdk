@@ -15,3 +15,11 @@ test('closed Docker profiles enforce controller, daemon, image and recovery boun
   });
   assert.match(result.stdout, /# fail 0\b/u);
 });
+
+test('Desktop restricted owners enforce observed authority and independent exact cleanup', { timeout: 90_000 }, async () => {
+  const result = await promisify(execFile)(process.execPath, ['--import', 'tsx', '--test',
+    '--test-reporter=tap', fileURLToPath(new URL('./fixtures/desktop-owner.ts', import.meta.url))], {
+    timeout: 85_000, maxBuffer: 1024 * 1024, env: { ...process.env, NODE_TEST_CONTEXT: undefined },
+  });
+  assert.match(result.stdout, /# fail 0\b/u);
+});

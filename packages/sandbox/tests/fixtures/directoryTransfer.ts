@@ -34,12 +34,14 @@ export function exporting(sandbox: Sandbox, entries: Iterable<SandboxExportEntry
     const signal = options?.signal ?? new AbortController().signal;
     let files = 0n;
     let directories = 0n;
+    let symlinks = 0n;
     let payloadBytes = 0n;
     for (const entry of entries) {
       await consume(entry, { signal });
       if (entry.kind === 'directory') directories += 1n;
+      else if (entry.kind === 'symlink') symlinks += 1n;
       else { files += 1n; payloadBytes += BigInt(entry.byteLength); }
     }
-    return { files, directories, payloadBytes, archiveBytes: payloadBytes };
+    return { files, directories, symlinks, payloadBytes, archiveBytes: payloadBytes };
   } };
 }

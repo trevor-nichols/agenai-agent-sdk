@@ -5,6 +5,50 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.5 - Unreleased candidate
+
+All ten source packages target `0.4.5`; Agent Protocol remains **V13**. This candidate has not
+been published. Use matching reviewed source/local archives and read
+[UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) before migration. The selected patch version
+includes explicit sandbox contract changes requiring caller/driver updates.
+
+- Add opt-in Linux x64 restricted HTTPS CONNECT with exact destination policy, pinned local
+  route authority, separate immutable relay/broker helpers and fail-closed infrastructure loss.
+- Add explicitly granted live workspace stat/list/read/write through a descriptor-anchored
+  native helper, bounded streams, precise publication/uncertainty receipts and whole-owner cleanup.
+- Add opt-in confined symbolic-link transfers, links-last publication and disk-backed namespace
+  validation while retaining default rejection and no-follow live/exact-file operations.
+- Advance cleanup records to v3 with Linux `engine-1.52-v5-linux-x64` and Desktop
+  `engine-1.52-v6-*` revisions, with at most nine exact owned roles including Desktop `route_observer`. Drain old records with their matching controller; no conversion or replay.
+- Add consumer-owned captured preview/listing, Grok ACP file-scope and exact Claude SDK spawn
+  examples. Vendor authority remains optional and explicit; the neutral packages acquire no
+  provider credential, host filesystem callback or product workflow.
+- Record separate Linux native scripted and API-key tool/cancellation qualifications for the
+  exact Claude/Grok compositions. The real account campaign used private qualification-only
+  gateway tooling; it proves neither arbitrary auth routes nor billing or hostile-guest secrecy.
+- Provide installed helper-context proof and the [platform/consumer handoff](examples/sandbox/HANDOFF.md).
+- Record the exact [M3/macOS 26.5.1 baseline](examples/sandbox/HANDOFF.md#recorded-mac-baseline-2026-10-26):
+  native arm64 and AVF/Rosetta amd64 each passed 30 checks and the installed two-turn controlled
+  ACP example; internal and external APFS each passed all 183 host tests without skips. Pinned
+  Grok 1.0.62 passed version/hash and eager initialization only. Desktop live files have a separate
+  18-case installed campaign per profile. Separate [MS004 r2 native campaigns](examples/sandbox/HANDOFF.md#desktop-preserving-transfer-native-campaigns-2026-10-27)
+  passed all 136 preserving-transfer cases on each Desktop profile, across both APFS roots and
+  workspace layouts, with complete cleanup and 230 final-empty scopes per row. Separate
+  [MS005 N12/R2 restricted-HTTPS campaigns](examples/sandbox/HANDOFF.md#desktop-restricted-https-native-campaigns-2026-10-27)
+  each passed 26 installed cases and 98 final-empty scopes on the exact IPv4-only caller-quiescent
+  tuple. Separate MS006 native N2/Rosetta R1 generic combined campaigns passed thirteen cases
+  and 62 final-empty scopes each on packed-ms006-r3; real Linux x64 R1 passed eleven combined
+  cases plus fresh eighteen-case live-file and 68-case preserving-transfer rows. The same
+  public workflow covers normal completion, entered-write cancellation and fresh-process
+  cleanup from exact original/SDK-returned settled checkpoints without replay. Fresh MS006 Linux
+  network R1 separately passed 46 network/recovery cases and 378 independent absence observations
+  against the current installed candidate/controller. Mac datasets, large-workspace
+  scale, native model/authentication and Battle Bots/Electron integration remain unqualified.
+- Preserve the original Engine upload-producer error when a request-origin aborted transport
+  wrapper has that exact producer error as its cause. Join producer cleanup before returning;
+  distinct cleanup errors remain aggregated. This narrow derived-abort repair changes no public
+  API, transfer protocol or recovery revision.
+
 ## 0.4.4 - 2026-10-24
 
 This release advances Agent Protocol to **V13** with native structured final responses and adds

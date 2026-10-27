@@ -11,7 +11,7 @@ import { entryBytes, fixture, gate, nextTurn, processSpec, request } from './fix
 const bounded = { timeout: 3000 };
 const recovery = { kind: 'in_process' as const };
 const failure = (error: unknown) => error instanceof SandboxOperationError && error.code === 'driver_failure';
-const emptySummary = { files: 0n, directories: 0n, payloadBytes: 0n, archiveBytes: 0n };
+const emptySummary = { files: 0n, directories: 0n, symlinks: 0n, payloadBytes: 0n, archiveBytes: 0n };
 
 async function started(options: Parameters<typeof fixture>[0] = {}) {
   const physical = fixture(options);
@@ -32,7 +32,7 @@ test('mixed trees stream binary payloads and more than the retired collection ce
     for (let index = 0; index < 300; index += 1) yield fileFromBytes(`files/${index}`, new Uint8Array());
     yield fileFromBytes('payload.bin', payload, { chunkBytes: 2 });
   } });
-  assert.deepEqual(summary, { files: 301n, directories: 1n, payloadBytes: 5n, archiveBytes: 5n });
+  assert.deepEqual(summary, { files: 301n, directories: 1n, symlinks: 0n, payloadBytes: 5n, archiveBytes: 5n });
   assert.deepEqual(Uint8Array.from(physical.files.get('payload.bin') ?? []), payload);
   assert.equal(physical.spillFiles, 0);
   await sandbox.stop();
@@ -40,6 +40,7 @@ test('mixed trees stream binary payloads and more than the retired collection ce
   let directories = 0;
   const observed = await sandbox.exportTree({ kind: 'workspace' }, async (entry) => {
     if (entry.kind === 'directory') { directories += 1; assert.equal(entry.path, 'empty'); return; }
+    if (entry.kind === 'symlink') assert.fail('Default tree export cannot expose links.');
     const bytes = await entryBytes(entry);
     if (entry.path === 'payload.bin') assert.deepEqual(bytes, payload);
     else assert.equal(bytes.byteLength, 0);
@@ -143,11 +144,12 @@ test('logical quotas are caller choices normalized before dispatch and independe
 });
 
 test('backend success cannot hide incomplete input consumption or a false transfer summary', bounded, async () => {
-  for (const mode of ['incomplete', 'summary'] as const) {
+  for (const mode of ['incomplete', 'summary', 'symlink-summary'] as const) {
     const { sandbox } = await started({ decorateReady: (ready) => ({ ...ready,
       async importTree(entries, options) {
         if (mode === 'incomplete') return emptySummary;
         const summary = await ready.importTree(entries, options);
+        if (mode === 'symlink-summary') return { ...summary, symlinks: summary.symlinks + 1n };
         return { ...summary, payloadBytes: summary.payloadBytes + 1n };
       },
     }) });
@@ -230,7 +232,7 @@ test('export frames retire on their last known byte without an EOF-only pull, in
           async next() { pulls += 1; if (pulls > 1) throw new Error('EOF-only pull'); return { done: false, value: Uint8Array.from([42]) }; },
           async return() { returns += 1; return { done: true, value: undefined }; },
         }; } } }, { signal: options.signal });
-      return { files: 2n, directories: 0n, payloadBytes: 1n, archiveBytes: 1n };
+      return { files: 2n, directories: 0n, symlinks: 0n, payloadBytes: 1n, archiveBytes: 1n };
     },
   }) });
   try {
@@ -253,7 +255,7 @@ test('failed source return preserves its exact primary failure and waits for the
           async next() { return { done: false, value: Uint8Array.from([3]) }; },
           async return() { returns += 1; if (returns === 1) throw primary; return { done: true, value: undefined }; },
         }; } } }, { signal: options.signal });
-      return { files: 1n, directories: 0n, payloadBytes: 1n, archiveBytes: 1n };
+      return { files: 1n, directories: 0n, symlinks: 0n, payloadBytes: 1n, archiveBytes: 1n };
     },
   }) });
   try {
@@ -312,7 +314,7 @@ test('swallowed concurrent body pull failures and unawaited export callbacks can
           bytes: { async *[Symbol.asyncIterator]() { entered.resolve(); await release.promise; yield Uint8Array.from([1]); } } }, { signal: options.signal });
         if (mode === 'concurrent-body') await pending.catch(() => {});
         else { void pending.catch(() => {}); await entered.promise; }
-        return { files: 1n, directories: 0n, payloadBytes: 1n, archiveBytes: 1n };
+        return { files: 1n, directories: 0n, symlinks: 0n, payloadBytes: 1n, archiveBytes: 1n };
       },
     }) });
     try {

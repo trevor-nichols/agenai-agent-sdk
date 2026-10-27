@@ -4,7 +4,9 @@
 
 import { access, readFile, symlink, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { Resolver } from 'node:dns/promises';
 import { get } from 'node:http';
+import { isIPv4 } from 'node:net';
 import assert from 'node:assert/strict';
 
 assert.equal(process.version, 'v24.18.0');
@@ -35,6 +37,15 @@ if (mode === 'filesystem') {
   if (mode === 'symlink') await symlink('/etc/passwd', 'unsafe');
   if (mode === 'oversized') await writeFile('oversized.bin', Buffer.alloc(16 * 1024, 0x6d));
   result = { mode, node: process.version, created: true };
+} else if (mode === 'resolve-host') {
+  const hostname = 'host.docker.internal';
+  const resolver = new Resolver({ timeout: 1000, tries: 1 });
+  const timer = setTimeout(() => resolver.cancel(), 2000);
+  try {
+    const addresses = await resolver.resolve4(hostname);
+    assert(addresses.length > 0 && addresses.length <= 16 && addresses.every(isIPv4));
+    result = { mode, node: process.version, hostname, address: addresses[0], family: 4 };
+  } finally { clearTimeout(timer); }
 } else if (mode === 'network') {
   result = await new Promise((resolve) => {
     const request = get(process.argv[3], { agent: false }, (response) => {

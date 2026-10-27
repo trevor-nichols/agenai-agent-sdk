@@ -50,7 +50,7 @@ function controlledOwner(scenario: Scenario) {
       callback();
     } catch (error) { callback(error instanceof Error ? error : new Error(String(error))); }
   } });
-  const record = parseSandboxRecoveryRecord({ format: "agenai.sandbox-recovery.v2", backendId: "installed-lifecycle", backendRevision: "1",
+  const record = parseSandboxRecoveryRecord({ format: "agenai.sandbox-recovery.v3", backendId: "installed-lifecycle", backendRevision: "1",
     namespace: "installed-lifecycle", operationId: "installed-operation", sandboxId: "installed-sandbox",
     imageDigest: `sha256:${"1".repeat(64)}`, policyDigest: `sha256:${"2".repeat(64)}`, configurationDigest: `sha256:${"3".repeat(64)}`,
     authority: { kind: "verified", backendIdentity: "controlled-backend" }, phase: "running", resources: [
@@ -61,11 +61,12 @@ function controlledOwner(scenario: Scenario) {
   const request = isolatedSandboxRequest();
   const sandbox: Sandbox = {
     id: parseSandboxId("installed-sandbox"), state: { kind: "ready" }, recoveryRecord: record,
+    files: { kind: "disabled" },
     workspace: parseSandboxGuestPath("/guest/installed"),
     effective: { backendIdentity: "controlled-backend", isolation: "container", resources: request.policy.resources,
       temporaryStorage: request.policy.temporaryStorage, network: request.policy.network,
       nonRoot: true, readOnlyRoot: true, workspaceDiskQuota: { kind: "not_requested" } },
-    async importTree() { return { files: 0n, directories: 0n, payloadBytes: 0n, archiveBytes: 0n }; },
+    async importTree() { return { files: 0n, directories: 0n, symlinks: 0n, payloadBytes: 0n, archiveBytes: 0n }; },
     reserveProcess() { return {
       id: parseSandboxProcessId("installed-process"), stopScope: "sandbox",
       async start() {
@@ -151,7 +152,7 @@ function exporter(entries: readonly SandboxExportEntry[]): Sandbox {
       await consume(entry, { signal: new AbortController().signal });
       if (entry.kind === "file") { files += 1n; payloadBytes += BigInt(entry.byteLength); }
     }
-    return { files, directories: 0n, payloadBytes, archiveBytes: 0n };
+    return { files, directories: 0n, symlinks: 0n, payloadBytes, archiveBytes: 0n };
   } };
 }
 const shared = Uint8Array.of(0, 255);

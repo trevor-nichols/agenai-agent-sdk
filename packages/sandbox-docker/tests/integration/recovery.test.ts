@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { parseSandboxRecoveryRecord, SandboxValidationError } from '@agen-ai/sandbox';
 import type { SandboxCleanupOwner, SandboxRecoveryRecord, SandboxReservation } from '@agen-ai/sandbox';
+import { createDockerSandboxBackend } from '@agen-ai/sandbox-docker';
 import { atomicJson, collectBytes, engineGet, failureSummary, fixturePlatform, observeResource, openSuite,
   reservePersisted, resourceId, sandboxRequest } from './support/common.js';
 import type { ResourceObservation } from './support/common.js';
@@ -353,12 +354,14 @@ test('fresh controller reconciles cleanup only after exact controller death and 
 test('fresh controller advances the durable creating identity after death before the real create reply', { timeout: 300_000 }, async () => {
   const suite = await openSuite('creating-owner');
   const proxy = await createFaultProxy({ upstreamEndpoint: suite.endpoint, directory: suite.directory });
+  const backend = createDockerSandboxBackend({ endpoint: proxy.endpoint, namespace: suite.namespace, profile: suite.profile,
+    imageDigest: suite.imageDigest, user: suite.user, spillDirectory: suite.directory });
   const paths = { recordPath: path.join(suite.directory, 'controller-recovery.json'), plannedPath: path.join(suite.directory, 'controller-planned.json'),
     returnedPath: path.join(suite.directory, 'reconciled-before-cleanup.json'), resultPath: path.join(suite.directory, 'controller-result.json') };
-  const config = { format: 'agenai.ms005-controller-config.v1', namespace: suite.namespace,
+  const config = { format: 'agenai.ms005-controller-config.v1', endpoint: proxy.endpoint, namespace: suite.namespace,
     profile: suite.profile, imageDigest: suite.imageDigest, user: suite.user, marker: `${suite.namespace}-not-dispatched`, ...paths };
   const configPath = path.join(suite.directory, 'controller-config.json');
-  await atomicJson(configPath, { ...config, endpoint: proxy.endpoint });
+  await atomicJson(configPath, config);
   const controllers: ReturnType<typeof controller>[] = [];
   const observations: ResourceObservation[] = [];
   const facts: unknown[] = [];
@@ -433,7 +436,8 @@ test('fresh controller advances the durable creating identity after death before
     gate.release();
     await gate.settled;
     await inspectUnstarted(nativeId, 'after-controller-close-and-held-reply-join');
-    await atomicJson(configPath, { ...config, endpoint: suite.endpoint });
+    assert.equal((await suite.backend.reconcile(original)).kind, 'conflict', 'Changing even the forwarding endpoint must not adopt the original record.');
+    facts.push({ checkpoint: 'different-endpoint-rejected', originalEndpoint: proxy.endpoint, otherEndpoint: suite.endpoint, result: 'conflict' });
     const fresh = controller('recover', configPath);
     controllers.push(fresh);
     const reconciled = await message(fresh.child, 'reconciled');
@@ -479,7 +483,7 @@ test('fresh controller advances the durable creating identity after death before
     if (!completed) {
       try {
         const latest = parseSandboxRecoveryRecord(await readJson(paths.recordPath));
-        const recovered = await suite.backend.reconcile(latest);
+        const recovered = await backend.reconcile(latest);
         facts.push({ checkpoint: 'later-emergency-recovery', result: recovered.kind });
         if (recovered.kind === 'matched' || recovered.kind === 'uncertain') {
           await atomicJson(path.join(suite.directory, 'emergency-before-cleanup.json'), recovered.owner.recoveryRecord);

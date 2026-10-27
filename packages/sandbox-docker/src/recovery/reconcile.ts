@@ -24,7 +24,7 @@ export async function reconcileDocker(api: DockerApi, config: DockerSandboxConfi
   for (const resource of original.resources) {
     const reference = resource.identity.kind === 'identified' ? resource.identity.id : resource.name;
     try {
-      const inspection = await inspectResource(api, current, resource, reference, options?.signal);
+      const inspection = await inspectResource(api, config, current, resource, reference, options?.signal);
       if (!inspection) {
         if (resource.identity.kind === 'creating') uncertain = true;
         continue;

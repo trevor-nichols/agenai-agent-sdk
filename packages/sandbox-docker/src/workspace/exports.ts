@@ -12,14 +12,15 @@ import { exportSelectedPath } from './selected.js';
 import { readTar } from './tar/decode.js';
 
 async function workspace(api: DockerApi, containerId: string, consume: SandboxExportConsumer,
-  options: SandboxDriverTransferOptions): Promise<SandboxTransferSummary> {
-  let root = false;
+  options: SandboxDriverTransferOptions, privateWorkspace: boolean): Promise<SandboxTransferSummary> {
+  let root = privateWorkspace;
   let work = false;
-  const result = await api.stream('GET', `${DOCKER_API}/containers/${containerId}/archive?path=%2Fworkspace`,
+  const archivePath = privateWorkspace ? '/workspace/work' : '/workspace';
+  const result = await api.stream('GET', `${DOCKER_API}/containers/${containerId}/archive?path=${encodeURIComponent(archivePath)}`,
     { signal: options.signal, chunkBytes: options.buffers.chunkBytes }, async (response) => {
-    requireStat(pathStat(response), '/workspace', 'directory');
+    requireStat(pathStat(response), archivePath, 'directory');
     const summary = await readTar(response.body, async (entry) => {
-      const path = workspaceName(entry.path, entry.kind === 'directory');
+      const path = workspaceName(privateWorkspace ? `${ARCHIVE_ROOT}/${entry.path}` : entry.path, entry.kind === 'directory');
       if (path === ARCHIVE_ROOT) {
         if (root) unsafeArchive('duplicate workspace root.');
         root = true;
@@ -29,18 +30,19 @@ async function workspace(api: DockerApi, containerId: string, consume: SandboxEx
       } else {
         const relative = path.slice(ARCHIVE_WORK.length + 1);
         await consume(entry.kind === 'directory' ? { kind: 'directory', path: relative }
+          : entry.kind === 'symlink' ? { kind: 'symlink', path: relative, target: entry.target }
           : { kind: 'file', path: relative, byteLength: entry.size, executable: (entry.mode & 0o111) !== 0, bytes: entry.body }, { signal: options.signal });
       }
-    }, { signal: options.signal, chunkBytes: options.buffers.chunkBytes, limitCode: 'output_limit', maxArchiveBytes: options.quotas.maxArchiveBytes });
+    }, { signal: options.signal, chunkBytes: options.buffers.chunkBytes, limitCode: 'output_limit', maxArchiveBytes: options.quotas.maxArchiveBytes, symlinks: options.symlinks });
     if (!root || !work) unsafeArchive('both fixed workspace directory records are required.');
-    return { ...summary, directories: summary.directories - 2n };
+    return { ...summary, directories: summary.directories - (privateWorkspace ? 1n : 2n) };
   });
   return result.value;
 }
 
 export async function exportWorkspace(api: DockerApi, containerId: string, selection: SandboxInputTreeSelection,
-  consume: SandboxExportConsumer, options: SandboxDriverTransferOptions): Promise<SandboxTransferSummary> {
-  if (selection.kind === 'workspace') return workspace(api, containerId, consume, options);
+  consume: SandboxExportConsumer, options: SandboxDriverTransferOptions, privateWorkspace = false): Promise<SandboxTransferSummary> {
+  if (selection.kind === 'workspace') return workspace(api, containerId, consume, options, privateWorkspace);
   if (selection.kind === 'subtree') return exportSelectedPath(api, containerId, selection.path, 'directory', consume, options, options.quotas.maxArchiveBytes);
   let files = 0n;
   let payloadBytes = 0n;
@@ -53,5 +55,5 @@ export async function exportWorkspace(api: DockerApi, containerId: string, selec
     payloadBytes += result.payloadBytes;
     archiveBytes += result.archiveBytes;
   }
-  return Object.freeze({ files, directories: 0n, payloadBytes, archiveBytes });
+  return Object.freeze({ files, directories: 0n, symlinks: 0n, payloadBytes, archiveBytes });
 }

@@ -48,7 +48,7 @@ async function readExact(file: SandboxDriverSpillFile, length: number, position:
 }
 
 export async function writeRecord(file: SandboxDriverSpillFile, record: EncodedRecord, position: number): Promise<number> {
-  return writeAll(file, record.key, await writeAll(file, recordHeader(record), position));
+  return writeAll(file, record.target, await writeAll(file, record.key, await writeAll(file, recordHeader(record), position)));
 }
 
 export async function readRecord(file: SandboxDriverSpillFile, cursor: RunCursor): Promise<EncodedRecord | undefined> {
@@ -56,11 +56,27 @@ export async function readRecord(file: SandboxDriverSpillFile, cursor: RunCursor
   if (cursor.end - cursor.position < RECORD_HEADER_BYTES) throw new Error('Spill record header is truncated.');
   const header = await readExact(file, RECORD_HEADER_BYTES, cursor.position);
   const length = header.readUInt32BE(0);
-  if (length < 1 || length > SANDBOX_LIMITS.maxPathBytes || (header[4] !== 1 && header[4] !== 2)
-    || cursor.end - cursor.position - RECORD_HEADER_BYTES < length) throw new Error('Spill record metadata is invalid.');
+  const targetLength = header.readUInt32BE(4);
+  const kind = header[8];
+  if (length < 1 || length > SANDBOX_LIMITS.maxPathBytes || (kind !== 1 && kind !== 2 && kind !== 3)
+    || targetLength > SANDBOX_LIMITS.maxSymlinkTargetBytes || (kind === 3 ? targetLength === 0 : targetLength !== 0)
+    || cursor.end - cursor.position - RECORD_HEADER_BYTES < length + targetLength) throw new Error('Spill record metadata is invalid.');
   const key = await readExact(file, length, cursor.position + RECORD_HEADER_BYTES);
-  cursor.position = address(cursor.position + RECORD_HEADER_BYTES + length);
-  return { kind: header[4] === 1 ? 'file' : 'directory', key };
+  const target = await readExact(file, targetLength, cursor.position + RECORD_HEADER_BYTES + length);
+  cursor.position = address(cursor.position + RECORD_HEADER_BYTES + length + targetLength);
+  return { kind: kind === 1 ? 'file' : kind === 2 ? 'directory' : 'symlink', key, target };
+}
+
+export async function writeOffset(file: SandboxDriverSpillFile, ordinal: number, position: number): Promise<void> {
+  const bytes = Buffer.alloc(8); bytes.writeBigUInt64BE(BigInt(address(position)));
+  await writeAll(file, bytes, address(ordinal * 8));
+}
+
+export async function readOffset(file: SandboxDriverSpillFile, ordinal: number): Promise<number> {
+  const bytes = await readExact(file, 8, address(ordinal * 8));
+  const value = bytes.readBigUInt64BE();
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Spill index offset exceeds its safe address representation.');
+  return Number(value);
 }
 
 export async function writeDescriptor(file: SandboxDriverSpillFile, position: number, start: number, end: number): Promise<number> {

@@ -20,7 +20,7 @@ async function collect(ledger: MetadataLedger): Promise<readonly MetadataRecord[
 
 test('unordered Unicode metadata seals in component order and supports sequential exclusive replay', async (t) => {
   const directory = await spillDirectory(t);
-  const ledger = await createMetadataLedger({ openSpill: () => createSandboxSpillStore({ directory }), batchBytes: 1030, fanIn: 2 });
+  const ledger = await createMetadataLedger({ openSpill: () => createSandboxSpillStore({ directory }), batchBytes: 8192, fanIn: 2 });
   t.after(() => ledger.close());
   for (const path of ['é/β', 'a-else', 'a/z', 'a', 'é', 'é', 'a/é', 'a/😀']) {
     await ledger.append(record(path, path === 'a' || path === 'é' ? 'directory' : 'file'));
@@ -60,14 +60,17 @@ test('20,017 reverse records survive bounded batches and repeated fan-in merges 
   const store = await createSandboxSpillStore({ directory });
   let created = 0;
   const wrapped = mapSpillFiles(store, (file) => { created += 1; return file; });
-  const ledger = await createMetadataLedger({ openSpill: async () => wrapped, batchBytes: 4096, fanIn: 4 });
+  const ledger = await createMetadataLedger({ openSpill: async () => wrapped, batchBytes: 8192, fanIn: 4 });
   t.after(() => ledger.close());
   for (let index = 20_016; index >= 0; index -= 1) await ledger.append(record(`tree/${String(index).padStart(6, '0')}`));
   await ledger.finish();
   let next = 0;
+  for (const path of ['tree/000000', 'tree/010008', 'tree/020016']) assert.deepEqual(await ledger.get(record(path).path), record(path));
+  assert.equal(await ledger.get(record('tree/999999').path), undefined);
   for await (const actual of ledger.records()) {
     assert.deepEqual(actual, record(`tree/${String(next).padStart(6, '0')}`));
     next += 1;
+    if (next === 1) assert.deepEqual(await ledger.get(record('tree/010008').path), record('tree/010008'));
   }
   assert.equal(next, 20_017);
   assert.equal(created, 4);
@@ -81,10 +84,10 @@ for (const [code, initial, last, path] of [
 ] as const) {
   test(`${code} discovered after streamed appends rejects sealing across separate sort runs`, async (t) => {
     const directory = await spillDirectory(t);
-    const ledger = await createMetadataLedger({ openSpill: () => createSandboxSpillStore({ directory }), batchBytes: 1030, fanIn: 2 });
+    const ledger = await createMetadataLedger({ openSpill: () => createSandboxSpillStore({ directory }), batchBytes: 8192, fanIn: 2 });
     t.after(() => ledger.close());
     await ledger.append(initial);
-    for (let index = 0; index < 200; index += 1) await ledger.append(record(`a-else/${index}`));
+    for (let index = 0; index < 600; index += 1) await ledger.append(record(`a-else/${index}`));
     await ledger.append(last);
     await assert.rejects(ledger.finish(), (error: unknown) => error instanceof MetadataConflictError && error.code === code && error.path === path);
     assert.throws(() => ledger.records(), SandboxStateError);
@@ -102,7 +105,7 @@ test('partial backend reads and writes preserve exact metadata records', async (
     write: (buffer, offset, length, position) => file.write(buffer, offset, Math.min(2, length), position),
     truncate: (size) => file.truncate(size), close: () => file.close(),
   }));
-  const ledger = await createMetadataLedger({ openSpill: async () => partial, batchBytes: 1030, fanIn: 2 });
+  const ledger = await createMetadataLedger({ openSpill: async () => partial, batchBytes: 8192, fanIn: 2 });
   t.after(() => ledger.close());
   for (const path of ['λ/β', 'λ', 'a']) await ledger.append(record(path, path === 'λ' ? 'directory' : 'file'));
   await ledger.finish();
@@ -122,7 +125,7 @@ test('close retains an entered noncooperating spill write and rejects overlappin
     },
     truncate: (size) => file.truncate(size), close: () => file.close(),
   }));
-  const ledger = await createMetadataLedger({ openSpill: async () => wrapped, batchBytes: 1030, fanIn: 2 });
+  const ledger = await createMetadataLedger({ openSpill: async () => wrapped, batchBytes: 8192, fanIn: 2 });
   t.after(async () => { release.resolve(); await ledger.close(); });
   await ledger.append(record('one'));
   const sealing = ledger.finish();
@@ -150,7 +153,7 @@ test('cancellation retains late store acquisition and closes the acquired owner 
   const reason = new Error('caller stopped metadata');
   const store = await createSandboxSpillStore({ directory });
   const opening = createMetadataLedger({ async openSpill() { entered.resolve(); await release.promise; return store; },
-    batchBytes: 1030, fanIn: 2, signal: abort.signal });
+    batchBytes: 8192, fanIn: 2, signal: abort.signal });
   let settled = false;
   void opening.then(() => { settled = true; }, () => { settled = true; });
   const rejected = assert.rejects(opening, (error: unknown) => error === reason);
@@ -175,7 +178,7 @@ test('failed acquisition cleanup retains real file ownership and exact primary e
   await assert.rejects(createMetadataLedger({ openSpill: async () => ({
     createFile() { creates += 1; if (creates === 3) return Promise.reject(primary); return store.createFile(); },
     close() { closes += 1; if (closes === 1) return Promise.reject(cleanup); return store.close(); },
-  }), batchBytes: 1030, fanIn: 2 }), (error: unknown) => {
+  }), batchBytes: 8192, fanIn: 2 }), (error: unknown) => {
     assert.ok(error instanceof MetadataCleanupError);
     retained = error;
     assert.equal(error.primaryError, primary);

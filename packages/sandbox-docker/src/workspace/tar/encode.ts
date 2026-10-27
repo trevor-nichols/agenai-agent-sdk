@@ -3,10 +3,10 @@
 // ------------------------------------------------------------------------------------------------
 
 import { SandboxOperationError, SandboxUnsupportedError } from '@agen-ai/sandbox';
-import { archiveName } from '../paths.js';
+import { archiveName, symlinkTarget } from '../paths.js';
 import type { TarInputEntry, TarOptions } from './contracts.js';
 import { BLOCK_BYTES, MAX_OCTAL_SIZE, MAX_PAX_BYTES, makeHeader } from './header.js';
-import { encodePaxPath } from './pax.js';
+import { encodePax } from './pax.js';
 
 async function* payload(entry: TarInputEntry, options: TarOptions): AsyncGenerator<Uint8Array> {
   let written = 0;
@@ -50,19 +50,25 @@ async function* blocks(entries: AsyncIterable<TarInputEntry> | Iterable<TarInput
     if (!Number.isSafeInteger(entry.size) || entry.size < 0 || entry.size > MAX_OCTAL_SIZE) {
       throw new SandboxUnsupportedError('Docker tar entries require exact unsigned-octal sizes no greater than 8 GiB minus one byte.');
     }
-    if (entry.kind === 'directory' && entry.size !== 0) throw new SandboxUnsupportedError('Directory tar entries require zero bytes.');
+    if (entry.kind !== 'file' && (entry.size !== 0 || entry.body !== undefined)) throw new SandboxUnsupportedError('Directory and symbolic-link tar entries cannot carry payload.');
+    if (entry.kind === 'symlink' && options.symlinks !== 'preserve_internal') throw new SandboxUnsupportedError('Symbolic links require explicit preservation.');
+    const target = entry.kind === 'symlink' ? symlinkTarget(entry.target) : undefined;
     const name = entry.kind === 'directory' ? `${entry.path}/` : entry.path;
     let headerName = name;
-    if (Buffer.byteLength(name) > 100) {
-      const pax = encodePaxPath(name);
+    let headerTarget = target;
+    const longName = Buffer.byteLength(name) > 100;
+    const longTarget = target !== undefined && Buffer.byteLength(target) > 100;
+    if (longName || longTarget) {
+      const pax = encodePax({ ...(longName ? { path: name } : {}), ...(longTarget ? { linkpath: target } : {}) });
       if (pax.length > MAX_PAX_BYTES) throw new SandboxUnsupportedError('Docker path metadata exceeds the selected bounded PAX representation.');
-      yield makeHeader({ ...entry, path: 'PaxHeader', kind: 'pax', size: pax.length });
+      yield makeHeader({ uid: entry.uid, gid: entry.gid, mode: entry.mode, path: 'PaxHeader', kind: 'pax', size: pax.length });
       for (let offset = 0; offset < pax.length; offset += options.chunkBytes) yield pax.subarray(offset, offset + options.chunkBytes);
       if (pax.length % BLOCK_BYTES) yield new Uint8Array(BLOCK_BYTES - pax.length % BLOCK_BYTES);
-      headerName = entry.kind === 'directory' ? 'entry/' : 'entry';
+      if (longName) headerName = entry.kind === 'directory' ? 'entry/' : 'entry';
+      if (longTarget) headerTarget = '';
     }
-    yield makeHeader({ ...entry, path: headerName });
-    yield* payload(entry, options);
+    yield makeHeader({ ...entry, path: headerName, target: headerTarget });
+    if (entry.kind === 'file') yield* payload(entry, options);
   }
   options.signal.throwIfAborted();
   yield new Uint8Array(BLOCK_BYTES);

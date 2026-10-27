@@ -3,12 +3,11 @@
 // ------------------------------------------------------------------------------------------------
 
 import type { SandboxDriverSpillStore } from '../../backend/spill.js';
-import type { SandboxRelativePath } from '../types.js';
+import type { SandboxRelativePath, SandboxSymlinkTarget } from '../types.js';
 
-export interface MetadataRecord {
-  readonly path: SandboxRelativePath;
-  readonly kind: 'file' | 'directory';
-}
+export type MetadataRecord =
+  | Readonly<{ path: SandboxRelativePath; kind: 'file' | 'directory' }>
+  | Readonly<{ path: SandboxRelativePath; kind: 'symlink'; target: SandboxSymlinkTarget }>;
 
 export interface MetadataLedgerOptions {
   readonly openSpill: () => Promise<SandboxDriverSpillStore>;
@@ -21,5 +20,7 @@ export interface MetadataLedger {
   append(record: MetadataRecord): Promise<void>;
   finish(): Promise<void>;
   records(): AsyncIterable<MetadataRecord>;
+  get(path: SandboxRelativePath): Promise<MetadataRecord | undefined>;
+  validateSymlinks(options?: Readonly<{ root?: SandboxRelativePath }>): Promise<void>;
   close(): Promise<void>;
 }

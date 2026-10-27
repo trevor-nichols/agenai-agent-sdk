@@ -92,7 +92,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.4.4");
+assert.equal(rootManifest.version, "0.4.5");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
@@ -234,6 +234,7 @@ for (const { policy, manifest } of releaseSet.packages) {
   if (policy.name === "@agen-ai/sandbox-docker") {
     assert.deepEqual(manifest.exports, {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
       "./package.json": "./package.json",
     });
     assert.deepEqual(manifest.peerDependencies ?? {}, {});

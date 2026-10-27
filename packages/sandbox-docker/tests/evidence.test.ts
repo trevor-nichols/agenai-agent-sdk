@@ -8,16 +8,17 @@ import { checkCleanupEvidence } from './integration/support/evidence.js';
 import type { CleanupEvidenceReport } from './integration/support/evidence.js';
 
 function stoppedAndDestroyed(): CleanupEvidenceReport {
+  const retainedResources = ['compute', 'storage', 'export', 'network', 'egress_socket', 'egress_broker', 'egress_relay', 'filesystem'] as const;
   return { format: 'agenai.sandbox-cleanup-evidence.v1', rows: [
     { label: 'stop-before-export', expected: [{ role: 'compute', id: 'exact-compute-1' }], events: [
       { sequence: 1, kind: 'sdk-close', result: 'fulfilled' },
       { sequence: 2, kind: 'observation', source: 'independent-engine', role: 'compute', id: 'exact-compute-1', httpStatus: 404 },
     ] },
-    { label: 'destroy', expected: [{ role: 'compute', id: 'exact-compute-1' }, { role: 'storage', id: 'exact-volume-1' }], events: [
+    { label: 'destroy', expected: retainedResources.map((role) => ({ role, id: `exact-${role}-1` })), events: [
       { sequence: 1, kind: 'sdk-close', result: 'fulfilled' },
-      { sequence: 2, kind: 'observation', source: 'independent-engine', role: 'compute', id: 'exact-compute-1', httpStatus: 404 },
-      { sequence: 3, kind: 'observation', source: 'independent-engine', role: 'storage', id: 'exact-volume-1', httpStatus: 404 },
-      { sequence: 4, kind: 'external-cleanup', role: 'storage', id: 'exact-volume-1' },
+      ...retainedResources.map((role, index) => ({ sequence: index + 2, kind: 'observation' as const,
+        source: 'independent-engine' as const, role, id: `exact-${role}-1`, httpStatus: 404 })),
+      { sequence: 10, kind: 'external-cleanup', role: 'storage', id: 'exact-storage-1' },
     ] },
   ] };
 }

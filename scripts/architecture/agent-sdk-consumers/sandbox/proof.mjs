@@ -14,6 +14,9 @@ export async function runNeutralSandboxConsumer({ repoRoot, tempRoot, artifacts,
   await mkdir(spillDirectory);
   const filesystemRoot = path.join(root, "filesystem");
   await mkdir(filesystemRoot);
+  const linksSpillDirectory = path.join(root, "links-spill");
+  const linksFilesystemRoot = path.join(root, "links-filesystem");
+  await mkdir(linksSpillDirectory); await mkdir(linksFilesystemRoot);
   const names = ["@agen-ai/sandbox", "@agen-ai/validation"];
   const dependencies = Object.fromEntries(names.map((name) => {
     const artifact = artifacts.find(({ manifest }) => manifest.name === name);
@@ -33,7 +36,7 @@ export async function runNeutralSandboxConsumer({ repoRoot, tempRoot, artifacts,
     strict: true, noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, skipLibCheck: false, types: ["node"],
   }, include: ["src/*.ts"] }, null, 2)}\n`);
   const sourceRoot = path.join(repoRoot, "scripts/architecture/agent-sdk-consumers/sandbox");
-  await copyFile(path.join(sourceRoot, "neutral.ts"), path.join(root, "src/neutral.ts"));
+  for (const name of ["neutral.ts", "controlled.ts", "links.ts"]) await copyFile(path.join(sourceRoot, name), path.join(root, "src", name));
   await copyFile(path.join(sourceRoot, "neutral-guard.mjs"), path.join(root, "neutral-guard.mjs"));
   await copyFile(path.join(repoRoot, publicExamplesRoot, "sandbox/policy.ts"), path.join(root, "src/policy.ts"));
   await copyFile(path.join(repoRoot, publicExamplesRoot, "sandbox/collect.ts"), path.join(root, "src/collect.ts"));
@@ -51,15 +54,29 @@ export async function runNeutralSandboxConsumer({ repoRoot, tempRoot, artifacts,
     "--import", "./neutral-guard.mjs", "dist/neutral.js"], { cwd: root, timeoutMs: 30_000 });
   const report = JSON.parse(execution.stdout.trim());
   assert.deepEqual(report, { proof: "packed-neutral-sandbox", optionalPeers: "absent", docker: "absent",
+    capabilityAdmission: { defaultFiles: "disabled", unsupportedFileGrants: ["read_only", "read_write"],
+      unsupportedNetwork: "restricted_https", rejectedBeforeDriverReservation: true },
     normalizedExecution: [{ kind: "until_stopped" }, { kind: "until_stopped" }],
     binaryEcho: [0, 255, 206, 177, 10], exportedBytes: [0, 255, 10], cleanup: "destroyed", originalFailureRetained: true,
-    filesystem: { example: "examples/sandbox/filesystem.ts", files: "3", directories: "3", payloadBytes: "22",
+    filesystem: { example: "examples/sandbox/filesystem.ts", files: "3", directories: "3", symlinks: "0", payloadBytes: "22",
       binary: [0, 255, 17, 128, 10], emptyBytes: 0, executable: true, publication: "complete",
       existingDestination: "preserved", lateFailure: "unpublished", cleanup: "destroyed" },
     subtree: { example: "examples/sandbox/filesystem.ts#exportSandboxSubtree", path: "reports/selected",
-      files: "2", directories: "3", payloadBytes: "3", binary: [0, 255, 99], paths: "workspace_relative",
+      files: "2", directories: "3", symlinks: "0", payloadBytes: "3", binary: [0, 255, 99], paths: "workspace_relative",
       outsideOutput: "rejected_before_body", invalidPublication: "absent", cleanup: "destroyed" } });
   assert.deepEqual(await readdir(spillDirectory), [], "Explicit neutral /node spill leaves no named metadata files");
   process.stdout.write(execution.stdout);
-  return { ...report, installedSdkPackages: installed };
+  const linksExecution = await run(process.execPath, [permissionFlag, "--allow-fs-read=*", "--allow-fs-write=*",
+    "--import", "./neutral-guard.mjs", "dist/links.js"], { cwd: root, timeoutMs: 30_000 });
+  const linksReport = JSON.parse(linksExecution.stdout.trim());
+  assert.deepEqual(linksReport, { proof: "packed-neutral-sandbox-links", optionalPeers: "absent", docker: "absent",
+    filesystemPermissions: "full_read_write_required_by_node_symlink", networkAndProcess: "prohibited",
+    example: "examples/sandbox/filesystem.ts", files: "2", directories: "3", symlinks: "3", payloadBytes: "22",
+    binary: [0, 255, 17, 128, 10], executable: true, targets: [
+      { path: "binary-link", target: "./nested//../binary.bin" }, { path: "scripts/runner", target: "./run.sh" },
+      { path: "nested/dangling", target: "missing" },
+    ], publication: "complete", existingDestination: "preserved", lateFailure: "unpublished", cleanup: "destroyed" });
+  assert.deepEqual(await readdir(linksSpillDirectory), [], "Explicit symbolic-link /node spill leaves no named metadata files");
+  process.stdout.write(linksExecution.stdout);
+  return { ...report, installedSdkPackages: installed, transferSymlinks: linksReport };
 }

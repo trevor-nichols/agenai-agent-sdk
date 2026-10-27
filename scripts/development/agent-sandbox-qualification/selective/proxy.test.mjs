@@ -134,6 +134,70 @@ test('Docker attach upgrade preserves initial binary head and bidirectional stre
   assert.deepEqual(Buffer.concat(chunks), Buffer.concat([initial, input]));
 });
 
+test('an observed duplex upgrade joins input released after its upstream peer closes', { timeout: 10_000 }, async (t) => {
+  const directory = await mkdtemp('/var/tmp/sandbox-observed-retirement-');
+  const upstreamPath = join(directory, 'upstream.sock'); const tracePath = join(directory, 'trace.jsonl');
+  const server = http.createServer(); const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const returned = Promise.withResolvers(); let peer, socket, client, proxy, retirement;
+  const input = Buffer.from('{"kind":"stop","sequence":24}\n');
+  const initial = Buffer.from([1, 0, 0, 0, 0, 0, 0, 2, 65, 66]);
+  let inputReturned = false; let receivedInput = Buffer.alloc(0); let connection;
+  const bounded = async (promise, message, milliseconds = 2000) => {
+    let timer;
+    try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), milliseconds); })]); }
+    finally { clearTimeout(timer); }
+  };
+  const retire = () => {
+    if (!retirement && proxy) { retirement = proxy.close(); void retirement.catch(() => {}); }
+    return retirement;
+  };
+  const abort = () => { release.resolve(); socket?.destroy(); peer?.destroy(); client?.destroy(); };
+  t.signal.addEventListener('abort', abort, { once: true });
+  t.after(async () => {
+    abort(); retire();
+    // RED must release physical sockets/listeners even if the original forwarding join is stuck.
+    await bounded(Promise.resolve(retirement).catch(() => {}), 'Original retirement remained pending during failed-test cleanup.', 100).catch(() => {});
+    server.closeAllConnections();
+    if (server.listening) await bounded(new Promise((resolve) => server.close(resolve)), 'Fixture listener did not close.');
+    await rm(directory, { recursive: true, force: true });
+    t.signal.removeEventListener('abort', abort);
+  });
+  server.on('upgrade', (_request, upgraded) => {
+    peer = upgraded; peer.on('data', (bytes) => { receivedInput = Buffer.concat([receivedInput, bytes]); });
+    peer.write('HTTP/1.1 101 UPGRADED\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n'); peer.write(initial);
+  });
+  server.listen(upstreamPath); await bounded(once(server, 'listening'), 'Fixture listener did not start.');
+  proxy = await createTraceProxy({ socketPath: join(directory, 'proxy.sock'), upstreamEndpoint: `unix://${upstreamPath}`, tracePath,
+    observeUpgrade(value) {
+      connection = value.connection;
+      return { async input(bytes) {
+        entered.resolve(Buffer.from(bytes)); await release.promise; inputReturned = true; returned.resolve();
+      }, async response(bytes, forward) { await forward(bytes); } };
+    },
+  });
+  client = http.request({ socketPath: proxy.endpoint.slice(7), method: 'POST', path: '/v1.52/containers/exact-owned/attach?stream=true',
+    headers: { connection: 'Upgrade', upgrade: 'tcp' }, agent: false, signal: t.signal });
+  const opening = once(client, 'upgrade'); client.end();
+  const [, upgraded, head] = await bounded(opening, 'Observed attachment did not upgrade.'); socket = upgraded;
+  const response = [head]; const initialReceived = Promise.withResolvers();
+  const received = (bytes) => { response.push(bytes); if (Buffer.concat(response).length >= initial.length) initialReceived.resolve(); };
+  socket.on('data', received); if (head.length >= initial.length) initialReceived.resolve();
+  socket.on('error', () => {}); const clientClosed = new Promise((resolve) => socket.once('close', resolve));
+  await bounded(initialReceived.promise, 'Original upstream binary bytes did not arrive before the fault.');
+  socket.write(input); assert.deepEqual(await bounded(entered.promise, 'Original async input did not enter.'), input);
+  const peerClosed = new Promise((resolve) => peer.once('close', resolve)); peer.destroy();
+  await bounded(Promise.all([peerClosed, clientClosed]), 'Peer closure did not retire the physical duplex sockets.');
+  assert.equal(inputReturned, false); assert.equal(connection().upstream.destroyed, true);
+  assert.deepEqual(receivedInput, Buffer.alloc(0));
+  assert.deepEqual(Buffer.concat(response), initial);
+  release.resolve(); await bounded(returned.promise, 'Entered input callback did not return after its acknowledgement release.');
+  await bounded(retire(), 'Original observed upgrade did not join after peer close and callback release.');
+  const records = (await readFile(tracePath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+  assert.equal(records.length, 1); assert.equal(records[0].status, 101);
+  assert.equal(records[0].target, '/v1.52/containers/exact-owned/attach?stream=true');
+  assert.equal(typeof records[0].finishedAt, 'string'); assert.equal(inputReturned, true);
+});
+
 test('Docker exec-start upgrade forwards its fragmented declared JSON body before waiting for upgrade acknowledgement', async (t) => {
   const directory = await mkdtemp('/var/tmp/sandbox-selected-exec-');
   const upstreamPath = join(directory, 'upstream.sock');

@@ -7,8 +7,8 @@ import { SandboxOperationError } from '../errors.js';
 import { TransferBody } from '../files/bytes.js';
 import { TransferIterator } from '../files/iterator.js';
 import { createMetadataLedger, MetadataCleanupError } from '../files/metadata/index.js';
-import type { MetadataLedger } from '../files/metadata/index.js';
-import { parseTreeMetadata, transferData } from '../files/parse.js';
+import type { MetadataLedger, MetadataRecord } from '../files/metadata/index.js';
+import { captureSandboxTreeSelection, parseTreeMetadata } from '../files/parse.js';
 import { parseSandboxRelativePath } from '../files/paths.js';
 import { TransferCounters } from '../files/quotas.js';
 import type { SandboxByteSource, SandboxExportConsumer, SandboxInputTreeEntry, SandboxInputTreeSelection,
@@ -157,33 +157,51 @@ export function importTree(ready: SandboxDriverReady, entries: SandboxTreeSource
     const source = new TransferIterator(entries);
     resources.source = source;
     const counts = new TransferCounters(options.quotas, 'import');
+    let phase: 'source' | 'links' | 'ended' = 'source';
+    let links: TransferIterator<MetadataRecord> | undefined;
     const admitted = new TransferDispatch<SandboxInputTreeEntry>(async () => {
       options.signal.throwIfAborted();
       await resources.finishBody();
-      const next = await source.next();
-      options.signal.throwIfAborted();
-      if (next.done) return { done: true, value: undefined };
-      const entry = parseTreeMetadata(next.value, 'open');
-      counts.admit(entry);
-      await metadata.append(entry);
-      if (entry.kind === 'directory') return { done: false, value: entry };
-      const open = entry.body;
-      const body = new TransferBody(entry.byteLength, options.buffers.chunkBytes, true, options.signal,
-        () => Reflect.apply(open as (...args: unknown[]) => SandboxByteSource, undefined, [{ signal: options.signal }]), (error) => controller.abort(error));
-      resources.body = body;
-      let opened = false;
-      return { done: false, value: Object.freeze({ kind: 'file', path: entry.path, byteLength: entry.byteLength, executable: entry.executable,
-        open() {
-          if (opened) return body.rejectReuse();
-          opened = true;
-          return body;
-        } }) };
+      while (phase === 'source') {
+        const next = await source.next();
+        options.signal.throwIfAborted();
+        if (next.done) {
+          await source.close(); resources.source = undefined;
+          await metadata.finish();
+          if (counts.symlinks === 0n) { phase = 'ended'; break; }
+          await metadata.validateSymlinks();
+          links = new TransferIterator(metadata.records()); resources.source = links; phase = 'links';
+          break;
+        }
+        const entry = parseTreeMetadata(next.value, 'open', options.symlinks);
+        counts.admit(entry);
+        await metadata.append(entry);
+        if (entry.kind === 'symlink') continue;
+        if (entry.kind === 'directory') return { done: false, value: entry };
+        const open = entry.body;
+        const body = new TransferBody(entry.byteLength, options.buffers.chunkBytes, true, options.signal,
+          () => Reflect.apply(open as (...args: unknown[]) => SandboxByteSource, undefined, [{ signal: options.signal }]), (error) => controller.abort(error));
+        resources.body = body;
+        let opened = false;
+        return { done: false, value: Object.freeze({ kind: 'file', path: entry.path, byteLength: entry.byteLength, executable: entry.executable,
+          open() {
+            if (opened) return body.rejectReuse();
+            opened = true;
+            return body;
+          } }) };
+      }
+      while (phase === 'links' && links) {
+        options.signal.throwIfAborted();
+        const next = await links.next();
+        if (next.done) { await links.close(); resources.source = undefined; phase = 'ended'; break; }
+        if (next.value.kind === 'symlink') return { done: false, value: next.value };
+      }
+      return { done: true, value: undefined };
     }, (error) => controller.abort(error));
     resources.dispatch = admitted;
     const summary = await ready.importTree(admitted, options);
     await admitted.finish();
     await resources.finishBody();
-    await metadata.finish();
     options.signal.throwIfAborted();
     return counts.verify(summary);
   });
@@ -191,16 +209,15 @@ export function importTree(ready: SandboxDriverReady, entries: SandboxTreeSource
 
 async function selection(ready: SandboxDriverReady, input: SandboxTreeSelection, options: SandboxDriverTransferOptions,
   resources: TransferResources, interrupt: (error: unknown) => void): Promise<Readonly<{ selected: SandboxInputTreeSelection; expected?: MetadataLedger; complete?: () => Promise<void> }>> {
-  const data = transferData(input, ['kind', 'paths', 'path']);
-  if (data.kind === 'workspace' && Reflect.ownKeys(data).length === 1) return { selected: Object.freeze({ kind: 'workspace' }) };
-  if (data.kind === 'subtree' && Reflect.ownKeys(data).length === 2) {
-    const path = parseSandboxRelativePath(data.path);
+  const data = captureSandboxTreeSelection(input);
+  if (data.kind === 'workspace') return { selected: data };
+  if (data.kind === 'subtree') {
+    const path = data.path;
     new TransferCounters(options.quotas, 'export').check('maxPaths', 1n);
     return { selected: Object.freeze({ kind: 'subtree', path }) };
   }
-  if (data.kind !== 'files' || Reflect.ownKeys(data).length !== 2) throw new SandboxOperationError('input_limit', 'Export requires a workspace, exact-file list or one directory subtree.');
   const expected = await ledger(ready, options, resources);
-  const source = new TransferIterator(data.paths as Iterable<string> | AsyncIterable<string>);
+  const source = new TransferIterator(data.paths);
   resources.source = source;
   const counts = new TransferCounters(options.quotas, 'export');
   let paths = 0n;
@@ -262,7 +279,8 @@ export function exportTree(ready: SandboxDriverReady, input: SandboxTreeSelectio
       }
       const actual = Promise.resolve().then(async () => {
         options.signal.throwIfAborted();
-        const entry = parseTreeMetadata(raw, 'bytes');
+        const entry = parseTreeMetadata(raw, 'bytes', options.symlinks);
+        if (selected.kind === 'files' && entry.kind !== 'file') throw new SandboxOperationError('driver_failure', 'Exact-file export requires regular-file members.');
         if (selected.kind === 'subtree') {
           if (entry.path === selected.path) {
             if (entry.kind !== 'directory') throw new SandboxOperationError('driver_failure', 'The selected subtree root must be a directory.');
@@ -273,6 +291,7 @@ export function exportTree(ready: SandboxDriverReady, input: SandboxTreeSelectio
         }
         counts.admit(entry);
         await metadata.append(entry);
+        if (entry.kind === 'symlink') return;
         if (entry.kind === 'directory') await consume(entry, { signal: options.signal });
         else {
           const body = new TransferBody(entry.byteLength, options.buffers.chunkBytes, false, options.signal,
@@ -303,6 +322,21 @@ export function exportTree(ready: SandboxDriverReady, input: SandboxTreeSelectio
     await metadata.finish();
     if (selected.kind === 'subtree' && !subtreeRootSeen) throw new SandboxOperationError('driver_failure', 'Backend omitted the selected subtree root directory.');
     if (expected) await verifySelected(expected, metadata);
+    if (counts.symlinks !== 0n) {
+      await metadata.validateSymlinks(selected.kind === 'subtree' ? { root: selected.path } : {});
+      const links = new TransferIterator(metadata.records()); resources.source = links;
+      for (;;) {
+        options.signal.throwIfAborted();
+        const next = await links.next();
+        if (next.done) break;
+        if (next.value.kind !== 'symlink') continue;
+        const entry = next.value;
+        const actual = Promise.resolve().then(() => consume(entry, { signal: options.signal }));
+        resources.entered = actual; await actual;
+        options.signal.throwIfAborted();
+      }
+      await links.close(); resources.source = undefined;
+    }
     options.signal.throwIfAborted();
     return counts.verify(summary);
   });

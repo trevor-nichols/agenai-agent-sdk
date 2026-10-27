@@ -2,14 +2,16 @@
 //                source.ts - Incremental trusted-root traversal with depth-bounded directory handles
 // ------------------------------------------------------------------------------------------------
 
-import type { BigIntStats, Dir } from 'node:fs';
+import { Dir } from 'node:fs';
+import type { BigIntStats } from 'node:fs';
 import { lstat, opendir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SandboxOperationError, SandboxStateError } from '../../errors.js';
-import { parseSandboxRelativePath } from '../../files/paths.js';
+import { parseSandboxRelativePath, parseSandboxSymlinkTarget } from '../../files/paths.js';
 import type { SandboxTreeEntry } from '../../files/types.js';
 import { verifyDirectoryIdentity } from '../hostPath.js';
 import { DirectoryFile } from './file.js';
+import { readStableLink } from './link.js';
 
 interface DirectoryCursor {
   readonly path: string;
@@ -30,7 +32,7 @@ export class DirectorySource implements AsyncIterable<SandboxTreeEntry> {
   private iterated = false;
 
   constructor(private readonly root: string, private readonly rootMetadata: BigIntStats,
-    private readonly chunkBytes: number, signal?: AbortSignal) {
+    private readonly chunkBytes: number, signal?: AbortSignal, private readonly preserveSymlinks = false) {
     this.signal = signal ? AbortSignal.any([signal, this.controller.signal]) : this.controller.signal;
   }
 
@@ -63,13 +65,22 @@ export class DirectorySource implements AsyncIterable<SandboxTreeEntry> {
       const entry = await current.directory.read();
       this.check();
       if (!entry) { await current.directory.close(); this.directories.pop(); continue; }
-      const relative = parseSandboxRelativePath(current.relative ? `${current.relative}/${entry.name}` : entry.name);
-      const path = join(current.path, entry.name);
+      const rawName: unknown = entry.name;
+      if (!(rawName instanceof Uint8Array)) throw new SandboxOperationError('input_limit', 'Host directory traversal requires raw UTF-8 names.');
+      const name = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(rawName);
+      const relative = parseSandboxRelativePath(current.relative ? `${current.relative}/${name}` : name);
+      const path = join(current.path, name);
       const metadata = await lstat(path, { bigint: true });
       this.check();
       if (metadata.isDirectory()) {
         await this.openDirectory(path, relative, metadata);
         return { done: false, value: Object.freeze({ kind: 'directory', path: relative }) };
+      }
+      if (metadata.isSymbolicLink() && this.preserveSymlinks) {
+        const target = parseSandboxSymlinkTarget(await readStableLink(path, metadata, this.signal));
+        await this.verifyParents();
+        this.check();
+        return { done: false, value: Object.freeze({ kind: 'symlink', path: relative, target }) };
       }
       if (!metadata.isFile() || metadata.size > BigInt(Number.MAX_SAFE_INTEGER)) {
         throw new SandboxOperationError('input_limit', 'Host imports require regular files and directories with representable lengths; links and special files are rejected.');
@@ -85,7 +96,10 @@ export class DirectorySource implements AsyncIterable<SandboxTreeEntry> {
     this.check();
     await verifyDirectoryIdentity(path, metadata);
     this.check();
-    const directory = await opendir(path, { bufferSize: 32 });
+    // Node supports raw names here; its current declarations omit the buffer encoding variant.
+    const opened: unknown = await Reflect.apply(opendir, undefined, [path, { bufferSize: 32, encoding: 'buffer' }]);
+    if (!(opened instanceof Dir)) throw new SandboxOperationError('input_limit', 'Host directory acquisition returned an unsupported handle.');
+    const directory = opened;
     this.directories.push({ path, relative, metadata, directory });
     await verifyDirectoryIdentity(path, metadata);
     this.check();

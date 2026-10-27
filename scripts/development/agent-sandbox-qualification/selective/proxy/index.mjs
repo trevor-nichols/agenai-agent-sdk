@@ -10,7 +10,7 @@ import { RequestTrace } from './trace.mjs';
 import { forwardHttp } from './http.mjs';
 import { forwardUpgrade } from './upgrade.mjs';
 
-export async function createTraceProxy({ socketPath, upstreamEndpoint, tracePath, observeResponse }) {
+export async function createTraceProxy({ socketPath, upstreamEndpoint, tracePath, observeResponse, observeResponseBody, observeUpgrade }) {
   const trace = await RequestTrace.create(tracePath);
   const cancellation = new AbortController();
   const active = new Set();
@@ -31,8 +31,8 @@ export async function createTraceProxy({ socketPath, upstreamEndpoint, tracePath
     let fault;
     if (armed && armed.method === request.method && armed.target === request.url) { fault = armed; armed = undefined; }
     const work = head === undefined
-      ? forwardHttp({ request, response, socketPath: upstreamEndpoint.slice(7), record, fault, trace, signal: cancellation.signal, observeResponse })
-      : forwardUpgrade({ request, socket: response, head, socketPath: upstreamEndpoint.slice(7), record, trace, signal: cancellation.signal });
+      ? forwardHttp({ request, response, socketPath: upstreamEndpoint.slice(7), record, fault, trace, signal: cancellation.signal, observeResponse, observeResponseBody })
+      : forwardUpgrade({ request, socket: response, head, socketPath: upstreamEndpoint.slice(7), record, trace, signal: cancellation.signal, observeUpgrade });
     active.add(work);
     void work.then(() => active.delete(work), (error) => { failures.push(error); active.delete(work); response.destroy(); });
   };

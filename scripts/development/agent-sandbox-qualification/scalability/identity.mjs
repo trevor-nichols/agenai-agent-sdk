@@ -30,7 +30,7 @@ export async function installedIdentity(consumer) {
     assert(within(modules, root), 'Installed package must stay within consumer node_modules.');
     const manifest = JSON.parse((await boundedFile(join(root, 'package.json'), 1024 ** 2)).toString('utf8'));
     assert.equal(manifest.name, `@agen-ai/${name}`);
-    assert.equal(manifest.version, '0.4.4');
+    assert.equal(manifest.version, '0.4.5');
     assert.equal(manifest.type, 'module');
     const digest = createHash('sha256');
     let files = 0;
@@ -78,7 +78,7 @@ export async function copyQualificationSources(consumer, { name, source, files }
   await mkdir(destination, { mode: 0o700 });
   const sources = [];
   for (const file of files) {
-    assert(/^[a-z][a-z0-9/-]*\.mjs$/u.test(file) && !file.includes('..'));
+    assert(/^[a-z][a-zA-Z0-9/-]*\.mjs$/u.test(file) && !file.includes('..'));
     const target = join(destination, file);
     await mkdir(dirname(target), { recursive: true, mode: 0o700 });
     await copyFile(new URL(file, source), target);

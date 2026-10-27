@@ -5,9 +5,207 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createDockerSandboxBackend } from '../src/index.js';
-import { SandboxCleanupError, SandboxStartError, SandboxValidationError, parseSandboxRecoveryRecord } from '@agen-ai/sandbox';
+import { SandboxCleanupError, SandboxStartError, SandboxStateError, SandboxUnsupportedError, SandboxValidationError, parseSandboxRecoveryRecord } from '@agen-ai/sandbox';
 import type { SandboxRecoveryRecord } from '@agen-ai/sandbox';
 import { engineFixture, gate, imageDigest, sandboxRequest } from './fixtures/engine.js';
+import { createDockerLinuxRouteAuthority } from '../src/node/index.js';
+import { parseDockerConfig } from '../src/policy/config.js';
+import type { DockerSandboxEgressOptions } from '../src/policy/config.js';
+import { verifyEgressDeployment, verifyEgressImage } from '../src/policy/preflight.js';
+import { DockerApi } from '../src/resources/api.js';
+import { DockerEngine } from '../src/engine/client.js';
+import { containerSchema, inspectResource, verifyNetworkMembership } from '../src/resources/inspect.js';
+import { helperContainerBody, verifyHelperContainer } from '../src/policy/helperContainer.js';
+import type { EgressHelperPlacement } from '../src/policy/helperContainer.js';
+import { newRecoveryRecord, resourceName } from '../src/recovery/identity.js';
+
+function egressConfiguration(): DockerSandboxEgressOptions {
+  return { imageDigest: `sha256:${'6'.repeat(64)}`, protocol: 'agenai.sandbox.egress-connect.v1', user: { uid: 65534, gid: 65534 },
+    broker: { resources: { cpus: 0.25, memoryBytes: 32 * 1024 ** 2, pids: 16 }, temporaryBytes: 1024 ** 2 },
+    relay: { resources: { cpus: 0.1, memoryBytes: 16 * 1024 ** 2, pids: 8 }, temporaryBytes: 1024 ** 2 },
+    routeAuthority: createDockerLinuxRouteAuthority({ kind: 'local_linux_same_host', stability: 'caller_owned_quiescence',
+      ipExecutable: { path: '/fixture/never-executed-ip', sha256: 'a'.repeat(64) }, pollIntervalMs: 100,
+      commandTimeoutMs: 1000, maxOutputBytes: 65536 }), control: { heartbeatMs: 100, leaseTimeoutMs: 5000 } };
+}
+
+const restricted = () => sandboxRequest({ kind: 'restricted_https', destinations: [{ hostname: 'api.example.com', port: 443 }] });
+const networkFixtureProfile = process.platform === 'darwin' && process.arch === 'arm64' ? 'desktop-apple-virtualization-native-arm64' : 'linux-x64';
+
+test('restricted reservations bind exact helper topology and reject changed configuration or older records before Engine access', async () => {
+  const egress = egressConfiguration();
+  const options = { endpoint: 'unix:///absent-egress-engine.sock', namespace: 'egress-binding', imageDigest,
+    spillDirectory: '/absent-egress-spill', user: { uid: 65534, gid: 65534 }, egress };
+  const backend = createDockerSandboxBackend(options);
+  const record = backend.reserve(restricted(), { kind: 'in_process' }).recoveryRecord;
+  assert.deepEqual(record.resources.map((resource) => resource.role),
+    ['compute', 'storage', 'export', 'network', 'egress_socket', 'egress_broker', 'egress_relay']);
+  for (const changed of [
+    { ...egress, imageDigest: `sha256:${'7'.repeat(64)}` },
+    { ...egress, user: { uid: 65533, gid: 65534 } },
+    { ...egress, broker: { ...egress.broker, resources: { ...egress.broker.resources, cpus: 0.5 } } },
+    { ...egress, relay: { ...egress.relay, temporaryBytes: 2 * 1024 ** 2 } },
+    { ...egress, control: { ...egress.control, leaseTimeoutMs: 6000 } },
+  ]) {
+    const other = createDockerSandboxBackend({ ...options, egress: changed });
+    assert.equal((await other.reconcile(record)).kind, 'conflict');
+  }
+  const missing = parseSandboxRecoveryRecord({ ...record, resources: record.resources.filter((resource) => resource.role !== 'egress_relay') });
+  assert.equal((await backend.reconcile(missing)).kind, 'conflict');
+  const extra = parseSandboxRecoveryRecord({ ...record, resources: [...record.resources,
+    { role: 'filesystem', name: resourceName(record.namespace, record.operationId, 'filesystem'), identity: { kind: 'planned' } }] });
+  assert.equal((await backend.reconcile(extra)).kind, 'conflict');
+  await assert.rejects(Reflect.apply(backend.reconcile, backend, [{ ...record, format: 'agenai.sandbox-recovery.v2' }]), SandboxValidationError);
+});
+
+test('nested egress input rejects non-data fields and cloned authority without invoking getters', () => {
+  const egress = egressConfiguration();
+  const options = { endpoint: 'unix:///absent-egress-engine.sock', namespace: 'egress-input', imageDigest,
+    spillDirectory: '/absent-egress-spill', user: { uid: 65534, gid: 65534 }, egress };
+  let getterReads = 0;
+  const getter = { ...egress.broker.resources, get cpus() { getterReads += 1; return 0.5; } };
+  const hidden = Object.defineProperty({ ...egress.relay }, 'hidden', { value: true });
+  for (const invalid of [
+    { ...egress, broker: { ...egress.broker, resources: getter } },
+    { ...egress, relay: hidden },
+    { ...egress, [Symbol('unsupported')]: true },
+    { ...egress, routeAuthority: { ...egress.routeAuthority } },
+    { ...egress, control: { heartbeatMs: 100, leaseTimeoutMs: 100 } },
+    { ...egress, broker: { ...egress.broker, resources: { ...egress.broker.resources, cpus: 0.0000000001 } } },
+  ]) assert.throws(() => Reflect.apply(createDockerSandboxBackend, undefined, [{ ...options, egress: invalid }]), SandboxValidationError);
+  assert.equal(getterReads, 0);
+});
+
+test('prepared helper prerequisites reject before acquisition and cleanup does not require the failed image preflight', async () => {
+  const egress = egressConfiguration();
+  for (const mismatch of ['environment', 'user', 'protocol', 'architecture', 'image-user', 'entrypoint', 'command', 'working-directory'] as const) {
+    const fixture = await engineFixture({ egress, async handleRequest({ path, response }) {
+      if (path !== `/v1.52/images/${egress.imageDigest}/json`) return false;
+      const value = { Id: egress.imageDigest, Os: 'linux', Architecture: 'amd64', Config: { Volumes: null,
+        User: '65534:65534', Entrypoint: ['/usr/local/bin/node'], Cmd: ['--version'], WorkingDir: '/',
+        Env: ['PATH=/usr/local/bin:/usr/bin:/bin', 'HOME=/tmp', 'TMPDIR=/tmp'], Labels: {
+          'ai.agen.sandbox.egress.protocol': 'agenai.sandbox.egress-connect.v1',
+          'ai.agen.sandbox.egress.user': '65534:65534', 'ai.agen.sandbox.egress.source': imageDigest } } };
+      if (mismatch === 'environment') value.Config.Env.push('AMBIENT_BASE_IMAGE_ENV=unexpected');
+      if (mismatch === 'user') value.Config.Labels['ai.agen.sandbox.egress.user'] = '0:0';
+      if (mismatch === 'protocol') value.Config.Labels['ai.agen.sandbox.egress.protocol'] = 'different-protocol';
+      if (mismatch === 'architecture') value.Architecture = 'arm64';
+      if (mismatch === 'image-user') value.Config.User = '0:0';
+      if (mismatch === 'entrypoint') value.Config.Entrypoint = ['/bin/sh'];
+      if (mismatch === 'command') value.Config.Cmd = ['unexpected.js'];
+      if (mismatch === 'working-directory') value.Config.WorkingDir = '/tmp';
+      response.writeHead(200, { 'content-type': 'application/json' }); response.end(JSON.stringify(value)); return true;
+    } });
+    try {
+      const owner = fixture.backend.reserve(restricted(), { kind: 'in_process' });
+      await assert.rejects(owner.start(), (error: unknown) => error instanceof SandboxStartError
+        && error.cause instanceof SandboxUnsupportedError && /Prepared egress image/u.test(error.cause.message), mismatch);
+      assert.deepEqual(fixture.effects, []);
+      const imageRequests = fixture.requests.filter((request) => request.path.includes('/images/')).length;
+      await owner.destroy();
+      assert.equal(fixture.requests.filter((request) => request.path.includes('/images/')).length, imageRequests);
+      assert.deepEqual(fixture.effects, []);
+    } finally { await fixture.close(); }
+  }
+});
+
+test('observed same-host comparison supplements the route assertion without running the observer or allocating resources', async () => {
+  const egress = egressConfiguration();
+  const fixture = await engineFixture({ egress });
+  try {
+    const config = parseDockerConfig({ endpoint: fixture.endpoint, namespace: 'unit-tests', imageDigest,
+      spillDirectory: fixture.spillDirectory, user: { uid: 65534, gid: 65534 }, egress });
+    const api = new DockerApi(new DockerEngine(fixture.endpoint.slice(7)), 1000);
+    await verifyEgressImage(api, config);
+    await verifyEgressDeployment(api, config, { hostname: 'route-unit-host', kernel: 'unit-kernel', excludedCidrs: [] });
+    for (const census of [
+      { hostname: 'another-host', kernel: 'unit-kernel', excludedCidrs: [] },
+      { hostname: 'route-unit-host', kernel: 'another-kernel', excludedCidrs: [] },
+    ]) await assert.rejects(verifyEgressDeployment(api, config, census), SandboxUnsupportedError);
+    assert.deepEqual(fixture.effects, []);
+  } finally { await fixture.close(); }
+});
+
+test('helper request/readback binds separate images, private socket authority and mutable network membership independently', async () => {
+  const egress = egressConfiguration();
+  const fixture = await engineFixture({ egress });
+  try {
+    const config = parseDockerConfig({ endpoint: fixture.endpoint, namespace: 'unit-tests', imageDigest,
+      spillDirectory: fixture.spillDirectory, user: { uid: 65534, gid: 65534 }, egress });
+    assert(config.egress);
+    const record = newRecoveryRecord(config, restricted());
+    const api = new DockerApi(new DockerEngine(fixture.endpoint.slice(7)), 1000);
+    const networkId = 'b'.repeat(64);
+    const computeId = 'c'.repeat(64);
+    fixture.networks.set(networkId, { Id: networkId, Name: 'controlled-helper-network', Containers: {} });
+    const placements: EgressHelperPlacement[] = [
+      { role: 'egress_broker', networkId, configuration: { protocol: 'agenai.sandbox.egress-connect.v1', role: 'broker',
+        destinations: [{ hostname: 'api.example.com', port: 443 }], excludedCidrs: ['10.0.0.0/8'], leaseTimeoutMs: 5000 } },
+      { role: 'egress_relay', computeId, configuration: { protocol: 'agenai.sandbox.egress-connect.v1', role: 'relay', leaseTimeoutMs: 5000 } },
+    ];
+    for (const placement of placements) {
+      const resource = record.resources.find((entry) => entry.role === placement.role);
+      assert(resource);
+      const body = helperContainerBody(config, record, 'owned-private-socket', placement);
+      const response = await api.request('POST', `/v1.52/containers/create?name=${resource.name}`, {
+        body: Buffer.from(JSON.stringify(body)), contentType: 'application/json' });
+      const value: unknown = JSON.parse(Buffer.from(response.body).toString());
+      assert(value !== null && typeof value === 'object');
+      const id = Reflect.get(value, 'Id'); assert.equal(typeof id, 'string');
+      if (typeof id !== 'string') throw new Error('Expected fixture container ID');
+      const created = await inspectResource(api, config, record, resource, id);
+      assert(created?.container);
+      verifyHelperContainer(created.container, config, 'owned-private-socket', placement, false);
+      const omittedReadOnly = containerSchema.parse(structuredClone(created.container));
+      assert(Array.isArray(omittedReadOnly.HostConfig.Mounts));
+      const requestedMount: unknown = omittedReadOnly.HostConfig.Mounts[0];
+      assert(requestedMount !== null && typeof requestedMount === 'object');
+      Reflect.deleteProperty(requestedMount, 'ReadOnly');
+      if (placement.role === 'egress_broker') {
+        verifyHelperContainer(omittedReadOnly, config, 'owned-private-socket', placement, false);
+      } else {
+        assert.throws(() => verifyHelperContainer(omittedReadOnly, config, 'owned-private-socket', placement, false), SandboxUnsupportedError);
+      }
+      const changedAccess = containerSchema.parse(structuredClone(created.container));
+      changedAccess.Mounts[0].RW = !changedAccess.Mounts[0].RW;
+      assert.throws(() => verifyHelperContainer(changedAccess, config, 'owned-private-socket', placement, false), SandboxUnsupportedError);
+      const omittedNetworkFlag = containerSchema.parse(structuredClone(created.container));
+      Reflect.deleteProperty(omittedNetworkFlag.Config, 'NetworkDisabled');
+      verifyHelperContainer(omittedNetworkFlag, config, 'owned-private-socket', placement, false);
+      for (const invalid of [true, null, 'false']) {
+        omittedNetworkFlag.Config.NetworkDisabled = invalid;
+        assert.throws(() => verifyHelperContainer(omittedNetworkFlag, config, 'owned-private-socket', placement, false), SandboxUnsupportedError);
+      }
+      assert.equal(created.container.Image, egress.imageDigest);
+      assert.equal(created.container.Config.OpenStdin, true);
+      assert.equal(created.container.HostConfig.PidMode, '');
+      assert.equal(created.container.Mounts[0].RW, placement.role === 'egress_broker');
+      assert.deepEqual(created.container.Mounts.map((mount) => mount.Destination), ['/run/agenai-egress']);
+      await api.request('POST', `/v1.52/containers/${id}/start`);
+      const running = await inspectResource(api, config, record, resource, id);
+      assert(running?.container);
+      verifyHelperContainer(running.container, config, 'owned-private-socket', placement, true);
+      const changed = containerSchema.parse(structuredClone(running.container));
+      changed.HostConfig.PidMode = `container:${computeId}`;
+      assert.throws(() => verifyHelperContainer(changed, config, 'owned-private-socket', placement, true), SandboxUnsupportedError);
+      const mismatched = { ...config, egress: { ...config.egress, imageDigest } };
+      await assert.rejects(inspectResource(api, mismatched, record, resource, id), SandboxStateError);
+      if (placement.role === 'egress_broker') {
+        await verifyNetworkMembership(api, networkId, [id]);
+        const network = fixture.networks.get(networkId); assert(network);
+        network.Containers = { [id]: { Name: resource.name }, ['d'.repeat(64)]: { Name: 'foreign-container' } };
+        await assert.rejects(verifyNetworkMembership(api, networkId, [id]), SandboxStateError);
+        // Runtime membership changes do not change immutable container identity or strand cleanup.
+        const fingerprinted = parseSandboxRecoveryRecord({ ...record, authority: { kind: 'verified', backendIdentity: 'daemon-unit-1' },
+          phase: 'running', resources: record.resources.map((entry) => entry.role === resource.role
+            ? { ...entry, identity: { kind: 'identified', id, fingerprint: running.fingerprint } } : entry) });
+        const known = fingerprinted.resources.find((entry) => entry.role === resource.role); assert(known);
+        assert.equal((await inspectResource(api, config, fingerprinted, known, id))?.fingerprint, running.fingerprint);
+      }
+      await api.request('DELETE', `/v1.52/containers/${id}?force=true`);
+    }
+    assert.equal(fixture.containers.size, 0);
+  } finally { await fixture.close(); }
+});
 
 test('constructor and reservation remain inert and reject non-data or implicit authority', () => {
   const config = { endpoint: 'unix:///tmp/absent-agenai-test-engine.sock', namespace: 'inert-test', imageDigest, spillDirectory: '/tmp/absent-agenai-spill', user: { uid: 65534, gid: 65534 } };
@@ -70,19 +268,89 @@ test('workload policy is read back and stop removes compute while retaining the 
   } finally { await fixture.close(); }
 });
 
-test('owned outbound bridge is explicit and destroyed independently from retained files', async () => {
-  const fixture = await engineFixture();
+test('owned outbound bridge is explicit and destroyed independently from retained files', async (t) => {
+  const optionProfiles: readonly Readonly<Record<string, string>>[] = [{}, { 'com.docker.network.enable_ipv4': 'true' }];
+  for (const networkOptions of optionProfiles) await t.test(JSON.stringify(networkOptions), async () => {
+    const fixture = await engineFixture({ profile: networkFixtureProfile, networkOptions });
+    try {
+      const reservation = fixture.backend.reserve(sandboxRequest('outbound'), { kind: 'in_process' });
+      const sandbox = await reservation.start();
+      const networkId = [...fixture.networks.keys()][0];
+      assert.equal([...fixture.containers.values()].find((container) => container.State.Running)?.HostConfig.NetworkMode, networkId);
+      assert.equal(sandbox.effective.network.kind, 'outbound');
+      assert.equal(fixture.backend.support.networkAllowlist, false);
+      await sandbox.stop();
+      assert.equal(fixture.networks.has(networkId), true);
+      const record = reservation.recoveryRecord;
+      const recovered = await fixture.backend.reconcile(record);
+      assert.equal(recovered.kind, 'matched');
+      if (recovered.kind !== 'matched') throw new Error('Expected exact outbound network recovery.');
+      assert.deepEqual(recovered.owner.recoveryRecord, record, 'Recovery must preserve the original exact resource fingerprints.');
+      const network = fixture.networks.get(networkId); assert(network);
+      network.Options = Object.keys(networkOptions).length === 0 ? { 'com.docker.network.enable_ipv4': 'true' } : {};
+      assert.equal((await fixture.backend.reconcile(record)).kind, 'conflict', 'Changing between two admitted option maps must still change resource identity.');
+      await assert.rejects(reservation.destroy(), SandboxCleanupError);
+      assert.equal(fixture.networks.has(networkId), true, 'A fingerprint mismatch must retain the exact network.');
+      network.Options = networkOptions;
+      await recovered.owner.destroy();
+      await reservation.destroy();
+      assert.deepEqual({ containers: fixture.containers.size, volumes: fixture.volumes.size, networks: fixture.networks.size }, { containers: 0, volumes: 0, networks: 0 });
+    } finally { await fixture.close(); }
+  });
+});
+
+test('outbound network admission rejects other option values and keys before compute and retains retry ownership', async (t) => {
+  const invalidOptions: readonly Readonly<Record<string, string>>[] = [
+    { 'com.docker.network.enable_ipv4': 'false' },
+    { 'com.docker.network.enable_ipv4': 'TRUE' },
+    { 'com.docker.network.enable_ipv6': 'false' },
+    { 'com.docker.network.bridge.enable_icc': 'false' },
+    { 'com.docker.network.enable_ipv4': 'true', 'unrecognized.option': 'true' },
+  ];
+  for (const networkOptions of invalidOptions) await t.test(JSON.stringify(networkOptions), async () => {
+    const fixture = await engineFixture({ profile: networkFixtureProfile, networkOptions });
+    try {
+      const reservation = fixture.backend.reserve(sandboxRequest('outbound'), { kind: 'in_process' });
+      await assert.rejects(reservation.start(), (error: unknown) => error instanceof SandboxStartError
+        && error.cause instanceof SandboxStateError && /owned outbound bridge profile/u.test(error.cause.message));
+      assert.deepEqual({ containers: fixture.containers.size, volumes: fixture.volumes.size, networks: fixture.networks.size },
+        { containers: 0, volumes: 1, networks: 1 });
+      await assert.rejects(reservation.destroy(), SandboxCleanupError);
+      assert.equal(fixture.networks.size, 1);
+      assert.equal(fixture.effects.some((effect) => effect.method === 'DELETE' && effect.path.includes('/networks/')), false);
+      const network = [...fixture.networks.values()][0]; assert(network);
+      network.Options = {};
+      await reservation.destroy();
+      assert.deepEqual({ containers: fixture.containers.size, volumes: fixture.volumes.size, networks: fixture.networks.size },
+        { containers: 0, volumes: 0, networks: 0 });
+    } finally { await fixture.close(); }
+  });
+});
+
+test('a fresh cleanup owner advances an original creating network record with the exact IPv4 default', async () => {
+  const fixture = await engineFixture({ profile: networkFixtureProfile, networkOptions: { 'com.docker.network.enable_ipv4': 'true' } });
+  let creating: SandboxRecoveryRecord | undefined;
   try {
-    const reservation = fixture.backend.reserve(sandboxRequest('outbound'), { kind: 'in_process' });
-    const sandbox = await reservation.start();
-    const networkId = [...fixture.networks.keys()][0];
-    assert.equal([...fixture.containers.values()].find((container) => container.State.Running)?.HostConfig.NetworkMode, networkId);
-    assert.equal(sandbox.effective.network.kind, 'outbound');
-    assert.equal(fixture.backend.support.networkAllowlist, false);
-    await sandbox.stop();
-    assert.equal(fixture.networks.has(networkId), true);
-    await sandbox.destroy();
-    assert.deepEqual({ containers: fixture.containers.size, volumes: fixture.volumes.size, networks: fixture.networks.size }, { containers: 0, volumes: 0, networks: 0 });
+    const reservation = fixture.backend.reserve(sandboxRequest('outbound'), { kind: 'persisted', async persist(record) {
+      const identity = record.resources.find((resource) => resource.role === 'network')?.identity.kind;
+      if (identity === 'creating') creating = record;
+      if (identity === 'identified') throw new Error('Network identity checkpoint unavailable.');
+    } });
+    await assert.rejects(reservation.start(), SandboxStartError);
+    assert(creating);
+    assert.deepEqual({ containers: fixture.containers.size, volumes: fixture.volumes.size, networks: fixture.networks.size },
+      { containers: 0, volumes: 1, networks: 1 });
+    const backend = createDockerSandboxBackend({ endpoint: fixture.endpoint, namespace: 'unit-tests', imageDigest, profile: networkFixtureProfile,
+      spillDirectory: fixture.spillDirectory, user: { uid: 65534, gid: 65534 } });
+    const recovered = await backend.reconcile(creating);
+    assert.equal(recovered.kind, 'matched');
+    if (recovered.kind !== 'matched') throw new Error('Expected cleanup-only recovery of the original creating network.');
+    const network = recovered.owner.recoveryRecord.resources.find((resource) => resource.role === 'network');
+    assert.equal(network?.identity.kind, 'identified');
+    assert.equal(creating.resources.find((resource) => resource.role === 'network')?.identity.kind, 'creating');
+    await recovered.owner.destroy();
+    assert.deepEqual({ containers: fixture.containers.size, volumes: fixture.volumes.size, networks: fixture.networks.size },
+      { containers: 0, volumes: 0, networks: 0 });
   } finally { await fixture.close(); }
 });
 

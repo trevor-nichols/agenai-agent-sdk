@@ -10,15 +10,16 @@ import { MAX_DATASET_ATTACHMENTS } from './configuration.js';
 
 const hostMountSchema = z.discriminatedUnion('Type', [
   z.strictObject({ Type: z.literal('volume'), Source: z.string(), Target: z.string(), ReadOnly: z.boolean().default(false),
-    VolumeOptions: z.strictObject({ NoCopy: z.literal(true) }) }),
+    VolumeOptions: z.strictObject({ NoCopy: z.literal(true), Subpath: z.literal('work').optional() }) }),
   z.strictObject({ Type: z.literal('image'), Source: z.string(), Target: z.string(), ReadOnly: z.literal(true),
     ImageOptions: z.strictObject({ Subpath: z.string() }).optional() }),
 ]);
 const hostMountsSchema = z.array(hostMountSchema).min(1).max(MAX_DATASET_ATTACHMENTS + 1);
 
-export function containerMounts(datasets: readonly DockerSandboxDataset[], role: 'compute' | 'export', storageId: string) {
+export function containerMounts(datasets: readonly DockerSandboxDataset[], role: 'compute' | 'export', storageId: string, privateWorkspace = false) {
   return [
-    { Type: 'volume' as const, Source: storageId, Target: '/workspace', ReadOnly: role === 'export', VolumeOptions: { NoCopy: true as const } },
+    { Type: 'volume' as const, Source: storageId, Target: privateWorkspace ? '/workspace/work' : '/workspace', ReadOnly: role === 'export',
+      VolumeOptions: { NoCopy: true as const, ...(privateWorkspace ? { Subpath: 'work' as const } : {}) } },
     ...(role === 'compute' ? datasets.map((dataset) => ({ Type: 'image' as const, Source: dataset.imageDigest,
       Target: `/datasets/${dataset.name}`, ReadOnly: true as const,
       ...(dataset.subpath === undefined ? {} : { ImageOptions: { Subpath: dataset.subpath } }) })) : []),
@@ -26,8 +27,8 @@ export function containerMounts(datasets: readonly DockerSandboxDataset[], role:
 }
 
 export function verifyContainerMounts(container: ContainerInspection, datasets: readonly DockerSandboxDataset[],
-  role: 'compute' | 'export', storageId: string): void {
-  const expected = containerMounts(datasets, role, storageId);
+  role: 'compute' | 'export', storageId: string, privateWorkspace = false): void {
+  const expected = containerMounts(datasets, role, storageId, privateWorkspace);
   const parsed = hostMountsSchema.safeParse(container.HostConfig.Mounts);
   if (!parsed.success || parsed.data.length !== expected.length || container.Mounts.length !== expected.length) {
     throw new SandboxUnsupportedError('Docker mount inventory differs from the private workspace and selected read-only datasets.');
@@ -37,6 +38,8 @@ export function verifyContainerMounts(container: ContainerInspection, datasets: 
     const effective = container.Mounts.find((mount) => mount.Destination === specification.Target);
     if (!requested || requested.Type !== specification.Type || requested.Source !== specification.Source
       || requested.ReadOnly !== specification.ReadOnly
+      || specification.Type === 'volume' && (requested.Type !== 'volume'
+        || requested.VolumeOptions.Subpath !== specification.VolumeOptions.Subpath)
       || specification.Type === 'image' && (requested.Type !== 'image' || requested.ImageOptions?.Subpath !== specification.ImageOptions?.Subpath)
       || !effective || effective.Type !== specification.Type || effective.Name !== specification.Source
       || effective.RW !== !specification.ReadOnly

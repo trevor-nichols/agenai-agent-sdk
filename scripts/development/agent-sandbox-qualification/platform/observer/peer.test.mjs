@@ -24,3 +24,20 @@ test('kernel reader rejects unknown operations and process arguments/environment
     assert.notEqual(response.error.code, 'ENOENT', 'Input denial must precede access to the unmounted diagnostic roots.');
   }
 });
+
+test('kernel reader honors admitted scope capacity while preserving its exact path authority', async () => {
+  const scopes = (count) => Array.from({ length: count }, (_, index) => {
+    const computeId = (index + 1).toString(16).padStart(64, '0');
+    return { computeId, relativePath: `/docker/${computeId}`, knownPids: [] };
+  });
+  for (const [query, message] of [
+    [{ operation: 'read', path: '/etc/passwd', scopes: scopes(129) }, 'Kernel read exceeds its admitted scope capacity.'],
+    [{ operation: 'read', path: '/etc/passwd', maxScopes: 256, scopes: scopes(256) }, 'Only fixed kernel observation paths are accepted.'],
+    [{ operation: 'read', path: '/etc/passwd', maxScopes: 256, scopes: scopes(257) }, 'Kernel read exceeds its admitted scope capacity.'],
+    [{ operation: 'read', path: '/etc/passwd', maxScopes: 129, scopes: [] }, 'Kernel scope capacity must select 128 or 256.'],
+  ]) {
+    const result = await execute(process.execPath, [peer, JSON.stringify(query)], { timeout: 5000, maxBuffer: 8192, env: { PATH: '/usr/bin:/bin' } });
+    assert.equal(result.stderr, ''); const response = JSON.parse(result.stdout);
+    assert.equal(response.ok, false); assert.equal(response.error.name, 'AssertionError'); assert.equal(response.error.message, message);
+  }
+});

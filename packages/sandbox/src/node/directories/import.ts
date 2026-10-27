@@ -18,7 +18,7 @@ import type { SandboxDirectoryImportOptions } from './types.js';
 export async function importSandboxDirectory(sandbox: Sandbox, root: string,
   input?: SandboxDirectoryImportOptions): Promise<SandboxTransferSummary> {
   const path = canonicalHostPath(root);
-  const data = input === undefined ? {} : transferData(input, ['signal', 'deadlineAt', 'quotas', 'chunkBytes']);
+  const data = input === undefined ? {} : transferData(input, ['signal', 'deadlineAt', 'quotas', 'chunkBytes', 'symlinks']);
   const { chunkBytes = SANDBOX_LIMITS.maxTransferChunkBytes, ...transfer } = data;
   if (typeof chunkBytes !== 'number' || !Number.isSafeInteger(chunkBytes) || chunkBytes < 1 || chunkBytes > SANDBOX_LIMITS.maxTransferChunkBytes) {
     invalidInput('Host file chunkBytes must be between one byte and 64 KiB');
@@ -28,7 +28,7 @@ export async function importSandboxDirectory(sandbox: Sandbox, root: string,
   if (process.platform === 'win32') throw new SandboxUnsupportedError('Directory imports require the qualified POSIX filesystem profile.');
   options.signal?.throwIfAborted();
   const metadata = await verifyHostDirectory(path, options.signal);
-  const source = new DirectorySource(path, metadata, chunkBytes, options.signal);
+  const source = new DirectorySource(path, metadata, chunkBytes, options.signal, options.symlinks === 'preserve_internal');
   let outcome: Readonly<{ kind: 'returned'; summary: SandboxTransferSummary }> | Readonly<{ kind: 'threw'; error: unknown }>;
   try { outcome = { kind: 'returned', summary: await sandbox.importTree(source, selected) }; }
   catch (error) { outcome = { kind: 'threw', error }; }

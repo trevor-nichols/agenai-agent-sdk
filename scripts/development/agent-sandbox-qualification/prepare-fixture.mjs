@@ -99,7 +99,7 @@ async function prepare(options) {
     ownedContainer(inspect('container', created));
     report.containerAcquisition = 'identified';
     await record();
-    docker(['container', 'export', '--output', archive, report.container], 60_000);
+    docker(['container', 'export', '--output', archive, report.container], 120_000);
     const sourceArchiveBytes = (await stat(archive)).size;
     if (sourceArchiveBytes <= 0 || sourceArchiveBytes > 1024 * 1024 * 1024) throw new Error('Fixture filesystem archive exceeds its preparation bound.');
     const members = execFileSync('tar', ['-tf', archive], { encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
@@ -126,7 +126,7 @@ async function prepare(options) {
       '--change', `LABEL org.agenai.sandbox.preparation=${operationId}`,
       '--change', `LABEL org.agenai.sandbox.source=${sourceImage}`,
       '--change', 'ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-      '--change', 'USER 65534:65534', '--change', 'WORKDIR /workspace/work', archive, tag], 60_000);
+      '--change', 'USER 65534:65534', '--change', 'WORKDIR /workspace/work', archive, tag], 120_000);
     if (!/^sha256:[a-f0-9]{64}$/u.test(imported)) throw new Error('Docker import returned an invalid image identity.');
     report.image = imported;
     await record();

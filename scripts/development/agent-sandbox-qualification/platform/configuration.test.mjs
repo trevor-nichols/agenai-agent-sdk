@@ -3,10 +3,13 @@
 // ------------------------------------------------------------------------------------------------
 
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { parseArguments, readManifest, verifyObservedTuple } from './configuration.mjs';
 
 const image = `sha256:${'1'.repeat(64)}`;
@@ -19,14 +22,60 @@ const argumentsFor = (row, output) => ['--row', row, '--manifest', '/tmp/input.j
 
 test('platform CLI keeps row/source layout explicit and rejects ambiguous inputs', () => {
   const args = argumentsFor('core', '/tmp/platform-proof');
-  assert.deepEqual(parseArguments(args), { row: 'core', mode: 'monorepo', manifestPath: '/tmp/input.json',
+  assert.deepEqual(parseArguments(args), { row: 'core', mode: 'monorepo', testConcurrency: null, manifestPath: '/tmp/input.json',
     consumer: '/tmp/consumer', output: '/tmp/platform-proof' });
   assert.equal(parseArguments([...args, '--mode', 'standalone']).mode, 'standalone');
   assert.equal(parseArguments(args.map((value) => value === 'core' ? 'datasets' : value)).row, 'datasets');
+  for (const row of ['core', 'datasets']) for (const concurrency of ['1', '8']) {
+    const selected = parseArguments([...argumentsFor(row, '/tmp/platform-proof'), '--test-concurrency', concurrency, '--mode', 'standalone']);
+    assert.equal(selected.testConcurrency, Number(concurrency));
+    assert.equal(selected.mode, 'standalone');
+  }
+  for (const row of ['live-files', 'preserve-internal', 'restricted-https', 'combined']) {
+    const selected = parseArguments([...argumentsFor(row, '/tmp/platform-proof'), '--capabilities-manifest', '/tmp/capabilities.json']);
+    assert.equal(selected.row, row);
+    assert.equal(selected.capabilitiesManifestPath, '/tmp/capabilities.json');
+    assert.equal(selected.testConcurrency, null);
+  }
   for (const invalid of [args.slice(0, -1), [...args, '--row', 'observer'], [...args, '--mode', 'automatic'],
+    ...['0', '9', '-1', '1.5', 'many', '01', '+1', '1e0', '1.0', 'NaN', 'Infinity', '', ' 1', '1 ']
+      .map((value) => [...args, '--test-concurrency', value]),
+    [...args, '--test-concurrency', '1', '--test-concurrency', '2'], [...args, '--test-concurrency'],
+    ...['observer', 'grok-initialize'].map((row) => [...argumentsFor(row, '/tmp/platform-proof'), '--test-concurrency', '1']),
+    ...['live-files', 'preserve-internal', 'restricted-https', 'combined'].map((row) => argumentsFor(row, '/tmp/platform-proof')),
+    [...args, '--capabilities-manifest', '/tmp/capabilities.json'],
+    [...argumentsFor('live-files', '/tmp/platform-proof'), '--capabilities-manifest', '/tmp/capabilities.json', '--test-concurrency', '1'],
     args.map((value) => value === 'core' ? 'live' : value), args.map((value) => value === '/tmp/platform-proof' ? 'relative' : value)]) {
     assert.throws(() => parseArguments(invalid));
   }
+});
+
+test('platform CLI rejects invalid scheduling before reading a manifest or creating output', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'platform-cli-'));
+  const execute = promisify(execFile);
+  const runner = fileURLToPath(new URL('./run.mjs', import.meta.url));
+  try {
+    for (const [row, extra, message] of [
+      ['core', ['--test-concurrency', '0'], /integer between 1 and 8/u],
+      ['core', ['--test-concurrency', '1', '--test-concurrency', '2'], /repeated/u],
+      ['observer', ['--test-concurrency', '1'], /only supported for core and datasets/u],
+      ['core', ['--capabilities-manifest', '/unread/capabilities.json'], /Baseline rows reject/u],
+      ['live-files', [], /Advanced rows require/u],
+      ['combined', ['--capabilities-manifest', '/unread/capabilities.json', '--test-concurrency', '1'], /only supported for core and datasets/u],
+    ]) {
+      const args = ['--row', row, '--manifest', join(root, 'unread-manifest.json'), '--consumer', join(root, 'consumer'),
+        '--output', join(root, 'output'), ...extra];
+      await assert.rejects(execute(process.execPath, [runner, ...args], { env: {} }), (error) => {
+        assert.equal(error.code, 1);
+        assert.equal(error.stdout, '');
+        const result = JSON.parse(error.stderr);
+        assert.equal(result.status, 'failed');
+        assert.match(result.failure.message, message);
+        return true;
+      });
+    }
+    assert.deepEqual(await readdir(root), []);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('platform CLI rejects selected nested socket paths before acquiring the manifest or output', async (t) => {
@@ -50,7 +99,7 @@ test('the documented short canonical Mac output roots admit their selected socke
 });
 
 test('platform manifest rejects implicit emulation and undeclared native inputs', async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), 'platform-config-'));
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'platform-config-')));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const filename = join(directory, 'manifest.json');
   const read = async (value, row = 'core') => { await writeFile(filename, JSON.stringify(value)); return readManifest(filename, row); };

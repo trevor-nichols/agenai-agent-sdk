@@ -12,7 +12,7 @@ export type SandboxResourceIdentity =
   | Readonly<{ kind: 'identified'; id: string; fingerprint: string }>;
 
 export interface SandboxRecoveryResource {
-  readonly role: 'compute' | 'storage' | 'export' | 'network';
+  readonly role: 'compute' | 'storage' | 'export' | 'network' | 'egress_socket' | 'egress_broker' | 'egress_relay' | 'filesystem' | 'route_observer';
   readonly name: string;
   readonly identity: SandboxResourceIdentity;
 }
@@ -22,7 +22,7 @@ export type SandboxRecoveryAuthority =
   | Readonly<{ kind: 'verified'; backendIdentity: string }>;
 
 export interface SandboxRecoveryRecord {
-  readonly format: 'agenai.sandbox-recovery.v2';
+  readonly format: 'agenai.sandbox-recovery.v3';
   readonly backendId: string;
   readonly backendRevision: string;
   readonly namespace: SandboxNamespace;
