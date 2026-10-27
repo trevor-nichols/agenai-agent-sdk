@@ -1,12 +1,12 @@
-# Review the SDK 0.4.5 candidate
+# Upgrade to SDK 0.4.5
 
-Current source is the coordinated **ten-package 0.4.5 candidate**. It is unpublished: npm
-`latest` and `beta` still identify the published 0.4.4 family. Use a reviewed matching source
-checkout or locally packed archives for this candidate. Do not install a mixture of 0.4.4 and
-0.4.5 artifacts or treat a version number as qualification of changed bytes.
+The coordinated **ten-package 0.4.5 release** is published; npm `latest` and `beta` select all ten
+matching packages. Use the published `v0.4.5` checkout for example source. Do not mix 0.4.4 and
+0.4.5 artifacts or treat a version number as qualification of changed native bytes. See the
+[v0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5).
 
 Agent Protocol remains **V13**. Independent runtime execution-input, structured-output, history,
-native account and platform qualifications retain their original evidence. This candidate adds
+native account and platform qualifications retain their original evidence. This release adds
 restricted HTTPS sandbox infrastructure, opt-in live workspace operations, opt-in confined
 symbolic-link transfers, recovery v3 and an infrastructure-failure backend SPI. The earlier Linux
 consumer-capabilities MS003 repaired
@@ -48,7 +48,7 @@ source/archive identities before relying on these results.
 3. Independently verify exact owned-resource absence. Retain unknown creates and failed cleanup
    for the same owner's explicit retry. Do not prune, discover/adopt resources by label, delete
    borrowed images or rewrite a record to make it parse.
-4. Select the matching 0.4.5 candidate for new reservations only after its chosen distribution and
+4. Select the matching 0.4.5 release for new reservations only after its chosen distribution and
    deployment have passed their required checks. An unresolved old workload keeps its original
    controller; it does not become a v3 workload through a package upgrade.
 
@@ -313,4 +313,4 @@ workspace source aliases. Run native networking/recovery campaigns separately wi
 images, endpoint, original route authority and fresh owned evidence directories. Retain
 negative controls, all acquired identities, original failures and independent cleanup results.
 Do not run real login or inference without an explicitly selected route, credential source and
-campaign allowance. Existing 0.4.4 native results do not certify these candidate bytes.
+campaign allowance. Existing 0.4.4 native results do not certify these 0.4.5 artifacts.

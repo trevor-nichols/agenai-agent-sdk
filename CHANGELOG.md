@@ -5,12 +5,12 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
-## 0.4.5 - Unreleased candidate
+## 0.4.5 - 2026-10-27
 
-All ten source packages target `0.4.5`; Agent Protocol remains **V13**. This candidate has not
-been published. Use matching reviewed source/local archives and read
-[UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) before migration. The selected patch version
-includes explicit sandbox contract changes requiring caller/driver updates.
+All ten published packages are coordinated at `0.4.5`; npm `beta` and `latest` select this release.
+Agent Protocol remains **V13**. See the [v0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5)
+and read [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) before migration. The selected patch
+version includes explicit sandbox contract changes requiring caller/driver updates.
 
 - Add opt-in Linux x64 restricted HTTPS CONNECT with exact destination policy, pinned local
   route authority, separate immutable relay/broker helpers and fail-closed infrastructure loss.
@@ -44,6 +44,7 @@ includes explicit sandbox contract changes requiring caller/driver updates.
   network R1 separately passed 46 network/recovery cases and 378 independent absence observations
   against the current installed candidate/controller. Mac datasets, large-workspace
   scale, native model/authentication and Battle Bots/Electron integration remain unqualified.
+- Preserve leading U+FEFF in filesystem names, link targets and metadata identities at the five affected UTF-8 decoding boundaries.
 - Preserve the original Engine upload-producer error when a request-origin aborted transport
   wrapper has that exact producer error as its cause. Join producer cleanup before returning;
   distinct cleanup errors remain aggregated. This narrow derived-abort repair changes no public

@@ -2,9 +2,9 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Current source is the coordinated **unpublished 0.4.5 candidate**. It adds opt-in Linux and explicitly prepared Desktop restricted HTTPS, live workspace files, confined symbolic-link transfers, consumer-owned Claude/Grok bridges and recovery v3 without changing Agent Protocol V13. Exact Linux native tool/cancellation and API-key compositions retain their qualification. The recorded M3/macOS 26.5.1 baseline separately qualifies native arm64 and AVF/Rosetta amd64 execution, APFS host helpers and pinned Grok eager initialization. Separate Desktop live-file native N7 and Rosetta R2 campaigns each passed 18 installed cases with complete cleanup. Native Mac model/authentication and product integration remain unqualified. Use matching reviewed source/local archives; see the [exact sandbox platform record and limits](examples/sandbox/HANDOFF.md#recorded-mac-baseline-2026-10-26). Read [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) before changing controllers or recovery records.
-> The coordinated **ten-package `0.4.4` release** is published under npm `latest` and `beta`, with Agent Protocol V13, native structured final responses, optional runtime execution input and optional history and sandbox packages. Execution input has no supported public native provider.
-> See the [v0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4) and [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for installation, the V13 adapter upgrade, earlier-candidate migration, execution-input ownership, structured-output support, native history scope and sandbox execution.
+> The coordinated **ten-package 0.4.5 release** is published under npm `latest` and `beta`, with Agent Protocol **V13** unchanged. It adds opt-in restricted HTTPS, live workspace files, confined symbolic-link transfers, consumer-owned Claude/Grok bridges and recovery v3 on the explicitly prepared Linux and Docker Desktop profiles.
+> See the [v0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5), [upgrade guide](UPGRADING-TO-0.4.5.md) and [exact sandbox platform record](examples/sandbox/HANDOFF.md). Native qualification retains its original source/archive/platform identities; publication does not qualify native Mac model/authentication or product integration.
+> The preceding ten-package [0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4) introduced native structured final responses, optional runtime execution input, history and sandbox packages. Execution input has no supported public native provider. Its [upgrade guide](UPGRADING-TO-0.4.4.md) retains that release's migration instructions.
 > The preceding seven-package `0.4.3` release did not include history or either sandbox package.
 > See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for the preceding patch’s lifecycle fixes. Earlier `0.4.1` artifacts retain V11 and their original qualification.
 > See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
@@ -51,8 +51,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published package versions are coordinated at `0.4.4`; all ten current
-source versions are the matching unpublished `0.4.5` candidate.
+schema assets. All ten published package versions and current source versions are coordinated at `0.4.5`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -116,32 +115,29 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published `0.4.4` runtime:
+Install the published `0.4.5` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.4
+pnpm add @agen-ai/agent-runtime@0.4.5
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.4 @agen-ai/agent-protocol@0.4.4
+pnpm add @agen-ai/validation@0.4.5 @agen-ai/agent-protocol@0.4.5
 ```
 
-Keep every SDK package you install at the same coordinated version, including optional packages.
-Agent Protocol V13 replaces V12 at the live boundary; the current parser has no
-older-version compatibility mode. Published `0.4.3` and `0.4.2` retain V12, `0.4.1` retains V11 and
-`0.4.0` retains V10. Current source examples target the matching `0.4.5` candidate; the published
-`v0.4.4` checkout remains the example source for npm 0.4.4. Decision responses carry
-`{ kind: 'decision', choiceId }`. The [0.4.2 migration guide](MIGRATING-TO-0.4.2.md)
-documents the implemented generic lifecycle and exact native qualification limits.
-Published `0.4.1` includes its earlier decision-only session API and remembered approvals;
-the generalized session-interaction API is available in the matching published `0.4.3` packages.
-Use the published `v0.4.4` example checkout with npm 0.4.4, or matching reviewed 0.4.5 source/local
-archives for current examples. Repository `pnpm examples:*` commands require the matching built
-checkout; example files are source, not additional npm entrypoints. The [published installation guide](UPGRADING-TO-0.4.4.md#validate-the-installation)
-and [candidate migration guide](UPGRADING-TO-0.4.5.md) keep these artifact families separate.
+Keep every SDK package at the same coordinated version, including optional packages. Use the
+published `v0.4.5` checkout for current examples and read [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md)
+before changing sandbox controllers, drivers or recovery records. Repository `pnpm examples:*`
+commands require the matching built checkout; example source files are not additional npm entrypoints.
+
+Agent Protocol V13 remains unchanged from `0.4.4`. Historical `0.4.3` and `0.4.2` retain V12,
+`0.4.1` retains V11 and `0.4.0` retains V10. The live parser has no older-version compatibility mode.
+Decision responses carry `{ kind: 'decision', choiceId }`; the
+[0.4.2 migration guide](MIGRATING-TO-0.4.2.md) documents the generic lifecycle boundary.
+Use each historical release's matching checkout and upgrade guide when inspecting its artifacts.
 
 ## Generate a typed object
 
