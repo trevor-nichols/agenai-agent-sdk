@@ -16,6 +16,12 @@ import type { SandboxBackendDriver } from './contracts.js';
 
 export type { SandboxBackendDriver, SandboxDriverReservation, SandboxDriverReady, SandboxDriverProcessReservation, SandboxDriverStartOptions, SandboxDriverTransferOptions } from './contracts.js';
 export type { SandboxDriverSpillStore, SandboxDriverSpillFile } from './spill.js';
+export type { SandboxDriverFiles, SandboxDriverReadOnlyFiles, SandboxDriverReadWriteFiles, SandboxDriverFileOptions, SandboxDriverFileWriteOptions } from '../live/driver.js';
+export { createMetadataLedger, MetadataCleanupError, MetadataConflictError } from '../files/metadata/index.js';
+export type { MetadataLedger, MetadataLedgerOptions, MetadataRecord } from '../files/metadata/index.js';
+export { parseSandboxSymlinkTarget } from '../files/paths.js';
+export { captureSandboxTreeSelection } from '../files/parse.js';
+export type { SandboxCapturedTreeSelection } from '../files/types.js';
 
 export function createSandboxBackend(driver: SandboxBackendDriver): SandboxBackend {
   const support = parseSandboxSupport(driver.support);
@@ -39,7 +45,7 @@ export function createSandboxBackend(driver: SandboxBackendDriver): SandboxBacke
         || record.resources.some((resource) => resource.identity.kind !== 'planned')) {
         throw new SandboxStateError('The initial recovery record must describe this reserved backend ownership before resource effects.');
       }
-      return new SandboxOwner(reserved, parsed, recoveryPolicy, record);
+      return new SandboxOwner(reserved, parsed, recoveryPolicy, record, support.transferSymlinks ?? false);
     },
     async reconcile(record, options) {
       const parsed = parseSandboxRecoveryRecord(record);

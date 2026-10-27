@@ -7,7 +7,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 function groupExists(pid) {
   try { process.kill(-pid, 0); return true; }
-  catch (error) { if (error.code === 'ESRCH') return false; throw error; }
+  catch (error) {
+    if (error.code === 'ESRCH') return false;
+    if (error.code === 'EPERM') return true;
+    throw error;
+  }
 }
 
 async function waitForGroup(pid, deadlineMs) {

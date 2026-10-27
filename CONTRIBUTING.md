@@ -60,9 +60,10 @@ hosted CI success from its configured workflow; no hosted Docker result is recor
 original operation/cleanup failures and exact resource identities when changing lifecycle code.
 Recovery is cleanup-only, and uncertain command outcomes must never be replayed automatically.
 
-Current source is the unpublished ten-package `0.4.4` candidate with Agent Protocol V13.
-The recorded published family remains seven packages at `0.4.3`; it did not include history or either sandbox package.
-Read [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for candidate compatibility, history and sandbox setup,
+Current source is the unpublished ten-package `0.4.5` candidate with Agent Protocol V13.
+The published coordinated family remains ten packages at `0.4.4`, including history and both sandbox packages.
+Read [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for candidate compatibility and recovery migration,
+and [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for the published history and sandbox setup,
 and [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before changing V12 lifecycle behavior.
 Earlier `0.4.1` artifacts retain V11.
 After building, `pnpm examples:lifecycle-interactions` runs the generic core-only walkthrough:

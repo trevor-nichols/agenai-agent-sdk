@@ -55,8 +55,8 @@ test('dataset capture is inert, canonical across ordering and insulated from lat
   const expected = createDockerSandboxBackend({ ...config(), datasets: [first, second] }).reserve(sandboxRequest(), { kind: 'in_process' });
   first.subpath = 'retargeted'; second.name = 'changed';
   const owner = backend.reserve(sandboxRequest(), { kind: 'in_process' });
-  assert.equal(owner.recoveryRecord.format, 'agenai.sandbox-recovery.v2');
-  assert.equal(owner.recoveryRecord.backendRevision, 'engine-1.52-v4-linux-x64');
+  assert.equal(owner.recoveryRecord.format, 'agenai.sandbox-recovery.v3');
+  assert.equal(owner.recoveryRecord.backendRevision, 'engine-1.52-v5-linux-x64');
   assert.equal(owner.recoveryRecord.configurationDigest, expected.recoveryRecord.configurationDigest);
   assert.deepEqual(owner.state, { kind: 'reserved' });
   assert.deepEqual(owner.recoveryRecord.resources.map(({ role, identity }) => [role, identity.kind]),

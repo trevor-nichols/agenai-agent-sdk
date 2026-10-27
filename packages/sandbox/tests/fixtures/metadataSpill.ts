@@ -18,7 +18,7 @@ export async function spillDirectory(t: TestContext): Promise<string> {
   return root;
 }
 
-export function record(path: string, kind: MetadataRecord['kind'] = 'file'): MetadataRecord {
+export function record(path: string, kind: 'file' | 'directory' = 'file'): MetadataRecord {
   return { path: parseSandboxRelativePath(path), kind };
 }
 

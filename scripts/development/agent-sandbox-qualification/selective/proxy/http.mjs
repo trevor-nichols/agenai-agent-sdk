@@ -10,7 +10,7 @@ async function write(response, bytes, signal) {
   if (!response.write(bytes)) await once(response, 'drain', { signal });
 }
 
-export async function forwardHttp({ request, response, socketPath, record, fault, trace, signal, observeResponse }) {
+export async function forwardHttp({ request, response, socketPath, record, fault, trace, signal, observeResponse, observeResponseBody }) {
   const cancellation = new AbortController();
   const activeSignal = AbortSignal.any([signal, cancellation.signal]);
   const abort = () => { if (!response.writableFinished) cancellation.abort(new Error('Downstream HTTP observer closed.')); };
@@ -18,6 +18,8 @@ export async function forwardHttp({ request, response, socketPath, record, fault
   let upstream;
   let responseWork;
   let writer;
+  let bodyObserver;
+  let complete = false;
   let recorded = false;
   try {
     let resolveResponse;
@@ -35,6 +37,7 @@ export async function forwardHttp({ request, response, socketPath, record, fault
       record.status = source.statusCode;
       record.fault = fault?.kind ?? null;
       await observeResponse?.({ method: request.method, target: request.url, status: source.statusCode });
+      bodyObserver = await observeResponseBody?.({ method: request.method, target: request.url, status: source.statusCode, traceId: record.id });
       fault?.onEnter();
       if (fault?.kind === 'drop-response') {
         for await (const chunk of source) record.upstreamBodyBytes += chunk.length;
@@ -55,9 +58,11 @@ export async function forwardHttp({ request, response, socketPath, record, fault
       for await (const chunk of source) {
         activeSignal.throwIfAborted();
         record.upstreamBodyBytes += chunk.length;
+        await bodyObserver?.body(chunk);
         await write(response, chunk, activeSignal);
         record.forwardedBodyBytes += chunk.length;
       }
+      complete = true;
       if (fault?.kind === 'late-trailer') {
         await write(response, Buffer.from([1]), activeSignal);
         record.forwardedBodyBytes += 1;
@@ -67,7 +72,7 @@ export async function forwardHttp({ request, response, socketPath, record, fault
       recorded = true;
       response.end();
       await finished(response, { cleanup: true });
-    })();
+    })().finally(() => bodyObserver?.complete({ complete }));
     await responseWork;
   } catch (error) {
     record.failure = { name: error instanceof Error ? error.name : 'ThrownValue', message: String(error instanceof Error ? error.message : error).slice(0, 512) };

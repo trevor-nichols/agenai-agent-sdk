@@ -28,6 +28,7 @@ test('directory import preserves binary, empty, executable and empty-directory e
     let files = 0n; let directories = 0n; let payloadBytes = 0n;
     for await (const entry of entries) {
       if (entry.kind === 'directory') { observed.push(entry); directories += 1n; continue; }
+      if (entry.kind !== 'file') throw new Error('Default traversal cannot yield symbolic links.');
       const bytes: number[] = [];
       for await (const chunk of entry.open({ signal: options?.signal ?? new AbortController().signal })) {
         assert(chunk.byteLength <= 2);
@@ -36,7 +37,7 @@ test('directory import preserves binary, empty, executable and empty-directory e
       observed.push({ kind: entry.kind, path: entry.path, executable: entry.executable, bytes });
       files += 1n; payloadBytes += BigInt(bytes.length);
     }
-    return { files, directories, payloadBytes, archiveBytes: payloadBytes };
+    return { files, directories, symlinks: 0n, payloadBytes, archiveBytes: payloadBytes };
   } };
   const summary = await importSandboxDirectory(consuming, root, { chunkBytes: 2 });
   assert.deepEqual(observed.sort((left, right) => left.path.localeCompare(right.path)), [
@@ -46,7 +47,7 @@ test('directory import preserves binary, empty, executable and empty-directory e
     { kind: 'file', path: 'nested/binary', executable: false, bytes: [0, 255, 7, 13, 10] },
     { kind: 'file', path: 'run', executable: true, bytes: [...Buffer.from('#!/bin/sh\n')] },
   ]);
-  assert.deepEqual(summary, { files: 3n, directories: 2n, payloadBytes: 15n, archiveBytes: 15n });
+  assert.deepEqual(summary, { files: 3n, directories: 2n, symlinks: 0n, payloadBytes: 15n, archiveBytes: 15n });
   assert.deepEqual((await readdir(root)).sort(), ['empty', 'empty-directory', 'nested', 'run']);
 });
 
@@ -166,9 +167,9 @@ test('more than 20,000 real regular files traverse incrementally without a retai
       observed += 1n;
       indexSum += BigInt(index);
     }
-    return { files: observed, directories: 0n, payloadBytes: sum, archiveBytes: sum };
+    return { files: observed, directories: 0n, symlinks: 0n, payloadBytes: sum, archiveBytes: sum };
   } };
-  assert.deepEqual(await importSandboxDirectory(consuming, root), { files: 20_017n, directories: 0n, payloadBytes: 20_017n, archiveBytes: 20_017n });
+  assert.deepEqual(await importSandboxDirectory(consuming, root), { files: 20_017n, directories: 0n, symlinks: 0n, payloadBytes: 20_017n, archiveBytes: 20_017n });
   assert.equal(observed, BigInt(count));
   assert.equal(indexSum, BigInt(count) * BigInt(count - 1) / 2n);
 });

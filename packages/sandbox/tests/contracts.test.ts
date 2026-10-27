@@ -42,6 +42,65 @@ test('request parsing returns isolated immutable policy and admits explicit smal
   assert.equal(parsed.policy.resources.cpus, 2);
 });
 
+test('restricted HTTPS parsing captures an immutable canonical destination catalog', () => {
+  const destinations = [
+    { hostname: 'z.example.com', port: 443 },
+    { hostname: 'api.example.com', port: 8443 },
+    { hostname: 'api.example.com', port: 443 },
+  ];
+  const parsed = parseSandboxRequest({ policy: { ...request().policy, network: { kind: 'restricted_https', destinations } } });
+  destinations[0]!.hostname = 'changed.example.com';
+  destinations.push({ hostname: 'another.example.com', port: 443 });
+  assert.deepEqual(parsed.policy.network, { kind: 'restricted_https', destinations: [
+    { hostname: 'api.example.com', port: 443 }, { hostname: 'api.example.com', port: 8443 }, { hostname: 'z.example.com', port: 443 },
+  ] });
+  if (parsed.policy.network.kind !== 'restricted_https') throw new Error('Expected restricted HTTPS policy.');
+  assert.equal(Reflect.set(parsed.policy.network.destinations[0]!, 'hostname', 'changed.example.com'), false);
+  assert.equal(Reflect.set(parsed.policy.network.destinations, 'length', 0), false);
+});
+
+test('restricted HTTPS rejects ambiguous host/port forms, duplicate authority and oversized catalogs', () => {
+  const network = (destinations: unknown) => ({ policy: { ...request().policy, network: { kind: 'restricted_https', destinations } } });
+  for (const hostname of ['', 'api', 'API.EXAMPLE.COM', 'api.example.com.', '*.example.com', 'api..example.com',
+    '-api.example.com', 'api-.example.com', '127.0.0.1', '127.1', '0177.0.0.1', '0x7f000001', '0x7f.0x0.0x0.0x1',
+    '2130706433', '[::1]', '::1', 'api.example.com:443', 'user@api.example.com', 'https://api.example.com',
+    'api.example.com/path', 'api.example.com?port=443', 'api%2eexample.com', 'api\\name.example.com',
+    'xn--bcher-kva.example', 'api.xn--p1ai', 'bücher.example', `${'a'.repeat(64)}.example.com`,
+    ['a'.repeat(63), 'b'.repeat(63), 'c'.repeat(63), 'd'.repeat(62)].join('.')]) {
+    assert.throws(() => parseSandboxRequest(network([{ hostname, port: 443 }])), SandboxValidationError, hostname);
+  }
+  for (const port of [undefined, null, '443', '0443', '+443', '443.0', 0, -1, 1.5, 65536, Infinity, NaN, true]) {
+    assert.throws(() => parseSandboxRequest(network([{ hostname: 'api.example.com', port }])), SandboxValidationError);
+  }
+  const maximum = Array.from({ length: 128 }, (_, index) => ({ hostname: `api-${String(index).padStart(3, '0')}.example.com`, port: 443 }));
+  const admitted = parseSandboxRequest(network(maximum)).policy.network;
+  if (admitted.kind !== 'restricted_https') throw new Error('Expected restricted HTTPS policy.');
+  assert.equal(admitted.destinations.length, 128);
+  assert.deepEqual(admitted.destinations.at(-1), { hostname: 'api-127.example.com', port: 443 });
+  for (const destinations of [[], [...maximum, { hostname: 'overflow.example.com', port: 443 }],
+    [{ hostname: 'api.example.com', port: 443 }, { hostname: 'api.example.com', port: 443 }],
+    [{ hostname: 'api.example.com', port: 443, protocol: 'https' }]]) {
+    assert.throws(() => parseSandboxRequest(network(destinations)), SandboxValidationError);
+  }
+});
+
+test('support admits restricted HTTPS only with the exact bounded CONNECT declaration', () => {
+  const base = { backendId: 'fixture', backendRevision: '1', networkModes: ['isolated'], workspaceDiskQuota: false,
+    networkAllowlist: false, independentProcessTermination: false };
+  assert.deepEqual(parseSandboxSupport(base), { ...base, files: false, transferSymlinks: false });
+  const supported = { ...base, networkModes: ['isolated', 'outbound', 'restricted_https'],
+    networkAllowlist: { kind: 'https_connect', maxDestinations: 128 } };
+  assert.deepEqual(parseSandboxSupport(supported), { ...supported, files: false, transferSymlinks: false });
+  const { networkAllowlist, ...missing } = base;
+  void networkAllowlist;
+  for (const value of [missing, { ...base, networkModes: ['restricted_https'] },
+    { ...base, networkAllowlist: supported.networkAllowlist }, { ...supported, networkAllowlist: true },
+    ...[0, 127, 129].map((maxDestinations) => ({ ...supported, networkAllowlist: { kind: 'https_connect', maxDestinations } })),
+    { ...supported, networkModes: ['restricted_https', 'restricted_https'] }]) {
+    assert.throws(() => parseSandboxSupport(value), SandboxValidationError);
+  }
+});
+
 test('request admission rejects unsupported authority, retired policy and invalid buffer bounds', () => {
   const base = request();
   const invalid = [
@@ -111,7 +170,10 @@ test('plain identity strings grant only parsed identity values and reject ambigu
 test('path parsing preserves canonical Unicode and rejects traversal and UTF-8 overflow', () => {
   assert.equal(parseSandboxRelativePath('src/λ.ts'), 'src/λ.ts');
   assert.equal(parseSandboxGuestPath('/workspace/work'), '/workspace/work');
-  for (const unsafe of ['', '/absolute', '../escape', 'a/../b', '.', 'a/./b', 'a//b', 'a/', 'a\\b', 'a\0b', 'a\nb', 'é'.repeat(128), Array(65).fill('a').join('/'), '\ud800']) {
+  const longest = `${Array(15).fill('a'.repeat(255)).join('/')}/${'b'.repeat(239)}`;
+  assert.equal(parseSandboxRelativePath(longest), longest);
+  assert.equal(parseSandboxRelativePath(Array(128).fill('a').join('/')), Array(128).fill('a').join('/'));
+  for (const unsafe of ['', '/absolute', '../escape', 'a/../b', '.', 'a/./b', 'a//b', 'a/', 'a\\b', 'a\0b', 'a\nb', 'a\u0085b', 'a\u009fb', 'é'.repeat(128), Array(129).fill('a').join('/'), `${longest}b`, '\ud800']) {
     assert.throws(() => parseSandboxRelativePath(unsafe), SandboxValidationError);
   }
   for (const unsafe of ['relative', '//workspace', '/workspace/../host', '/workspace/']) {

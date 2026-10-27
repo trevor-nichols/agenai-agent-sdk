@@ -29,7 +29,7 @@ test('directory export publishes only complete binary files, executable flags an
   ]);
   const result = await exportSandboxDirectory(selected, { kind: 'workspace' }, destination);
   assert.equal(result.directory, join(destination, 'files'));
-  assert.deepEqual(result.summary, { files: 3n, directories: 2n, payloadBytes: 6n, archiveBytes: 6n });
+  assert.deepEqual(result.summary, { files: 3n, directories: 2n, symlinks: 0n, payloadBytes: 6n, archiveBytes: 6n });
   assert.deepEqual(await readdir(destination), ['files']);
   assert.deepEqual((await readdir(result.directory)).sort(), ['empty', 'nested', 'run', 'zero']);
   assert.deepEqual([...await readFile(join(result.directory, 'nested/binary'))], [0, 255, 7]);

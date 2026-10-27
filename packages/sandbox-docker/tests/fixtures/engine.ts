@@ -10,14 +10,16 @@ import { join } from 'node:path';
 import { extract, pack, type Header } from 'tar-stream';
 import { createDockerSandboxBackend } from '../../src/index.js';
 import type { DockerSandboxDataset, DockerSandboxProfile } from '../../src/index.js';
+import type { DockerSandboxEgressOptions, DockerSandboxFilesystemOptions } from '../../src/policy/config.js';
+import type { SandboxNetworkPolicy, SandboxRecoveryResource } from '@agen-ai/sandbox';
 import { parseSandboxRequest, SANDBOX_DEFAULT_TRANSFER_BUFFERS, SANDBOX_DEFAULT_STREAM_LIMITS } from '@agen-ai/sandbox';
 
 export const imageDigest = `sha256:${'1'.repeat(64)}`;
 export const gate = <Value = void>() => Promise.withResolvers<Value>();
 
-export function sandboxRequest(network: 'isolated' | 'outbound' = 'isolated') {
+export function sandboxRequest(network: 'isolated' | 'outbound' | SandboxNetworkPolicy = 'isolated') {
   return parseSandboxRequest({ policy: { resources: { cpus: 0.5, memoryBytes: 64 * 1024 ** 2, pids: 32 },
-    temporaryStorage: { homeBytes: 1024 ** 2, tempBytes: 2 * 1024 ** 2 }, network: { kind: network },
+    temporaryStorage: { homeBytes: 1024 ** 2, tempBytes: 2 * 1024 ** 2 }, network: typeof network === 'string' ? { kind: network } : network,
     execution: { kind: 'deadline', timeoutMs: 5000 },
     deadlines: { startupMs: 5000, cleanupMs: 5000 }, transfers: SANDBOX_DEFAULT_TRANSFER_BUFFERS, streams: SANDBOX_DEFAULT_STREAM_LIMITS } });
 }
@@ -25,12 +27,16 @@ export function sandboxRequest(network: 'isolated' | 'outbound' = 'isolated') {
 interface StoredContainer {
   Id: string; Name: string; Image: string; Config: Record<string, unknown>; HostConfig: Record<string, unknown>;
   Mounts: unknown[]; State: { Running: boolean; Status: string }; AppArmorProfile: string;
-  NetworkSettings: { Networks: Record<string, { NetworkID: string }>; Ports: Record<string, unknown> };
+  NetworkSettings: { Networks: Record<string, { NetworkID: string; EndpointID?: string; MacAddress?: string; IPAddress?: string;
+    IPPrefixLen?: number; Gateway?: string }>; Ports: Record<string, unknown> };
 }
 
 export interface FixtureOptions {
   readonly profile?: DockerSandboxProfile;
+  readonly kernelVersion?: string;
   readonly datasets?: readonly DockerSandboxDataset[];
+  readonly egress?: DockerSandboxEgressOptions;
+  readonly filesystem?: DockerSandboxFilesystemOptions;
   readonly runningAppArmorProfile?: string;
   readonly handleRequest?: (input: { method: string; path: string; body: unknown; request: IncomingMessage; response: ServerResponse }) => Promise<boolean>;
   readonly unsupportedDaemon?: boolean;
@@ -38,13 +44,18 @@ export interface FixtureOptions {
   readonly ignoreMemory?: boolean;
   readonly pauseComputeCreate?: PromiseWithResolvers<void>;
   readonly loseComputeReply?: boolean;
+  readonly loseContainerReplyForRole?: SandboxRecoveryResource['role'];
   readonly failDeleteVolumeOnce?: boolean;
   readonly normalizeUnsupportedOomOnStart?: boolean;
   readonly containerWarnings?: (role: 'compute' | 'export') => readonly string[];
   readonly networkWarning?: string;
+  readonly networkOptions?: Readonly<Record<string, string>>;
 }
 
 export async function engineFixture(options: FixtureOptions = {}) {
+  const desktop = options.profile !== undefined && options.profile !== 'linux-x64';
+  const daemonArchitecture = desktop ? 'arm64' : 'amd64';
+  const imageArchitecture = options.profile === 'desktop-apple-virtualization-native-arm64' ? 'arm64' : 'amd64';
   const directory = await mkdtemp(join(tmpdir(), 'agenai-docker-unit-'));
   const socket = join(directory, 'engine.sock');
   const containers = new Map<string, StoredContainer>();
@@ -75,13 +86,32 @@ export async function engineFixture(options: FixtureOptions = {}) {
     if (method !== 'GET' && method !== 'HEAD') effects.push({ method, path, body });
     const json = (status: number, value: unknown) => { response.writeHead(status, { 'content-type': 'application/json' }); response.end(JSON.stringify(value)); };
     if (await options.handleRequest?.({ method, path, body, request, response })) return;
-    if (path === '/version') return json(200, { Version: '29.1.4', ApiVersion: '1.52', MinAPIVersion: '1.44', Os: 'linux', Arch: 'amd64' });
-    if (path === '/info') return json(200, { ID: daemonId, OSType: 'linux', Architecture: 'x86_64', CgroupVersion: options.unsupportedDaemon ? '1' : '2',
+    if (path === '/version') return json(200, { Version: '29.1.4', ApiVersion: '1.52', MinAPIVersion: '1.44', Os: 'linux', Arch: daemonArchitecture });
+    if (path === '/info') return json(200, { ID: daemonId, Name: 'route-unit-host', KernelVersion: options.kernelVersion ?? 'unit-kernel',
+      OSType: 'linux', Architecture: desktop ? 'aarch64' : 'x86_64', OperatingSystem: desktop ? 'Docker Desktop' : 'fixture-linux',
+      CgroupVersion: options.unsupportedDaemon ? '1' : '2',
       Driver: 'overlayfs', DriverStatus: [['driver-type', 'io.containerd.snapshotter.v1']],
-      CgroupDriver: 'systemd', SecurityOptions: ['name=apparmor', 'name=seccomp,profile=builtin', 'name=cgroupns'],
+      CgroupDriver: desktop ? 'cgroupfs' : 'systemd',
+      SecurityOptions: [...(desktop ? [] : ['name=apparmor']), 'name=seccomp,profile=builtin', 'name=cgroupns'],
       MemoryLimit: true, SwapLimit: true, PidsLimit: true, CpuCfsPeriod: true, CpuCfsQuota: true });
-    if (path === `/v1.52/images/${imageDigest}/json`) return json(200, { Id: imageDigest, Os: 'linux', Architecture: 'amd64',
+    if (path === `/v1.52/images/${imageDigest}/json`) return json(200, { Id: imageDigest, Os: 'linux', Architecture: imageArchitecture,
       RootFS: { Type: 'layers' }, Config: { Volumes: options.imageVolumes ? { '/image-volume': {} } : null } });
+    if (options.egress && path === `/v1.52/images/${options.egress.imageDigest}/json`) return json(200, {
+      Id: options.egress.imageDigest, Os: 'linux', Architecture: daemonArchitecture, RootFS: { Type: 'layers' },
+      Config: { Volumes: null, User: `${options.egress.user.uid}:${options.egress.user.gid}`,
+        Entrypoint: ['/usr/local/bin/node'], Cmd: ['--version'], WorkingDir: '/',
+        Env: ['PATH=/usr/local/bin:/usr/bin:/bin', 'HOME=/tmp', 'TMPDIR=/tmp'],
+        Labels: { 'ai.agen.sandbox.egress.protocol': 'agenai.sandbox.egress-connect.v1',
+          'ai.agen.sandbox.egress.source': imageDigest,
+          'ai.agen.sandbox.egress.user': `${options.egress.user.uid}:${options.egress.user.gid}` } },
+    });
+    if (options.filesystem && path === `/v1.52/images/${options.filesystem.imageDigest}/json`) return json(200, {
+      Id: options.filesystem.imageDigest, Os: 'linux', Architecture: daemonArchitecture, Config: { User: '65534:65534',
+        Entrypoint: ['/usr/local/bin/agenai-sandbox-files'], Env: ['PATH=/nonexistent'],
+        Labels: { 'ai.agen.sandbox.filesystem.protocol': 'agenai.sandbox.filesystem.v1',
+          'ai.agen.sandbox.filesystem.layout': 'agenai.sandbox.workspace.v1',
+          'ai.agen.sandbox.filesystem.user': '65534:65534', 'ai.agen.sandbox.filesystem.source': imageDigest } },
+    });
     if (path === '/v1.52/volumes/create' && method === 'POST') {
       const parsed = volumeInput(body);
       volumes.set(parsed.Name, { Name: parsed.Name, Driver: 'local', Mountpoint: `/fixture/${parsed.Name}`, CreatedAt: '2026-10-24T00:00:00Z', Labels: parsed.Labels, Options: null, Scope: 'local' });
@@ -90,14 +120,18 @@ export async function engineFixture(options: FixtureOptions = {}) {
     if (path === '/v1.52/networks/create' && method === 'POST') {
       const parsed = networkInput(body); const networkId = id();
       networks.set(networkId, { Id: networkId, Name: parsed.Name, Created: '2026-10-24T00:00:00Z', Driver: 'bridge', Scope: 'local',
-        Internal: false, Attachable: false, Ingress: false, EnableIPv6: false, ConfigOnly: false, IPAM: { Driver: 'default' }, Options: {}, Labels: parsed.Labels });
+        Internal: false, Attachable: false, Ingress: false, EnableIPv4: true, EnableIPv6: false, ConfigOnly: false,
+        IPAM: { Driver: 'default' }, Options: { ...parsed.Options, ...options.networkOptions }, Labels: parsed.Labels, Containers: {} });
       return json(201, { Id: networkId, Warning: options.networkWarning ?? '' });
     }
     if (path === '/v1.52/containers/create' && method === 'POST') {
       const parsed = containerInput(body); const containerId = id();
       const name = url.searchParams.get('name') ?? 'missing';
+      if (parsed.Image === options.filesystem?.imageDigest && !tree.has('/workspace/work')) {
+        tree.set('/workspace/work', { header: { name: 'work', type: 'directory', mode: 0o700 }, bytes: new Uint8Array() });
+      }
       const mounts = parsed.HostConfig.Mounts;
-      if (!Array.isArray(mounts) || typeof mounts[0] !== 'object' || mounts[0] === null) throw new Error('invalid fixture mount');
+      if (!Array.isArray(mounts)) throw new Error('invalid fixture mounts');
       const inspectedMounts = mounts.map((value, index) => {
         const mount = dataRecord(value);
         return { Type: mount.Type, Name: mount.Source,
@@ -109,15 +143,18 @@ export async function engineFixture(options: FixtureOptions = {}) {
       if (options.normalizeUnsupportedOomOnStart) actualHostConfig.OomKillDisable = false;
       if (options.ignoreMemory) actualHostConfig.Memory = 0;
       const { HostConfig: _host, ...configuration } = parsed;
-      containers.set(containerId, { Id: containerId, Name: `/${name}`, Image: imageDigest,
+      containers.set(containerId, { Id: containerId, Name: `/${name}`, Image: parsed.Image,
         Config: { ...configuration, Labels: { 'fixture.image.label': 'inherited', ...parsed.Labels } }, HostConfig: actualHostConfig,
         Mounts: inspectedMounts,
         State: { Running: false, Status: 'created' }, AppArmorProfile: '',
-        NetworkSettings: { Networks: { [String(parsed.HostConfig.NetworkMode)]: { NetworkID: String(parsed.HostConfig.NetworkMode) } }, Ports: {} } });
+        NetworkSettings: { Networks: String(parsed.HostConfig.NetworkMode).startsWith('container:')
+          || parsed.Image === options.filesystem?.imageDigest && Reflect.get(parsed, 'NetworkDisabled') === true ? {}
+          : { [String(parsed.HostConfig.NetworkMode)]: { NetworkID: String(parsed.HostConfig.NetworkMode) } }, Ports: {} } });
       if (name.endsWith('-compute')) {
         computeCreating.resolve(); await options.pauseComputeCreate?.promise;
         if (options.loseComputeReply) { response.destroy(); return; }
       }
+      if (options.loseContainerReplyForRole && name.endsWith(`-${options.loseContainerReplyForRole}`)) { response.destroy(); return; }
       return json(201, { Id: containerId, Warnings: options.containerWarnings?.(name.endsWith('-compute') ? 'compute' : 'export') ?? [] });
     }
     const containerMatch = /^\/v1\.52\/containers\/([^/]+)(?:\/(json|archive|start))?$/u.exec(path);
@@ -127,11 +164,17 @@ export async function engineFixture(options: FixtureOptions = {}) {
       if (!container) return json(404, {});
       if (containerMatch[2] === 'json') return json(200, container);
       if (containerMatch[2] === 'start') {
-        container.State = { Running: true, Status: 'running' }; container.AppArmorProfile = options.runningAppArmorProfile ?? 'docker-default';
+        container.State = { Running: true, Status: 'running' }; container.AppArmorProfile = options.runningAppArmorProfile ?? (desktop ? '' : 'docker-default');
+        const network = networks.get(String(container.HostConfig.NetworkMode));
+        if (network) network.Containers = { ...dataRecord(network.Containers), [container.Id]: { Name: container.Name.slice(1) } };
         if (options.normalizeUnsupportedOomOnStart) container.HostConfig.OomKillDisable = null;
         return json(204, null);
       }
       if (containerMatch[2] === 'archive' && method === 'PUT') {
+        const base = url.searchParams.get('path');
+        if (Array.isArray(container.HostConfig.Mounts) && container.HostConfig.Mounts.some((mount) => dataRecord(mount).Target === '/workspace/work')
+          && base !== '/workspace/work') return json(400, { message: 'container rootfs is marked read-only' });
+        if (base !== '/workspace' && base !== '/workspace/work') throw new Error('Unexpected fixture archive destination');
         uploadedArchives.push(bytes);
         const decoder = extract();
         const iterator = decoder[Symbol.asyncIterator]();
@@ -139,7 +182,7 @@ export async function engineFixture(options: FixtureOptions = {}) {
         for await (const entry of { [Symbol.asyncIterator]: () => iterator }) {
           const content: Uint8Array[] = [];
           for await (const chunk of entry) { if (!(chunk instanceof Uint8Array)) throw new Error('Invalid fixture tar bytes.'); content.push(chunk); }
-          tree.set(`/workspace/${entry.header.name.replace(/\/$/u, '')}`, { header: entry.header, bytes: Buffer.concat(content) });
+          tree.set(`${base}/${entry.header.name.replace(/\/$/u, '')}`, { header: entry.header, bytes: Buffer.concat(content) });
         }
         return json(200, {});
       }
@@ -167,7 +210,14 @@ export async function engineFixture(options: FixtureOptions = {}) {
         await writing;
         return;
       }
-      if (method === 'DELETE') { containers.delete(container.Id); if (container.Name.endsWith('-compute')) computeDeleted.resolve(); return json(204, null); }
+      if (method === 'DELETE') {
+        containers.delete(container.Id);
+        for (const network of networks.values()) {
+          const members = dataRecord(network.Containers);
+          delete members[container.Id]; network.Containers = members;
+        }
+        if (container.Name.endsWith('-compute')) computeDeleted.resolve(); return json(204, null);
+      }
     }
     const volumeMatch = /^\/v1\.52\/volumes\/([^/]+)$/u.exec(path);
     if (volumeMatch) {
@@ -182,16 +232,17 @@ export async function engineFixture(options: FixtureOptions = {}) {
     }
     const networkMatch = /^\/v1\.52\/networks\/([^/]+)$/u.exec(path);
     if (networkMatch) {
-      const network = networks.get(networkMatch[1]);
+      const reference = decodeURIComponent(networkMatch[1]);
+      const network = networks.get(reference) ?? [...networks.values()].find((value) => value.Name === reference);
       if (!network) return json(404, {});
-      if (method === 'DELETE') { networks.delete(networkMatch[1]); return json(204, null); }
+      if (method === 'DELETE') { networks.delete(String(network.Id)); return json(204, null); }
       return json(200, network);
     }
     json(404, {});
   }
   await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(socket, resolve); });
   return { backend: createDockerSandboxBackend({ endpoint: `unix://${socket}`, namespace: 'unit-tests', imageDigest, spillDirectory: directory,
-    profile: options.profile, datasets: options.datasets, user: { uid: 65534, gid: 65534 } }),
+    profile: options.profile, datasets: options.datasets, egress: options.egress, filesystem: options.filesystem, user: { uid: 65534, gid: 65534 } }),
     endpoint: `unix://${socket}`, spillDirectory: directory, server, containers, volumes, networks, effects, requests, computeCreating, computeDeleted, uploadedArchives, tree,
     setDaemonId(value: string) { daemonId = value; },
     async close() { server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); await rm(directory, { recursive: true, force: true }); },
@@ -209,9 +260,13 @@ function volumeInput(value: unknown) {
   return { Name: parsed.Name, Labels: dataRecord(parsed.Labels) };
 }
 
-function networkInput(value: unknown) { return volumeInput(value); }
+function networkInput(value: unknown) {
+  const parsed = dataRecord(value);
+  return { ...volumeInput(value), Options: parsed.Options === undefined ? {} : dataRecord(parsed.Options) };
+}
 
 function containerInput(value: unknown) {
   const parsed = dataRecord(value);
-  return { ...parsed, Labels: dataRecord(parsed.Labels), HostConfig: dataRecord(parsed.HostConfig) };
+  if (typeof parsed.Image !== 'string') throw new Error('invalid fixture image');
+  return { ...parsed, Image: parsed.Image, Labels: dataRecord(parsed.Labels), HostConfig: dataRecord(parsed.HostConfig) };
 }

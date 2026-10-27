@@ -15,6 +15,11 @@ const owner = { uid: 65534, gid: 65533 };
 const options = (change: Partial<TarOptions> = {}): TarOptions => ({ signal: new AbortController().signal, chunkBytes: 65536, limitCode: 'output_limit', ...change });
 type FixtureEntry = Partial<Header> & { readonly name: string; readonly bytes?: Uint8Array };
 
+function entryBody(entry: TarOutputEntry): AsyncIterable<Uint8Array> {
+  if (entry.kind === 'symlink') assert.fail('Payload fixture unexpectedly returned a symbolic link.');
+  return entry.body;
+}
+
 async function collect(source: AsyncIterable<unknown>): Promise<Buffer> {
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -40,9 +45,10 @@ async function tar(entries: readonly FixtureEntry[]): Promise<Uint8Array> {
 }
 
 async function observed(bytes: Uint8Array, limits = options()) {
-  const entries: Array<{ path: string; kind: string; size: number; mode: number; bytes: number[] }> = [];
+  const entries: Array<{ path: string; kind: string; size: number; mode: number; target?: string; bytes: number[] }> = [];
   const summary = await readTar(source(bytes), async (entry) => {
-    entries.push({ path: entry.path, kind: entry.kind, size: entry.size, mode: entry.mode, bytes: [...await collect(entry.body)] });
+    entries.push({ path: entry.path, kind: entry.kind, size: entry.size, mode: entry.mode,
+      ...(entry.kind === 'symlink' ? { target: entry.target } : {}), bytes: entry.kind === 'symlink' ? [] : [...await collect(entry.body)] });
   }, limits);
   return { entries, summary };
 }
@@ -57,6 +63,87 @@ function changedHeader(bytes: Uint8Array, offset: number, mutate: (block: Buffer
 }
 
 const driverFailure = (error: unknown) => error instanceof SandboxOperationError && error.code === 'driver_failure';
+
+async function paxArchive(records: string, following: readonly FixtureEntry[]): Promise<Uint8Array> {
+  return changedHeader(await tar([{ name: 'PaxHeader', bytes: Buffer.from(records) }, ...following]), 0, (block) => { block[156] = 120; });
+}
+
+test('preserves exact raw link text through USTAR and combined maximum-size Unicode PAX fields', async () => {
+  const relative = [...Array<string>(15).fill('a'.repeat(255)), 'a'.repeat(239)].join('/');
+  const path = `workspace/work/${relative}`;
+  const target = Array<string>(16).fill('λ'.repeat(127)).join('/');
+  const rawTarget = '../old//./target/';
+  const encoded = await collect(writeTar([
+    { ...owner, kind: 'symlink', path: 'work/aliases/short', target: rawTarget, size: 0, mode: 0o777 },
+    { ...owner, kind: 'symlink', path: '\uFEFFlink', target: '\uFEFFpayload', size: 0, mode: 0o777 },
+    { ...owner, kind: 'symlink', path, target, size: 0, mode: 0o777 },
+  ], options({ limitCode: 'input_limit', symlinks: 'preserve_internal' })));
+  const decoder = extract();
+  decoder.end(encoded);
+  const independent = [];
+  const iterator = decoder[Symbol.asyncIterator]();
+  for await (const entry of { [Symbol.asyncIterator]: () => iterator }) independent.push({ path: entry.header.name, type: entry.header.type,
+    target: entry.header.linkname, bytes: [...await collect(entry)] });
+  assert.deepEqual(independent, [
+    { path: 'work/aliases/short', type: 'symlink', target: rawTarget, bytes: [] },
+    { path: '\uFEFFlink', type: 'symlink', target: '\uFEFFpayload', bytes: [] },
+    { path, type: 'symlink', target, bytes: [] },
+  ]);
+  const result = await observed(encoded, options({ symlinks: 'preserve_internal' }));
+  assert.deepEqual(result.entries, [
+    { path: 'work/aliases/short', kind: 'symlink', target: rawTarget, size: 0, mode: 0o777, bytes: [] },
+    { path: '\uFEFFlink', kind: 'symlink', target: '\uFEFFpayload', size: 0, mode: 0o777, bytes: [] },
+    { path, kind: 'symlink', target, size: 0, mode: 0o777, bytes: [] },
+  ]);
+  assert.deepEqual(result.summary, { files: 0n, directories: 0n, symlinks: 3n, payloadBytes: 0n, archiveBytes: BigInt(encoded.length) });
+  await assert.rejects(observed(encoded), driverFailure);
+  await assert.rejects(collect(writeTar([{ ...owner, kind: 'symlink', path: 'work/link', target: 'file', size: 0, mode: 0o777 }], options())), SandboxUnsupportedError);
+});
+
+test('local PAX path and linkpath are authoritative over inert USTAR fallback text', async () => {
+  const archive = await paxArchive('22 path=folder/actual\n19 linkpath=target\n',
+    [{ name: 'fallback', type: 'symlink', linkname: 'ignored' }]);
+  const result = await observed(archive, options({ symlinks: 'preserve_internal' }));
+  assert.deepEqual(result.entries, [{ path: 'folder/actual', kind: 'symlink', size: 0, mode: 0o600, target: 'target', bytes: [] }]);
+  assert.equal(result.summary.symlinks, 1n);
+  assert.equal(result.summary.files, 0n);
+});
+
+test('preservation still rejects conflicting, wrong-kind, truncated and payload-bearing link metadata', async () => {
+  const following: FixtureEntry[] = [{ name: 'link', type: 'symlink', linkname: 'file' }];
+  const records = [
+    '21 linkpath=safe.txt\n21 linkpath=safe.txt\n',
+    '21 linkpath=safe.txt',
+    '021 linkpath=safe.txt\n',
+    '13 size=2048\n',
+    '13 linkpath=\n',
+  ];
+  for (const record of records) await assert.rejects(observed(await paxArchive(record, following), options({ symlinks: 'preserve_internal' })), driverFailure);
+  await assert.rejects(observed(await paxArchive('21 linkpath=safe.txt\n', [{ name: 'file', bytes: Uint8Array.of(1) }]), options({ symlinks: 'preserve_internal' })), driverFailure);
+  await assert.rejects(observed(await paxArchive('21 linkpath=safe.txt\n', []), options({ symlinks: 'preserve_internal' })), driverFailure);
+  const oversized = changedHeader(await tar([{ name: 'PaxHeader', bytes: Buffer.alloc(16385, 97) }, ...following]), 0, (block) => { block[156] = 120; });
+  let payloadPulled = false;
+  async function* oversizedSource() {
+    yield oversized.subarray(0, 512);
+    payloadPulled = true;
+    throw new Error('Oversized metadata payload must not be pulled.');
+  }
+  await assert.rejects(readTar(oversizedSource(), async () => assert.fail('Oversized PAX reached an entry consumer.'), options({ symlinks: 'preserve_internal' })), driverFailure);
+  assert.equal(payloadPulled, false);
+  const payload = changedHeader(await tar(following), 0, (block) => { block.write('00000000001', 124, 11, 'ascii'); });
+  await assert.rejects(observed(payload, options({ symlinks: 'preserve_internal' })), driverFailure);
+  const consecutive = changedHeader(await paxArchive('21 linkpath=safe.txt\n',
+    [{ name: 'PaxHeader2', bytes: Buffer.from('21 linkpath=safe.txt\n') }, ...following]), 1024, (block) => { block[156] = 120; });
+  await assert.rejects(observed(consecutive, options({ symlinks: 'preserve_internal' })), driverFailure);
+  const late = changedHeader(await tar([{ name: 'safe', bytes: Uint8Array.of(0, 255) },
+    { name: 'PaxHeader', bytes: Buffer.from('21 linkpath=safe.txt') }, ...following]), 1024, (block) => { block[156] = 120; });
+  const seen: string[] = [];
+  await assert.rejects(readTar(source(late), async (entry) => {
+    seen.push(entry.path);
+    assert.deepEqual(await collect(entryBody(entry)), Buffer.from([0, 255]));
+  }, options({ symlinks: 'preserve_internal' })), driverFailure);
+  assert.deepEqual(seen, ['safe']);
+});
 
 test('decodes more than twenty thousand real entries from an independent streaming archive', async () => {
   const count = 20_017;
@@ -81,7 +168,7 @@ test('decodes more than twenty thousand real entries from an independent streami
   let seen = 0;
   try {
     const summary = await readTar(wire(), async (entry) => {
-      assert.equal(entry.kind, 'file');
+      if (entry.kind !== 'file') assert.fail('Independent fixture contains only regular files.');
       assert.equal(entry.path, `work/file-${seen}.bin`);
       assert.equal(entry.size, 4);
       assert.equal(entry.mode, 0o600);
@@ -98,7 +185,7 @@ test('decodes more than twenty thousand real entries from an independent streami
     }, options());
     await producing;
     assert.equal(seen, count);
-    assert.deepEqual(summary, { files: BigInt(count), directories: 0n,
+    assert.deepEqual(summary, { files: BigInt(count), directories: 0n, symlinks: 0n,
       payloadBytes: BigInt(count * 4), archiveBytes: BigInt(count * 1024 + 1024) });
   } finally {
     archive.destroy();
@@ -123,7 +210,7 @@ test('writer produces independently readable exact binary entries and bounded Un
     { name, type: 'file', uid: 65534, gid: 65533, mode: 0o700, bytes: [0, 255, 127, 10] },
   ]);
   const result = await observed(encoded);
-  assert.deepEqual(result.summary, { files: 1n, directories: 1n, payloadBytes: 4n, archiveBytes: BigInt(encoded.length) });
+  assert.deepEqual(result.summary, { files: 1n, directories: 1n, symlinks: 0n, payloadBytes: 4n, archiveBytes: BigInt(encoded.length) });
   assert.equal(result.entries[1].path, name);
 });
 
@@ -139,7 +226,7 @@ test('reader rejects links, special entries, path traversal and unsupported spar
   for (const type of ['symlink', 'link', 'fifo', 'character-device', 'block-device', 'contiguous-file'] as const) {
     await context.test(type, async () => {
       const archive = await tar([{ name: 'unsafe', type, ...((type === 'symlink' || type === 'link') ? { linkname: '/host/secret' } : {}) }]);
-      await assert.rejects(observed(archive), driverFailure);
+      await assert.rejects(observed(archive, options(type === 'symlink' ? {} : { symlinks: 'preserve_internal' })), driverFailure);
     });
   }
   for (const name of ['/absolute', '../escape', 'a/./dot', 'a//b', 'back\\slash', 'control\u0085name', 'a\nb', `${'a'.repeat(256)}`]) {
@@ -166,7 +253,7 @@ test('late malformed framing rejects after provisional bytes and never reports s
   let provisional: Buffer | undefined;
   let committed = false;
   await assert.rejects((async () => {
-    await readTar(source(late), async (entry) => { provisional = await collect(entry.body); }, options());
+    await readTar(source(late), async (entry) => { provisional = await collect(entryBody(entry)); }, options());
     committed = true;
   })(), driverFailure);
   assert.deepEqual(provisional, Buffer.from([0, 255, 127, 10]));
@@ -198,7 +285,7 @@ test('entry retirement joins actual pulls, preserves falsy callback errors and r
       try { yield raw.subarray(0, 512); pulling.resolve(); await release.promise; yield raw.subarray(512); }
       finally { await turn(); joined = true; }
     }
-    const work = readTar(delayed(), (entry) => { void entry.body[Symbol.asyncIterator]().next(); return Promise.reject(marker); }, options());
+    const work = readTar(delayed(), (entry) => { void entryBody(entry)[Symbol.asyncIterator]().next(); return Promise.reject(marker); }, options());
     void work.finally(() => { settled = true; }).catch(() => {});
     await pulling.promise;
     await turn();
@@ -209,7 +296,7 @@ test('entry retirement joins actual pulls, preserves falsy callback errors and r
   }
   let first: IteratorResult<Uint8Array> | undefined;
   await assert.rejects(readTar(source(raw, 512), async (entry) => {
-    const iterator = entry.body[Symbol.asyncIterator]();
+    const iterator = entryBody(entry)[Symbol.asyncIterator]();
     const entered = iterator.next();
     await assert.rejects(iterator.next(), /concurrent/);
     first = await entered;
@@ -221,6 +308,7 @@ test('empty files and the last bounded payload chunk retire without an EOF-only 
   const raw = await tar([{ name: 'empty' }, { name: 'last', bytes: Buffer.from('abc') }]);
   const captured: unknown[] = [];
   const summary = await readTar(source(raw, 512), async (entry: TarOutputEntry) => {
+    if (entry.kind === 'symlink') assert.fail('Independent fixture contains no symbolic links.');
     captured.push([entry.path, entry.size ? Buffer.from((await entry.body[Symbol.asyncIterator]().next()).value).toString() : '']);
   }, options());
   assert.deepEqual(captured, [['empty', ''], ['last', 'abc']]);

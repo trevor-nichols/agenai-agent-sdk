@@ -5,7 +5,7 @@
 import { dirname } from 'node:path';
 import type { Sandbox } from '../../contracts.js';
 import { SandboxOperationError, SandboxUnsupportedError } from '../../errors.js';
-import { parseTransferOptions } from '../../files/parse.js';
+import { captureSandboxTreeSelection, parseTransferOptions } from '../../files/parse.js';
 import type { SandboxTreeSelection, SandboxTransferOptions, SandboxTransferSummary } from '../../files/types.js';
 import { canonicalHostPath, verifyHostDirectory } from '../hostPath.js';
 import { DirectoryStage } from './stage.js';
@@ -17,17 +17,19 @@ import type { SandboxDirectoryExportResult } from './types.js';
 export async function exportSandboxDirectory(sandbox: Sandbox, selection: SandboxTreeSelection,
   destination: string, options?: SandboxTransferOptions): Promise<SandboxDirectoryExportResult> {
   const path = canonicalHostPath(destination);
+  const capturedSelection = captureSandboxTreeSelection(selection);
   const parsed = parseTransferOptions(options);
   const selected = capturedTransferOptions(parsed);
   parsed.signal?.throwIfAborted();
   if (parsed.deadlineAt !== undefined && parsed.deadlineAt <= Date.now()) throw new SandboxOperationError('deadline_exceeded', 'Directory export deadline elapsed before entry.');
   if (process.platform === 'win32') throw new SandboxUnsupportedError('Directory publication requires the qualified POSIX filesystem profile.');
   const parent = await verifyHostDirectory(dirname(path), parsed.signal);
-  const stage = new DirectoryStage(path, parent, parsed.signal);
+  const stage = new DirectoryStage(path, parent, { signal: parsed.signal, symlinks: parsed.symlinks,
+    root: capturedSelection.kind === 'subtree' ? capturedSelection.path : undefined });
   let outcome: Readonly<{ kind: 'returned'; summary: SandboxTransferSummary }> | Readonly<{ kind: 'threw'; error: unknown }>;
   try {
     await stage.initialize();
-    const summary = await sandbox.exportTree(selection, (entry, input) => stage.consume(entry, input), selected);
+    const summary = await sandbox.exportTree(capturedSelection, (entry, input) => stage.consume(entry, input), selected);
     await stage.publish();
     outcome = { kind: 'returned', summary };
   } catch (error) {

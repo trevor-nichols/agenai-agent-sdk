@@ -6,7 +6,7 @@ import { digest } from '../recovery/identity.js';
 import type { ContainerInspection } from './inspect.js';
 
 const CONFIGURATION_FIELDS = [
-  'Image', 'User', 'WorkingDir', 'Entrypoint', 'Cmd', 'Env', 'Labels', 'Tty', 'OpenStdin',
+  'Image', 'User', 'WorkingDir', 'Entrypoint', 'Cmd', 'Env', 'Labels', 'Tty', 'OpenStdin', 'StdinOnce',
   'AttachStdin', 'AttachStdout', 'AttachStderr', 'NetworkDisabled', 'Healthcheck', 'Volumes', 'ExposedPorts', 'StopSignal', 'StopTimeout',
 ] as const;
 

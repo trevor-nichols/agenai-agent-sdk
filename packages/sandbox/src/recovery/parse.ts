@@ -13,7 +13,7 @@ import type { SandboxRecoveryPolicy, SandboxRecoveryRecord } from './types.js';
 
 const digestSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/u);
 const resourceSchema = z.strictObject({
-  role: z.enum(['compute', 'storage', 'export', 'network']),
+  role: z.enum(['compute', 'storage', 'export', 'network', 'egress_socket', 'egress_broker', 'egress_relay', 'filesystem', 'route_observer']),
   name: identitySchema,
   identity: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('planned') }),
@@ -22,7 +22,7 @@ const resourceSchema = z.strictObject({
   ]),
 });
 const recoverySchema = z.strictObject({
-  format: z.literal('agenai.sandbox-recovery.v2'),
+  format: z.literal('agenai.sandbox-recovery.v3'),
   backendId: identitySchema,
   backendRevision: identitySchema,
   namespace: namespaceSchema,
@@ -36,7 +36,7 @@ const recoverySchema = z.strictObject({
     z.strictObject({ kind: z.literal('unverified') }),
     z.strictObject({ kind: z.literal('verified'), backendIdentity: identitySchema }),
   ]),
-  resources: z.array(resourceSchema).min(1).max(4),
+  resources: z.array(resourceSchema).min(1).max(9),
 }).superRefine((record, context) => {
   if (new Set(record.resources.map((resource) => resource.role)).size !== record.resources.length) context.addIssue({ code: 'custom', path: ['resources'], message: 'Recovery resource roles must be unique' });
   if (new Set(record.resources.map((resource) => resource.name)).size !== record.resources.length) context.addIssue({ code: 'custom', path: ['resources'], message: 'Recovery resource names must be unique' });

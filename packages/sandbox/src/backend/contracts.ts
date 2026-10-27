@@ -3,13 +3,16 @@
 // ------------------------------------------------------------------------------------------------
 
 import type { OperationOptions } from '../contracts.js';
-import type { SandboxGuestPath, SandboxInputTreeEntry, SandboxInputTreeSelection, SandboxExportConsumer, SandboxTransferBudget, SandboxTransferSummary } from '../files/types.js';
+import type { SandboxOperationError } from '../errors.js';
+import type { SandboxDriverFiles } from '../live/driver.js';
+import type { SandboxGuestPath, SandboxInputTreeEntry, SandboxInputTreeSelection, SandboxExportConsumer, SandboxSymlinkPolicy, SandboxTransferBudget, SandboxTransferSummary } from '../files/types.js';
 import type { SandboxEffectivePolicy, SandboxId, SandboxProcessId, SandboxRequest, SandboxSupport, SandboxTransferBuffers } from '../policy/types.js';
 import type { SandboxProcessSpec, SandboxProcessStreams } from '../process/types.js';
 import type { SandboxReconciliation, SandboxRecoveryRecord } from '../recovery/types.js';
 import type { SandboxDriverSpillStore } from './spill.js';
 
 export interface SandboxDriverTransferOptions {
+  readonly symlinks: SandboxSymlinkPolicy;
   readonly signal: AbortSignal;
   readonly quotas: SandboxTransferBudget;
   readonly buffers: SandboxTransferBuffers;
@@ -17,6 +20,8 @@ export interface SandboxDriverTransferOptions {
 
 export interface SandboxDriverStartOptions extends OperationOptions {
   checkpoint(record: SandboxRecoveryRecord): Promise<void>;
+  /** Report infrastructure loss synchronously; the owner closes admission and enters owned stop. */
+  onInfrastructureFailure(error: SandboxOperationError): void;
 }
 
 export interface SandboxDriverProcessReservation {
@@ -27,6 +32,7 @@ export interface SandboxDriverProcessReservation {
 export interface SandboxDriverReady {
   readonly effective: SandboxEffectivePolicy;
   readonly workspace: SandboxGuestPath;
+  readonly files?: SandboxDriverFiles;
   openSpill(options?: OperationOptions): Promise<SandboxDriverSpillStore>;
   importTree(entries: AsyncIterable<SandboxInputTreeEntry>, options: SandboxDriverTransferOptions): Promise<SandboxTransferSummary>;
   reserveProcess(spec: SandboxProcessSpec): SandboxDriverProcessReservation;

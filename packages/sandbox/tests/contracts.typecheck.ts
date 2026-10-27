@@ -3,7 +3,8 @@
 // ------------------------------------------------------------------------------------------------
 
 import { parseSandboxId, parseSandboxNamespace, parseSandboxRelativePath } from '../src/index.js';
-import type { Sandbox, SandboxId, SandboxInputTreeSelection, SandboxNamespace, SandboxProcessExit, SandboxRelativePath, SandboxWorkspaceDiskQuota } from '../src/index.js';
+import type { Sandbox, SandboxFiles, SandboxFileWriteResult, SandboxId, SandboxInputTreeSelection, SandboxNamespace, SandboxNetworkPolicy, SandboxProcessExit, SandboxRelativePath, SandboxTreeEntry, SandboxTransferSummary, SandboxWorkspaceDiskQuota } from '../src/index.js';
+import type { SandboxDriverStartOptions } from '../src/backend/index.js';
 
 const namespace: SandboxNamespace = parseSandboxNamespace('caller-1');
 const sandbox: SandboxId = parseSandboxId('sandbox-1');
@@ -38,6 +39,18 @@ void requiredQuota;
 void contradictoryQuota;
 void ambiguousQuota;
 
+const restricted: SandboxNetworkPolicy = { kind: 'restricted_https', destinations: [{ hostname: 'api.example.com', port: 443 }] };
+// @ts-expect-error Restricted HTTPS must carry its complete explicit destination catalog.
+const emptyAuthority: SandboxNetworkPolicy = { kind: 'restricted_https' };
+// @ts-expect-error Baseline outbound mode cannot carry an unenforced destination restriction.
+const ambiguousAuthority: SandboxNetworkPolicy = { kind: 'outbound', destinations: [{ hostname: 'api.example.com', port: 443 }] };
+// @ts-expect-error Driver opening requires the neutral infrastructure-failure owner callback.
+const missingInfrastructureOwner: SandboxDriverStartOptions = { checkpoint: async () => {} };
+void restricted;
+void emptyAuthority;
+void ambiguousAuthority;
+void missingInfrastructureOwner;
+
 function acceptInlinePublicInputs(sandboxHandle: Sandbox): void {
   void sandboxHandle.importTree([{ kind: 'file', path: 'src/main.ts', byteLength: 1, executable: false,
     open: () => [Uint8Array.of(65)] }], { quotas: { maxTotalBytes: 20n * 1024n ** 3n } });
@@ -60,3 +73,39 @@ function acceptInlinePublicInputs(sandboxHandle: Sandbox): void {
   void sandboxHandle.importFiles([]);
 }
 void acceptInlinePublicInputs;
+
+function acceptOnlyGrantedFiles(files: SandboxFiles): void {
+  // @ts-expect-error A disabled capability cannot be dispatched before narrowing its grant.
+  void files.stat('.');
+  if (files.kind === 'disabled') return;
+  void files.readFile('result.bin', async ({ entry, chunks }) => {
+    const kind: 'file' = entry.kind;
+    void kind;
+    for await (const chunk of chunks) void chunk;
+  });
+  if (files.kind === 'read_only') {
+    // @ts-expect-error Read-only handles do not expose write authority.
+    void files.writeFile('result.bin', [], { mode: 'replace' });
+  } else {
+    void files.writeFile('result.bin', [Uint8Array.of(1)], { mode: 'create' });
+    // @ts-expect-error A write cannot silently select replacement or exclusive-create semantics.
+    void files.writeFile('result.bin', [Uint8Array.of(1)], {});
+    // @ts-expect-error Live writes do not grant chmod or permission mutation.
+    void files.writeFile('result.bin', [], { mode: 'replace', permissions: 0o777 });
+  }
+}
+void acceptOnlyGrantedFiles;
+// @ts-expect-error A completed publication must carry confirmed bytes and permissions.
+const unconfirmedComplete: SandboxFileWriteResult = { kind: 'completed', effect: 'published', bytes: null };
+// @ts-expect-error Rejection proves no publication and cannot carry unknown effects.
+const contradictoryWrite: SandboxFileWriteResult = { kind: 'rejected', reason: 'already_exists', effect: 'unknown', bytes: 1n };
+void unconfirmedComplete;
+void contradictoryWrite;
+const preservedLink: SandboxTreeEntry = { kind: 'symlink', path: 'alias', target: '../data.bin' };
+// @ts-expect-error A symbolic link cannot carry a regular file payload.
+const linkBody: SandboxTreeEntry = { kind: 'symlink', path: 'alias', target: 'data.bin', open: () => [] };
+// @ts-expect-error Regular-file counts do not silently include symbolic links.
+const missingLinkCount: SandboxTransferSummary = { files: 1n, directories: 0n, payloadBytes: 1n, archiveBytes: 512n };
+void preservedLink;
+void linkBody;
+void missingLinkCount;

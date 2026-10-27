@@ -99,8 +99,13 @@ export async function streamEngine<Value>(socketPath: string, method: 'GET' | 'H
     clearTimeout(headerTimer);
     options.signal?.removeEventListener('abort', onAbort);
     const outcome = writerOutcome[0];
-    if (outcome.status === 'rejected' && failure && outcome.reason !== failure.error && outcome.reason !== retirementError) {
-      failure = { error: new AggregateError([failure.error, outcome.reason], 'Engine transfer and request producer cleanup both failed.'), origin: failure.origin };
+    if (outcome.status === 'rejected' && failure) {
+      if (failure.origin === 'request' && failure.error instanceof DockerEngineTransportError
+        && failure.error.code === 'aborted' && Object.is(failure.error.cause, outcome.reason)) {
+        failure = { error: outcome.reason, origin: 'writer' };
+      } else if (outcome.reason !== failure.error && outcome.reason !== retirementError) {
+        failure = { error: new AggregateError([failure.error, outcome.reason], 'Engine transfer and request producer cleanup both failed.'), origin: failure.origin };
+      }
     }
   }
   if (failure) throw failure.error;

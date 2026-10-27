@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                upgrade.test.ts - Engine exec-start duplex ownership - Local Unix socket peers
+//                upgrade.test.ts - Engine attach/exec duplex ownership - Local Unix socket peers
 // ------------------------------------------------------------------------------------------------
 
 import assert from 'node:assert/strict';
@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { setImmediate as nextTurn, setTimeout as delay } from 'node:timers/promises';
 import { test, type TestContext } from 'node:test';
 import { DockerEngine, DockerEngineTransportError, type DockerEngineTransportErrorCode } from '../src/engine/client.js';
+import { DockerApi } from '../src/resources/api.js';
 
 interface PeerRequest {
   readonly requestLine: string;
@@ -119,6 +120,44 @@ test('exec upgrade copies the explicit JSON request and preserves split/coalesce
       await peerClosed.promise;
       assert.deepEqual([...await receivedInput.promise], [0, 255, 65, 10]);
       assert.deepEqual([...Buffer.concat(output)], [0, 255, 10, 13, 254, 0, 128]);
+    });
+  }
+});
+
+test('API upgrades isolate HTTP request bodies from attached stdin', { timeout: 3000 }, async (t) => {
+  for (const kind of ['attach', 'exec'] as const) {
+    await t.test(kind === 'attach' ? 'bodyless attach' : 'JSON exec-start', async (t) => {
+      const observed = Promise.withResolvers<PeerRequest>();
+      const receivedInput = Promise.withResolvers<Buffer>();
+      const client = await peer(t, (request, socket) => {
+        observed.resolve(request);
+        // Attach hands raw connection bytes to stdin without consuming an HTTP body.
+        const input: Buffer[] = kind === 'attach' ? [request.body] : [];
+        socket.on('data', (chunk: Buffer) => input.push(Buffer.from(chunk)));
+        socket.once('end', () => {
+          receivedInput.resolve(Buffer.concat(input));
+          socket.end(Buffer.from([0xff, 0x00, 0x80]));
+        });
+        socket.write(responseHeaders);
+      });
+      const api = new DockerApi(client, 1000);
+      const path = kind === 'attach' ? '/v1.52/containers/owned-helper/attach?stream=true&stdin=true&stdout=true&stderr=true' : startPath;
+      const attached = await api.upgrade(path, kind === 'attach' ? undefined : { Detach: false, Tty: false });
+      const request = await observed.promise;
+      assert.deepEqual({ requestLine: request.requestLine, contentType: request.headers.get('content-type'),
+        contentLength: request.headers.get('content-length'), transferEncoding: request.headers.get('transfer-encoding'),
+        body: request.body.toString() }, kind === 'attach' ? {
+        requestLine: `POST ${path} HTTP/1.1`, contentType: 'text/plain', contentLength: '0', transferEncoding: undefined, body: '',
+      } : {
+        requestLine: `POST ${startPath} HTTP/1.1`, contentType: 'application/json', contentLength: '28', transferEncoding: undefined,
+        body: '{"Detach":false,"Tty":false}',
+      });
+      attached.stream.end(Buffer.from([0x00, 0x00, 0x00, 0x0a, 0x7b, 0x7d]));
+      const output: Buffer[] = [Buffer.from(attached.head)];
+      for await (const chunk of attached.stream) output.push(Buffer.from(chunk));
+      await attached.closed;
+      assert.deepEqual([...await receivedInput.promise], [0x00, 0x00, 0x00, 0x0a, 0x7b, 0x7d]);
+      assert.deepEqual([...Buffer.concat(output)], [0xff, 0x00, 0x80]);
     });
   }
 });
@@ -271,7 +310,7 @@ test('peer disconnection before a handshake fails without replay', { timeout: 20
   assert.deepEqual(requests, ['POST /v1.52/exec/owned-exec/start HTTP/1.1']);
 });
 
-test('upgrade admission requires bounded local targets and explicit JSON bytes before dispatch', { timeout: 2000 }, async (t) => {
+test('upgrade admission requires bounded local targets and consistent empty or JSON bodies before dispatch', { timeout: 2000 }, async (t) => {
   const requests: string[] = [];
   const client = await peer(t, (request, socket) => {
     requests.push(request.requestLine);
@@ -281,7 +320,8 @@ test('upgrade admission requires bounded local targets and explicit JSON bytes b
     await assert.rejects(client.upgrade(path, startOptions), TypeError);
   }
   for (const options of [
-    { timeoutMs: 1000, maxResponseBytes: 10 },
+    { timeoutMs: 1000, maxResponseBytes: 10, contentType: 'application/json' as const },
+    { timeoutMs: 1000, maxResponseBytes: 10, body: startBody },
     { ...startOptions, contentType: 'application/x-tar' as const },
     { ...startOptions, timeoutMs: 0 },
     { ...startOptions, maxResponseBytes: -1 },

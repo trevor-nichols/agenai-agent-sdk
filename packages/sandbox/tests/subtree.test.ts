@@ -15,20 +15,21 @@ const recovery = { kind: 'in_process' as const };
 const root = 'reports/selected';
 const directory: SandboxExportEntry = { kind: 'directory', path: root };
 
-function file(path: string, bytes = Uint8Array.of(23)): SandboxExportEntry {
+function file(path: string, bytes = Uint8Array.of(23)): Extract<SandboxExportEntry, { kind: 'file' }> {
   return { kind: 'file', path, byteLength: bytes.byteLength, executable: false,
     bytes: { async *[Symbol.asyncIterator]() { yield bytes; } } };
 }
 
 function emit(entries: readonly SandboxExportEntry[]): SandboxDriverReady['exportTree'] {
   return async (_selection, consume, options) => {
-    let files = 0n; let directories = 0n; let payloadBytes = 0n;
+    let files = 0n; let directories = 0n; let symlinks = 0n; let payloadBytes = 0n;
     for (const entry of entries) {
       await consume(entry, { signal: options.signal });
       if (entry.kind === 'directory') directories += 1n;
+      else if (entry.kind === 'symlink') symlinks += 1n;
       else { files += 1n; payloadBytes += BigInt(entry.byteLength); }
     }
-    return { files, directories, payloadBytes, archiveBytes: payloadBytes };
+    return { files, directories, symlinks, payloadBytes, archiveBytes: payloadBytes };
   };
 }
 
@@ -49,13 +50,14 @@ test('subtree selection preserves the workspace-relative root and all selected d
   await sandbox.stop();
   const observed: Array<{ kind: string; path: string; bytes?: number[] }> = [];
   const summary = await sandbox.exportTree({ kind: 'subtree', path: root }, async (entry) => {
+    if (entry.kind === 'symlink') assert.fail('Default subtree export cannot expose links.');
     observed.push(entry.kind === 'directory' ? entry : { kind: entry.kind, path: entry.path, bytes: [...await entryBytes(entry)] });
   }, { quotas: { maxPaths: 1, maxFiles: 1, maxTotalBytes: 3 } });
   assert.deepEqual(observed.sort((left, right) => left.path.localeCompare(right.path)), [
     { kind: 'directory', path: root }, { kind: 'directory', path: `${root}/empty` },
     { kind: 'directory', path: `${root}/nested` }, { kind: 'file', path: `${root}/nested/result.bin`, bytes: [0, 255, 7] },
   ]);
-  assert.deepEqual(summary, { files: 1n, directories: 3n, payloadBytes: 3n, archiveBytes: 3n });
+  assert.deepEqual(summary, { files: 1n, directories: 3n, symlinks: 0n, payloadBytes: 3n, archiveBytes: 3n });
   assert.equal(physical.spillFiles, 0);
 });
 
@@ -73,7 +75,7 @@ test('an empty subtree requires its root directory and counts one selected path 
   const paths: string[] = [];
   const summary = await sandbox.exportTree({ kind: 'subtree', path: root }, async (entry) => { paths.push(entry.path); }, { quotas: { maxPaths: 1 } });
   assert.deepEqual(paths, [root]);
-  assert.deepEqual(summary, { files: 0n, directories: 1n, payloadBytes: 0n, archiveBytes: 0n });
+  assert.deepEqual(summary, { files: 0n, directories: 1n, symlinks: 0n, payloadBytes: 0n, archiveBytes: 0n });
   assert.equal(dispatches, 1);
 });
 
@@ -94,7 +96,7 @@ test('invalid subtree roots and mixed selector fields fail before export acquisi
   }
   assert.deepEqual([dispatches, getters, physical.spillFiles], [0, 0, 0]);
   assert.deepEqual(await sandbox.exportTree({ kind: 'subtree', path: root }, async () => {}),
-    { files: 0n, directories: 1n, payloadBytes: 0n, archiveBytes: 0n });
+    { files: 0n, directories: 1n, symlinks: 0n, payloadBytes: 0n, archiveBytes: 0n });
   assert.equal(dispatches, 1);
 });
 
@@ -149,7 +151,7 @@ test('descendants before their root remain provisional and successful callback s
   assert.deepEqual(await sandbox.exportTree({ kind: 'subtree', path: root }, async (entry) => {
     paths.push(entry.path);
     if (entry.kind === 'file') assert.deepEqual(await entryBytes(entry), Uint8Array.of(23));
-  }), { files: 1n, directories: 1n, payloadBytes: 1n, archiveBytes: 1n });
+  }), { files: 1n, directories: 1n, symlinks: 0n, payloadBytes: 1n, archiveBytes: 1n });
   assert.deepEqual(paths.sort(), [root, `${root}/result`]);
   assert.ok(retained);
   const callback = retained;

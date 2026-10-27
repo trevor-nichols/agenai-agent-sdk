@@ -22,7 +22,8 @@ export class DockerApi {
 
   async upgrade(path: string, body: unknown, signal?: AbortSignal) {
     try {
-      return await this.engine.upgrade(path, { body: Buffer.from(JSON.stringify(body)), contentType: 'application/json',
+      return await this.engine.upgrade(path, { ...(body === undefined ? {} : {
+        body: Buffer.from(JSON.stringify(body)), contentType: 'application/json' as const }),
         timeoutMs: this.timeoutMs, maxResponseBytes: 1024 * 1024, signal });
     } catch (cause) { throw transportFailure(cause); }
   }

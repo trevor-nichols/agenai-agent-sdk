@@ -6,16 +6,15 @@ import assert from "node:assert/strict";
 import { chmod, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import { PassThrough, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import {
-  fileFromBytes, parseSandboxGuestPath, parseSandboxId, parseSandboxProcessId, parseSandboxRecoveryRecord,
+  fileFromBytes,
   SandboxCleanupError, SandboxOperationError, SandboxRunError, SandboxStateError, SandboxUnsupportedError, SandboxValidationError, withSandbox,
-  type SandboxExecutionPolicy, type SandboxProcessExit, type SandboxRecoveryRecord, type SandboxRequestInput, type SandboxTransferSummary,
+  type SandboxExecutionPolicy, type SandboxRecoveryRecord, type SandboxRequestInput, type SandboxTransferSummary,
 } from "@agen-ai/sandbox";
-import { createSandboxBackend, type SandboxBackendDriver } from "@agen-ai/sandbox/backend";
-import { createSandboxSpillStore, exportSandboxDirectory } from "@agen-ai/sandbox/node";
+import { exportSandboxDirectory } from "@agen-ai/sandbox/node";
 import { collectSandboxFiles } from "./collect.js";
+import { controlledBackend } from "./controlled.js";
 import { exportSandboxSubtree, roundTripSandboxDirectory } from "./filesystem.js";
 import { isolatedSandboxRequest } from "./policy.js";
 
@@ -26,135 +25,18 @@ for (const name of ["@agen-ai/provider-acp", "@agen-ai/acp-transport", "@agen-ai
   assert.throws(() => require.resolve(name), { code: "MODULE_NOT_FOUND" }, `${name} must be absent from the neutral installation`);
 }
 
-function controlledBackend(configuration: { failFirstDestroy?: boolean; lateExportFailure?: Error; outsideSubtreePath?: string } = {}) {
-  const resources = new Set<string>();
-  const executionPolicies: SandboxExecutionPolicy[] = [];
-  const files = new Map<string, Readonly<{ bytes: Uint8Array; executable: boolean }>>();
-  const directoryPaths = new Set<string>();
-  const stdout = new PassThrough();
-  const stderr = new PassThrough();
-  const exit = Promise.withResolvers<SandboxProcessExit>();
-  let destroys = 0;
-  let reserveCalls = 0;
-  let reconcileCalls = 0;
-  let outsideBodyPulled = false;
-  const digest = `sha256:${"1".repeat(64)}`;
-  let record = parseSandboxRecoveryRecord({ format: "agenai.sandbox-recovery.v2", backendId: "packed-controlled", backendRevision: "1",
-    namespace: "packed-controlled", operationId: "packed-operation", sandboxId: "packed-sandbox", imageDigest: digest, policyDigest: digest, configurationDigest: digest,
-    phase: "reserved", authority: { kind: "unverified" }, resources: [
-      { role: "compute", name: "packed-compute", identity: { kind: "planned" } },
-      { role: "storage", name: "packed-storage", identity: { kind: "planned" } },
-    ],
-  });
-  const driver: SandboxBackendDriver = {
-    support: { backendId: "packed-controlled", backendRevision: "1", networkModes: ["isolated"], workspaceDiskQuota: false,
-      networkAllowlist: false, independentProcessTermination: false },
-    reserve(request) {
-      reserveCalls += 1;
-      executionPolicies.push(request.policy.execution);
-      return {
-        id: parseSandboxId("packed-sandbox"), get recoveryRecord() { return record; },
-        async start({ checkpoint }) {
-          record = parseSandboxRecoveryRecord({ ...record, phase: "starting", authority: { kind: "verified", backendIdentity: "packed-backend" } });
-          await checkpoint(record);
-          record = parseSandboxRecoveryRecord({ ...record, resources: record.resources.map((resource) => ({ ...resource, identity: { kind: "creating" } })) });
-          await checkpoint(record);
-          resources.add("compute"); resources.add("storage");
-          record = parseSandboxRecoveryRecord({ ...record, phase: "running", resources: record.resources.map((resource) => ({
-            ...resource, identity: { kind: "identified", id: `${resource.role}-exact`, fingerprint: digest },
-          })) });
-          await checkpoint(record);
-          return {
-            effective: { backendIdentity: "packed-backend", isolation: "container", resources: request.policy.resources,
-              temporaryStorage: request.policy.temporaryStorage, network: request.policy.network,
-              nonRoot: true, readOnlyRoot: true, workspaceDiskQuota: { kind: "not_requested" } },
-            workspace: parseSandboxGuestPath("/guest/workspace"),
-            openSpill: (options) => createSandboxSpillStore({ directory: spillDirectory, ...options }),
-            async importTree(input, options) {
-              let count = 0n;
-              let directories = 0n;
-              let payloadBytes = 0n;
-              for await (const entry of input) {
-                if (entry.kind === "directory") {
-                  assert(directoryPaths.size < 8, "The small controlled fixture has an explicit directory budget.");
-                  directoryPaths.add(entry.path); directories += 1n; continue;
-                }
-                assert(files.size < 8 && entry.byteLength <= 64 && payloadBytes + BigInt(entry.byteLength) <= 128n,
-                  "The small controlled fixture has explicit file and payload budgets.");
-                const bytes = new Uint8Array(entry.byteLength);
-                let offset = 0;
-                for await (const chunk of entry.open({ signal: options.signal })) {
-                  bytes.set(chunk, offset); offset += chunk.byteLength;
-                }
-                assert.equal(offset, entry.byteLength);
-                files.set(entry.path, { bytes, executable: entry.executable });
-                count += 1n;
-                payloadBytes += BigInt(bytes.byteLength);
-              }
-              return { files: count, directories, payloadBytes, archiveBytes: 0n };
-            },
-            reserveProcess() {
-              return { id: parseSandboxProcessId("packed-process"), async start() {
-                const stdin = new Writable({
-                  write(chunk: Buffer, _encoding, callback) { stdout.write(chunk, callback); },
-                  final(callback) { stdout.end(); stderr.end(); exit.resolve({ kind: "exited", code: 0 }); callback(); },
-                });
-                return { stdin, stdout, stderr, exit: exit.promise };
-              } };
-            },
-            async exportTree(selection, consume, options) {
-              let count = 0n;
-              let directories = 0n;
-              let payloadBytes = 0n;
-              const selected = (path: string) => selection.kind !== "subtree" || path === selection.path || path.startsWith(`${selection.path}/`);
-              if (selection.kind !== "files") for (const path of directoryPaths) {
-                if (!selected(path)) continue;
-                await consume({ kind: "directory", path }, { signal: options.signal });
-                directories += 1n;
-              }
-              const paths = selection.kind === "files" ? selection.paths : files.keys();
-              for await (const path of paths) {
-                if (!selected(path)) continue;
-                const file = files.get(path);
-                assert(file, "The controlled selected file must exist.");
-                const { bytes, executable } = file;
-                await consume({ kind: "file", path, byteLength: bytes.byteLength, executable,
-                  bytes: { async *[Symbol.asyncIterator]() { yield bytes; } } }, { signal: options.signal });
-                count += 1n;
-                payloadBytes += BigInt(bytes.byteLength);
-              }
-              if (selection.kind === "subtree" && configuration.outsideSubtreePath !== undefined) {
-                await consume({ kind: "file", path: configuration.outsideSubtreePath, byteLength: 1, executable: false,
-                  bytes: { async *[Symbol.asyncIterator]() { outsideBodyPulled = true; yield Uint8Array.from([73]); } } }, { signal: options.signal });
-                count += 1n;
-                payloadBytes += 1n;
-              }
-              if (configuration.lateExportFailure) throw configuration.lateExportFailure;
-              return { files: count, directories, payloadBytes, archiveBytes: 0n };
-            },
-          };
-        },
-        async stop() { resources.delete("compute"); stdout.destroy(); stderr.destroy(); exit.resolve({ kind: "unavailable", reason: "sandbox_stopped" }); },
-        async destroy() {
-          destroys += 1;
-          if (configuration.failFirstDestroy && destroys === 1) throw new Error("controlled storage cleanup failure");
-          resources.delete("storage"); files.clear(); directoryPaths.clear();
-        },
-      };
-    },
-    async reconcile(retained) { reconcileCalls += 1; return { kind: "absent", record: retained }; },
-  };
-  return { backend: createSandboxBackend(driver), resources, executionPolicies,
-    get reserveCalls() { return reserveCalls; }, get reconcileCalls() { return reconcileCalls; },
-    get outsideBodyPulled() { return outsideBodyPulled; } };
-}
-
 const { execution: _smokeExecution, ...policy } = isolatedSandboxRequest().policy;
 const omittedExecution: SandboxRequestInput = { policy };
 const explicitUntilStopped: SandboxRequestInput = { policy: { ...policy, execution: { kind: "until_stopped" } } };
-const admission = controlledBackend();
+const admission = controlledBackend(spillDirectory);
 assert.throws(() => admission.backend.reserve({ policy: { ...policy,
   workspaceDiskQuota: { kind: "required", bytes: 1024, accounting: "allocated_blocks" } } }, { kind: "in_process" }), SandboxUnsupportedError);
+for (const kind of ["read_only", "read_write"] as const) {
+  assert.throws(() => admission.backend.reserve({ policy: { ...policy, files: { kind } } }, { kind: "in_process" }), SandboxUnsupportedError);
+}
+assert.throws(() => admission.backend.reserve({ policy: { ...policy,
+  network: { kind: "restricted_https", destinations: [{ hostname: "api.example.com", port: 443 }] } } },
+{ kind: "in_process" }), SandboxUnsupportedError);
 assert.equal(admission.reserveCalls, 0);
 assert.deepEqual([...admission.resources], []);
 const admissionOwner = admission.backend.reserve(omittedExecution, { kind: "in_process" });
@@ -170,12 +52,14 @@ try {
 assert.deepEqual([...admission.resources], []);
 const normalizedExecution: SandboxExecutionPolicy[] = [];
 for (const request of [omittedExecution, explicitUntilStopped]) {
-  const fixture = controlledBackend();
+  const fixture = controlledBackend(spillDirectory);
   const checkpoints: SandboxRecoveryRecord[] = [];
   const owner = fixture.backend.reserve(request, { kind: "persisted", async persist(record) { checkpoints.push(record); } });
   assert.deepEqual([...fixture.resources], []);
   try {
     const sandbox = await owner.start();
+    assert.deepEqual(sandbox.files, { kind: "disabled" });
+    assert.deepEqual(sandbox.effective.files, { kind: "disabled" });
     await sandbox.importTree([fileFromBytes("input.bin", Uint8Array.from([0, 255, 10]))], {
       quotas: { maxFiles: 1, maxFileBytes: 3, maxTotalBytes: 3 },
     });
@@ -213,7 +97,7 @@ await writeFile(join(sourceRoot, "binary.bin"), binary, { mode: 0o600 });
 await writeFile(join(sourceRoot, "empty.bin"), new Uint8Array(), { mode: 0o600 });
 await writeFile(join(sourceRoot, "scripts", "run.sh"), executable, { mode: 0o700 });
 await chmod(join(sourceRoot, "scripts", "run.sh"), 0o700);
-const filesystemFixture = controlledBackend();
+const filesystemFixture = controlledBackend(spillDirectory);
 const filesystemOwner = filesystemFixture.backend.reserve(omittedExecution, { kind: "in_process" });
 const transferOptions = { quotas: { maxFiles: 3, maxFileBytes: 64, maxTotalBytes: 128 } };
 let filesystemSummary: SandboxTransferSummary | undefined;
@@ -226,11 +110,12 @@ try {
   for (const summary of [result.imported, result.exported]) {
     assert.equal(summary.files, 3n);
     assert.equal(summary.directories, 3n);
+    assert.equal(summary.symlinks, 0n);
     assert.equal(summary.payloadBytes, 22n);
   }
   assert.deepEqual((await readdir(result.directory)).sort(), ["binary.bin", "empty.bin", "nested", "scripts"]);
-  assert.deepEqual(await readdir(join(result.directory, "nested")), ["empty-dir"]);
-  assert.deepEqual(await readdir(join(result.directory, "scripts")), ["run.sh"]);
+  assert.deepEqual((await readdir(join(result.directory, "nested"))).sort(), ["empty-dir"]);
+  assert.deepEqual((await readdir(join(result.directory, "scripts"))).sort(), ["run.sh"]);
   assert.deepEqual(await readFile(join(result.directory, "binary.bin")), Buffer.from([0, 255, 17, 128, 10]));
   assert.equal((await stat(join(result.directory, "empty.bin"))).size, 0);
   assert.deepEqual(await readFile(join(result.directory, "scripts", "run.sh")), executable);
@@ -250,7 +135,7 @@ assert(filesystemSummary);
 
 const lateFailure = new Error("controlled failure after all export callbacks");
 const unpublished = join(filesystemRoot, "unpublished");
-const lateFixture = controlledBackend({ lateExportFailure: lateFailure });
+const lateFixture = controlledBackend(spillDirectory, { lateExportFailure: lateFailure });
 const lateOwner = lateFixture.backend.reserve(explicitUntilStopped, { kind: "in_process" });
 try {
   const sandbox = await lateOwner.start();
@@ -274,7 +159,7 @@ const subtreeInput = [
 ];
 let subtreeSummary: SandboxTransferSummary | undefined;
 for (const invalid of [false, true]) {
-  const selectedFixture = controlledBackend(invalid ? { outsideSubtreePath: "reports/selected-other/leak.bin" } : {});
+  const selectedFixture = controlledBackend(spillDirectory, invalid ? { outsideSubtreePath: "reports/selected-other/leak.bin" } : {});
   const selectedOwner = selectedFixture.backend.reserve(omittedExecution, { kind: "in_process" });
   const destination = join(filesystemRoot, invalid ? "invalid-subtree" : "selected-subtree");
   try {
@@ -309,7 +194,7 @@ for (const invalid of [false, true]) {
 }
 assert(subtreeSummary);
 
-const failed = controlledBackend({ failFirstDestroy: true });
+const failed = controlledBackend(spillDirectory, { failFirstDestroy: true });
 const original = new Error("controlled callback failure");
 let retained: unknown;
 try { await withSandbox(failed.backend, explicitUntilStopped, async () => { throw original; }, { recovery: { kind: "in_process" } }); }
@@ -323,11 +208,13 @@ await retained.retryCleanup();
 assert.deepEqual([...failed.resources], []);
 assert.equal(retained.primaryError, original);
 process.stdout.write(`${JSON.stringify({ proof: "packed-neutral-sandbox", optionalPeers: "absent", docker: "absent",
+  capabilityAdmission: { defaultFiles: "disabled", unsupportedFileGrants: ["read_only", "read_write"],
+    unsupportedNetwork: "restricted_https", rejectedBeforeDriverReservation: true },
   normalizedExecution, binaryEcho: [0, 255, 206, 177, 10], exportedBytes: [0, 255, 10], cleanup: "destroyed", originalFailureRetained: true,
   filesystem: { example: "examples/sandbox/filesystem.ts", files: filesystemSummary.files.toString(),
-    directories: filesystemSummary.directories.toString(), payloadBytes: filesystemSummary.payloadBytes.toString(),
+    directories: filesystemSummary.directories.toString(), symlinks: filesystemSummary.symlinks.toString(), payloadBytes: filesystemSummary.payloadBytes.toString(),
     binary: [0, 255, 17, 128, 10], emptyBytes: 0, executable: true, publication: "complete",
     existingDestination: "preserved", lateFailure: "unpublished", cleanup: "destroyed" },
   subtree: { example: "examples/sandbox/filesystem.ts#exportSandboxSubtree", path: selectedPath,
-    files: subtreeSummary.files.toString(), directories: subtreeSummary.directories.toString(), payloadBytes: subtreeSummary.payloadBytes.toString(),
+    files: subtreeSummary.files.toString(), directories: subtreeSummary.directories.toString(), symlinks: subtreeSummary.symlinks.toString(), payloadBytes: subtreeSummary.payloadBytes.toString(),
     binary: [0, 255, 99], paths: "workspace_relative", outsideOutput: "rejected_before_body", invalidPublication: "absent", cleanup: "destroyed" } })}\n`);

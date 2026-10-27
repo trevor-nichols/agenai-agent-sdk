@@ -8,7 +8,7 @@ import { SandboxValidationError, parseSandboxRecoveryPolicy, parseSandboxRecover
 
 function record() {
   return {
-    format: 'agenai.sandbox-recovery.v2', backendId: 'engine', backendRevision: '1',
+    format: 'agenai.sandbox-recovery.v3', backendId: 'engine', backendRevision: '1',
     namespace: 'caller-1', operationId: 'operation-1', sandboxId: 'sandbox-1',
     imageDigest: `sha256:${'a'.repeat(64)}`, policyDigest: `sha256:${'b'.repeat(64)}`,
     configurationDigest: `sha256:${'d'.repeat(64)}`,
@@ -24,7 +24,7 @@ test('recovery parsing returns immutable non-callable evidence with initial name
   assert.deepEqual(parsed.resources, [{ role: 'compute', name: 'compute-1', identity: { kind: 'planned' } }]);
   assert.deepEqual(parsed.authority, { kind: 'unverified' });
   assert.equal(parsed.phase, 'reserved');
-  assert.equal(parsed.format, 'agenai.sandbox-recovery.v2');
+  assert.equal(parsed.format, 'agenai.sandbox-recovery.v3');
   assert.equal(parsed.configurationDigest, `sha256:${'d'.repeat(64)}`);
   assert.equal(Object.isFrozen(parsed.resources[0]!.identity), true);
   assert.equal('destroy' in parsed, false);
@@ -53,6 +53,7 @@ test('recovery rejects arbitrary payloads, unverified effects, ambiguous identit
   const invalid = [
     { ...base, format: 'future-version' },
     { ...base, format: 'agenai.sandbox-recovery.v1' },
+    { ...base, format: 'agenai.sandbox-recovery.v2' },
     { ...base, configurationDigest: 'configuration-without-digest' },
     { ...base, env: { API_KEY: 'must-not-persist' } },
     { ...base, endpoint: 'unix:///not-authority' },
@@ -68,6 +69,21 @@ test('recovery rejects arbitrary payloads, unverified effects, ambiguous identit
     { ...base, resources: [{ role: 'compute', name: 'compute-1', identity: { kind: 'planned', id: 'contradictory' } }] },
   ];
   for (const candidate of invalid) assert.throws(() => parseSandboxRecoveryRecord(candidate), SandboxValidationError);
+});
+
+test('v3 recovery retains the complete closed topology and rejects extra or repeated roles', () => {
+  const resources = ['compute', 'storage', 'export', 'network', 'egress_socket', 'egress_broker', 'egress_relay', 'filesystem', 'route_observer']
+    .map((role, index) => ({ role, name: `${role}-1`, identity: { kind: 'identified', id: `${role}-id-1`, fingerprint: `sha256:${String(index).repeat(64)}` } }));
+  const input = { ...record(), phase: 'running', authority: { kind: 'verified', backendIdentity: 'engine-1' }, resources };
+  const parsed = parseSandboxRecoveryRecord(input);
+  assert.deepEqual(parsed.resources, resources);
+  assert.equal(parsed.format, 'agenai.sandbox-recovery.v3');
+  for (const candidate of [
+    { ...input, resources: [...resources, { role: 'initializer', name: 'initializer-1', identity: { kind: 'planned' } }] },
+    { ...input, resources: resources.map((resource) => resource.role === 'filesystem' ? { ...resource, role: 'initializer' } : resource) },
+    { ...input, resources: resources.map((resource) => resource.role === 'filesystem' ? { ...resource, role: 'egress_broker' } : resource) },
+    { ...input, resources: resources.map((resource) => resource.role === 'filesystem' ? { ...resource, name: 'egress_broker-1' } : resource) },
+  ]) assert.throws(() => parseSandboxRecoveryRecord(candidate), SandboxValidationError);
 });
 
 test('explicit persistence preserves the immutable checkpoint and propagates persistence failure', async () => {

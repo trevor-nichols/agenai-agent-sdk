@@ -5,7 +5,9 @@
 // Cleanup claims are checked against ordered, exact-resource observations. JSON is evidence data,
 // not authentication of the observer or proof that a controller told the truth.
 
-export type EvidenceResourceRole = 'compute' | 'storage' | 'export' | 'network';
+import type { SandboxRecoveryResource } from '@agen-ai/sandbox';
+
+export type EvidenceResourceRole = SandboxRecoveryResource['role'];
 export interface EvidenceResource { readonly role: EvidenceResourceRole; readonly id: string }
 export type CleanupEvidenceEvent =
   | Readonly<{ sequence: number; kind: 'sdk-close'; result: 'fulfilled' | 'rejected' }>
@@ -28,7 +30,8 @@ function object(value: unknown): value is Record<string, unknown> {
 }
 
 function role(value: unknown): value is EvidenceResourceRole {
-  return value === 'compute' || value === 'storage' || value === 'export' || value === 'network';
+  return value === 'compute' || value === 'storage' || value === 'export' || value === 'network'
+    || value === 'egress_socket' || value === 'egress_broker' || value === 'egress_relay' || value === 'filesystem';
 }
 
 function text(value: unknown, maximum: number): value is string {
@@ -74,7 +77,7 @@ function evaluateCleanupEvidence(input: unknown): CleanupEvidenceVerdict {
     if (!object(row) || !text(row.label, 128) || labels.has(row.label)) return reject('Cleanup rows need unique bounded labels.');
     labels.add(row.label);
     const prefix = `${row.label}: `;
-    if (!Array.isArray(row.expected) || row.expected.length < 1 || row.expected.length > 4) return reject(`${prefix}expected exact resources are missing or excessive.`);
+    if (!Array.isArray(row.expected) || row.expected.length < 1 || row.expected.length > 8) return reject(`${prefix}expected exact resources are missing or excessive.`);
     const expected = new Map<string, string>();
     for (const resource of row.expected) {
       if (!object(resource) || !role(resource.role) || !text(resource.id, 256) || expected.has(resource.role)) return reject(`${prefix}expected resources have an invalid or duplicate identity.`);

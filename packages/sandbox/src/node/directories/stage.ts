@@ -4,18 +4,30 @@
 
 import { constants } from 'node:fs';
 import type { BigIntStats, Dir } from 'node:fs';
-import { lstat, mkdir, opendir, rename, rmdir, unlink } from 'node:fs/promises';
+import { lstat, mkdir, opendir, rename, rmdir, symlink, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { SandboxOperationError, SandboxStateError } from '../../errors.js';
-import { parseSandboxRelativePath } from '../../files/paths.js';
+import { parseSandboxRelativePath, parseSandboxSymlinkTarget } from '../../files/paths.js';
 import type { SandboxExportEntry } from '../../files/types.js';
+import type { SandboxRelativePath } from '../../files/types.js';
+import { createMetadataLedger } from '../../files/metadata/index.js';
+import type { MetadataLedger } from '../../files/metadata/index.js';
+import type { SandboxDriverSpillStore } from '../../backend/spill.js';
+import { SANDBOX_DEFAULT_TRANSFER_BUFFERS } from '../../policy/limits.js';
 import { sameIdentity, verifyDirectoryIdentity } from '../hostPath.js';
+import { createSandboxSpillStore } from '../spill.js';
 import { DirectoryOwnership } from './ownership.js';
 import { closeAfter } from './closing.js';
+import { readStableLink } from './link.js';
 
 interface OwnedDirectory { readonly path: string; readonly metadata: BigIntStats }
-interface UnregisteredEntry extends OwnedDirectory { readonly kind: 'file' | 'directory' }
+interface UnregisteredEntry extends OwnedDirectory { readonly kind: 'file' | 'directory' | 'symlink' }
+interface StageOptions {
+  readonly signal?: AbortSignal;
+  readonly symlinks: 'reject' | 'preserve_internal';
+  readonly root?: SandboxRelativePath;
+}
 
 function missing(error: unknown): boolean { return error instanceof Error && 'code' in error && error.code === 'ENOENT'; }
 
@@ -27,6 +39,8 @@ export class DirectoryStage {
   private stage: OwnedDirectory | undefined;
   private markers: OwnedDirectory | undefined;
   private ownership: DirectoryOwnership | undefined;
+  private graph: MetadataLedger | undefined;
+  private spill: SandboxDriverSpillStore | undefined;
   private unregistered: UnregisteredEntry | undefined;
   private active: Promise<void> | undefined;
   private closing: Promise<void> | undefined;
@@ -37,8 +51,8 @@ export class DirectoryStage {
   private readonly directoryHandles = new Set<Dir>();
   readonly directory: string;
 
-  constructor(readonly destination: string, private readonly parent: BigIntStats, signal?: AbortSignal) {
-    this.signal = signal ? AbortSignal.any([signal, this.controller.signal]) : this.controller.signal;
+  constructor(readonly destination: string, private readonly parent: BigIntStats, private readonly options: StageOptions) {
+    this.signal = options.signal ? AbortSignal.any([options.signal, this.controller.signal]) : this.controller.signal;
     this.directory = join(destination, 'files');
   }
 
@@ -64,6 +78,13 @@ export class DirectoryStage {
     this.markers = { path: markers, metadata: await lstat(markers, { bigint: true }) };
     this.unverified.delete(markers);
     this.ownership = new DirectoryOwnership(markers, this.token);
+    if (this.options.symlinks === 'preserve_internal') {
+      const spill = await createSandboxSpillStore({ directory: markers, signal: this.signal });
+      this.spill = spill;
+      this.graph = await createMetadataLedger({ openSpill: async () => spill,
+        batchBytes: SANDBOX_DEFAULT_TRANSFER_BUFFERS.metadataBatchBytes,
+        fanIn: SANDBOX_DEFAULT_TRANSFER_BUFFERS.metadataMergeFanIn, signal: this.signal });
+    }
     this.check();
   }
 
@@ -83,6 +104,10 @@ export class DirectoryStage {
     await this.verifyRoots();
     this.check(); signal.throwIfAborted();
     const relative = parseSandboxRelativePath(entry.path);
+    if (entry.kind === 'symlink') {
+      if (!this.graph) throw new SandboxOperationError('output_limit', 'Directory export requires explicit internal symbolic-link preservation.');
+      await this.graph.append({ kind: 'symlink', path: relative, target: parseSandboxSymlinkTarget(entry.target) });
+    } else await this.graph?.append({ kind: entry.kind, path: relative });
     const stage = this.readyStage();
     const ownership = this.readyOwnership();
     const segments = relative.split('/');
@@ -99,10 +124,10 @@ export class DirectoryStage {
       const metadata = await lstat(parent, { bigint: true });
       if (!metadata.isDirectory()) throw new SandboxOperationError('output_limit', 'Export directory was replaced by a link or non-directory.');
       if (created) this.unregistered = { path: parent, metadata, kind: 'directory' };
-      await ownership.remember(logical, metadata, 'directory');
+      await ownership.remember(logical, metadata, { kind: 'directory' });
       this.unregistered = undefined;
     }
-    if (entry.kind === 'directory') return;
+    if (entry.kind === 'directory' || entry.kind === 'symlink') return;
     this.check(); signal.throwIfAborted();
     const path = join(stage.path, ...segments);
     const handle = await ownership.open(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW,
@@ -110,7 +135,7 @@ export class DirectoryStage {
     await closeAfter(async () => {
       const metadata = await handle.stat({ bigint: true });
       this.unregistered = { path, metadata, kind: 'file' };
-      await ownership.remember(relative, metadata, 'file', { byteLength: entry.byteLength, executable: entry.executable });
+      await ownership.remember(relative, metadata, { kind: 'file', byteLength: entry.byteLength, executable: entry.executable });
       this.unregistered = undefined;
       let offset = 0;
       for await (const chunk of entry.bytes) {
@@ -140,6 +165,14 @@ export class DirectoryStage {
     this.check();
     await this.verifyRoots();
     await this.readyOwnership().closeHandles();
+    if (this.graph) {
+      await this.graph.finish();
+      await this.graph.validateSymlinks(this.options.root === undefined ? undefined : { root: this.options.root });
+      await this.walk(this.readyStage().path, '', false);
+      await this.verifyMarkers();
+      await this.installLinks();
+      await this.closeGraph();
+    }
     await this.walk(this.readyStage().path, '', false);
     await this.verifyMarkers();
     this.check();
@@ -158,6 +191,7 @@ export class DirectoryStage {
     this.fence(new SandboxStateError('Directory sink is closing.'));
     this.closing = (async () => {
       await this.active?.catch(() => {});
+      await this.closeGraph();
       await this.ownership?.closeHandles();
       await this.closeDirectories();
       if (this.unverified.size) throw new Error('An acquired output directory has no verified identity and is preserved.');
@@ -167,7 +201,7 @@ export class DirectoryStage {
         const entry = this.unregistered;
         const current = await lstat(entry.path, { bigint: true });
         if (!sameIdentity(current, entry.metadata)) throw new Error('Partially acquired output entry was replaced and is preserved.');
-        if (entry.kind === 'file') await unlink(entry.path); else await rmdir(entry.path);
+        if (entry.kind === 'directory') await rmdir(entry.path); else await unlink(entry.path);
         this.unregistered = undefined;
       }
       if (this.stage) {
@@ -190,18 +224,23 @@ export class DirectoryStage {
         if (!entry) break;
         const child = join(path, entry.name);
         const metadata = await lstat(child, { bigint: true });
-        const kind = metadata.isDirectory() ? 'directory' : metadata.isFile() ? 'file' : undefined;
+        const kind = metadata.isDirectory() ? 'directory' : metadata.isFile() ? 'file' : metadata.isSymbolicLink() ? 'symlink' : undefined;
         if (!kind) throw new Error('Unknown link or special output entry is preserved.');
         const record = await this.readyOwnership().lookup(metadata, kind);
         const separator = record.path.lastIndexOf('/');
         const parent = separator < 0 ? '' : record.path.slice(0, separator);
         const declared = await lstat(join(this.readyStage().path, ...record.path.split('/')), { bigint: true });
-        if (parent !== relative || !sameIdentity(declared, metadata) || (kind === 'file' && metadata.nlink !== 1n)) {
+        const logical = relative ? `${relative}/${entry.name}` : entry.name;
+        if (parent !== relative || record.path !== logical || !sameIdentity(declared, metadata)
+          || (kind !== 'directory' && metadata.nlink !== 1n)) {
           throw new Error('An unexpected alias or relocated output entry is preserved.');
         }
-        if (kind === 'directory') await this.walk(child, record.path, remove);
-        else if (!remove && (metadata.size !== BigInt(record.byteLength ?? -1) || ((metadata.mode & 0o111n) !== 0n) !== record.executable)) {
+        if (record.kind === 'directory') await this.walk(child, record.path, remove);
+        else if (record.kind === 'file' && !remove && (metadata.size !== BigInt(record.byteLength) || ((metadata.mode & 0o111n) !== 0n) !== record.executable)) {
           throw new Error('Staged output file length or executable mode changed.');
+        }
+        else if (record.kind === 'symlink' && await readStableLink(child, metadata, remove ? undefined : this.signal) !== record.target) {
+          throw new Error('Staged symbolic-link target changed.');
         }
         if (remove) {
           if (kind === 'directory') await rmdir(child); else await unlink(child);
@@ -242,13 +281,48 @@ export class DirectoryStage {
         if (entry.name !== `${record.device}-${record.inode}`) throw new Error('Unexpected control entry is preserved.');
         const metadata = await lstat(join(this.readyStage().path, ...record.path.split('/')), { bigint: true });
         if (String(metadata.dev) !== record.device || String(metadata.ino) !== record.inode
-          || (record.kind === 'directory' ? !metadata.isDirectory()
-            : !metadata.isFile() || metadata.size !== BigInt(record.byteLength ?? -1) || metadata.nlink !== 1n
-              || ((metadata.mode & 0o111n) !== 0n) !== record.executable)) {
+          || (record.kind === 'directory' ? !metadata.isDirectory() : record.kind === 'file'
+            ? !metadata.isFile() || metadata.size !== BigInt(record.byteLength) || metadata.nlink !== 1n
+              || ((metadata.mode & 0o111n) !== 0n) !== record.executable
+            : !metadata.isSymbolicLink() || metadata.nlink !== 1n
+              || await readStableLink(join(this.readyStage().path, ...record.path.split('/')), metadata, this.signal) !== record.target)) {
           throw new Error('An expected staged entry was changed or replaced before publication.');
         }
       }
     }, () => this.closeDirectory(directory));
+  }
+
+  private async installLinks(): Promise<void> {
+    if (!this.graph) return;
+    for await (const record of this.graph.records()) {
+      if (record.kind !== 'symlink') continue;
+      this.check();
+      await this.verifyRoots();
+      const segments = record.path.split('/');
+      for (let count = 1; count < segments.length; count += 1) {
+        const relative = segments.slice(0, count).join('/');
+        const current = await lstat(join(this.readyStage().path, ...segments.slice(0, count)), { bigint: true });
+        if (!current.isDirectory() || (await this.readyOwnership().lookup(current, 'directory')).path !== relative) {
+          throw new Error('Symbolic-link parent no longer matches its owned directory.');
+        }
+      }
+      const path = join(this.readyStage().path, ...segments);
+      await symlink(record.target, path);
+      this.unverified.add(path);
+      const current = await lstat(path, { bigint: true });
+      this.unregistered = { path, metadata: current, kind: 'symlink' };
+      this.unverified.delete(path);
+      await this.readyOwnership().remember(record.path, current, { kind: 'symlink', target: record.target });
+      this.unregistered = undefined;
+      if (await readStableLink(path, current, this.signal) !== record.target) throw new Error('Symbolic-link publication target changed.');
+    }
+  }
+
+  private async closeGraph(): Promise<void> {
+    if (this.graph) await this.graph.close();
+    else await this.spill?.close();
+    this.graph = undefined;
+    this.spill = undefined;
   }
 
   private async openDirectory(path: string): Promise<Dir> {

@@ -75,7 +75,9 @@ async function capture(query) {
 
 async function read(query) {
   assert(typeof query.path === 'string' && query.path.length <= 8192);
-  assert(Array.isArray(query.scopes) && query.scopes.length <= 128);
+  const maxScopes = query.maxScopes === undefined ? 128 : query.maxScopes;
+  assert(maxScopes === 128 || maxScopes === 256, 'Kernel scope capacity must select 128 or 256.');
+  assert(Array.isArray(query.scopes) && query.scopes.length <= maxScopes, 'Kernel read exceeds its admitted scope capacity.');
   query.scopes.forEach(validateScope);
   const processPath = /^\/proc\/([1-9][0-9]*)\/(status|stat|cgroup)$/u.exec(query.path);
   if (processPath) {

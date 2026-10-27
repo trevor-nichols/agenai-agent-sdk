@@ -9,6 +9,9 @@ import type { DockerApi } from '../resources/api.js';
 import type { DockerSandboxConfig } from './config.js';
 import { DOCKER_API } from './config.js';
 import { dockerProfile } from './profiles.js';
+import { empty, sameStrings } from './hostIsolation.js';
+import { EGRESS_PROTOCOL, HELPER_ENVIRONMENT, HELPER_IMAGE_PROTOCOL_LABEL, HELPER_IMAGE_SOURCE_LABEL, HELPER_IMAGE_USER_LABEL } from '../helpers/protocol.js';
+import type { DockerLinuxRouteCensus } from '../network/routeAuthority.js';
 
 const versionSchema = z.object({ Version: z.string().max(64).optional(), ApiVersion: z.string(), MinAPIVersion: z.string(), Os: z.string(), Arch: z.string() });
 const infoSchema = z.object({
@@ -20,7 +23,9 @@ const infoSchema = z.object({
   MemoryLimit: z.boolean(), SwapLimit: z.boolean(), PidsLimit: z.boolean(), CpuCfsPeriod: z.boolean(), CpuCfsQuota: z.boolean(),
 });
 const imageSchema = z.object({ Id: z.string(), Os: z.string(), Architecture: z.string(),
-  Config: z.object({ Volumes: z.record(z.string(), z.unknown()).nullish() }) });
+  Config: z.object({ Volumes: z.record(z.string(), z.unknown()).nullish(),
+    Env: z.array(z.string()).nullish(), Labels: z.record(z.string(), z.string()).nullish(),
+    User: z.string().optional(), Entrypoint: z.array(z.string()).nullish(), Cmd: z.array(z.string()).nullish(), WorkingDir: z.string().optional() }) });
 const datasetImageSchema = z.object({ Id: z.string(), Os: z.string(), RootFS: z.object({ Type: z.string() }) });
 
 function versionNumber(value: string): number {
@@ -68,6 +73,9 @@ export async function verifyDaemon(api: DockerApi, config: DockerSandboxConfig, 
   if (config.datasets.length > 0 && !supportsDatasetMountNames(version.Version)) {
     throw new SandboxUnsupportedError('Docker image datasets require a stable Engine release of at least 29.1.4 with the image-layer filename fix.');
   }
+  if (config.egressAuthority?.kind === 'local_docker_desktop' && info.ID !== config.egressAuthority.identity.engine.id) {
+    throw new SandboxUnsupportedError('Docker daemon differs from the exact Engine selected by the Desktop route authority.');
+  }
   return info.ID;
 }
 
@@ -83,9 +91,37 @@ export async function verifyDatasetImages(api: DockerApi, config: DockerSandboxC
 export async function verifyImage(api: DockerApi, config: DockerSandboxConfig, signal?: AbortSignal): Promise<void> {
   const profile = dockerProfile(config.profile);
   const image = await api.json('GET', `${DOCKER_API}/images/${config.imageDigest}/json`, imageSchema, { signal });
-  if (image.Id !== config.imageDigest || image.Os !== 'linux' || image.Architecture !== profile.imageArchitecture
+  if (image.Id !== config.imageDigest || image.Os !== 'linux' || image.Architecture !== profile.workloadImageArchitecture
     || Object.keys(image.Config.Volumes ?? {}).length !== 0) {
-    throw new SandboxUnsupportedError(`Docker profile ${config.profile} requires the exact local Linux ${profile.imageArchitecture} image ID without declared image volumes.`);
+    throw new SandboxUnsupportedError(`Docker profile ${config.profile} requires the exact local Linux ${profile.workloadImageArchitecture} image ID without declared image volumes.`);
+  }
+}
+
+export async function verifyEgressImage(api: DockerApi, config: DockerSandboxConfig, signal?: AbortSignal): Promise<void> {
+  if (!config.egress) throw new SandboxUnsupportedError('Restricted HTTPS requires explicit prepared egress configuration.');
+  const egress = config.egress;
+  const image = await api.json('GET', `${DOCKER_API}/images/${egress.imageDigest}/json`, imageSchema, { signal });
+  const labels = image.Config.Labels;
+  if (image.Id !== egress.imageDigest || image.Os !== 'linux' || image.Architecture !== dockerProfile(config.profile).helperImageArchitecture
+    || !empty(image.Config.Volumes) || !sameStrings(image.Config.Env, HELPER_ENVIRONMENT)
+    || image.Config.User !== `${egress.user.uid}:${egress.user.gid}` || image.Config.WorkingDir !== '/'
+    || !sameStrings(image.Config.Entrypoint, ['/usr/local/bin/node']) || !sameStrings(image.Config.Cmd, ['--version'])
+    || labels?.[HELPER_IMAGE_PROTOCOL_LABEL] !== EGRESS_PROTOCOL
+    || labels[HELPER_IMAGE_USER_LABEL] !== `${egress.user.uid}:${egress.user.gid}`
+    || !/^sha256:[a-f0-9]{64}$/u.test(labels[HELPER_IMAGE_SOURCE_LABEL] ?? '')) {
+    throw new SandboxUnsupportedError('Prepared egress image identity, platform, fixed launch configuration or protocol/user provenance labels do not match.');
+  }
+}
+
+const deploymentSchema = z.object({ Name: z.string().min(1).max(256), KernelVersion: z.string().min(1).max(256) });
+
+/** Supplemental observed comparison; the caller-owned same-host/quiescence assertion remains explicit. */
+export async function verifyEgressDeployment(api: DockerApi, config: DockerSandboxConfig,
+  census: DockerLinuxRouteCensus, signal?: AbortSignal): Promise<void> {
+  if (config.profile !== 'linux-x64' || !config.egress) throw new SandboxUnsupportedError('Restricted HTTPS deployment authority is unavailable on this profile.');
+  const info = await api.json('GET', '/info', deploymentSchema, { signal });
+  if (info.Name !== census.hostname || info.KernelVersion !== census.kernel) {
+    throw new SandboxUnsupportedError('Docker daemon hostname/kernel observations differ from the explicitly selected Linux route authority.');
   }
 }
 

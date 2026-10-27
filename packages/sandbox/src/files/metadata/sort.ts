@@ -3,7 +3,8 @@
 // ------------------------------------------------------------------------------------------------
 
 import type { SandboxDriverSpillFile } from '../../backend/spill.js';
-import { compareRecords, decodeRecord, DESCRIPTOR_BYTES, isDescendant, MetadataConflictError } from './records.js';
+import { compareRecords, decodeRecord, DESCRIPTOR_BYTES, isDescendant } from './records.js';
+import { MetadataConflictError } from './errors.js';
 import type { EncodedRecord } from './records.js';
 import { address, readDescriptor, readRecord, writeDescriptor, writeRecord } from './storage.js';
 import type { RunCursor } from './storage.js';
@@ -78,6 +79,7 @@ export async function validateRun(file: SandboxDriverSpillFile, end: number, sig
       ancestors.pop();
     }
     if (ancestors.at(-1)?.kind === 'file') throw new MetadataConflictError('file_ancestor', decoded.path);
+    if (ancestors.at(-1)?.kind === 'symlink') throw new MetadataConflictError('symlink_ancestor', decoded.path);
     ancestors.push(record);
   }
   signal.throwIfAborted();

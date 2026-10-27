@@ -13,7 +13,7 @@ import { engineControl } from './resources.mjs';
 export async function prepareFixtureImage({ endpoint, sourceImage, preparation, env, signal, architecture = 'amd64' }) {
   const result = await runOwnedCommand({ command: process.execPath,
     args: [fileURLToPath(new URL('../prepare-fixture.mjs', import.meta.url)), '--engine', endpoint,
-      '--source-image', sourceImage, '--architecture', architecture, '--output', preparation], env, timeoutMs: 180_000, maxOutputBytes: 64 * 1024, signal });
+      '--source-image', sourceImage, '--architecture', architecture, '--output', preparation], env, timeoutMs: 300_000, maxOutputBytes: 64 * 1024, signal });
   try {
     await writeFile(join(dirname(preparation), 'preparation.log'), `${result.stdout}\n${result.stderr}`, { mode: 0o600 });
     const prepared = JSON.parse((await boundedFile(join(preparation, 'preparation.json'), 64 * 1024)).toString('utf8'));

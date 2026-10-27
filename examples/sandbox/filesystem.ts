@@ -5,7 +5,7 @@
 import type { Sandbox, SandboxTransferOptions } from "@agen-ai/sandbox";
 import { exportSandboxDirectory, importSandboxDirectory } from "@agen-ai/sandbox/node";
 
-/** Uses default directory-source chunks and leaves sandbox/storage cleanup with its caller. */
+/** Use symlinks: 'preserve_internal' explicitly for a supported, empty workspace. Cleanup remains caller-owned. */
 export async function roundTripSandboxDirectory(sandbox: Sandbox, sourceRoot: string, destination: string,
   options?: SandboxTransferOptions) {
   const imported = await importSandboxDirectory(sandbox, sourceRoot, options);

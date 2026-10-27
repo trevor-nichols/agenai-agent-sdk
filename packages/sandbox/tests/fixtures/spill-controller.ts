@@ -29,9 +29,9 @@ const { createMetadataLedger } = await import('../../src/files/metadata/index.js
 const { parseSandboxRelativePath } = await import('../../src/files/paths.js');
 const { createSandboxSpillStore } = await import('../../src/node/index.js');
 const ledger = await createMetadataLedger({
-  openSpill: () => createSandboxSpillStore({ directory }), batchBytes: 1030, fanIn: 2,
+  openSpill: () => createSandboxSpillStore({ directory }), batchBytes: 8192, fanIn: 2,
 });
-for (let index = 0; index < 200; index += 1) {
+for (let index = 0; index < 600; index += 1) {
   await ledger.append({ path: parseSandboxRelativePath(`held/${index}`), kind: 'file' });
 }
 process.send?.(process.platform === 'darwin' ? { kind: 'spill_held', files } : { kind: 'spill_held' });

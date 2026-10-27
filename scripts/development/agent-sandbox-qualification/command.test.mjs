@@ -45,11 +45,17 @@ test('command output and status settle together, preserving both channels within
   assert.deepEqual(await runOwnedCommand({ command: process.execPath,
     args: ['-e', "process.stdout.write('result'); process.stderr.write('diagnostic');"], env: process.env, timeoutMs: 5_000 }),
   { stdout: 'result', stderr: 'diagnostic', status: 0, quiescent: true });
-  const error = await runOwnedCommand({ command: process.execPath,
-    args: ['-e', "process.stdout.write('x'.repeat(4096)); setInterval(() => {}, 1000);"], env: process.env, timeoutMs: 5_000, maxOutputBytes: 64 }).catch((value) => value);
-  assert.match(error.message, /64-byte output bound/u);
-  assert.equal(error.quiescent, true);
-  assert(Buffer.byteLength(error.stdout) + Buffer.byteLength(error.stderr) <= 64);
+  await producerFixture(async ({ marker, observe }) => {
+    const program = `require('node:fs').writeFileSync(process.argv[1], String(process.pid));
+process.stdout.write('x'.repeat(4096)); setInterval(() => {}, 1000);`;
+    const error = await runOwnedCommand({ command: process.execPath,
+      args: ['-e', program, marker], env: process.env, timeoutMs: 5_000, maxOutputBytes: 64 }).catch((value) => value);
+    const childPid = await observe();
+    assert.match(error.message, /64-byte output bound/u);
+    assert.equal(error.quiescent, true);
+    assert(Buffer.byteLength(error.stdout) + Buffer.byteLength(error.stderr) <= 64);
+    assert.throws(() => process.kill(-childPid, 0), { code: 'ESRCH' });
+  });
 });
 
 test('a command deadline terminates its real finite producer and waits for that child to be reaped', async () => {

@@ -1,10 +1,68 @@
 # Explicit sandbox workflows
 
+Current example source targets the matching unpublished **0.4.5 candidate**. Use its reviewed
+source/local archives together; published npm 0.4.4 users retain the matching `v0.4.4` examples.
+The existing peer/directory/dataset workflows below remain explicit baseline compositions.
+Their historical 0.4.4 native reports do not certify changed candidate bytes. Recovery now uses
+v3 with Linux `engine-1.52-v5-linux-x64` and Desktop `engine-1.52-v6-*` revisions; read the
+[candidate migration guide](../../UPGRADING-TO-0.4.5.md) before changing controllers.
+
+The [recorded Mac baseline](HANDOFF.md#recorded-mac-baseline-2026-10-26) covers the exact
+unpublished `packed-r2` candidate on M3/macOS 26.5.1, Node 24.18.0 and Docker Desktop 4.54.0 /
+Engine 29.1.2. Native arm64 and AVF/Rosetta amd64 each passed 30 source checks and the installed
+two-turn controlled ACP example; internal and external APFS each passed all 183 host tests without
+skips. Pinned Grok 1.0.62 passed version/hash and eager initialization only. Desktop live files
+have [separate native results](HANDOFF.md#desktop-live-files-native-campaigns-2026-10-26).
+Current source also admits opt-in `preserve_internal` on both Desktop profiles; the separate
+[MS004 r2 campaigns](HANDOFF.md#desktop-preserving-transfer-native-campaigns-2026-10-27)
+passed all 136 cases per profile across both APFS roots and workspace layouts, with complete
+cleanup and 230 final-empty scopes each, on the recorded archive/controller/helper tuple.
+Desktop restricted HTTPS has the [separate MS005 N12/R2 record](HANDOFF.md#desktop-restricted-https-native-campaigns-2026-10-27). Mac datasets, large-workspace
+scale, native model/authentication and Battle Bots/Electron integration remain unqualified.
+
+## Restricted network composition
+
+The current Docker candidate accepts explicitly prepared Linux x64 and admitted Apple
+Virtualization Desktop restricted HTTPS infrastructure, with platform-specific original authority
+handles and prepared helpers. The [Docker construction guide](../../packages/sandbox-docker/README.md#restricted-https-egress)
+documents inert `/node` helper-context preparation, the caller's explicit local legacy build,
+opaque pinned route authority, separate helper budgets and exact destination policy. Desktop
+requires its additional Darwin host executable and native arm64 VM observer image. The caller
+owns route/interface/VPN/Engine/proxy/interception quiescence and supplies a client that uses the loopback
+`HTTPS_PROXY`/`HTTP_PROXY` endpoint. Baseline examples do not enable this configuration implicitly.
+
+The broker restricts CONNECT hostname/port and resolved addresses; it tunnels bytes without
+TLS termination/validation. Clients authenticate the TLS endpoint, and an allowed service may
+still relay data. There is no HTTP-path policy or secrecy from guest-readable credentials.
+Infrastructure loss fences admission and enters whole-sandbox stop. Linux qualification separately
+proved restricted network enforcement, live files, confined link transfers, the exact Claude/Grok
+bridges, and four real API-key tool/cancellation cases. The API-key cases used a qualification-only
+loopback admission gateway; they do not qualify every endpoint/client/account configuration.
+See [HANDOFF.md](HANDOFF.md) for the exact tuple, shipped assets, separate Desktop component records
+and separate combined Desktop/Linux results. Application adoption remains separate. Private capability and paid-account campaign
+tooling is not part of this standalone source export; the public helpers and examples are the
+reusable assembly.
+
+## Combined public workflow
+
+The [combined example](combined/README.md) uses one fixed credential-free Node program and public
+sandbox APIs for actually empty linked-tree import, live read/write while the program runs,
+certificate-verified restricted HTTPS, denial of a separately reachable explicit target, normal
+completion or entered-write/process cancellation, stopped preserving export and destruction.
+It requires explicit caller backend/images/prepared authority, request policy, owned host
+destination and recovery persistence. It supplies no provider/account or business-policy defaults.
+The portable consumer compiles the same entrypoint used by the generic platform `combined` row.
+Desktop MS006 native N2 and Rosetta R1 each passed thirteen installed cases and 62 final-empty
+scopes on packed-ms006-r3. Real Linux x64 R1 passed eleven combined cases and fresh eighteen-case
+live-file and 68-case preserving-transfer rows, with complete row cleanup. Fresh Linux network R1
+separately passed 46 network/recovery cases and 378 independent absence observations on the current
+installed candidate. Exact identities are in the [combined record](HANDOFF.md#desktop-and-linux-combined-native-campaigns-2026-10-27).
+
 ## Shared image dataset example
 
 [`datasets.ts`](datasets.ts) uses two separately owned sandboxes with the same explicitly selected image dataset. The Docker option is `datasets: [{ name, imageDigest, subpath? }]`; each attachment appears read-only at `/datasets/<name>`, outside the private writable workspace. The image must already exist locally under its exact `sha256:` ID. Construction does not pull, create or remove dataset images. Dataset execution additionally requires stable Docker Engine 29.1.4 or newer, `Driver: overlayfs` and the `driver-type=io.containerd.snapshotter.v1` image store; baseline sandbox execution and the ACP example do not select attachments automatically.
 
-The qualification preparation helper adds the fixed 82-byte file `/agenai-qualification-dataset/manifest.txt` and records its digest in `preparation.json.datasetFixture`. It requires the controller's `tar` executable to list and append to the owned filesystem archive. GNU tar is exercised on the recorded Linux lane; actual BSD tar execution on macOS remains part of the pending native platform run. A source image already containing that reserved dataset root is rejected before import. Both the borrowed source image and its existing data remain untouched.
+The qualification preparation helper adds the fixed 82-byte file `/agenai-qualification-dataset/manifest.txt` and records its digest in `preparation.json.datasetFixture`. It requires the controller's `tar` executable to list and append to the owned filesystem archive. GNU tar is exercised on the recorded Linux lane; BSD tar image preparation passed in the recorded Mac baseline rows. That preparation does not qualify Mac dataset mounts: Engine 29.1.2 is below their required 29.1.4 minimum, and no Mac dataset row ran. A source image already containing that reserved dataset root is rejected before import. Both the borrowed source image and its existing data remain untouched.
 
 For this small controlled example, add explicit attachment and expected-file fields to the fixture manifest, copying the exact prepared image ID and the preparation's file identity:
 
@@ -53,11 +111,11 @@ console.log(result.directory);
 console.log(result.exported.payloadBytes.toString());
 ```
 
-The source hierarchy must remain stable while it is read, and the destination must initially be absent under a stable parent. Keep the new output namespace exclusive until the helper settles. Symbolic links and special files reject; binary bytes, empty files, executable flags and nested or empty directories are preserved. Other host permissions and ownership are not reproduced, and a live source is not an immutable snapshot: same-length concurrent edits can escape change detection. The example assumes the default 64 KiB transfer chunk buffer. Callers selecting smaller working buffers can use `importSandboxDirectory` directly with a matching `chunkBytes`.
+The source hierarchy must remain stable while it is read, and the destination must initially be absent under a stable parent. Keep the new output namespace exclusive until the helper settles. Symbolic links reject by default. On a supporting backend with an actually empty workspace, pass `symlinks: 'preserve_internal'` in the same options object to preserve confined raw relative link targets. Special files remain unsupported. Binary bytes, empty files, executable flags and nested or empty directories are preserved. Other host permissions and ownership are not reproduced, and a live source is not an immutable snapshot: same-length concurrent edits can escape change detection. The example assumes the default 64 KiB transfer chunk buffer. Callers selecting smaller working buffers can use `importSandboxDirectory` directly with a matching `chunkBytes`.
 
 Exports remain private until the complete transfer and its metadata validation succeed. A failed export preserves an existing destination and cleans its owned unpublished staging. Retain `SandboxDirectoryCleanupError` and its `retryCleanup()` owner when filesystem cleanup fails. Its `publishedDirectory`, when present, identifies output already published before a later cleanup failure; retry preserves those files and never replays the transfer. Signal/deadline expiry ends the transfer observation but does not prove that entered filesystem work has finished. The directory helper joins its own sink work and cleanup before completion, while the caller retains sandbox cleanup ownership. This example calls `stop()` and leaves retained sandbox storage available; the caller decides when to call `destroy()`. No transfer deadline is installed unless the caller supplies `deadlineAt`. A supplied absolute deadline applies to both transfer phases; startup and stop retain their independent sandbox observations. Summaries contain bigint counters, so convert selected counters to decimal strings before JSON serialization.
 
-The packed neutral consumer compiles and invokes this exact example outside the source checkout with only the two required packages installed. Its small owned source includes binary, zero-byte and executable files plus nested empty directories. It verifies published bytes and executable flags, existing-destination preservation, no publication after a late backend failure, and explicit sandbox destruction. Node filesystem permissions allow reads only in the retained consumer root and writes only in its owned spill and filesystem fixture roots; process/network effects and optional ACP/Docker packages remain absent. This is installed helper and ownership proof, not large-workspace or native-backend qualification.
+The packed neutral consumer compiles and invokes this exact example outside the source checkout with only the two required packages installed. Its regular-file proof verifies binary, zero-byte and executable files, nested empty directories, existing-destination preservation, no publication after a late backend failure and explicit sandbox destruction. Node permissions restrict reads to the retained consumer root and writes to owned spill/filesystem fixtures. A separate preservation proof checks exact raw link targets and publication with the full filesystem permission required by Node 24.18.0's `fs.symlink` API; it still selects only fresh owned fixture paths. Process/network effects and optional ACP/Docker packages remain absent in both invocations. These are installed helper and ownership checks, with separate filesystem-authority scopes, rather than native-backend or large-workspace qualification.
 
 The same example module exports `exportSandboxSubtree` for one directory and its descendants. It stops compute before selecting the directory, publishes into a new output namespace, and leaves retained sandbox storage with the caller:
 
@@ -78,9 +136,30 @@ The public selector is `{ kind: "subtree", path: "reports/selected" }`. It selec
 
 The installed proof invokes this exact function with a nested binary file, a zero-byte file and an empty directory. It verifies the preserved selected root, excludes unrelated siblings, and rejects backend output outside the selected subtree before its body is pulled. An out-of-scope entry following valid selected entries prevents directory publication. These small controlled cases establish public installed composition and provisional publication; backend containment and proportional selective I/O require their separately recorded native qualification.
 
+## Live observations
+
+The 0.4.5 candidate supports explicitly granted `sandbox.files` access through a
+separately prepared native Docker helper. Omission grants no live access. Reads
+and listings are observations of a changing guest; final artifact export still
+requires successful whole-owner stop. The helper keeps its staging directory
+outside the guest's mounted workspace and uses the same recovery/cleanup owner.
+
+The [live examples](live/README.md) capture and hash file bytes once, serve later
+ranges from that captured copy, and store directory metadata in a disk-backed
+generation with bounded pages. They retain scratch cleanup ownership on failure
+and reject stale/foreign page generations. The SQLite listing example requires
+Node >=22.13; its local observation store is separate from the SDK's Node >=22
+runtime requirement. App authorization, filtering, expiry, previews and final
+artifact comparison remain caller responsibilities.
+
+Use the [Docker package's helper preparation and grant contract](../../packages/sandbox-docker/README.md)
+with an exact already-prepared image. Public imports do not build or pull native
+helpers, read credentials or grant host filesystem callbacks. Live access retains
+its exact Linux qualification; it remains unsupported on Docker Desktop.
+
 ## Sandbox ACP example
 
-This unpublished `0.4.4` example uses the public sandbox, Docker backend and Node ACP entrypoints. It performs two controlled turns in one SDK session on one native connection/process, imports regular files, rejects guest requests for host filesystem access, closes the SDK before exporting a selected artifact, and destroys retained storage. It uses a synthetic guest peer, makes no model request and reads no provider credentials. Build matching candidate packages first with `pnpm build`.
+This unpublished `0.4.5` example uses the public sandbox, Docker backend and Node ACP entrypoints. It performs two controlled turns in one SDK session on one native connection/process, imports regular files, rejects guest requests for host filesystem access, closes the SDK before exporting a selected artifact, and destroys retained storage. It uses a synthetic guest peer, makes no model request and reads no provider credentials. Build matching candidate packages first with `pnpm build`.
 
 The Docker constructor accepts an explicit `profile`, also selected by this example's `AGENAI_SANDBOX_TEST_PROFILE`. Omission preserves `linux-x64`; it does not detect Desktop or select an emulator.
 
@@ -90,9 +169,9 @@ The Docker constructor accepts an explicit `profile`, also selected by this exam
 | `desktop-apple-virtualization-native-arm64` | Darwin arm64 / Linux arm64 Docker Desktop / Linux arm64 | Apple Virtualization framework, native guest, ECI disabled |
 | `desktop-apple-virtualization-rosetta-amd64` | Darwin arm64 / Linux arm64 Docker Desktop / Linux amd64 | Apple Virtualization framework with its Rosetta amd64 setting, ECI disabled |
 
-These are closed admission choices, not positive native Mac qualification claims. Constructors and reservations are inert; startup and reconciliation reject an incompatible real controller before spill acquisition or Engine requests. Each profile has its own backend revision, so recovery must use the original profile, endpoint, namespace and image. Desktop profile names assert the caller's chosen VMM/emulation settings; the Engine API does not independently attest those settings. Preserve their version-specific configuration evidence. The SDK never changes Desktop settings, installs Rosetta, reads a Docker context or pulls a missing image. Linux controller `/proc` observations cannot establish processes or cgroups inside the Desktop VM.
+These are closed admission choices; native qualification applies only to the recorded tuple and bytes. Constructors and reservations are inert; startup and reconciliation reject an incompatible real controller before spill acquisition or Engine requests. Each profile has its own backend revision, so recovery must use the original profile, endpoint, namespace and image. Desktop profile names assert the caller's chosen VMM/emulation settings; the Engine API does not independently attest those settings. Preserve their version-specific configuration evidence. The SDK never changes Desktop settings, installs Rosetta, reads a Docker context or pulls a missing image. Linux controller `/proc` observations cannot establish processes or cgroups inside the Desktop VM.
 
-Actual Apple Silicon runs remain pending. Run native Linux arm64 first. The separately required retained Grok Build `1.0.62` guest is Linux x86_64, SHA-256 `2a46d9e4d7ebd7a9cff7f95716714b19dad5f21dd2a497822400b1fb128969aa`; its initialization/cleanup needs the distinct amd64 image and AVF/Rosetta row. An arm64 synthetic peer does not qualify that artifact, and the existence of a separately advertised arm64 download does not verify its payload. Other VMMs, Intel Mac and ECI remain separate unqualified extensions. The baseline requests no hard workspace quota and has no XFS prerequisite.
+The recorded Apple Silicon campaign passed native Linux arm64 before the separate AVF/Rosetta amd64 row, with independent kernel cleanup on both. The retained Grok Build `1.0.62` (`1474f9cbdd91`) Linux x86_64 guest, SHA-256 `2a46d9e4d7ebd7a9cff7f95716714b19dad5f21dd2a497822400b1fb128969aa`, separately passed eager initialization and cleanup in the amd64 image. It opened no session and used no account or model. An arm64 synthetic peer does not qualify that artifact, and a separately advertised arm64 download does not verify its payload. See [HANDOFF.md](HANDOFF.md#recorded-mac-baseline-2026-10-26) for image/archive identities and APFS representation limits. Other VMMs, Intel Mac and ECI remain separate unqualified extensions. The baseline requests no hard workspace quota and has no XFS prerequisite.
 
 Docker documents Rosetta as an [Apple Virtualization framework setting](https://docs.docker.com/desktop/settings-and-maintenance/settings/); [Docker VMM currently has no Rosetta support](https://docs.docker.com/desktop/features/vmm/). Record the installed Desktop version rather than inferring behavior from the VMM name. For a Mac endpoint, explicitly choose the inspected existing socket, commonly `unix://<absolute-user-home>/.docker/run/docker.sock`; Docker's [permission documentation](https://docs.docker.com/desktop/setup/install/mac-permission-requirements/) explains that `/var/run/docker.sock` is an optional symlink. No socket symlink or Desktop setting change is necessary for this SDK.
 
@@ -134,6 +213,10 @@ For a fresh portable sandbox consumer from the standalone SDK, use `pnpm test:sa
 Both packed consumer profiles also compile the sandbox example modules into the retained consumer's `platform-dist/examples/sandbox/` directory and copy the controlled `peer.mjs` beside them. The platform qualification launcher runs `node platform-dist/examples/sandbox/docker.js` from that consumer. This prepared JavaScript path keeps the qualification controller free of TypeScript loader helper processes while preserving the source example's normal TypeScript development command.
 
 [`policy.ts`](policy.ts) supplies explicit resource, tmpfs, network, execution, startup/cleanup and stream policy, plus fixed transfer working buffers. [`configuration.ts`](configuration.ts) validates the caller's endpoint, manifest and output inputs. The Docker constructor receives the example's canonical owned output directory as its explicit `spillDirectory`; anonymous metadata files are created there and unlinked before data is written. The SDK does not choose a spill directory from environment or home paths. Transfer quotas are separate caller choices and do not establish a workspace disk quota. Docker controller access remains powerful host authority. The guest receives neither its socket nor host mounts. The ACP bridge returns an empty host facility object; this example grants no host filesystem, terminal, browser, MCP or runtime host-binding authority. Separately supplied host callbacks, MCP servers or runtime host bindings retain their caller's authority rather than becoming guest effects.
+
+Two separately selected consumer examples extend that composition. The [Grok client](grok/README.md) uses the public ACP transport directly and grants bounded guest filesystem callbacks to one native session and active turn. It supports a custom client without requiring `provider-acp`. The [Claude example](claude/README.md) implements the exact SDK 0.3.273 spawn contract and admits a closed guest-native configuration. Both are copied example source, not new package entrypoints. Their defaults do not enable arbitrary controller callbacks.
+
+Claude has a private example workspace with its own exact dependency tuple; the history package's independent SDK 0.3.306 qualification is unchanged. In the standalone checkout, `pnpm test:examples:sandbox-bridges` runs the hermetic example tests. The packed consumer compiles Grok under `platform-dist/examples/sandbox/grok` and creates a separate `claude-bridge-consumer` with the packed sandbox/validation archives and exact Claude SDK. Its bridge tests prohibit process and network operations. Those tests establish composition behavior; actual pinned native tool, authentication and platform checks require their separately retained campaigns.
 
 The smoke example deliberately selects `execution: { kind: "deadline", timeoutMs: 60_000 }`. That finite budget starts when its process startup enters. Applications choose their own execution lifetime:
 

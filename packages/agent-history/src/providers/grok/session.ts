@@ -1,4 +1,4 @@
-import type { AgentHistoryConversationRef, AgentHistoryConversationSummary, AgentHistoryListInput, AgentHistorySource } from '../../contracts/index.js';
+import type { AgentHistoryCatalogPage, AgentHistoryConversationRef, AgentHistoryConversationSummary, AgentHistoryListInput, AgentHistorySource } from '../../contracts/index.js';
 import { AgentHistoryError } from '../../lifecycle/errors.js';
 import { parseAgentHistoryConversationSummary } from '../../validation/parse.js';
 import { listAcpHistorySessions } from '../acp/session.js';
@@ -39,7 +39,7 @@ export async function lookupGrokSession(connection: GrokHistoryConnection, sourc
     ...(summary.parent_session_id == null ? {} : { parent: { source: identity, conversationId: summary.parent_session_id } }), archiveState: 'unknown' });
 }
 export async function listGrokSessions(connection: GrokHistoryConnection, source: AgentHistorySource,
-  input: AgentHistoryListInput, pageBytes: number, signal: AbortSignal, timeoutMs: number, query?: string) {
+  input: AgentHistoryListInput, pageBytes: number, signal: AbortSignal, timeoutMs: number, query?: string): Promise<AgentHistoryCatalogPage> {
   const page = await listAcpHistorySessions({ protocolProfile: connection.protocolProfile,
     initialization: connection.initialization, resources: connection.resources,
     listSessions: async (params, options) => parseGrokNative(GrokListSchema, await grokRequest(() => connection.listSessions({

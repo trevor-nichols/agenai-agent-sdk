@@ -38,6 +38,7 @@ export const artifactPath = parseSandboxRelativePath('artifact.bin');
 const digest = `sha256:${'1'.repeat(64)}`;
 
 export interface FixtureOptions {
+  readonly transferSymlinks?: boolean;
   readonly startupReply?: Promise<void>;
   readonly processReply?: Promise<void>;
   readonly stopGate?: Promise<void>;
@@ -62,6 +63,7 @@ export function fixture(options: FixtureOptions = {}) {
   const processEntered = gate();
   const resources = new Set<'compute' | 'storage'>();
   const files = new Map<string, Uint8Array>();
+  const symlinks = new Map<string, string>();
   const directories = new Set<string>();
   const inputBytes: number[] = [];
   const leader = gate<SandboxProcessExit>();
@@ -79,7 +81,7 @@ export function fixture(options: FixtureOptions = {}) {
   let destroyAttempts = 0;
   let spillFiles = 0;
   let spillCloseAttempts = 0;
-  let current: SandboxRecoveryRecord = parseSandboxRecoveryRecord({ format: 'agenai.sandbox-recovery.v2', backendId: 'fixture', backendRevision: '1',
+  let current: SandboxRecoveryRecord = parseSandboxRecoveryRecord({ format: 'agenai.sandbox-recovery.v3', backendId: 'fixture', backendRevision: '1',
     namespace: parseSandboxNamespace('fixture-owner'), operationId: 'operation-1', sandboxId: parseSandboxId('sandbox-1'),
     imageDigest: digest, policyDigest: digest, configurationDigest: `sha256:${'3'.repeat(64)}`, phase: 'reserved', authority: { kind: 'unverified' },
     resources: [{ role: 'compute', name: 'compute-1', identity: { kind: 'planned' } }, { role: 'storage', name: 'storage-1', identity: { kind: 'planned' } }],
@@ -98,10 +100,11 @@ export function fixture(options: FixtureOptions = {}) {
     destroying.resolve();
     if (resources.has('compute')) throw new Error('storage destruction with active compute');
     if (options.failFirstDestroy && destroyAttempts === 1) throw new Error('physical storage cleanup failed');
-    resources.delete('storage'); files.clear();
+    resources.delete('storage'); files.clear(); symlinks.clear();
   };
   const driver: SandboxBackendDriver = {
-    support: { backendId: 'fixture', backendRevision: '1', networkModes: ['isolated'], workspaceDiskQuota: false, networkAllowlist: false, independentProcessTermination: false },
+    support: { backendId: 'fixture', backendRevision: '1', networkModes: ['isolated'], workspaceDiskQuota: false, networkAllowlist: false, independentProcessTermination: false,
+      transferSymlinks: options.transferSymlinks ? { kind: 'preserve_internal', import: 'empty_workspace' } : false },
     reserve(admitted) {
       const checkpoint = async (context: SandboxDriverStartOptions, record: SandboxRecoveryRecord) => {
         current = record;
@@ -146,16 +149,17 @@ export function fixture(options: FixtureOptions = {}) {
               importCount += 1; importing.resolve();
               if (options.ignoreFileCancellation) await options.importGate;
               else await abortable(options.importGate, operation.signal);
-              let imported = 0n; let importedDirectories = 0n; let payloadBytes = 0n;
+              let imported = 0n; let importedDirectories = 0n; let importedSymlinks = 0n; let payloadBytes = 0n;
               for await (const value of values) {
                 if (value.kind === 'directory') { directories.add(value.path); importedDirectories += 1n; continue; }
+                if (value.kind === 'symlink') { symlinks.set(value.path, value.target); importedSymlinks += 1n; continue; }
                 const chunks: Uint8Array[] = [];
                 for await (const chunk of value.open({ signal: operation.signal })) chunks.push(chunk);
                 const payload = Buffer.concat(chunks);
                 files.set(value.path, payload);
                 imported += 1n; payloadBytes += BigInt(payload.byteLength);
               }
-              return { files: imported, directories: importedDirectories, payloadBytes, archiveBytes: payloadBytes };
+              return { files: imported, directories: importedDirectories, symlinks: importedSymlinks, payloadBytes, archiveBytes: payloadBytes };
             },
             reserveProcess() {
               return { id: parseSandboxProcessId('process-1'), async start() {
@@ -171,13 +175,15 @@ export function fixture(options: FixtureOptions = {}) {
               const paths: string[] = [];
               if (selection.kind === 'files') { for await (const path of selection.paths) paths.push(path); }
               else if (selection.kind === 'subtree') {
-                for (const path of [...directories, ...files.keys()]) {
+                for (const path of [...directories, ...files.keys(), ...symlinks.keys()]) {
                   if (path === selection.path || path.startsWith(`${selection.path}/`)) paths.push(path);
                 }
               }
-              else paths.push(...directories, ...files.keys());
-              let exported = 0n; let exportedDirectories = 0n; let payloadBytes = 0n;
+              else paths.push(...directories, ...files.keys(), ...symlinks.keys());
+              let exported = 0n; let exportedDirectories = 0n; let exportedSymlinks = 0n; let payloadBytes = 0n;
               for (const path of paths) {
+                const target = symlinks.get(path);
+                if (target !== undefined) { await consume({ kind: 'symlink', path, target }, { signal: operation.signal }); exportedSymlinks += 1n; continue; }
                 if (selection.kind !== 'files' && directories.has(path)) {
                   await consume({ kind: 'directory', path }, { signal: operation.signal }); exportedDirectories += 1n; continue;
                 }
@@ -189,7 +195,7 @@ export function fixture(options: FixtureOptions = {}) {
                   } } }, { signal: operation.signal });
                 exported += 1n; payloadBytes += BigInt(payload.byteLength);
               }
-              return { files: exported, directories: exportedDirectories, payloadBytes, archiveBytes: payloadBytes };
+              return { files: exported, directories: exportedDirectories, symlinks: exportedSymlinks, payloadBytes, archiveBytes: payloadBytes };
             },
           };
           return options.decorateReady?.(ready) ?? ready;
@@ -198,7 +204,7 @@ export function fixture(options: FixtureOptions = {}) {
     },
     async reconcile(record) { return { kind: 'matched', owner: { get recoveryRecord() { return record; }, stop, destroy } }; },
   };
-  return { backend: createSandboxBackend(driver), driver, resources, files, acquired, stopping, destroying, importing, exporting,
+  return { backend: createSandboxBackend(driver), driver, resources, files, symlinks, acquired, stopping, destroying, importing, exporting,
     processEntered, output, errorOutput, input, inputBytes, leader,
     get processStarted() { return processStarted; }, get importCount() { return importCount; }, get stopAttempts() { return stopAttempts; }, get destroyAttempts() { return destroyAttempts; },
     get spillFiles() { return spillFiles; }, get spillCloseAttempts() { return spillCloseAttempts; } };

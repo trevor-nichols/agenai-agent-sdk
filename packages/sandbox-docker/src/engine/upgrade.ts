@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------------------------------
-//                upgrade.ts - Owned Engine exec-start handshake and duplex handoff - Node HTTP
+//                upgrade.ts - Owned Engine attach/exec handshake and duplex handoff - Node HTTP
 // ------------------------------------------------------------------------------------------------
 
 import { request as httpRequest, type IncomingMessage } from 'node:http';
@@ -24,13 +24,13 @@ export async function upgradeEngineConnection(
 ): Promise<DockerEngineAttachment> {
   validateEngineRequest(path, options);
   const { timeoutMs, maxResponseBytes, signal } = options;
-  if (options.body === undefined || options.contentType !== 'application/json') {
-    throw new TypeError('Engine upgrade requires an explicit JSON request body');
+  if (options.body === undefined ? options.contentType !== undefined : options.contentType !== 'application/json') {
+    throw new TypeError('Engine upgrade accepts no body or explicit JSON request bytes');
   }
   if (signal?.aborted) throw new DockerEngineTransportError('aborted', 'Engine upgrade aborted');
 
   const deadline = performance.now() + timeoutMs;
-  const body = Buffer.from(options.body);
+  const body = options.body === undefined ? undefined : Buffer.from(options.body);
   if (performance.now() >= deadline) throw new DockerEngineTransportError('deadline', 'Engine upgrade deadline exceeded');
 
   return new Promise<DockerEngineAttachment>((resolve, reject) => {
@@ -55,8 +55,8 @@ export async function upgradeEngineConnection(
       headers: {
         connection: 'Upgrade',
         upgrade: 'tcp',
-        'content-type': 'application/json',
-        'content-length': body.byteLength,
+        'content-type': body === undefined ? 'text/plain' : 'application/json',
+        'content-length': body?.byteLength ?? 0,
       },
     });
 

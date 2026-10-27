@@ -2,6 +2,9 @@
 //                types.ts - Sandbox identity, requested policy and effective enforcement facts
 // ------------------------------------------------------------------------------------------------
 
+import type { SandboxFileAccess, SandboxFileSupport } from '../live/types.js';
+import type { SandboxTransferSymlinkSupport } from '../files/types.js';
+
 declare const namespaceBrand: unique symbol;
 declare const sandboxIdBrand: unique symbol;
 declare const processIdBrand: unique symbol;
@@ -21,7 +24,18 @@ export interface SandboxTemporaryStorage {
   readonly tempBytes: number;
 }
 
-export type SandboxNetworkPolicy = Readonly<{ kind: 'isolated' }> | Readonly<{ kind: 'outbound' }>;
+export interface SandboxHttpsDestination {
+  /** Canonical lowercase ASCII DNS name; IP literals, IDN and search names are unsupported. */
+  readonly hostname: string;
+  readonly port: number;
+}
+
+export type SandboxNetworkPolicy =
+  | Readonly<{ kind: 'isolated' }>
+  | Readonly<{ kind: 'outbound' }>
+  | Readonly<{ kind: 'restricted_https'; destinations: readonly SandboxHttpsDestination[] }>;
+
+export type SandboxNetworkAllowlistSupport = false | Readonly<{ kind: 'https_connect'; maxDestinations: 128 }>;
 
 export type SandboxWorkspaceDiskQuota =
   | Readonly<{ kind: 'not_requested' }>
@@ -42,6 +56,7 @@ export interface SandboxPolicy {
   readonly resources: SandboxResources;
   readonly temporaryStorage: SandboxTemporaryStorage;
   readonly network: SandboxNetworkPolicy;
+  readonly files: SandboxFileAccess;
   readonly workspaceDiskQuota: SandboxWorkspaceDiskQuota;
   readonly execution: SandboxExecutionPolicy;
   readonly deadlines: SandboxDeadlines;
@@ -49,7 +64,9 @@ export interface SandboxPolicy {
   readonly streams: SandboxStreamLimits;
 }
 
-export type SandboxPolicyInput = Omit<SandboxPolicy, 'execution' | 'workspaceDiskQuota'> & {
+export type SandboxPolicyInput = Omit<SandboxPolicy, 'execution' | 'workspaceDiskQuota' | 'files'> & {
+  /** Omission grants no live filesystem access. */
+  readonly files?: SandboxFileAccess;
   /** Omission normalizes to until_stopped, with no execution timer. */
   readonly execution?: SandboxExecutionPolicy;
   /** Omission requests no hard workspace disk quota. Backend storage limits remain independent. */
@@ -85,8 +102,11 @@ export interface SandboxSupport {
   readonly backendRevision: string;
   readonly networkModes: readonly SandboxNetworkPolicy['kind'][];
   readonly workspaceDiskQuota: false;
-  readonly networkAllowlist: false;
+  readonly networkAllowlist: SandboxNetworkAllowlistSupport;
   readonly independentProcessTermination: false;
+  /** Omission is unsupported and normalizes to false. */
+  readonly files?: SandboxFileSupport;
+  readonly transferSymlinks?: SandboxTransferSymlinkSupport;
 }
 
 export interface SandboxEffectivePolicy {
@@ -95,6 +115,8 @@ export interface SandboxEffectivePolicy {
   readonly resources: SandboxResources;
   readonly temporaryStorage: SandboxTemporaryStorage;
   readonly network: SandboxNetworkPolicy;
+  /** Omission normalizes to disabled for existing backend drivers. */
+  readonly files?: SandboxFileAccess;
   readonly nonRoot: true;
   readonly readOnlyRoot: true;
   readonly workspaceDiskQuota: Readonly<{ kind: 'not_requested' }>;

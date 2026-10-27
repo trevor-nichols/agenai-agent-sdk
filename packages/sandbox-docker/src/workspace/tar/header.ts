@@ -3,14 +3,15 @@
 // ------------------------------------------------------------------------------------------------
 
 import { SandboxUnsupportedError } from '@agen-ai/sandbox';
-import { archiveName, unsafeArchive } from '../paths.js';
-import type { TarHeader, TarInputEntry } from './contracts.js';
+import { unsafeArchive } from '../paths.js';
+import type { TarHeader } from './contracts.js';
 
 export const BLOCK_BYTES = 512;
 export const MAX_OCTAL_SIZE = 8 * 1024 ** 3 - 1;
-export const MAX_PAX_BYTES = 4096;
+// Two <=4095-byte fields and three <=27-byte timestamps, with all record framing, fit below 8.5 KiB.
+export const MAX_PAX_BYTES = 16 * 1024;
 export const MAX_TRAILER_BYTES = 10 * 1024;
-const utf8 = new TextDecoder('utf-8', { fatal: true });
+const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
 export function text(bytes: Uint8Array): string {
   try { return utf8.decode(bytes); }
@@ -43,21 +44,21 @@ export function parseHeader(block: Uint8Array): TarHeader {
   if (sum !== checksum) unsafeArchive('checksum mismatch.');
   if (field(block, 257, 6) !== 'ustar' || text(block.subarray(263, 265)) !== '00') unsafeArchive('only POSIX ustar/PAX is supported.');
   const flag = block[156];
-  const kind = flag === 53 ? 'directory' : flag === 48 || flag === 0 ? 'file' : flag === 120 ? 'pax' : undefined;
-  if (!kind) unsafeArchive('only regular files, directories and local PAX records are supported; links and special files are forbidden.');
-  if (field(block, 157, 100)) unsafeArchive('links and link metadata are forbidden.');
+  const kind = flag === 53 ? 'directory' : flag === 48 || flag === 0 ? 'file' : flag === 50 ? 'symlink' : flag === 120 ? 'pax' : undefined;
+  if (!kind) unsafeArchive('only regular files, directories, symbolic links and local PAX records are supported; hardlinks and special files are forbidden.');
+  const target = field(block, 157, 100);
+  if (kind !== 'symlink' && target) unsafeArchive('only symbolic links can carry link metadata.');
   const prefix = field(block, 345, 155);
   const name = field(block, 0, 100);
   const path = prefix ? `${prefix}/${name}` : name;
-  archiveName(path, kind !== 'file');
   const mode = octal(block, 100, 8);
   const size = octal(block, 124, 12);
   for (const [offset, length] of [[108, 8], [116, 8], [136, 12], [329, 8], [337, 8]]) octal(block, offset, length);
   field(block, 265, 32);
   field(block, 297, 32);
   if (mode > 0o7777 || size > MAX_OCTAL_SIZE || block.subarray(500).some((byte) => byte !== 0)) unsafeArchive('unsupported numeric or extension metadata.');
-  if (kind === 'directory' && size !== 0) unsafeArchive('directory entries cannot carry payload.');
-  return { path, kind, mode, size };
+  if ((kind === 'directory' || kind === 'symlink') && size !== 0) unsafeArchive('directory and symbolic-link entries cannot carry payload.');
+  return { path, kind, mode, size, target };
 }
 
 function putOctal(header: Buffer, offset: number, length: number, value: number): void {
@@ -67,14 +68,15 @@ function putOctal(header: Buffer, offset: number, length: number, value: number)
   header.write(value.toString(8).padStart(length - 1, '0'), offset, length - 1, 'ascii');
 }
 
-export function makeHeader(entry: Omit<TarInputEntry, 'body' | 'kind'> & { readonly kind: TarHeader['kind'] }): Uint8Array {
-  if (Buffer.byteLength(entry.path) > 100 || entry.mode > 0o7777) throw new SandboxUnsupportedError('Docker tar header name or mode is not representable.');
+export function makeHeader(entry: Readonly<{ path: string; kind: TarHeader['kind']; size: number; mode: number; uid: number; gid: number; target?: string }>): Uint8Array {
+  if (Buffer.byteLength(entry.path) > 100 || entry.mode > 0o7777 || Buffer.byteLength(entry.target ?? '') > 100) throw new SandboxUnsupportedError('Docker tar header name, target or mode is not representable.');
   const header = Buffer.alloc(BLOCK_BYTES);
   header.write(entry.path, 0, 100, 'utf8');
   for (const [offset, length, value] of [[100, 8, entry.mode], [108, 8, entry.uid], [116, 8, entry.gid], [124, 12, entry.size], [136, 12, 0], [329, 8, 0], [337, 8, 0]]) {
     putOctal(header, offset, length, value);
   }
-  header[156] = entry.kind === 'directory' ? 53 : entry.kind === 'pax' ? 120 : 48;
+  header[156] = entry.kind === 'directory' ? 53 : entry.kind === 'pax' ? 120 : entry.kind === 'symlink' ? 50 : 48;
+  if (entry.kind === 'symlink') header.write(entry.target ?? '', 157, 100, 'utf8');
   header.write('ustar\0', 257, 6, 'ascii');
   header.write('00', 263, 2, 'ascii');
   header.fill(32, 148, 156);

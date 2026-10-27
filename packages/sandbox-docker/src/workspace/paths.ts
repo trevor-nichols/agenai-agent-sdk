@@ -2,7 +2,7 @@
 //                paths.ts - Fixed Docker archive roots and bounded canonical entry names
 // ------------------------------------------------------------------------------------------------
 
-import { SANDBOX_LIMITS, SandboxOperationError, parseSandboxRelativePath } from '@agen-ai/sandbox';
+import { SANDBOX_LIMITS, SandboxOperationError, SandboxValidationError, parseSandboxRelativePath, parseSandboxSymlinkTarget } from '@agen-ai/sandbox';
 
 export const ARCHIVE_ROOT = 'workspace';
 export const ARCHIVE_WORK = `${ARCHIVE_ROOT}/work`;
@@ -13,6 +13,14 @@ export function archiveError(message: string): SandboxOperationError {
 
 export function unsafeArchive(message: string): never {
   throw archiveError(message);
+}
+
+export function symlinkTarget(target: string): string {
+  try { return parseSandboxSymlinkTarget(target); }
+  catch (error) {
+    if (error instanceof SandboxValidationError) unsafeArchive('symbolic-link targets require bounded raw relative text.');
+    throw error;
+  }
 }
 
 export function archiveName(name: string, directory: boolean): string {

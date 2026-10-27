@@ -4,11 +4,15 @@
 
 import type { SandboxDriverReady, SandboxDriverReservation } from '../backend/contracts.js';
 import type { OperationOptions, Sandbox, SandboxReservation, SandboxState } from '../contracts.js';
-import { SandboxCleanupError, SandboxOperationError, SandboxStartError, SandboxStateError } from '../errors.js';
+import { SandboxCleanupError, SandboxOperationError, SandboxStartError, SandboxStateError, SandboxUnsupportedError } from '../errors.js';
 import { parseTransferOptions } from '../files/parse.js';
 import type { ParsedTransferOptions } from '../files/parse.js';
 import { parseSandboxGuestPath } from '../files/paths.js';
-import type { SandboxTreeSource, SandboxTreeSelection, SandboxExportConsumer, SandboxTransferOptions } from '../files/types.js';
+import type { SandboxTreeSource, SandboxTreeSelection, SandboxExportConsumer, SandboxTransferOptions, SandboxTransferSymlinkSupport } from '../files/types.js';
+import type { OwnedLiveOperation } from '../live/operation.js';
+import { createLiveFiles } from '../live/handle.js';
+import type { ParsedFileOptions } from '../live/parse.js';
+import type { SandboxFileCancellation, SandboxFileWriteResult } from '../live/types.js';
 import { assertSandboxEffectivePolicy, parseSandboxEffectivePolicy, parseSandboxProcessId } from '../policy/parse.js';
 import type { SandboxRequest } from '../policy/types.js';
 import { parseSandboxProcessSpec } from '../process/parse.js';
@@ -42,6 +46,7 @@ export class SandboxOwner implements SandboxReservation {
   private startup: Promise<Sandbox> | undefined;
   private ready: SandboxDriverReady | undefined;
   private transfer: FileOperation | undefined;
+  private live: { readonly controller: AbortController; readonly work: OwnedLiveOperation<unknown>; settled: boolean } | undefined;
   private processReserved = false;
   private process: ProcessOperation | undefined;
   private streams: OwnedProcessStreams | undefined;
@@ -50,9 +55,10 @@ export class SandboxOwner implements SandboxReservation {
   private destroyActual: Promise<void> | undefined;
   private stopObservation: Promise<void> | undefined;
   private destroyObservation: Promise<void> | undefined;
+  private infrastructureFailure: SandboxOperationError | undefined;
 
   constructor(private readonly driver: SandboxDriverReservation, private readonly request: SandboxRequest,
-    recovery: SandboxRecoveryPolicy, record: SandboxRecoveryRecord) {
+    recovery: SandboxRecoveryPolicy, record: SandboxRecoveryRecord, private readonly transferSymlinks: SandboxTransferSymlinkSupport) {
     this.journal = new RecoveryJournal(record, recovery, (error) => {
       this.startupController.abort(error);
       this.fence('start');
@@ -72,17 +78,21 @@ export class SandboxOwner implements SandboxReservation {
       this.startupController.signal.throwIfAborted();
       await this.journal.initialize();
       this.startupController.signal.throwIfAborted();
-      const ready = await this.driver.start({ signal: this.startupController.signal, checkpoint: this.journal.checkpoint });
+      const ready = await this.driver.start({ signal: this.startupController.signal, checkpoint: this.journal.checkpoint,
+        onInfrastructureFailure: this.onInfrastructureFailure });
       this.ready = ready;
-      if (this.snapshot.kind !== 'starting' || this.startupController.signal.aborted) {
+      this.startupController.signal.throwIfAborted();
+      if (this.snapshot.kind !== 'starting') {
         throw new SandboxOperationError('cancelled', 'Sandbox startup settled after its admission was closed.');
       }
       const effective = parseSandboxEffectivePolicy(ready.effective);
       const workspace = parseSandboxGuestPath(ready.workspace);
       assertSandboxEffectivePolicy(this.request, effective);
+      const files = createLiveFiles(this.request.policy.files, ready.files, this.request.policy.transfers.chunkBytes,
+        (options, perform, inspect) => this.enterLive(options, perform, inspect), (result) => this.observeWrite(result));
       const owner = this;
       const sandbox: Sandbox = Object.freeze({
-        id: this.id, effective, workspace,
+        id: this.id, effective, workspace, files,
         get state() { return owner.state; },
         get recoveryRecord() { return owner.recoveryRecord; },
         importTree: (entries: SandboxTreeSource, operation?: SandboxTransferOptions) => owner.importTree(entries, operation),
@@ -102,6 +112,18 @@ export class SandboxOwner implements SandboxReservation {
       },
     }).catch((cause: unknown) => { throw new SandboxStartError('Sandbox startup failed; its reservation retains cleanup ownership.', { cause, owner: this }); });
   }
+
+  private readonly onInfrastructureFailure = (error: SandboxOperationError): void => {
+    if (this.infrastructureFailure || this.snapshot.kind === 'destroyed') return;
+    this.infrastructureFailure = error;
+    this.fence('start');
+    this.startupController.abort(error);
+    this.process?.controller.abort(error);
+    this.transfer?.controller.abort(error);
+    if (this.live && !this.live.settled) this.live.controller.abort(error);
+    // stop retains its physical task and retry owner if the observed cleanup fails.
+    void this.stop().catch(() => {});
+  };
 
   stop(): Promise<void> {
     if (this.snapshot.kind === 'destroyed' || this.snapshot.kind === 'stopped') return Promise.resolve();
@@ -154,6 +176,7 @@ export class SandboxOwner implements SandboxReservation {
       this.streams?.close();
       await this.streams?.settled;
       await transferCleanup;
+      await liveCleanup;
       if (this.snapshot.kind !== 'destroying' && this.snapshot.kind !== 'destroyed') this.snapshot = Object.freeze({ kind: 'stopped' });
     }).catch((error: unknown) => {
       this.stopActual = undefined;
@@ -166,6 +189,7 @@ export class SandboxOwner implements SandboxReservation {
     this.startupController.abort(reason);
     this.process?.controller.abort(reason);
     if (this.transfer?.kind === 'import') this.transfer.controller.abort(reason);
+    if (this.live && !this.live.settled) this.live.controller.abort(reason);
     this.cancelExecutionDeadline?.();
     this.cancelExecutionDeadline = undefined;
     actualOperation(() => this.driver.stop()).then(physical.resolve, physical.reject);
@@ -173,25 +197,29 @@ export class SandboxOwner implements SandboxReservation {
       transferCleanup = this.cleanupTransfer();
       void transferCleanup.catch(() => {});
     }
+    const liveCleanup = this.cleanupLive();
+    void liveCleanup.catch(() => {});
     this.streams?.close();
     return actual;
   }
 
   private importTree(entries: SandboxTreeSource, input?: SandboxTransferOptions) {
     const options = parseTransferOptions(input);
-    if (this.snapshot.kind !== 'ready' || this.processReserved || this.transfer) throw new SandboxStateError('File import requires ready compute, no entered import, and no process reservation.');
+    this.assertTransferLinks(options);
+    if (this.snapshot.kind !== 'ready' || this.processReserved || this.transfer || this.live) throw new SandboxStateError('File import requires ready compute, no entered file operation, and no process reservation.');
     const ready = this.readyPort();
     return this.enterFile('import', options, (controller) => importTree(ready, entries, {
-      signal: controller.signal, quotas: options.quotas, buffers: this.request.policy.transfers,
+      signal: controller.signal, quotas: options.quotas, buffers: this.request.policy.transfers, symlinks: options.symlinks,
     }));
   }
 
   private exportTree(selection: SandboxTreeSelection, consume: SandboxExportConsumer, input?: SandboxTransferOptions) {
     const options = parseTransferOptions(input);
-    if (this.snapshot.kind !== 'stopped' || this.transfer) throw new SandboxStateError('File export requires stopped compute and no other entered transfer.');
+    this.assertTransferLinks(options);
+    if (this.snapshot.kind !== 'stopped' || this.transfer || this.live) throw new SandboxStateError('File export requires stopped compute and no other entered file operation.');
     const ready = this.readyPort();
     return this.enterFile('export', options, (controller) => exportTree(ready, selection, consume, {
-      signal: controller.signal, quotas: options.quotas, buffers: this.request.policy.transfers,
+      signal: controller.signal, quotas: options.quotas, buffers: this.request.policy.transfers, symlinks: options.symlinks,
     }));
   }
 
@@ -215,11 +243,63 @@ export class SandboxOwner implements SandboxReservation {
     return observation;
   }
 
+  private assertTransferLinks(options: ParsedTransferOptions): void {
+    if (options.symlinks === 'preserve_internal' && this.transferSymlinks === false) {
+      throw new SandboxUnsupportedError('Backend does not support preserving confined symbolic links.');
+    }
+  }
+
   private async cleanupTransfer(): Promise<void> {
     const entry = this.transfer;
     if (!entry) return;
     await entry.work.cleanup();
     if (this.transfer === entry && entry.work.clean) this.transfer = undefined;
+  }
+
+  private observeWrite(result: SandboxFileWriteResult): void {
+    if (result.kind === 'uncertain' || result.kind === 'changed' || (result.kind === 'cancelled' && result.effect === 'unknown')) {
+      this.fence('files');
+      void this.stop().catch(() => {});
+    }
+  }
+
+  private enterLive<Result>(options: ParsedFileOptions, perform: (controller: AbortController) => OwnedLiveOperation<Result>,
+    inspect?: (result: Result) => void): Promise<Result> {
+    if (this.snapshot.kind !== 'ready' || this.transfer || this.live) throw new SandboxStateError('Live files require ready compute and no other entered file operation.');
+    const controller = new AbortController();
+    if (options.signal?.aborted || (options.deadlineAt !== undefined && options.deadlineAt <= Date.now())) {
+      // No driver or caller source has been entered yet.
+      return Promise.reject(new SandboxOperationError(options.signal?.aborted ? 'cancelled' : 'deadline_exceeded', 'Live file operation was interrupted before entry.'));
+    }
+    const work = perform(controller);
+    const entry = { controller, work, settled: false };
+    this.live = entry;
+    const release = () => { if (this.live === entry && work.clean) this.live = undefined; };
+    const actual = work.actual.then((result) => { entry.settled = true; release(); inspect?.(result); return result; }, (error: unknown) => {
+      entry.settled = true;
+      release();
+      this.fence('files');
+      void this.stop().catch(() => {});
+      throw error;
+    });
+    let interrupted: SandboxFileCancellation | undefined;
+    const duration = options.deadlineAt === undefined ? undefined : Math.max(0, options.deadlineAt - Date.now());
+    return observe(actual, duration, { signal: operationSignal(controller, options), onInterrupt: (error) => {
+      interrupted = error.code === 'deadline_exceeded' ? 'deadline' : this.snapshot.kind === 'ready' ? 'signal' : 'stopped';
+      controller.abort(error);
+      this.fence('files');
+      void this.stop().catch(() => {});
+    } }).catch((error: unknown) => {
+      if (interrupted) return work.interrupt(interrupted);
+      throw error;
+    });
+  }
+
+  private async cleanupLive(): Promise<void> {
+    const entry = this.live;
+    if (!entry) return;
+    await entry.work.cleanup();
+    if (this.live === entry && entry.work.clean) this.live = undefined;
   }
 
   private reserveProcess(input: SandboxProcessInput): SandboxProcessReservation {
@@ -271,7 +351,7 @@ export class SandboxOwner implements SandboxReservation {
     return this.ready;
   }
 
-  private fence(operation: 'start' | 'import' | 'export' | 'process' | 'stop' | 'destroy'): void {
+  private fence(operation: 'start' | 'import' | 'export' | 'process' | 'files' | 'stop' | 'destroy'): void {
     if (this.snapshot.kind !== 'destroyed' && this.snapshot.kind !== 'destroying' && this.snapshot.kind !== 'stopping' && this.snapshot.kind !== 'stopped') {
       this.snapshot = Object.freeze({ kind: 'uncertain', operation });
     }
