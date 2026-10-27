@@ -2,8 +2,8 @@
 
 The three core packages and seven optional packages (orchestration, ACP transport, ACP provider,
 ACP registry, history, sandbox and Docker sandbox) form the published coordinated ten-package
-`0.4.4` release. npm `beta` and `latest` select `0.4.4` for all ten names; see the
-[v0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4).
+`0.4.5` release. npm `beta` and `latest` select `0.4.5` for all ten names; see the
+[v0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5).
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -17,13 +17,14 @@ Future separately authorized releases publish the complete set in dependency ord
 9. `@agen-ai/sandbox` (optional neutral sandbox lifecycle, processes, files and explicit ACP bridge)
 10. `@agen-ai/sandbox-docker` (optional local Docker execution backend)
 
-The coordinated `0.4.4` release uses Agent Protocol V13. Preserve the historical seven-package
+The coordinated `0.4.5` release retains Agent Protocol V13 from `0.4.4`. Preserve the historical seven-package
 `0.4.3`/V12 release, earlier `0.4.2`/V12,
 `0.4.1`/V11 and `0.4.0`/V10 releases and their historical evidence. Verify current
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for the current release,
+[UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for the current release,
+[UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for the preceding ten-package release,
 [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for the published patch,
 [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for the V12 boundary and
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
@@ -249,7 +250,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.4
+VERSION=0.4.5
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest
