@@ -41,7 +41,7 @@ async function assertInstalledSandboxConsumer(root) {
     assert(file.startsWith(`${root}${path.sep}`), `${name} must resolve within the independent consumer`);
     const installed = JSON.parse(await readFile(file, "utf8"));
     assert.equal(installed.name, name);
-    assert.equal(installed.version, "0.4.5", `${name} must match the coordinated 0.4.5 candidate`);
+    assert.equal(installed.version, "0.4.6", `${name} must match the coordinated 0.4.6 candidate`);
     packages.push({ name, version: installed.version });
   }
   const installedNames = (await readdir(path.join(root, "node_modules/@agen-ai"))).map((name) => `@agen-ai/${name}`).sort();

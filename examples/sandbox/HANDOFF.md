@@ -1,9 +1,10 @@
-# SDK 0.4.5 platform and consumer handoff
+# SDK 0.4.6 candidate platform and consumer handoff
 
-This handoff targets the coordinated, unpublished **0.4.5 candidate**, with Agent Protocol
+This handoff targets the coordinated, unpublished **0.4.6 candidate**, with Agent Protocol
 **V13** unchanged. Use the exact governed source export and its ten locally packed archives.
-Published npm 0.4.4 remains a separate release. Publication, Docker Desktop configuration and
-Battle Bots changes are not performed by this handoff.
+Published npm **0.4.5** remains a separate release. Earlier platform records below retain their
+original source and archive identities. Publication, Docker Desktop configuration and Battle Bots
+changes are not performed by this handoff.
 
 ## Select one reviewable candidate
 
@@ -19,7 +20,7 @@ From the standalone source export, with Node 24.18.0 and pnpm 11.7.0:
 pnpm install
 pnpm build
 pnpm typecheck:packages
-pnpm test:sandbox-platform-consumer --output /private/tmp/sdk045-packed-r1
+pnpm test:sandbox-platform-consumer --output /private/tmp/sdk046-packed-r1
 ```
 
 The output must be new and its parent physical/canonical. On Linux, choose a caller-owned
@@ -54,9 +55,10 @@ qualification launcher is not a supported public authentication API.
 
 | Composition | Recorded scope | Target work still required |
 | --- | --- | --- |
+| 0.4.6 supplied API-key recipes, Linux x64 and Desktop native arm64 | Five providers, normal task and entered-native cancellation on each tuple: twenty accepted rows, with explicit Engine 404 resource checks | Codex saved-auth rows, Rosetta credential routes and changed input tuples; see the separate follow-up record below |
 | Linux x64, Node 24.18.0, rootful Engine 29.1.3/API 1.52, same-host route authority | Restricted HTTPS, live files, confined links, recovery, installed bridges and native tool/cancellation cases | Requalify changed SDK/helper/native bytes, daemon/profile or route-authority assumptions |
 | Claude Agent SDK 0.3.273 / Code 2.1.273 | Scripted native tools and API-key task/cancellation with `claude-haiku-4-5-20251001` | Other SDK/Code/model/account compositions; browser/subscription and retained refresh |
-| Grok Build 1.0.62, revision `1474f9cbdd91`, Linux x86_64 binary SHA-256 `2a46d9e4d7ebd7a9cff7f95716714b19dad5f21dd2a497822400b1fb128969aa` | Modern stable ACP `schema-v1.23.0`, native filesystem callbacks, scripted tools and API-key task/cancellation with `grok-build-0.1` | Other binaries/schema/account/model combinations and native arm64 execution |
+| Grok Build 1.0.62, revision `1474f9cbdd91`, Linux x86_64 binary SHA-256 `2a46d9e4d7ebd7a9cff7f95716714b19dad5f21dd2a497822400b1fb128969aa` | Modern stable ACP `schema-v1.23.0`, native filesystem callbacks, scripted tools and API-key task/cancellation with `grok-build-0.1` | Other binaries/schema/account/model combinations; native arm64 API-key tasks have the separate 0.4.6 record below |
 | M3/macOS 26.5.1, Apple Virtualization native arm64 and Rosetta amd64 | Each passed 30 baseline checks and the installed two-turn controlled ACP example; independent kernel/resource cleanup | Changed platform/artifact tuples, datasets and large-workspace scale; combined behavior has a separate MS006 record |
 | Desktop live files, separately packed MS003 r2 | Native N7 and Rosetta R2 each passed 18 cases with complete cleanup and 43 final-empty scopes | Changed tuples need their own proof |
 | Desktop preserving transfers, separately packed MS004 r2 | Native N2 and Rosetta R1 each passed 136 cases across both APFS roots and workspace layouts, with complete cleanup and 230 final-empty scopes | Changed archive/controller/helper/platform tuples need their own proof |
@@ -65,7 +67,7 @@ qualification launcher is not a supported public authentication API.
 | Pinned Grok 1.0.62 under AVF/Rosetta | Exact version/hash and eager ACP initialization, no session/account/model | Native tasks, authentication, tools, cancellation and model behavior on Mac |
 | Battle Bots / Electron | Reusable SDK contracts and example mappings | Dependency/config migration, application behavior, renderer grants, artifacts and replay |
 
-The real API-key cases used an explicit guest-loopback admission gateway that forwarded the
+The earlier 0.4.5 Linux API-key cases used an explicit guest-loopback admission gateway that forwarded the
 selected key to the exact provider over verified TLS through restricted CONNECT. That gateway
 was controlled qualification infrastructure. The result is not direct-native-endpoint-only proof,
 hidden backend model identification or billing attestation. Credentials remain visible to guest
@@ -617,3 +619,102 @@ preserve borrowed images, fixtures and unrelated workloads.
 New or changed platform rows require their own observed effects, independent cleanup and exact
 identities. The recorded Mac baseline above does not certify another tuple or artifact. Battle
 Bots integration remains a separate consumer change.
+
+## Credential reuse native campaigns (2026-10-28)
+
+### API-key follow-up (EP-20261028-001)
+
+The follow-up passed twenty API-key rows under restricted HTTPS: five providers, each with a normal
+file task and cancellation on Linux x64 and Docker Desktop native arm64. There were twenty-one row
+attempts. The first Desktop Claude normal attempt failed during sandbox startup before native entry;
+its original checkpoints and explicit-404 cleanup are retained. A fresh attempt with identical inputs
+passed. No failed attempt is replaced by its retry.
+
+| Controller tuple | Native-used candidate |
+| --- | --- |
+| Linux x86_64, Node 24.18.0, Engine 29.1.3 / API 1.52 | Same ten installed 0.4.6 archives and public example inputs |
+| macOS 26.5.1 arm64, Node 24.15.0, Desktop 4.54.0 build 212467, Engine 29.1.2 / API 1.52 | Same ten archives, with native arm64 images and Apple Virtualization, IPv4-only networking |
+
+| Route | Selected model | Linux normal / cancel | Desktop normal / cancel |
+| --- | --- | --- | --- |
+| Claude Code 2.1.273 / Agent SDK 0.3.273, Anthropic API key | `claude-haiku-4-5-20251001` | pass / pass | pass / pass |
+| Codex CLI 0.163.0, OpenAI API key | `gpt-6-luna`, reasoning `low` | pass / pass | pass / pass |
+| Grok Build 1.0.62, xAI API key | `grok-build-0.1` | pass / pass | pass / pass |
+| OpenCode V2 2.1.2, Anthropic API key | `anthropic/claude-haiku-4-5-20251001` | pass / pass | pass / pass |
+| Cursor CLI 2026.10.22-27dcf5f, user API key | `grok-4.7-medium` | pass / pass | pass / pass |
+
+Every accepted normal row verifies the exact uppercase file written by native tools and successful
+native settlement. Every cancel row observes nonempty native output on its original reader or public
+callback before abort, then requires an actual cancelled settlement. Native entry facts retain ordering
+and available byte counts without retaining the output text. Cleanup queries each original SDK resource
+identity through the bounded Engine API; only an explicit HTTP 404 establishes absence. Original recovery
+checkpoints and every attempt remain retained. A daemon, permission, transport or parse error fails
+qualification rather than being counted as absence.
+
+All four Codex `auth_json` rows (normal and cancellation on both tuples) are explicitly deferred until
+a future quiescent session. Neither auth file was read or used by this follow-up, and no Codex or
+CodexBar process was stopped. The source-copy mechanism remains available under its caller-quiescent
+contract; this API-key record adds no saved-auth, refresh-lineage, Rosetta, billing or fleet guarantee.
+The launch recipes' static historical preflight labels do not attest a caller's image, credentials or
+the follow-up's deferred routes.
+
+The native-used pack is retained at
+`/Volumes/AGENAI/Qualification/sdk-auth/EP-20261028-001/ms003/packed-native-r1`, with execution source
+`36fae180aa7476a9c80d31ae0b9edf403b514383`. Nonsecret reports, original native archives and platform
+inputs are retained under the same plan's `ms003` directory. In the AgenAI repository, the final record
+belongs under `.agent/exec_plans/complete/2026/10/28/EP-20261028-001_sdk-sandbox-auth-followup/artifacts/`:
+`ms003-validation.md`, `ms003-native/summary.json`, `ms003-retention-manifest.json` and
+`ms003-archive-comparison.json`. The final documentation pack retains identical executable archive payloads and example inputs.
+The comparison separately records dependency-map key ordering in three package manifests,
+documentation edits and consumer-path rebasing with derived archive-integrity and hook-checksum
+updates; dependency values and every other manifest field remain unchanged. Native reports retain
+their original pack identities.
+
+### Historical predecessor (EP-20261027-001)
+
+The predecessor's original reports marked twenty-four rows passed, including Codex saved-auth copies.
+Those reports remain unchanged. They used a fixed 1.5-second cancellation timer without proving native
+entry first, and treated every failed `docker inspect` as absence. They therefore do not establish the
+follow-up's entered-native cancellation or explicit-404 cleanup guarantees, including for the four
+saved-auth rows deferred above. Its ten original package archives were not retained; later packs cannot
+restore that missing artifact record. Its normal-task observations retain their historical scope.
+
+| Tuple | Engine | Candidate |
+| --- | --- | --- |
+| Linux x86_64 | Docker Engine 29.1.3, Node 24.18.0 | export of `df51bdf80`; full packed aggregate 20/20 |
+| Docker Desktop native arm64 | Desktop 4.54.0 / Engine 29.1.2 / API 1.52, IPv4-only | packed sandbox-platform consumer of the same packages |
+
+Its native harnesses were pinned and integrity-verified: Claude Code 2.1.273 (Agent SDK 0.3.273), Codex
+CLI 0.163.0, Grok Build 1.0.62, OpenCode V2 2.1.2 and Cursor CLI 2026.10.22-27dcf5f. Each route
+reported a normal task and a cancellation on each tuple, 24 rows in all:
+
+| Route | Credential | Normal | Cancel |
+| --- | --- | --- | --- |
+| Claude Code | API key | pass / pass | pass / pass |
+| Codex | API key | pass / pass | pass / pass |
+| Codex | quiescent ChatGPT `auth.json` copy | pass / pass | pass / pass |
+| Grok Build | xAI API key | pass / pass | pass / pass |
+| OpenCode V2 | Anthropic API key | pass / pass | pass / pass |
+| Cursor CLI | user API key, model `grok-4.7-medium` | pass / pass | pass / pass |
+
+Each cell is Linux / Desktop. A normal row imports a fresh token file, has the native agent write
+its uppercase form with its own tools, and verifies the exported result exactly. The reports recorded
+native cancellation and resource absence under the limited checks described above. They also recorded
+both host `auth.json` sources unchanged and no credential values in retained reports. These historical
+observations do not fill the follow-up's deferred rows.
+
+The campaign found and fixed five real defects:
+
+- recipes had no relay variables for restricted HTTPS;
+- Codex's API-key route used a `CODEX_HOME` that did not exist;
+- Codex needs its sibling `codex-code-mode-host`;
+- the slim Node base lacked a CA store;
+- the broker rejected Node `fetch`'s portless CONNECT `Host`.
+
+The broker change was requalified by the 46-case Linux restricted-network/recovery campaign on the
+same candidate. One fixture was adapted because `httpbin.org` now redirects only to its own allowlist.
+
+The predecessor retains its credential transport, authentication and normal tool-task observations
+on its recorded tuples. Its cancellation and absence reports have the limitations above. Neither
+campaign establishes token lifetime, concurrent refresh coherence, billing, account eligibility beyond
+the observed runs, or Rosetta amd64 Desktop credential behavior.

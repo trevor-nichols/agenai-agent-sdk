@@ -51,7 +51,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published package versions and current source versions are coordinated at `0.4.5`.
+schema assets. All ten published packages are at `0.4.5`; current source is the coordinated unpublished `0.4.6` candidate.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -726,7 +726,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching 0.4.5 candidate checkout (use the `v0.4.4` checkout for the published baseline):
+run from the built matching 0.4.6 candidate checkout (use the `v0.4.5` checkout for the published release):
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \
@@ -743,7 +743,7 @@ the whole compute boundary and joins streams while retaining files; selected exp
 final destruction. Failed cleanup retains the original error and exact retry owner.
 
 Choose the network policy explicitly. Isolated mode has no network; outbound mode permits broad
-reachable host, LAN and internet access. Current 0.4.5 source adds opt-in
+reachable host, LAN and internet access. 0.4.5 added opt-in
 `{ kind: 'restricted_https', destinations: [{ hostname, port }] }` through the separately configured Linux x64 Docker composition.
 Its explicit `@agen-ai/sandbox-docker/node` API emits a helper build context and creates an opaque pinned Linux route
 observer handle; image builds remain explicit caller operations. Broker/relay CPU, memory, PID,
@@ -755,7 +755,7 @@ endpoint. The broker tunnels bytes; it does not terminate/validate TLS, filter p
 allowed-service relaying or hide guest-readable credentials. Infrastructure loss fences and stops
 the workload without broad outbound fallback. Native client/account qualification remains separate.
 
-Current 0.4.5 source also adds explicit `policy.files` grants: `disabled` by default,
+0.4.5 also added explicit `policy.files` grants: `disabled` by default,
 `read_only`, or `read_write`. A matching prepared native helper supplies no-follow
 stat, streamed direct-child listing, callback-scoped binary reads and explicitly
 selected atomic writes through `sandbox.files`. New files use mode 0644;
@@ -769,7 +769,7 @@ listing example requires Node >=22.13. The [Docker preparation contract](package
 documents exact images, layout, grants and qualification scope. This feature does
 not implicitly enable ACP host callbacks or move controller-side tools into the guest.
 
-Logical transfer quotas do not enforce guest disk use. Explicit required allocated-block quotas reject before reservation until enforcement is qualified; omission means no requested hard quota. Docker can attach exact pre-existing image datasets read-only under `/datasets/<name>` on its admitted containerd image-store profile. Dataset images remain borrowed, while each sandbox owns its writable workspace. Candidate recovery v3 and Docker revision v5 bind dataset, execution and helper configuration separately from request policy; legacy records reject before effects. Drain v2 with its original 0.4.4 controller, and retain the original trusted checkpoint and matching controller for v3 cleanup. See [the candidate upgrade guide](UPGRADING-TO-0.4.5.md) and [Docker preparation contract](packages/sandbox-docker/README.md#restricted-https-egress).
+Logical transfer quotas do not enforce guest disk use. Explicit required allocated-block quotas reject before reservation until enforcement is qualified; omission means no requested hard quota. Docker can attach exact pre-existing image datasets read-only under `/datasets/<name>` on its admitted containerd image-store profile. Dataset images remain borrowed, while each sandbox owns its writable workspace. Candidate recovery v3 and Docker revision v5 bind dataset, execution and helper configuration separately from request policy; legacy records reject before effects. Drain v2 with its original 0.4.4 controller, and retain the original trusted checkpoint and matching controller for v3 cleanup. See [the 0.4.5 upgrade guide](UPGRADING-TO-0.4.5.md) and [Docker preparation contract](packages/sandbox-docker/README.md#restricted-https-egress).
 The bridge disables host facilities, while separately supplied callbacks, MCP servers and host
 bindings keep the authority of their caller. Explicit guest credentials remain visible to guest
 code and the trusted Docker controller. Recovery records support exact cleanup after controller

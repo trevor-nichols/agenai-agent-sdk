@@ -250,7 +250,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.5
+VERSION=0.4.6
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest

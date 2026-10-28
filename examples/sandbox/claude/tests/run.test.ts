@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { setImmediate } from 'node:timers/promises';
 import test from 'node:test';
 import type { SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
-import { createSandboxClaudeRun } from '../index.js';
+import { createSandboxClaudeRun, type ClaudeSdk } from '../index.js';
 import { fixture, request, sdkFixture } from './fixture.js';
 
 async function attached(physical: ReturnType<typeof fixture>, sdk: ReturnType<typeof sdkFixture>) {
@@ -18,6 +18,7 @@ async function attached(physical: ReturnType<typeof fixture>, sdk: ReturnType<ty
 test('closed configuration rejects host callbacks, ambient options and malformed data before SDK or process entry', { timeout: 2000 }, async () => {
   const physical = fixture(); const sdk = sdkFixture(); const sandbox = await physical.owner.start();
   let getterCalls = 0;
+  const secret = 'synthetic-secret-must-not-appear-in-validation';
   const malformed = [
     ...['hooks', 'canUseTool', 'mcpServers', 'plugins', 'skills', 'settings', 'sessionStore', 'env', 'extraArgs', 'cwd', 'spawnClaudeCodeProcess', 'stderr'].map((key) => ({ ...request, [key]: () => {} })),
     { ...request, tools: ['Read', 'Read'] }, { ...request, tools: ['Agent'] }, { ...request, maxTurns: 0 },
@@ -25,12 +26,66 @@ test('closed configuration rejects host callbacks, ambient options and malformed
     { ...request, prompt: '\u0000'.repeat(6000) }, { ...request, [Symbol('hidden')]: true },
     Object.defineProperty({ ...request }, 'hooks', { value: [], enumerable: false }),
     Object.defineProperty({ ...request }, 'prompt', { enumerable: true, get() { getterCalls++; return 'untrusted'; } }),
+    ...[undefined, null, {}, { kind: 'oauth_token', value: secret }, { kind: 'api_key' },
+      { kind: 'api_key', value: secret, token: secret }, { kind: 'api_key', value: secret, env: { ANTHROPIC_API_KEY: secret } },
+      { kind: 'api_key', value: secret, [Symbol('hidden')]: secret },
+      Object.defineProperty({ kind: 'api_key', value: secret }, 'token', { value: secret, enumerable: false }),
+      Object.defineProperty({ kind: 'api_key' }, 'value', { enumerable: true, get() { getterCalls++; return secret; } }),
+      ...['', `${secret}\u0000`, `${secret}\r`, `${secret}\n`, '\ud800', 'é'.repeat(4096) + 'a', 1]
+        .map((value) => ({ kind: 'api_key', value })),
+    ].map((credential) => ({ ...request, credential })),
   ];
   try {
-    for (const input of malformed) assert.throws(() => Reflect.apply(createSandboxClaudeRun, undefined, [sdk.sdk, sandbox, input]));
+    for (const input of malformed) assert.throws(() => Reflect.apply(createSandboxClaudeRun, undefined, [sdk.sdk, sandbox, input]), (error: unknown) => {
+      assert(error instanceof TypeError); assert(!String(error).includes(secret)); return true;
+    });
     assert.equal(getterCalls, 0); assert.equal(sdk.calls, 0); assert.equal(physical.processCalls, 0);
     assert.deepEqual([...physical.resources], ['compute', 'storage']);
   } finally { await physical.owner.destroy(); }
+});
+
+test('the explicit key is captured before SDK entry and reaches the reserved guest environment unchanged', { timeout: 2000 }, async () => {
+  for (const value of [' synthetic-claude-key-preserves-spaces ', 'é'.repeat(4096)]) {
+    const physical = fixture(); const sandbox = await physical.owner.start();
+    const credential = { kind: 'api_key' as const, value };
+    const supplied = { ...request, credential };
+    const fixtureSdk = sdkFixture((child, options) => {
+      assert.equal(options.env?.ANTHROPIC_API_KEY, value); child.stdin.end();
+    });
+    const sdk: ClaudeSdk = { query(input) {
+      credential.value = 'caller-mutation-after-boundary';
+      supplied.credential = { kind: 'api_key', value: 'caller-replacement-after-boundary' };
+      return fixtureSdk.sdk.query(input);
+    } };
+    const run = createSandboxClaudeRun(sdk, sandbox, supplied);
+    try {
+      for await (const _message of run.messages) { /* keep the sole reader active through settlement */ }
+      assert.equal(physical.specification?.env.ANTHROPIC_API_KEY, value);
+      assert.equal(physical.specification?.env.HOME, '/home/sandbox');
+      assert.equal(physical.specification?.env.CLAUDE_CODE_OAUTH_TOKEN, undefined);
+      assert.equal(physical.specification?.env.OPENAI_API_KEY, undefined);
+      assert.equal(physical.processCalls, 1);
+      assert.deepEqual(await run.settled, { kind: 'receipt', receipt: { kind: 'exited', code: 7 } });
+    } finally { await run.cleanup(); await physical.owner.destroy(); }
+  }
+});
+
+test('restricted HTTPS must admit the Anthropic API and the SDK passes the relay variables to the guest', { timeout: 2000 }, async () => {
+  const restricted = fixture({ network: { kind: 'restricted_https', destinations: [{ hostname: 'api.anthropic.com', port: 443 }] } });
+  const run = createSandboxClaudeRun(sdkFixture((child) => { child.stdin.end(); }).sdk, await restricted.owner.start(), request);
+  try {
+    for await (const _message of run.messages) { /* keep the sole reader active through settlement */ }
+    const env = restricted.specification?.env;
+    assert.equal(env?.HTTPS_PROXY, 'http://127.0.0.1:3128'); assert.equal(env?.NO_PROXY, '127.0.0.1,localhost');
+    assert.equal(env?.ANTHROPIC_API_KEY, request.credential.value);
+  } finally { await run.cleanup(); await restricted.owner.destroy(); }
+  const unrelated = fixture({ network: { kind: 'restricted_https', destinations: [{ hostname: 'unrelated.example.com', port: 443 }] } });
+  try {
+    const sandbox = await unrelated.owner.start();
+    assert.throws(() => createSandboxClaudeRun(sdkFixture().sdk, sandbox, request), (error: unknown) => error instanceof TypeError
+      && error.message === 'The sandbox restricted HTTPS policy does not admit the Anthropic API.');
+    assert.equal(unrelated.processCalls, 0);
+  } finally { await unrelated.owner.destroy(); }
 });
 
 test('exact spawn admission refuses changed command, argv and undeclared controller environment without disclosing values', { timeout: 2000 }, async () => {
@@ -38,12 +93,17 @@ test('exact spawn admission refuses changed command, argv and undeclared control
     (input: SpawnOptions) => ({ ...input, command: '/usr/bin/controller' }),
     (input: SpawnOptions) => ({ ...input, args: [...input.args, '--plugin-dir', '/host'] }),
     (input: SpawnOptions) => ({ ...input, env: { ...input.env, PRIVATE_HOST_TOKEN: 'must-never-be-printed' } }),
+    (input: SpawnOptions) => ({ ...input, env: { ...input.env, ANTHROPIC_API_KEY: 'must-never-be-printed' } }),
+    (input: SpawnOptions) => ({ ...input, env: { ...input.env, CLAUDE_CODE_OAUTH_TOKEN: 'must-never-be-printed' } }),
   ]) {
     const physical = fixture(); const sandbox = await physical.owner.start(); const sdk = sdkFixture(undefined, change);
     try {
       const run = createSandboxClaudeRun(sdk.sdk, sandbox, request);
       const result = await run.settled; assert.equal(result.kind, 'failed');
-      if (result.kind === 'failed') assert(!result.error.message.includes('must-never-be-printed'));
+      if (result.kind === 'failed') {
+        assert(!String(result.error).includes('must-never-be-printed'));
+        assert(!String(result.error).includes(request.credential.value));
+      }
       assert.equal(physical.processCalls, 0); assert.throws(() => run.messages[Symbol.asyncIterator]()); await run.cleanup();
     } finally { await physical.owner.destroy(); }
   }

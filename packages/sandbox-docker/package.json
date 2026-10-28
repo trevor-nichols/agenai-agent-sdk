@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/sandbox-docker",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "private": false,
   "description": "Explicit local Docker Engine resources, policy enforcement and recovery for AgenAI sandboxes.",
   "type": "module",

@@ -38,12 +38,25 @@ export async function spawnAcpProcess(
       return false;
     }
   };
-  const waitForShutdown = async (): Promise<boolean> => {
+  const signalAndWait = async (initialSignal: NodeJS.Signals): Promise<boolean> => {
+    let nextSignal: NodeJS.Signals | 0 = initialSignal;
+    let pendingSignalError: Error | undefined;
     const deadline = performance.now() + launch.shutdownTimeoutMs;
     for (;;) {
-      if (!signalGroup(0) && closed) return true;
+      try {
+        // Retire an absent group even while a detached descendant keeps a pipe open.
+        if (!signalGroup(nextSignal) && closed) return true;
+      } catch (error) {
+        if (closed || !(error instanceof Error) || !('code' in error) || error.code !== 'EPERM') throw error;
+        // A Darwin zombie can reject signals before reaping; cleanup still requires close and ESRCH.
+        pendingSignalError = error;
+      }
       const remaining = deadline - performance.now();
-      if (remaining <= 0) return false;
+      if (remaining <= 0) {
+        if (pendingSignalError) throw pendingSignalError;
+        return false;
+      }
+      nextSignal = 0;
       await delay(Math.min(10, remaining));
     }
   };
@@ -52,10 +65,8 @@ export async function spawnAcpProcess(
     if (!releasePromise) releasePromise = Promise.resolve().then(async () => {
       try {
         if (!child.stdin.destroyed) child.stdin.end();
-        signalGroup('SIGTERM');
-        if (await waitForShutdown()) return;
-        signalGroup('SIGKILL');
-        if (!await waitForShutdown()) throw new AcpProviderConnectionError(
+        if (await signalAndWait('SIGTERM')) return;
+        if (!await signalAndWait('SIGKILL')) throw new AcpProviderConnectionError(
           'acp_provider_process_shutdown_timeout', 'The owned ACP process group and streams did not close after termination.',
         );
       } finally {

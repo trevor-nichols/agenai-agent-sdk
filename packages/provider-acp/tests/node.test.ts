@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
+import childProcess from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
 import { parseAgentConfigurationRevisionId, parseAgentInstanceId, parseAgentProviderKey, parseAgentSessionId, parseAgentTurnId } from '@agen-ai/agent-protocol';
 import { parseAgentExecutionInputMessageId } from '@agen-ai/agent-runtime';
 import { createNodeAcpProviderDriver, type CreateNodeAcpProviderDriverOptions } from '../src/node/index.js';
 import { collectRemaining, takeUntilRequest } from './fixtures/session-peer.js';
+import { createStreamPeer } from './node-fixtures/peer.js';
 
 const fixture = fileURLToPath(new URL('./node-fixtures/process.mjs', import.meta.url));
 const providerKey = parseAgentProviderKey('node-acp-fixture');
@@ -131,6 +135,78 @@ test('owned process cleanup escalates when the peer ignores graceful termination
   assert.throws(() => process.kill(-pid, 0), (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ESRCH');
   await instance.dispose();
 });
+
+test('owned process cleanup retains permission failure until the same instance is explicitly retried', posixOnly, async (t) => {
+  const { driver, entries } = setup(t);
+  const instance = await driver.materialize(definition);
+  t.after(() => instance.dispose());
+  const pid = entries()[0]?.pid;
+  assert.ok(pid);
+  const originalKill = process.kill;
+  const denied = Object.assign(new Error('Controlled process-group permission failure.'), { code: 'EPERM' });
+  const deniedSignals = t.mock.method(process, 'kill', (target: number, signal?: NodeJS.Signals | number) => {
+    if (target === -pid) throw denied;
+    return originalKill(target, signal);
+  });
+  const containsPermissionFailure = (error: unknown): boolean => error === denied
+    || error instanceof AggregateError && error.errors.some(containsPermissionFailure);
+  try { await assert.rejects(async () => instance.dispose(), containsPermissionFailure); }
+  finally { deniedSignals.mock.restore(); }
+  await instance.dispose();
+  assertExited(pid);
+  assert.throws(() => process.kill(-pid, 0), (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ESRCH');
+});
+
+for (const permissionFailure of ['none', 'termination', 'probe'] as const) {
+  test(`owned process cleanup retires absent groups before stream closure (${permissionFailure} permission failure)`, posixOnly, async (t) => {
+    const peer = createStreamPeer();
+    const child = Object.assign(new childProcess.ChildProcess(), {
+      pid: 424_242, stdin: peer.stdin, stdout: peer.stdout, stderr: new PassThrough(),
+    });
+    const spawned = t.mock.method(childProcess, 'spawn', () => {
+      queueMicrotask(() => child.emit('spawn'));
+      return child;
+    });
+    syncBuiltinESMExports();
+    t.after(() => { spawned.mock.restore(); syncBuiltinESMExports(); });
+    const signals: (NodeJS.Signals | number | undefined)[] = [];
+    let permissionRejected = false;
+    let absenceObserved = false;
+    t.mock.method(process, 'kill', (target: number, signal?: NodeJS.Signals | number) => {
+      assert.equal(target, -child.pid);
+      if (signal !== 0) signals.push(signal);
+      if (!permissionRejected && (permissionFailure === 'termination' && signal === 'SIGTERM'
+        || permissionFailure === 'probe' && signal === 0)) {
+        permissionRejected = true;
+        throw Object.assign(new Error('Process is awaiting reaping.'), { code: 'EPERM' });
+      }
+      if (signal === 0 && !absenceObserved) {
+        absenceObserved = true;
+        if (permissionFailure !== 'none') queueMicrotask(() => child.emit('close', 0, null));
+        throw Object.assign(new Error('Original process group is absent.'), { code: 'ESRCH' });
+      }
+      // Later uses of the numeric group ID would reach an unrelated replacement group.
+      return true;
+    });
+    const driver = createNodeAcpProviderDriver({ providerKey, launch: {
+      executable: process.execPath, cwd: tmpdir(), shutdownTimeoutMs: 100,
+    } });
+    const instance = await driver.materialize(definition);
+    if (permissionFailure === 'none') {
+      const isShutdownTimeout = (error: unknown): boolean => error instanceof AggregateError
+        ? error.errors.some(isShutdownTimeout)
+        : error instanceof Error && 'reasonCode' in error && error.reasonCode === 'acp_provider_process_shutdown_timeout';
+      await assert.rejects(async () => instance.dispose(), isShutdownTimeout);
+      child.emit('close', 0, null);
+    }
+    await instance.dispose();
+    assert.equal(absenceObserved, true);
+    assert.equal(permissionRejected, permissionFailure !== 'none');
+    assert.deepEqual(signals, ['SIGTERM']);
+    assert.equal(peer.stdin.destroyed, true);
+    assert.equal(peer.stdout.destroyed, true);
+  });
+}
 
 for (const mode of ['descendant_inherited_stdio', 'descendant_ignored_stdio', 'descendant_early_exit', 'descendant_peer']) {
   test(`owned process cleanup terminates descendants for ${mode}`, { ...posixOnly, timeout: 10_000 }, async (t) => {

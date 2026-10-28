@@ -5,6 +5,28 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.6 - Unreleased candidate
+
+All ten packages are coordinated at `0.4.6` in source; nothing is published yet and npm `beta` and
+`latest` still select `0.4.5`. Agent Protocol remains **V13**. Read
+[UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md). There is no recovery-format change and no migration
+from `0.4.5`.
+
+- Add explicit credential reuse for sandboxed native harnesses in `@agen-ai/sandbox/node`: a bounded
+  stable reader for a caller-selected credential file and a same-process bootstrap that writes one
+  private ephemeral guest file before the native process starts. Nothing is discovered, persisted or
+  written back to the host.
+- Restricted HTTPS now accepts a CONNECT `Host` header without the default `:443` port, which Node's
+  `fetch` sends. The request line still selects the destination; every other rule is unchanged.
+- Public examples add credential recipes for Claude Code, Codex (API key or a quiescent ChatGPT
+  `auth.json`), Grok Build, OpenCode V2 and Cursor CLI, with secret-free preflight facts and egress
+  derived from the sandbox's effective network policy.
+- The five API-key recipes passed twenty normal-task and entered-native cancellation cases across
+  Linux x86_64 and Docker Desktop native arm64 under restricted HTTPS, with explicit Engine HTTP 404
+  cleanup evidence. All four Codex saved-login cases remain deferred to a future quiescent session;
+  see the [qualification record](examples/sandbox/HANDOFF.md#credential-reuse-native-campaigns-2026-10-28)
+  for the exact tuples, retained attempts and limitations of the predecessor evidence.
+
 ## 0.4.5 - 2026-10-27
 
 All ten published packages are coordinated at `0.4.5`; npm `beta` and `latest` select this release.

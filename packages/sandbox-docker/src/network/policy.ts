@@ -70,7 +70,9 @@ export function parseConnect(header: string, destinations: readonly HttpsDestina
     const field = /^(Host|Connection|Proxy-Connection): ([\x20-\x7e]+)$/iu.exec(line);
     if (!field || fields.has(field[1].toLowerCase())) throw new TypeError('Unexpected CONNECT header.');
     fields.add(field[1].toLowerCase());
-    if (field[1].toLowerCase() === 'host' ? field[2] !== `${endpoint.hostname}:${endpoint.port}` : !/^(close|keep-alive)$/iu.test(field[2])) throw new TypeError('Invalid CONNECT header value.');
+    // Node's fetch (undici) takes Host from URL.host, which omits the default HTTPS port; the request line alone selects the destination.
+    const host = field[2] === `${endpoint.hostname}:${endpoint.port}` || (endpoint.port === 443 && field[2] === endpoint.hostname);
+    if (field[1].toLowerCase() === 'host' ? !host : !/^(close|keep-alive)$/iu.test(field[2])) throw new TypeError('Invalid CONNECT header value.');
   }
   if (!fields.has('host')) throw new TypeError('CONNECT requires an exact Host header.');
   return endpoint;

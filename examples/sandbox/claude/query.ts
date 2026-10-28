@@ -5,11 +5,13 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { Sandbox } from '@agen-ai/sandbox';
 import { admitSpawn, claudeOptions, parseClaudeSandboxRequest } from './config.js';
+import { claudeEgress } from './egress.js';
 import { createClaudeProcess } from './process.js';
 import type { ClaudeProcessSettlement, ClaudeSandboxRequest, ClaudeSandboxRun, ClaudeSdk } from './types.js';
 
 export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: ClaudeSandboxRequest): ClaudeSandboxRun {
   const request = parseClaudeSandboxRequest(input);
+  const egress = claudeEgress(sandbox);
   request.signal?.throwIfAborted();
   const controller = new AbortController();
   let bridge: ReturnType<typeof createClaudeProcess> | undefined;
@@ -39,10 +41,10 @@ export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: 
   const abort = () => { controller.abort(request.signal?.reason); void cleanup().catch(() => {}); };
   request.signal?.addEventListener('abort', abort, { once: true });
   try {
-    const options = claudeOptions(request, sandbox.workspace, controller);
+    const options = claudeOptions(request, sandbox.workspace, controller, egress);
     options.spawnClaudeCodeProcess = (spawn) => {
       if (bridge || closed) throw new Error('Claude permits exactly one sandbox process reservation.');
-      bridge = createClaudeProcess(sandbox, admitSpawn(spawn, request, sandbox.workspace));
+      bridge = createClaudeProcess(sandbox, admitSpawn(spawn, request, sandbox.workspace, egress));
       bridge.settled.then(processReady.resolve);
       return bridge.child;
     };

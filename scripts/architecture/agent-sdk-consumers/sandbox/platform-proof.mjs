@@ -30,6 +30,8 @@ export async function runSandboxPlatformCheck({ repoRoot, consumerRoot, run }) {
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.sandbox-platform.json"], { cwd: consumerRoot });
   await copyFile(path.join(consumerRoot, "examples/sandbox/peer.mjs"),
     path.join(consumerRoot, "platform-dist/examples/sandbox/peer.mjs"));
+  await cp(path.join(consumerRoot, "examples/sandbox/grok/guest"),
+    path.join(consumerRoot, "platform-dist/examples/sandbox/grok/guest"), { recursive: true });
   const permissionFlag = process.allowedNodeEnvironmentFlags.has("--permission") ? "--permission" : "--experimental-permission";
   const execution = await run(process.execPath, [permissionFlag, `--allow-fs-read=${consumerRoot}`,
     "platform-dist/sandbox-platform.js"], { cwd: consumerRoot, timeoutMs: 30_000 });

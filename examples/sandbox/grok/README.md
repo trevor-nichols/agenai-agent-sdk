@@ -22,7 +22,7 @@ The assembly explicitly selects ACP's standard unknown-extension policy:
 unregistered underscore notifications are ignored under the transport's
 existing bounds and gain no feature or effect authority. Consumers retaining
 all raw wire evidence install their own bounded stream observation before
-constructing the transport, as the native campaign does.
+constructing the transport, as the earlier scripted native campaign did.
 Host-originated requests use the explicit `sandbox-grok:` request-ID prefix,
 separating their IDs from this native tuple's numeric reverse requests.
 The transport retains its collision guards. Native request IDs and their
@@ -182,7 +182,7 @@ node --import tsx --test examples/sandbox/grok/tests/*.test.ts
 ```
 
 That hermetic proof does not qualify a native binary, real authentication,
-paid inference, billing or a consumer application. The separate native
+paid inference, billing or a consumer application. The earlier native
 campaign drives the actual selected Grok executable and guest children
 with scripted local model responses and records its exact tuple.
 
@@ -208,3 +208,112 @@ explicit synthetic earlier prompt completions to reach the fifth request,
 and reads actual bytes from the in-memory guest port. Counterfactual peer
 responses echo the newly selected host IDs; none of those synthetic replies
 is presented as additional native evidence.
+
+## Explicit xAI API-key launch
+
+[`reserveSandboxGrok`](launch.ts) adds the selected Grok Build `1.0.62`
+(`1474f9cbdd91`) API-key route. It accepts a closed explicit
+`credential: { kind: 'api_key', value }` and exact
+`guestExecutable: '/opt/agenai/native/grok'`. Only that key enters `XAI_API_KEY`.
+It neither reads host environment credentials nor accepts a caller environment, endpoint,
+saved-login object or auth-provider program. The secret-free `preflight` reports fixed
+provider/version/transport, source kind, native destination and candidate HTTPS endpoints;
+`nativeQualification` and `endpointEvidence` retain static labels from the historical predecessor.
+They do not attest caller images or authentication. The [0.4.6 follow-up](../HANDOFF.md#credential-reuse-native-campaigns-2026-10-28)
+separately records the direct API-key file task and cancellation after observed native entry on
+its exact Linux x64 and Desktop native arm64 inputs, with explicit Engine 404 cleanup evidence.
+
+Prepare and independently verify an immutable Linux image with the matching native
+executable/platform/digest and complete runtime closure before constructing the sandbox.
+Install these two nonsecret source assets read-only at exactly these guest paths:
+
+| Source asset | Prepared guest path |
+| --- | --- |
+| [`guest/launch-grok.sh`](guest/launch-grok.sh) | `/opt/agenai/examples/grok/launch-grok.sh` |
+| [`guest/config.toml`](guest/config.toml) | `/opt/agenai/examples/grok/config.toml` |
+
+The image must provide `/bin/sh`, POSIX `id`, `mkdir`, `cat`, `chmod` and shell `pwd`/`umask`,
+plus the real executable at `/opt/agenai/native/grok`. Start with a new private ephemeral
+`/home/sandbox` and workspace `/workspace/work`. No managed credential/model configuration,
+foreign native imports, host HOME or saved sessions may be present. The abstract `Sandbox`
+has no image attestation API; these are the caller's preparation/admission obligations.
+
+The process recipe invokes the fixed shell asset without caller shell arguments. Under the
+one reserved process, it refuses root or an existing `GROK_HOME`, creates
+`$HOME/grok` with mode 0700, copies the exact nonsecret config with mode 0600, restores the previous
+umask, then `exec`s the native executable with
+`agent --no-leader --model grok-build-0.1 stdio`. Native stdin remains ACP and is untouched by
+preparation. No gateway, secret config text, runtime controller callback or second reservation
+is involved. Preparation failures leave cleanup with the same sandbox owner.
+
+The config fixes `[model."grok-build-0.1"]` to `env_key = "XAI_API_KEY"`,
+`api_backend = "chat_completions"` and `base_url = "https://api.x.ai/v1"`.
+There is no `api_key` or `auth_provider_command`. Fresh home removes the saved-session
+competitor; the explicit per-model env binding selects this key ahead of a general fallback.
+Updates, telemetry, trace upload, auto-wake, Claude/Cursor imports and unneeded native
+integrations are disabled by fixed environment/config. Neither recipe nor assets accept
+arbitrary config or endpoint replacement.
+
+```ts
+import { runSandboxGrokTurn, SandboxGrokRunError } from './grok/index.js';
+
+try {
+  const result = await runSandboxGrokTurn(sandbox, {
+    launch: { credential: { kind: 'api_key', value: selectedKey },
+      guestExecutable: '/opt/agenai/native/grok' },
+    task: nonsecretTask,
+    grant: { kind: 'read_write' },
+    budgets: { maxResponseFrameBytes: 1024 * 1024, maxRequestIdBytes: 128,
+      maxReadBytes: 1024 * 1024, maxWriteBytes: 1024 * 1024, writeChunkBytes: 64 * 1024 },
+    onSessionUpdate: boundedSensitiveUpdateObserver,
+    // Implement this caller policy against the exact current action and intended task.
+    allowPermission: explicitlyApproveCurrentToolCall,
+    signal,
+  });
+  // The whole sandbox has stopped. Verify the exact expected exported artifact separately.
+  await exportAndVerifyExpectedArtifacts(sandbox);
+} catch (error) {
+  if (error instanceof SandboxGrokRunError) await error.retryCleanup();
+  throw error;
+} finally {
+  await sandbox.stop();
+  await sandbox.destroy();
+}
+```
+
+The callback and artifact-verification functions above are explicit caller policy. Use the
+[stopped-tree directory helper](../filesystem.ts) or `sandbox.exportTree` for selected artifacts.
+Choose file chunks consistent with the owning sandbox's transfer policy. Retain the original
+owner if stop/destruction fails. A stop reason or native exit alone does not prove task success,
+key validity or billing route. The caller owns explicit egress and spend limits.
+
+[`runSandboxGrokTurn`](run.ts) is a concrete single-turn lifecycle using the original custom
+ACP assembly. It retains stable `schema-v1.23.0`, standard unknown-extension policy,
+`sandbox-grok:` host IDs, one ACP stdout/stderr owner and the existing bounded file scope.
+The native version and selected session model are checked before the prompt. File access
+requires the explicit supported live-file grant. A permission can select only the one current
+offered `allow_once` option after the caller's synchronous policy approves; it never selects
+persistent approval, another session's request or a request outside the active turn. It caps
+permission selections at sixteen and update deliveries at 4,096, in addition to transport and
+sandbox byte/concurrency/deadline bounds. Raw native payloads and diagnostics remain sensitive;
+its returned observation contains no transcript. The callback must not print secrets or retain
+unbounded output.
+
+Every entered update observer must settle successfully before the recipe returns success. A
+synchronous throw or asynchronous rejection remains an execution failure even when the prompt's
+terminal response arrived first. An observer that outlives bounded shutdown leaves cleanup pending;
+retain `SandboxGrokRunError.retryCleanup()` to join its eventual settlement without replaying the turn.
+
+Cancellation revokes file/permission admission and stops the same reservation; no credential or
+prompt replay occurs. Cleanup starts transport disposal, file callback draining and original
+reservation stop together, retaining retry ownership on failure. A live-file write that failed
+with a possible effect fails the turn as `execution_failed` (or `cancelled`) after its callbacks
+drain; it is not a cleanup failure, so `retryCleanup()` succeeds once transport disposal and the
+original reservation stop settle. Stop must settle before export;
+storage destruction remains caller-owned. Explicit ready sandboxes used without a turn deadline
+need a caller cancellation decision; the example adds no business timeout.
+
+The chosen HTTPS/443 destinations are `api.x.ai` routes `/v1/chat/completions`, `/v1/models` and
+`/v1/api-key`. These preflight facts do not configure an egress allowlist. Native endpoint and
+credential revision qualification remain separate. Browser/device sign-in, subscription import,
+host `auth.json`, OIDC configuration and an external auth-provider command are unsupported here.
