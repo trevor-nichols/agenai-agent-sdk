@@ -6,14 +6,14 @@ import { Readable, Writable } from 'node:stream';
 import {
   parseSandboxGuestPath, parseSandboxId, parseSandboxProcessId, parseSandboxRecoveryRecord,
   SANDBOX_DEFAULT_STREAM_LIMITS, SANDBOX_DEFAULT_TRANSFER_BUFFERS,
-  type SandboxProcessExit, type SandboxProcessSpec,
+  type SandboxProcessExit, type SandboxProcessSpec, type SandboxNetworkPolicy,
 } from '@agen-ai/sandbox';
 import { createSandboxBackend, type SandboxBackendDriver } from '@agen-ai/sandbox/backend';
 import type { Options, SDKMessage, SpawnedProcess, SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeSdk } from '../index.js';
 
-export function fixture({ firstStopFails = false, startGate, echo = false, finishOnEof = true }:
-  { firstStopFails?: boolean; startGate?: Promise<void>; echo?: boolean; finishOnEof?: boolean } = {}) {
+export function fixture({ firstStopFails = false, startGate, echo = false, finishOnEof = true, network = { kind: 'isolated' } }:
+  { firstStopFails?: boolean; startGate?: Promise<void>; echo?: boolean; finishOnEof?: boolean; network?: SandboxNetworkPolicy } = {}) {
   const stdout = new Readable({ read() {} }); const stderr = new Readable({ read() {} });
   const started = Promise.withResolvers<void>(); const exit = Promise.withResolvers<SandboxProcessExit>();
   const received: Buffer[] = []; let stopAttempts = 0; let processCalls = 0; let specification: SandboxProcessSpec | undefined;
@@ -28,8 +28,8 @@ export function fixture({ firstStopFails = false, startGate, echo = false, finis
     resources: [{ role: 'compute', name: 'compute', identity: { kind: 'planned' } }, { role: 'storage', name: 'storage', identity: { kind: 'planned' } }],
   });
   const driver: SandboxBackendDriver = {
-    support: { backendId: 'claude-fixture', backendRevision: '1', networkModes: ['isolated'], workspaceDiskQuota: false,
-      networkAllowlist: false, independentProcessTermination: false },
+    support: { backendId: 'claude-fixture', backendRevision: '1', networkModes: ['isolated', 'restricted_https'], workspaceDiskQuota: false,
+      networkAllowlist: { kind: 'https_connect', maxDestinations: 128 }, independentProcessTermination: false },
     reserve(request) {
       return { id: parseSandboxId('sandbox'), get recoveryRecord() { return record; }, async start({ checkpoint }) {
         record = parseSandboxRecoveryRecord({ ...record, phase: 'starting', authority: { kind: 'verified', backendIdentity: 'memory' } });
@@ -65,7 +65,7 @@ export function fixture({ firstStopFails = false, startGate, echo = false, finis
   };
   const owner = createSandboxBackend(driver).reserve({ policy: {
     resources: { cpus: 1, memoryBytes: 128 * 1024 * 1024, pids: 32 }, temporaryStorage: { homeBytes: 1024 * 1024, tempBytes: 1024 * 1024 },
-    network: { kind: 'isolated' }, execution: { kind: 'until_stopped' }, deadlines: { startupMs: 1000, cleanupMs: 1000 },
+    network, execution: { kind: 'until_stopped' }, deadlines: { startupMs: 1000, cleanupMs: 1000 },
     transfers: SANDBOX_DEFAULT_TRANSFER_BUFFERS, streams: { ...SANDBOX_DEFAULT_STREAM_LIMITS, maxStdinBytes: 1024 * 1024 },
   } }, { kind: 'in_process' });
   return { owner, resources, stdout, stderr, stdin, started: started.promise, exit, received,
@@ -73,6 +73,7 @@ export function fixture({ firstStopFails = false, startGate, echo = false, finis
 }
 
 export const request = Object.freeze({ guestExecutable: '/opt/agenai/native-harness/claude-tools', model: 'claude-sonnet-4-6',
+  credential: Object.freeze({ kind: 'api_key' as const, value: 'synthetic-claude-key-not-a-real-credential' }),
   tools: ['Read', 'Write', 'Bash'] as const, maxTurns: 8, prompt: 'Run the local controlled fixture.' });
 
 export function sdkFixture(enter?: (child: SpawnedProcess, options: Options) => void, transform: (input: SpawnOptions) => SpawnOptions = (input) => input) {

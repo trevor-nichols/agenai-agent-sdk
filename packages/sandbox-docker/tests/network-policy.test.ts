@@ -22,6 +22,16 @@ test('helper wire admits the exact DNS endpoint and rejects HTTP/authority escap
   }
 });
 
+test('a Host without the default HTTPS port is admitted only for port 443 and never selects another destination', () => {
+  const wire = (authority: string, host: string) => `CONNECT ${authority} HTTP/1.1\r\nhost: ${host}\r\nconnection: keep-alive\r\n\r\n`;
+  const both = [...destinations, { hostname: 'example.com', port: 8443 }];
+  assert.deepEqual(parseConnect(wire('example.com:443', 'example.com'), both), { hostname: 'example.com', port: 443 });
+  for (const [authority, host] of [['example.com:8443', 'example.com'], ['example.com:443', 'other.example'], ['example.com:443', 'EXAMPLE.com'],
+    ['example.com:443', 'example.com:8443'], ['example.com:443', 'example.com.']]) {
+    assert.throws(() => parseConnect(wire(authority, host), both), TypeError);
+  }
+});
+
 test('effective denied coverage ignores private bridge additions but changes for public local/VPN routes', () => {
   const before = parseRouteCensus([{ dst: '192.168.1.0/24', gateway: '192.168.1.1' }], [{ dst: 'fe80::/64' }], []);
   const privateBridge = parseRouteCensus([{ dst: '192.168.1.0/24', gateway: '192.168.1.1' }, { dst: '172.21.0.0/16' }],

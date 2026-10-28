@@ -8,6 +8,7 @@ import type { SandboxProcessExit } from '@agen-ai/sandbox';
 export type ClaudeSandboxTool = 'Read' | 'Write' | 'Edit' | 'Bash';
 
 export interface ClaudeSandboxRequest {
+  readonly credential: Readonly<{ kind: 'api_key'; value: string }>;
   readonly guestExecutable: string;
   readonly model: string;
   readonly tools: readonly ClaudeSandboxTool[];

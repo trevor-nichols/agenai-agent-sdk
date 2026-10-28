@@ -7,6 +7,7 @@ import * as claude from '@anthropic-ai/claude-agent-sdk';
 import { createSandboxClaudeRun } from './index.js';
 
 const run = createSandboxClaudeRun(claude, sandbox, {
+  credential: { kind: 'api_key', value: apiKey },
   guestExecutable: '/opt/agenai/native-harness/claude-tools',
   model: 'claude-sonnet-4-6',
   tools: ['Read', 'Write', 'Bash'],
@@ -39,10 +40,14 @@ The executable must already exist at the selected canonical absolute guest path 
 | Guest MCP commands, remote MCP, plugins | Disabled in this selected composition; adding them requires explicit guest materialization, endpoint admission and new native qualification |
 | Skills and instructions | Empty explicit skills/plugins/settings sources reduce discovery. Native files in the guest can still provide instructions or skills; their authority is caller-selected guest input, and the scripted fixture imports only its inventoried files |
 | Settings and persistence | Empty settings sources, strict empty MCP config and session persistence disabled; no settings path/object, resume, session store or controller transcript mirror |
-| Authentication | This example exposes no credential input, refresh callback or route fallback. MS005 used a non-secret scripted fixture; MS006 separately supplied the selected API key at the final sandbox process boundary through private qualification tooling. Reusable application credential ownership remains caller-owned |
+| Authentication | Required explicit `credential: { kind: 'api_key', value }`, copied synchronously and mapped only to `ANTHROPIC_API_KEY`. The caller owns source selection and credential lifetime. OAuth/subscription tokens, refresh callbacks and route fallback are unsupported |
 | Diagnostics | Bounded raw stderr snapshot, copied on access; no diagnostic controller callback |
 
 Configuration is copied synchronously from plain enumerable data properties. Unknown fields, accessors, symbols and hidden fields reject before the supplied SDK or a process reservation is entered. The prompt's JSON string is limited to 32 KiB, the model to 128 ASCII identity characters, tools to the four declared names and turns to 1–32. The spawn callback independently checks exact command, working directory, argument order and environment. Only the exact `.273` SDK-added entrypoint/version fields are admitted; new tracing/environment additions reject without disclosing values.
+
+The credential is a closed plain object with exactly the selected kind and value. Its value must be nonempty well-formed Unicode, contain no NUL, CR or LF, and occupy at most 8,192 UTF-8 bytes. It is preserved without trimming or normalization; invalid input and mismatched final spawn values produce content-free errors. Neither host environment inheritance nor a caller environment map supplies authentication. The trusted SDK, native process and Engine receive the selected key; JavaScript strings and native environment copies have no zeroization guarantee. Native output and the bounded raw diagnostics remain caller-owned sensitive data.
+
+Historical MS005 scripted-fixture and MS006 private final-boundary key-injection evidence applies to its recorded source only. It does not qualify this explicit credential-input revision; new native authentication evidence belongs to the credential-reuse campaign.
 
 The facade returns synchronous Node streams while sandbox startup is asynchronous. Both `write` and `end(payload)` enforce a shared 64-KiB buffered-input limit, including callers that ignore backpressure; input high water mark is 8 KiB. Stdout high water mark is 16 KiB, with at most one 64-KiB working source chunk. The bridge also caps stdout at 8 MiB/4,096 newline frames and stderr at 1 MiB; the sandbox policy retains its independent stream limits. Diagnostic and message consumers must respect the declared scope and continue the sole message reader through cancellation. A second reader or concurrent pull rejects.
 

@@ -1,6 +1,6 @@
 # @agen-ai/sandbox
 
-Optional, provider-neutral ownership for one sandbox and one native process. Current source belongs to the unpublished coordinated `0.4.5` candidate; the published baseline remains `0.4.4`. It supplies policy, streaming tree, opt-in live workspace files, process and recovery contracts, shared lifecycle admission and `withSandbox`. It does not select an engine, image, provider, credentials or application authority. Candidate implementation and historical native qualification are separate facts.
+Optional, provider-neutral ownership for one sandbox and one native process. Current source belongs to the unpublished coordinated `0.4.6` candidate; the published release is `0.4.5`. It supplies policy, streaming tree, opt-in live workspace files, process and recovery contracts, shared lifecycle admission and `withSandbox`. It does not select an engine, image, provider, credentials or application authority. Candidate implementation and historical native qualification are separate facts.
 
 The ordinary ESM root supports Node >=22 and has no ACP dependency. Backend implementations use the explicit `@agen-ai/sandbox/backend` seam. The optional `@agen-ai/sandbox-docker` package supplies the local Docker implementation. Backend and native-provider qualification remain specific to their recorded environments and configurations.
 
@@ -10,11 +10,11 @@ The ordinary ESM root supports Node >=22 and has no ACP dependency. Backend impl
 | --- | --- |
 | `@agen-ai/sandbox` | Plain contracts, parsers, cleanup errors and `withSandbox`; no Docker or ACP dependency. |
 | `@agen-ai/sandbox/backend` | Implement a backend through the shared lifecycle and validation owner. |
-| `@agen-ai/sandbox/node` | Explicit directory import/export and caller-selected metadata spill storage; no implicit host paths. |
+| `@agen-ai/sandbox/node` | Explicit directory import/export, credential source/preparation/process helpers and caller-selected metadata spill storage; no implicit host paths. |
 | `@agen-ai/sandbox/acp` | Compose an explicitly started sandbox with the optional `@agen-ai/provider-acp/node` constructor. |
 | `@agen-ai/sandbox-docker` | Select the separately installed local Docker backend. |
 
-Use matching `0.4.5` source/local-archive artifacts for every selected SDK package when testing this candidate. Published `0.4.4` introduced the sandbox packages; `0.4.3` does not include them. The standalone candidate includes a complete [Docker walkthrough](../../examples/sandbox/README.md), its runnable [example](../../examples/sandbox/docker.ts), and the reusable [session lifecycle](../../examples/sandbox/session.ts). `withSandboxAcpSession` and `SandboxAcpSessionError` belong to that example source; they are not npm package exports.
+Use matching `0.4.6` source/local-archive artifacts for every selected SDK package when testing this candidate. Published `0.4.4` introduced the sandbox packages; `0.4.3` does not include them. The standalone candidate includes a complete [Docker walkthrough](../../examples/sandbox/README.md), its runnable [example](../../examples/sandbox/docker.ts), and the reusable [session lifecycle](../../examples/sandbox/session.ts). `withSandboxAcpSession` and `SandboxAcpSessionError` belong to that example source; they are not npm package exports.
 
 ## Ownership
 
@@ -37,6 +37,39 @@ Optional `execution` defaults to `{ kind: 'until_stopped' }`. No execution or id
 `SANDBOX_DEFAULT_TRANSFER_BUFFERS` selects 64 KiB chunks, 64 KiB metadata batches and merge fan-in eight. These govern working memory, not file count or workspace size. `SANDBOX_DEFAULT_STREAM_LIMITS` selects bounded stdin and combined stdout/stderr staging plus a high-water mark, with no cumulative traffic quota. Optional `streams.maxStdinBytes` and `maxOutputBytes` are caller-selected totals; zero is meaningful. `maxBufferedInputBytes` rejects excess queued writes even when a caller ignores backpressure. Buffered overflow fails and initiates owned stop instead of truncating data. Backend transport buffers are accounted separately; these settings do not claim a total heap limit.
 
 Process recipes retain their independent representation bounds: an absolute guest executable, literal arguments, explicit environment and working directory; 256 KiB recipe JSON, 128 arguments/environment entries and 16 KiB per environment value. No shell interpolation or inherited environment is supplied. Unknown fields and unsupported authority fail admission.
+
+## Explicit temporary credential files
+
+Keys and tokens use the existing explicit process `env`; select only the native variable supported by the intended provider. The Node entrypoint additionally exposes `readSandboxCredentialFile`, `prepareSandboxCredentialBootstrap` and `reserveSandboxCredentialProcess` for a caller-selected native credential file. These helpers do not discover accounts, sign in, refresh credentials themselves, or select a provider.
+
+Prepare a fresh offline source directory with `prepareSandboxCredentialBootstrap({ directory })`. Its fixed C/header assets, build instructions and manifest contain no credential. Build the Linux executable explicitly with a trusted toolchain and install it in the selected workload image. The helper runs as the non-root guest user with a private mode-0700 `/home/sandbox`; it creates the `.agenai-credentials` directory under that HOME exclusively and a single mode-0600 file. It restores the inherited process umask before native exec. Preparation never downloads or builds anything.
+
+Read an explicit canonical physical source with `readSandboxCredentialFile({ path, signal? })`. The 1–65,536-byte regular file must belong to the current UID, have no group/other or special permission bits, and have one hard link. Symlink components, observed identity/content-metadata changes and noncanonical paths reject with a content-free error. Keep the trusted source hierarchy quiescent; the checks do not establish an atomic snapshot against a hostile filesystem or same-UID writer. The read changes no source bytes or permissions. Returned bytes belong to the caller and must not enter reports, manifests or ordinary workspace imports.
+
+```ts
+import { readSandboxCredentialFile, reserveSandboxCredentialProcess } from '@agen-ai/sandbox/node';
+
+const bytes = await readSandboxCredentialFile({ path: selectedCredentialPath });
+let process;
+try {
+  process = reserveSandboxCredentialProcess(sandbox, {
+    bootstrapExecutable: '/usr/local/bin/agenai-credential-bootstrap',
+    process: selectedNativeRecipe,
+    file: { name: 'auth.json', bytes },
+    preparationTimeoutMs: 10_000,
+  });
+} finally {
+  bytes.fill(0);
+}
+const streams = await process.start();
+// Own the native streams, then stop/export/destroy through the existing lifecycle.
+```
+
+Reservation captures the credential bytes before returning. It retains the one original process ID and sandbox-wide stop scope. Startup checks the fixed helper hello before sending any credential, writes a bounded prefix, then consumes only the exact prepared marker before returning native streams. Preparation counts against existing stream budgets and has its own required 1–60,000 ms deadline. The marker proves private-file close, not native exec or authentication. The image/helper must be caller-trusted: a malicious workload can read a deliberately supplied credential or spoof a marker.
+
+Start is once-only. A missing hello sends no credential. Interrupted or failed preparation stops the original sandbox; a complete prefix with a missing acknowledgement leaves native entry uncertain and never permits replay. Stop the returned reservation if abandoning it before start. Failed physical cleanup raises `SandboxCleanupError` with a cleanup facade that retains the original sandbox/recovery identity and entered prefix work; preserve that error and call its `retryCleanup()` until it succeeds. The facade clears its private buffer only after entered writes settle. A direct independent sandbox cleanup does not replace this helper cleanup obligation.
+
+The guest auth file lives outside workspace exports and disappears with private HOME teardown. Keep final stop/export/destroy ownership; leader exit is insufficient. Never write refreshed credentials back automatically or infer concurrent safety from copying a rotating token. JavaScript strings, native buffers and Engine-held environments have no perfect-zeroization guarantee. Provider format validation and supported account/transport choices belong to the caller's explicit recipe.
 
 ## Live workspace files
 

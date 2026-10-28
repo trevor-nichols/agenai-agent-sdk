@@ -6,7 +6,8 @@ import type { Options, SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import { parseSandboxGuestPath } from '@agen-ai/sandbox';
 import type { ClaudeSandboxRequest, ClaudeSandboxTool } from './types.js';
 
-const keys = new Set(['guestExecutable', 'model', 'tools', 'maxTurns', 'prompt', 'signal']);
+const keys = new Set(['credential', 'guestExecutable', 'model', 'tools', 'maxTurns', 'prompt', 'signal']);
+const credentialKeys = new Set(['kind', 'value']);
 const tools = new Set<ClaudeSandboxTool>(['Read', 'Write', 'Edit', 'Bash']);
 
 export const guestEnvironment = Object.freeze({
@@ -20,11 +21,11 @@ export const guestEnvironment = Object.freeze({
 
 function invalid(): never { throw new TypeError('Unsupported or malformed contained Claude configuration.'); }
 
-function plain(input: unknown): Record<string, unknown> {
+function plain(input: unknown, allowedKeys: ReadonlySet<string>): Record<string, unknown> {
   if (typeof input !== 'object' || input === null || ![Object.prototype, null].includes(Object.getPrototypeOf(input))) invalid();
   const data: Record<string, unknown> = {};
   for (const key of Reflect.ownKeys(input)) {
-    if (typeof key !== 'string' || !keys.has(key)) invalid();
+    if (typeof key !== 'string' || !allowedKeys.has(key)) invalid();
     const descriptor = Object.getOwnPropertyDescriptor(input, key);
     if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) invalid();
     data[key] = descriptor.value;
@@ -48,32 +49,40 @@ function toolList(input: unknown): readonly ClaudeSandboxTool[] {
 }
 
 export function parseClaudeSandboxRequest(input: unknown): ClaudeSandboxRequest {
-  const data = plain(input);
+  const data = plain(input, keys);
+  const credential = plain(data.credential, credentialKeys);
+  if (credential.kind !== 'api_key' || typeof credential.value !== 'string' || !credential.value.isWellFormed()
+    || credential.value.length === 0 || /[\u0000\r\n]/u.test(credential.value) || Buffer.byteLength(credential.value) > 8192) invalid();
   if (typeof data.guestExecutable !== 'string' || data.guestExecutable === '/' || /\.(?:[cm]?js|[jt]sx?)$/iu.test(data.guestExecutable)) invalid();
   const guestExecutable = parseSandboxGuestPath(data.guestExecutable);
   if (typeof data.model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u.test(data.model)) invalid();
   if (typeof data.prompt !== 'string' || !data.prompt.isWellFormed() || Buffer.byteLength(JSON.stringify(data.prompt)) > 32 * 1024) invalid();
   if (typeof data.maxTurns !== 'number' || !Number.isSafeInteger(data.maxTurns) || data.maxTurns < 1 || data.maxTurns > 32) invalid();
   if (data.signal !== undefined && !(data.signal instanceof AbortSignal)) invalid();
-  return Object.freeze({ guestExecutable, model: data.model, prompt: data.prompt, maxTurns: data.maxTurns,
+  return Object.freeze({ credential: Object.freeze({ kind: 'api_key', value: credential.value }),
+    guestExecutable, model: data.model, prompt: data.prompt, maxTurns: data.maxTurns,
     tools: toolList(data.tools), ...(data.signal === undefined ? {} : { signal: data.signal }) });
 }
 
-export function claudeOptions(request: ClaudeSandboxRequest, cwd: string, abortController: AbortController): Options {
-  return { abortController, pathToClaudeCodeExecutable: request.guestExecutable, cwd, env: { ...guestEnvironment },
+export function claudeOptions(request: ClaudeSandboxRequest, cwd: string, abortController: AbortController,
+  egress: Readonly<Record<string, string>>): Options {
+  return { abortController, pathToClaudeCodeExecutable: request.guestExecutable, cwd,
+    env: { ...guestEnvironment, ...egress, ANTHROPIC_API_KEY: request.credential.value },
     model: request.model, maxTurns: request.maxTurns, tools: [...request.tools], allowedTools: [...request.tools],
     permissionMode: 'dontAsk', permissionPrompts: 'none', settingSources: [], skills: [], plugins: [],
     persistSession: false, mcpServers: {}, strictMcpConfig: true, thinking: { type: 'disabled' } };
 }
 
-export function admitSpawn(options: SpawnOptions, request: ClaudeSandboxRequest, cwd: string): SpawnOptions {
+export function admitSpawn(options: SpawnOptions, request: ClaudeSandboxRequest, cwd: string,
+  egress: Readonly<Record<string, string>>): SpawnOptions {
   const expected = ['--output-format', 'stream-json', '--verbose', '--input-format', 'stream-json',
     '--thinking', 'disabled', '--max-turns', String(request.maxTurns), '--model', request.model,
     '--permission-prompts', 'none', ...(request.tools.length ? ['--allowedTools', request.tools.join(',')] : []),
     '--tools', request.tools.join(','), '--setting-sources=', '--strict-mcp-config', '--permission-mode', 'dontAsk', '--no-session-persistence'];
   if (options.command !== request.guestExecutable || options.cwd !== cwd || options.args.length !== expected.length
     || options.args.some((value, index) => value !== expected[index])) throw new TypeError('Exact Claude SDK spawn command or arguments changed.');
-  const environment = { ...guestEnvironment, CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', CLAUDE_AGENT_SDK_VERSION: '0.3.273' };
+  const environment = { ...guestEnvironment, ...egress, ANTHROPIC_API_KEY: request.credential.value,
+    CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', CLAUDE_AGENT_SDK_VERSION: '0.3.273' };
   if (Reflect.ownKeys(options.env).length !== Object.keys(environment).length) throw new TypeError('Claude SDK spawn environment changed; values are not logged.');
   for (const [key, value] of Object.entries(environment)) {
     const descriptor = Object.getOwnPropertyDescriptor(options.env, key);

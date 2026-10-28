@@ -1,6 +1,6 @@
 {
   "name": "agenai-agent-sdk",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "private": true,
   "description": "Provider-neutral TypeScript contracts for hosting coding agents.",
   "type": "module",
@@ -53,7 +53,7 @@
     "test:sandbox-platform": "node scripts/development/agent-sandbox-qualification/platform/run.mjs --mode standalone",
     "test:sandbox-platform:tooling": "node --test scripts/development/agent-sandbox-qualification/platform/*.test.mjs scripts/development/agent-sandbox-qualification/platform/observer/*.test.mjs scripts/development/agent-sandbox-qualification/platform/capabilities/*.test.mjs scripts/development/agent-sandbox-qualification/platform/capabilities/network/*.test.mjs",
     "test:sandbox-platform-consumer": "node scripts/architecture/check-agent-sdk-external-consumer.mjs --profile sandbox-platform",
-    "test:examples:sandbox-bridges": "node --import tsx --test examples/sandbox/grok/tests/*.test.ts && pnpm --filter @agen-ai/example-sandbox-claude test"
+    "test:examples:sandbox-bridges": "node --import tsx --test examples/sandbox/credentials/tests/*.test.ts examples/sandbox/codex/tests/*.test.ts examples/sandbox/grok/tests/*.test.ts && pnpm --filter @agen-ai/example-sandbox-claude test"
   },
   "devDependencies": {
     "@agen-ai/acp-registry": "workspace:*",

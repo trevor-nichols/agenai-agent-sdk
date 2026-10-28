@@ -1,0 +1,57 @@
+[cli]
+auto_update = false
+use_leader = false
+
+[models]
+default = "grok-build-0.1"
+allowed_models = ["grok-build-0.1"]
+session_summary = "grok-build-0.1"
+prompt_suggestion = "grok-build-0.1"
+image_description = "grok-build-0.1"
+web_search = "grok-build-0.1"
+max_completion_tokens = 1024
+max_retries = 0
+rate_limit_retry_threshold = 1
+subagent_rate_limit_max_attempts = 0
+
+[model."grok-build-0.1"]
+model = "grok-build-0.1"
+name = "grok-build-0.1"
+base_url = "https://api.x.ai/v1"
+env_key = "XAI_API_KEY"
+api_backend = "chat_completions"
+agent_type = "grok-build"
+context_window = 256000
+max_completion_tokens = 1024
+max_retries = 0
+rate_limit_retry_threshold = 1
+subagent_rate_limit_max_attempts = 0
+supports_backend_search = false
+supports_reasoning_effort = false
+
+[features]
+turn_summary = false
+session_recap = false
+session_search = false
+web_fetch = false
+voice_mode = false
+feedback = false
+
+[ui]
+prompt_suggestions = false
+remember_tool_approvals = false
+
+[subagents]
+enabled = false
+
+[goal]
+enabled = false
+
+[memory]
+enabled = false
+
+[relay]
+enabled = false
+
+[session]
+load_envrc = false

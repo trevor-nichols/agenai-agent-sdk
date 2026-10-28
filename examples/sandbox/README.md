@@ -1,11 +1,11 @@
 # Explicit sandbox workflows
 
-Current example source targets the matching unpublished **0.4.5 candidate**. Use its reviewed
-source/local archives together; published npm 0.4.4 users retain the matching `v0.4.4` examples.
+Current example source targets the matching unpublished **0.4.6 candidate**. Use its reviewed
+source/local archives together; published npm 0.4.5 users retain the matching `v0.4.5` examples.
 The existing peer/directory/dataset workflows below remain explicit baseline compositions.
 Their historical 0.4.4 native reports do not certify changed candidate bytes. Recovery now uses
 v3 with Linux `engine-1.52-v5-linux-x64` and Desktop `engine-1.52-v6-*` revisions; read the
-[candidate migration guide](../../UPGRADING-TO-0.4.5.md) before changing controllers.
+[candidate upgrade guide](../../UPGRADING-TO-0.4.6.md) and the [0.4.5 recovery migration guide](../../UPGRADING-TO-0.4.5.md) before changing controllers.
 
 The [recorded Mac baseline](HANDOFF.md#recorded-mac-baseline-2026-10-26) covers the exact
 unpublished `packed-r2` candidate on M3/macOS 26.5.1, Node 24.18.0 and Docker Desktop 4.54.0 /
@@ -18,7 +18,46 @@ Current source also admits opt-in `preserve_internal` on both Desktop profiles; 
 passed all 136 cases per profile across both APFS roots and workspace layouts, with complete
 cleanup and 230 final-empty scopes each, on the recorded archive/controller/helper tuple.
 Desktop restricted HTTPS has the [separate MS005 N12/R2 record](HANDOFF.md#desktop-restricted-https-native-campaigns-2026-10-27). Mac datasets, large-workspace
-scale, native model/authentication and Battle Bots/Electron integration remain unqualified.
+scale and Battle Bots/Electron integration remain unqualified. Supplied API-key native tasks have
+the separate [0.4.6 credential record](HANDOFF.md#credential-reuse-native-campaigns-2026-10-28).
+
+## Explicit supplied credentials
+
+The unreleased credential-reuse work supplies deliberately selected credentials to
+the caller's prepared native workload. The generic sandbox does not discover local
+logins, start a login flow, select a funding route or synchronize refreshed tokens.
+Each example constructs its environment from fixed recipe values and one captured
+credential; there is no ambient environment merge or automatic fallback.
+
+| Example | Selected native composition | Supplied route |
+| --- | --- | --- |
+| [Claude](claude/README.md) | Agent SDK 0.3.273 / Code 2.1.273 | Explicit Anthropic API key |
+| [Codex](codex/README.md) | Codex 0.163.0 CLI `exec` | Explicit OpenAI API key or caller-selected, quiescent ChatGPT-native `auth.json` |
+| [Grok](grok/README.md) | Grok Build 1.0.62 / stable ACP schema-v1.23.0 | Explicit xAI API key with fixed nonsecret model configuration |
+| [OpenCode](opencode/README.md) | OpenCode V2 2.1.2 standalone JSON CLI | Explicit Anthropic API key for the selected Haiku model |
+| [Cursor](cursor/README.md) | Cursor CLI 2026.10.22-27dcf5f | Explicit user API key and explicit model selection |
+
+The [shared CLI workflow](credentials/README.md) drains one stdout reader and a
+separate bounded stderr stream, retains the actual leader receipt, stops the whole
+sandbox before returning and preserves retry ownership if cleanup fails. It retains
+no raw diagnostics. A zero exit is a process observation; it does not independently
+prove authentication, billing or the requested artifact's correctness.
+
+Recipe preflight contains only declared nonsecret route information. The caller
+must verify its concrete image, executable, platform and launcher assets during
+explicit preparation; an abstract borrowed sandbox cannot attest those identities.
+The [0.4.6 follow-up](HANDOFF.md#credential-reuse-native-campaigns-2026-10-28) passed twenty API-key
+rows: five providers, each with a normal task and cancellation on Linux x64 and Docker Desktop
+native arm64. Cancellation requires observed native entry before abort and a cancelled settlement;
+cleanup requires explicit Engine 404 responses for the original resource identities. These results
+apply to the recorded archives, examples, native inputs and controller tuples. Static preflight
+labels retain their historical meaning and do not attest a caller's sandbox or credentials.
+
+All four Codex saved-auth rows are deferred to a future quiescent session. The predecessor's
+twenty-four reported passes remain historical: fixed-delay cancellation and failed `docker inspect`
+commands did not establish the follow-up's entry and absence guarantees. Codex's file route remains
+an explicit source-copy mechanism using the public Node bootstrap; its temporary copy stays outside
+workspace exports and refreshed state is never written back to the source.
 
 ## Restricted network composition
 
@@ -138,7 +177,7 @@ The installed proof invokes this exact function with a nested binary file, a zer
 
 ## Live observations
 
-The 0.4.5 candidate supports explicitly granted `sandbox.files` access through a
+Since 0.4.5 the SDK supports explicitly granted `sandbox.files` access through a
 separately prepared native Docker helper. Omission grants no live access. Reads
 and listings are observations of a changing guest; final artifact export still
 requires successful whole-owner stop. The helper keeps its staging directory
@@ -159,7 +198,7 @@ its exact Linux qualification; it remains unsupported on Docker Desktop.
 
 ## Sandbox ACP example
 
-This unpublished `0.4.5` example uses the public sandbox, Docker backend and Node ACP entrypoints. It performs two controlled turns in one SDK session on one native connection/process, imports regular files, rejects guest requests for host filesystem access, closes the SDK before exporting a selected artifact, and destroys retained storage. It uses a synthetic guest peer, makes no model request and reads no provider credentials. Build matching candidate packages first with `pnpm build`.
+This example uses the public sandbox, Docker backend and Node ACP entrypoints. It performs two controlled turns in one SDK session on one native connection/process, imports regular files, rejects guest requests for host filesystem access, closes the SDK before exporting a selected artifact, and destroys retained storage. It uses a synthetic guest peer, makes no model request and reads no provider credentials. Build matching candidate packages first with `pnpm build`.
 
 The Docker constructor accepts an explicit `profile`, also selected by this example's `AGENAI_SANDBOX_TEST_PROFILE`. Omission preserves `linux-x64`; it does not detect Desktop or select an emulator.
 

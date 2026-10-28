@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/sandbox",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "private": false,
   "description": "Bounded provider-neutral sandbox ownership, processes, files and recovery contracts.",
   "type": "module",
@@ -9,7 +9,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "README.md", "LICENSE"],
+  "files": ["dist/**/*.js", "dist/**/*.d.ts", "native/credentials/bootstrap.c", "native/credentials/protocol.h", "README.md", "LICENSE"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
     "./backend": { "types": "./dist/backend/index.d.ts", "import": "./dist/backend/index.js" },
