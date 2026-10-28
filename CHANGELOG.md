@@ -5,13 +5,14 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
-## 0.4.6 - Unreleased candidate
+## 0.4.6 - 2026-10-28
 
-All ten packages are coordinated at `0.4.6` in source; nothing is published yet and npm `beta` and
-`latest` still select `0.4.5`. Agent Protocol remains **V13**. Read
+All ten published packages are coordinated at `0.4.6`; npm `beta` and `latest` select this release.
+Agent Protocol remains **V13**. See the [v0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6) and read
 [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md). There is no recovery-format change and no migration
 from `0.4.5`.
 
+- Retire an observed-absent ACP process-group ID before stream closure, preventing later cleanup from signaling a reused ID. This post-native correction has separate fresh source/packed regression proof; it does not relabel the retained native campaign.
 - Add explicit credential reuse for sandboxed native harnesses in `@agen-ai/sandbox/node`: a bounded
   stable reader for a caller-selected credential file and a same-process bootstrap that writes one
   private ephemeral guest file before the native process starts. Nothing is discovered, persisted or
@@ -29,7 +30,7 @@ from `0.4.5`.
 
 ## 0.4.5 - 2026-10-27
 
-All ten published packages are coordinated at `0.4.5`; npm `beta` and `latest` select this release.
+At publication, all ten packages were coordinated at `0.4.5`, with npm `beta` and `latest` selecting that release.
 Agent Protocol remains **V13**. See the [v0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5)
 and read [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) before migration. The selected patch
 version includes explicit sandbox contract changes requiring caller/driver updates.

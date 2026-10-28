@@ -2,8 +2,9 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> The coordinated **ten-package 0.4.5 release** is published under npm `latest` and `beta`, with Agent Protocol **V13** unchanged. It adds opt-in restricted HTTPS, live workspace files, confined symbolic-link transfers, consumer-owned Claude/Grok bridges and recovery v3 on the explicitly prepared Linux and Docker Desktop profiles.
-> See the [v0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5), [upgrade guide](UPGRADING-TO-0.4.5.md) and [exact sandbox platform record](examples/sandbox/HANDOFF.md). Native qualification retains its original source/archive/platform identities; publication does not qualify native Mac model/authentication or product integration.
+> The coordinated **ten-package 0.4.6 release** is published under npm `latest` and `beta`, with Agent Protocol **V13** and sandbox recovery **v3** unchanged. It adds explicit native-harness credential reuse, provider recipes, default-port CONNECT compatibility and an ACP process-cleanup correction.
+> See the [v0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6), [upgrade guide](UPGRADING-TO-0.4.6.md) and [credential qualification record](examples/sandbox/HANDOFF.md#credential-reuse-native-campaigns-2026-10-28). The retained campaign covers twenty API-key cases on Linux and native-arm64 Desktop; all four Codex saved-login cases remain deferred. Native campaigns retain their original source/archive/platform identities; the final ACP cleanup correction has separate regression proof.
+> The preceding ten-package [0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5) added restricted HTTPS, live guest files and confined symbolic-link transfers on explicit Linux/Desktop profiles. Its [upgrade guide](UPGRADING-TO-0.4.5.md) retains the caller/driver and recovery migration instructions.
 > The preceding ten-package [0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4) introduced native structured final responses, optional runtime execution input, history and sandbox packages. Execution input has no supported public native provider. Its [upgrade guide](UPGRADING-TO-0.4.4.md) retains that release's migration instructions.
 > The preceding seven-package `0.4.3` release did not include history or either sandbox package.
 > See [UPGRADING-TO-0.4.3.md](UPGRADING-TO-0.4.3.md) for the preceding patch’s lifecycle fixes. Earlier `0.4.1` artifacts retain V11 and their original qualification.
@@ -51,7 +52,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages are at `0.4.5`; current source is the coordinated unpublished `0.4.6` candidate.
+schema assets. All ten published packages and current source are coordinated at `0.4.6`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -115,22 +116,22 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published `0.4.5` runtime:
+Install the published `0.4.6` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.5
+pnpm add @agen-ai/agent-runtime@0.4.6
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.5 @agen-ai/agent-protocol@0.4.5
+pnpm add @agen-ai/validation@0.4.6 @agen-ai/agent-protocol@0.4.6
 ```
 
 Keep every SDK package at the same coordinated version, including optional packages. Use the
-published `v0.4.5` checkout for current examples and read [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md)
-before changing sandbox controllers, drivers or recovery records. Repository `pnpm examples:*`
+published `v0.4.6` checkout for current examples and read [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md)
+for explicit credential reuse and the unchanged V13/recovery-v3 boundary. Repository `pnpm examples:*`
 commands require the matching built checkout; example source files are not additional npm entrypoints.
 
 Agent Protocol V13 remains unchanged from `0.4.4`. Historical `0.4.3` and `0.4.2` retain V12,
@@ -726,7 +727,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching 0.4.6 candidate checkout (use the `v0.4.5` checkout for the published release):
+run from the built matching `v0.4.6` checkout:
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \
