@@ -1,8 +1,10 @@
 # Upgrading to 0.4.6
 
-`0.4.6` is an unpublished coordinated candidate. Agent Protocol remains V13, the sandbox recovery
+`0.4.6` is the published coordinated ten-package release; npm `beta` and `latest` select it. Agent Protocol remains V13, the sandbox recovery
 format remains v3, and no caller or driver change is required when moving from `0.4.5`. Upgrade all
 ten packages together.
+
+See the [v0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6).
 
 ## What is new
 
