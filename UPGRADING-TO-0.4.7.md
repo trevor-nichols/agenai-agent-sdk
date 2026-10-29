@@ -1,8 +1,8 @@
-# Preparing for 0.4.7
+# Upgrading to 0.4.7
 
-`0.4.7` is the unpublished coordinated ten-package candidate. Published npm `latest` and `beta`
-remain `0.4.6`. Use matching reviewed source and local archives while evaluating this candidate;
-publication requires a separate release. Agent Protocol V13, recovery v3 and backend recovery
+`0.4.7` is the published coordinated ten-package release; npm `latest` and `beta` select it.
+Use the matching built `v0.4.7` checkout for the public example recipes. See the
+[v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7). Agent Protocol V13, recovery v3 and backend recovery
 identities are unchanged. Existing API-key calls remain compatible.
 
 ## Both authentication modes for every Docker harness

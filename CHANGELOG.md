@@ -5,10 +5,11 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
-## 0.4.7 - Unreleased
+## 0.4.7 - 2026-10-29
 
-Complete API-key and existing-login Docker recipes for all five native harnesses, with matching
-coordinated package versions. Protocol V13 and recovery v3 remain unchanged; read
+All ten published packages are coordinated at `0.4.7`; npm `beta` and `latest` select this release.
+Complete API-key and existing-login Docker recipes are available for all five native harnesses.
+See the [v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7). Protocol V13 and recovery v3 remain unchanged; read
 [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md).
 
 - Add Claude OAuth-token/saved-account and Grok native subscription-account selection.
@@ -22,7 +23,7 @@ coordinated package versions. Protocol V13 and recovery v3 remain unchanged; rea
 
 ## 0.4.6 - 2026-10-28
 
-All ten published packages are coordinated at `0.4.6`; npm `beta` and `latest` select this release.
+At publication, all ten packages were coordinated at `0.4.6`, with npm `beta` and `latest` selecting that release.
 Agent Protocol remains **V13**. See the [v0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6) and read
 [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md). There is no recovery-format change and no migration
 from `0.4.5`.
