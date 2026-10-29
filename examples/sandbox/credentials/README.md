@@ -15,3 +15,13 @@ Cancellation and stream/limit failures also dispatch whole-sandbox stop. `Sandbo
 Provider preflight is a separate plain object and can be serialized independently from launch inputs and cleanup owners. It describes a selected recipe and unresolved native evidence. Never serialize credential inputs, source bytes, environment values, raw streams or cleanup error causes. The trusted controller, native workload and Engine can see a selected key; JavaScript strings and native environment copies have no zeroization guarantee.
 
 The memory tests use the real public backend/process boundary. Codex's separate source tests read only freshly written private synthetic files. These tests prove mapping, stream ownership and cleanup behavior; native account validity, billing and platform admission belong to the explicit qualification campaign.
+
+
+For an existing account that remains active on the host, prefer a native explicit access-token input
+(Claude/Cursor), or the supported `lineage: 'access_token_only'` projection (Grok/Codex and OpenCode's
+native OpenAI browser/headless methods). These modes never receive a rotating refresh token. They
+never outlive the selected access token and never fall back to API billing. OpenCode's native OpenAI resolver requires more than five minutes remaining; access-only input already inside that window rejects, and later native resolution can fail early without a refresh credential. Refreshable file copies use
+`caller_quiescent`; the caller must stop other refreshers of that lineage and owns reacquisition after
+rotation. See each provider recipe for its precise native contract and qualification scope.
+
+All five harnesses now have live API-key and existing-login proof on Linux x64 and native-arm64 Docker Desktop. See the [authentication parity record](../HANDOFF.md#authentication-parity-native-campaigns-2026-10-28) for the exact native inputs, installed candidate identities and limits. Saved refreshable alternatives are distinct from the proven access-token-only routes.

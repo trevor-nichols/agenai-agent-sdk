@@ -97,22 +97,22 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.4.6", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.7", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.6" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.7" },
   },
   {
     name: "@agen-ai/agent-orchestration",
     root: "packages/agent-orchestration",
     directory: "packages/agent-orchestration",
     dependencies: {
-      "@agen-ai/agent-runtime": "^0.4.6",
-      "@agen-ai/agent-protocol": "^0.4.6",
-      "@agen-ai/validation": "^0.4.6",
+      "@agen-ai/agent-runtime": "^0.4.7",
+      "@agen-ai/agent-protocol": "^0.4.7",
+      "@agen-ai/validation": "^0.4.7",
       zod: "4.4.3",
       "@modelcontextprotocol/sdk": "1.29.0",
     },
@@ -135,16 +135,16 @@ const PACKAGES = [
     root: "packages/provider-acp",
     directory: "packages/provider-acp",
     dependencies: {
-      "@agen-ai/acp-transport": "^0.4.6",
-      "@agen-ai/agent-runtime": "^0.4.6",
-      "@agen-ai/agent-protocol": "^0.4.6",
+      "@agen-ai/acp-transport": "^0.4.7",
+      "@agen-ai/agent-runtime": "^0.4.7",
+      "@agen-ai/agent-protocol": "^0.4.7",
     },
   },
   {
     name: "@agen-ai/acp-registry",
     root: "packages/acp-registry",
     directory: "packages/acp-registry",
-    dependencies: { "@agen-ai/validation": "^0.4.6", zod: "4.4.3",
+    dependencies: { "@agen-ai/validation": "^0.4.7", zod: "4.4.3",
       "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
@@ -156,7 +156,7 @@ const PACKAGES = [
     name: "@agen-ai/agent-history",
     root: "packages/agent-history",
     directory: "packages/agent-history",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.6", "@agen-ai/validation": "^0.4.6", zod: "4.4.3" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.7", "@agen-ai/validation": "^0.4.7", zod: "4.4.3" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./zod": { types: "./dist/zod.d.ts", import: "./dist/zod.js" },
@@ -174,7 +174,7 @@ const PACKAGES = [
     root: "packages/sandbox",
     directory: "packages/sandbox",
     assets: ["native/credentials/bootstrap.c", "native/credentials/protocol.h"],
-    dependencies: { "@agen-ai/validation": "^0.4.6", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.7", zod: "4.4.3" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./backend": { types: "./dist/backend/index.d.ts", import: "./dist/backend/index.js" },
@@ -190,7 +190,7 @@ const PACKAGES = [
     assets: [...["helper.c", "protocol.h", "operations.c", "filesystem.h", "transport.c"]
       .map((file) => `native/filesystem/${file}`),
       "native/desktop/host/observer.c", "native/desktop/host/observer.h", "native/desktop/vm/observer.c"],
-    dependencies: { "@agen-ai/sandbox": "^0.4.6", "@agen-ai/validation": "^0.4.6", zod: "4.4.3" },
+    dependencies: { "@agen-ai/sandbox": "^0.4.7", "@agen-ai/validation": "^0.4.7", zod: "4.4.3" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
@@ -311,7 +311,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.4.6");
+  assert.equal(manifest.version, "0.4.7");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -329,18 +329,18 @@ function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.deepEqual(manifest.dependencies ?? {}, definition.dependencies);
   if (definition.exports) assert.deepEqual(manifest.exports, definition.exports);
   if (definition.name === "@agen-ai/sandbox") {
-    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/provider-acp": "^0.4.6" });
+    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/provider-acp": "^0.4.7" });
     assert.deepEqual(manifest.peerDependenciesMeta, { "@agen-ai/provider-acp": { optional: true } });
   }
   if (definition.name === "@agen-ai/agent-history") {
-    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/acp-transport": "^0.4.6", "@anthropic-ai/claude-agent-sdk": "0.3.306", "@cursor/sdk": "1.0.40", "@opencode/client": "2.1.2" });
+    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/acp-transport": "^0.4.7", "@anthropic-ai/claude-agent-sdk": "0.3.306", "@cursor/sdk": "1.0.40", "@opencode/client": "2.1.2" });
     assert.deepEqual(manifest.peerDependenciesMeta, { "@agen-ai/acp-transport": { optional: true }, "@anthropic-ai/claude-agent-sdk": { optional: true }, "@cursor/sdk": { optional: true }, "@opencode/client": { optional: true } });
     assert.equal(manifest.devDependencies?.["@anthropic-ai/claude-agent-sdk"], "0.3.306");
     assert.equal(manifest.devDependencies?.["@openai/codex"], "0.163.0");
     assert.equal(manifest.devDependencies?.["@cursor/sdk"], "1.0.40");
     assert.equal(manifest.devDependencies?.["@opencode/client"], "2.1.2");
     assert.equal(manifest.devDependencies?.["@opencode/cli"], "2.1.2");
-    assert.equal(manifest.devDependencies?.["@agen-ai/acp-transport"], "^0.4.6");
+    assert.equal(manifest.devDependencies?.["@agen-ai/acp-transport"], "^0.4.7");
     assert.equal(manifest.devDependencies?.["@xai-official/grok"], "1.0.62");
     for (const section of ["optionalDependencies", "bundledDependencies"]) {
       assert.deepEqual(manifest[section] ?? {}, {}, `History ${section} is outside the qualified core graph`);
@@ -569,7 +569,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.4.6");
+assert.equal(protocolManifest.version, "0.4.7");
 
 const titleOutputSchema = parseAgentOutputSchema({
   type: "object", additionalProperties: false,
@@ -2586,7 +2586,7 @@ assert.equal(native.name, '@xai-official/grok-linux-x64');
 assert.equal(native.version, '1.0.62');
 assert.equal(wrapper.optionalDependencies['@xai-official/grok-linux-x64'], '1.0.62');
 const transport = require('@agen-ai/acp-transport/package.json');
-assert.equal(transport.version, '0.4.6');
+assert.equal(transport.version, '0.4.7');
 process.stdout.write(JSON.stringify({wrapperVersion:wrapper.version,platformVersion:native.version,transportVersion:transport.version,lifecycleScripts:false}));
 `], { cwd: consumerRoot });
   const runtime = JSON.parse(identity.stdout);

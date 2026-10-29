@@ -123,3 +123,19 @@ test('source and native-format boundaries reject before reservation without disc
     assert.equal(physical.processCalls, 0); assert.deepEqual([...physical.resources], ['compute', 'storage']);
   } finally { await physical.owner.destroy(); await rm(directory, { recursive: true, force: true }); }
 });
+
+for (const sourceMode of ['chatgpt', 'chatgptAuthTokens']) test(`Codex shared ${sourceMode} reuse selects external tokens without exporting refresh authority`, async (t) => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'codex-token-'))); t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, 'selected.json'); const original = JSON.stringify({ auth_mode: sourceMode,
+    tokens: { ...tokens, refresh_token: sourceMode === 'chatgpt' ? tokens.refresh_token : '', account_id: 'synthetic-account' }, last_refresh: '2026-10-01T00:00:00Z' });
+  await writeFile(path, original, { mode: 0o600 });
+  const fixture = createCredentialFixture({ bootstrap: true }); t.after(() => fixture.owner.destroy());
+  const launch = await reserveSandboxCodex(await fixture.owner.start(), { guestExecutable,
+    credential: { kind: 'auth_json', path, lineage: 'access_token_only', bootstrapExecutable, preparationTimeoutMs: 1000 } });
+  await launch.reservation.start(); assert(fixture.credentialFile);
+  const guest = JSON.parse(fixture.credentialFile.bytes.toString());
+  assert.equal(guest.auth_mode, 'chatgptAuthTokens'); assert.equal(guest.OPENAI_API_KEY, null);
+  assert.deepEqual(guest.tokens, { ...tokens, refresh_token: '', account_id: 'synthetic-account' });
+  assert.equal(launch.preflight.refresh, 'disabled'); assert.equal(await readFile(path, 'utf8'), original);
+  await launch.reservation.stop(); assert.deepEqual([...fixture.resources], ['storage']);
+});

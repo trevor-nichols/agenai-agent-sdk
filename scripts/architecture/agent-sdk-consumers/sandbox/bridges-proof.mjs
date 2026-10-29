@@ -38,19 +38,28 @@ async function exampleIdentities(root, entry, result = []) {
   return result;
 }
 
+async function runBridgeTests({ root, directory, guard, run, fileTests }) {
+  const memoryTests = (await readdir(path.join(root, directory)))
+    .filter((name) => name.endsWith('.test.js') && !fileTests.includes(name)).sort();
+  const memory = memoryTests.length === 0 ? null : await runCompiledTests({ root, directory, guard, run, selectedTests: memoryTests });
+  const ownedFixtureRoot = path.join(root, `${path.basename(path.dirname(directory))}-credential-fixtures`);
+  await mkdir(ownedFixtureRoot, { mode: 0o700 });
+  const files = await runCompiledTests({ root, directory, guard, run, selectedTests: fileTests, ownedFixtureRoot });
+  return { memory, files };
+}
+
 export async function runSandboxBridgeExamples({ repoRoot, consumerRoot, run }) {
   const guard = path.join(consumerRoot, "sandbox-bridge-guard.mjs");
   await copyFile(path.join(repoRoot, "scripts/architecture/agent-sdk-consumers/sandbox/neutral-guard.mjs"), guard);
-  const grok = await runCompiledTests({ root: consumerRoot, directory: "platform-dist/examples/sandbox/grok/tests", guard, run });
+  const grok = await runBridgeTests({ root: consumerRoot, directory: "platform-dist/examples/sandbox/grok/tests", guard, run,
+    fileTests: ["credentials.test.js"] });
   const shared = await runCompiledTests({ root: consumerRoot, directory: "platform-dist/examples/sandbox/credentials/tests", guard, run });
-  const codexDirectory = "platform-dist/examples/sandbox/codex/tests";
-  const codexMemoryTests = (await readdir(path.join(consumerRoot, codexDirectory)))
-    .filter((name) => name.endsWith(".test.js") && name !== "auth-file.test.js").sort();
-  const codexMemory = await runCompiledTests({ root: consumerRoot, directory: codexDirectory, guard, run, selectedTests: codexMemoryTests });
-  const ownedFixtureRoot = path.join(consumerRoot, "credential-fixtures");
-  await mkdir(ownedFixtureRoot, { mode: 0o700 });
-  const codexFiles = await runCompiledTests({ root: consumerRoot, directory: codexDirectory, guard, run,
-    selectedTests: ["auth-file.test.js"], ownedFixtureRoot });
+  const codex = await runBridgeTests({ root: consumerRoot, directory: "platform-dist/examples/sandbox/codex/tests", guard, run,
+    fileTests: ["auth-file.test.js"] });
+  const cursor = await runBridgeTests({ root: consumerRoot, directory: "platform-dist/examples/sandbox/cursor/tests", guard, run,
+    fileTests: ["credentials.test.js"] });
+  const opencode = await runBridgeTests({ root: consumerRoot, directory: "platform-dist/examples/sandbox/opencode/tests", guard, run,
+    fileTests: ["credentials.test.js"] });
 
   const root = path.join(consumerRoot, "claude-bridge-consumer");
   await mkdir(root);
@@ -72,9 +81,9 @@ export async function runSandboxBridgeExamples({ repoRoot, consumerRoot, run }) 
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.json"], { cwd: root });
   const claudeGuard = path.join(root, "sandbox-bridge-guard.mjs");
   await copyFile(guard, claudeGuard);
-  const claude = await runCompiledTests({ root, directory: "dist/tests", guard: claudeGuard, run });
+  const claude = await runBridgeTests({ root, directory: "dist/tests", guard: claudeGuard, run, fileTests: ["credentials.test.js"] });
   return { proof: "packed-sandbox-native-bridge-examples", grok, claude: { ...claude, sdk: "0.3.273", consumerRoot: root },
-    credentials: { shared, codex: { memory: codexMemory, files: codexFiles } },
+    credentials: { shared, codex, cursor, opencode },
     examples: (await Promise.all(["grok", "claude", "credentials", "codex", "opencode", "cursor"]
       .map((directory) => exampleIdentities(consumerRoot, `examples/sandbox/${directory}`)))).flat(),
     nativeExecution: "not_run", authentication: "not_run" };

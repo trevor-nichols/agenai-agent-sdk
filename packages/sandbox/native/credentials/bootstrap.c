@@ -67,10 +67,13 @@ int main(int argc, char **argv) {
         || length == 0 || length > AGENAI_CREDENTIAL_MAX_BYTES) return fail("invalid_frame");
     if (read_exact(name, name_length) < 0) return fail("truncated_frame");
     name[name_length] = '\0';
+    size_t first = name[0] == '.' ? 1u : 0u;
+    if (first == name_length) return fail("invalid_name");
     for (size_t i = 0; i < name_length; ++i) {
         unsigned char c = (unsigned char)name[i];
+        if (i == 0 && first == 1) continue;
         if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-            || (c >= '0' && c <= '9') || (i > 0 && (c == '_' || c == '-' || c == '.'))))
+            || (c >= '0' && c <= '9') || (i > first && (c == '_' || c == '-' || c == '.'))))
             return fail("invalid_name");
     }
     if (read_exact(secret, length) < 0) return fail("truncated_frame");

@@ -60,9 +60,9 @@ hosted CI success from its configured workflow; no hosted Docker result is recor
 original operation/cleanup failures and exact resource identities when changing lifecycle code.
 Recovery is cleanup-only, and uncertain command outcomes must never be replayed automatically.
 
-Current source is the unpublished ten-package `0.4.6` candidate with Agent Protocol V13.
+Current source is the unpublished ten-package `0.4.7` candidate with Agent Protocol V13.
 The published coordinated family remains ten packages at `0.4.4`, including history and both sandbox packages.
-Read [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md) for the candidate and [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for recovery migration,
+Read [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md) for the candidate and [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for recovery migration,
 and [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for the published history and sandbox setup,
 and [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before changing V12 lifecycle behavior.
 Earlier `0.4.1` artifacts retain V11.

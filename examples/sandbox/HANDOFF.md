@@ -1,8 +1,8 @@
-# SDK 0.4.6 candidate platform and consumer handoff
+# SDK 0.4.7 candidate platform and consumer handoff
 
-This handoff targets the coordinated, unpublished **0.4.6 candidate**, with Agent Protocol
+This handoff targets the coordinated, unpublished **0.4.7 candidate**, with Agent Protocol
 **V13** unchanged. Use the exact governed source export and its ten locally packed archives.
-Published npm **0.4.5** remains a separate release. Earlier platform records below retain their
+Published npm **0.4.6** remains a separate release. Earlier platform records below retain their
 original source and archive identities. Publication, Docker Desktop configuration and Battle Bots
 changes are not performed by this handoff.
 
@@ -718,3 +718,80 @@ The predecessor retains its credential transport, authentication and normal tool
 on its recorded tuples. Its cancellation and absence reports have the limitations above. Neither
 campaign establishes token lifetime, concurrent refresh coherence, billing, account eligibility beyond
 the observed runs, or Rosetta amd64 Desktop credential behavior.
+
+
+## Authentication parity native campaigns (2026-10-28)
+
+The corrective branch adds required existing-login support for **all five harnesses**, separately
+from the immutable published 0.4.6 API-key record above. The installed `ms004-packed-r3` development
+candidate passed **forty required positive rows**: five harnesses × key/account × normal/entered
+cancellation × Linux x64/Desktop native arm64. Four additional OpenCode configured-OpenAI-key rows
+passed normal execution and entered cancellation on both platforms. These are real authenticated
+model tasks using the user's existing accounts and keys, not scripted authentication results.
+
+| Harness and pinned native | API-key route | Existing-login route used in the real campaign |
+| --- | --- | --- |
+| Claude Agent SDK 0.3.273 / Code 2.1.273 | Anthropic key, Haiku 4.5 | Existing native Keychain access token through `CLAUDE_CODE_OAUTH_TOKEN` |
+| Grok Build 1.0.62 / revision `1474f9cbdd91` | xAI key, `grok-build-0.1` | Selected native first-party `auth.json`, `access_token_only`, subscription proxy |
+| OpenCode V2 2.1.2 | Legacy Anthropic key and configured OpenAI key | Existing ChatGPT access token/account ID imported by native OpenAI `chatgpt-headless`, `openai/gpt-6-luna` |
+| Cursor CLI 2026.10.22-27dcf5f | Cursor user API key | Existing native Keychain account token through `CURSOR_AUTH_TOKEN` |
+| Codex CLI 0.163.0 | OpenAI key, `gpt-6-luna` | Selected existing ChatGPT auth projected into native `chatgptAuthTokens`, with refresh excluded |
+
+The controller explicitly read the authorized native stores. The SDK itself requires explicit
+credential inputs and does not silently discover logins. Host OpenCode 1.18.25 had no V2 account
+export; its row therefore used the existing ChatGPT login through V2's native OpenAI import, not
+an invented OpenCode login. All account runs excluded refresh authority. They demonstrate existing
+account reuse for the bounded task, not indefinite lifetime, refresh coordination, all model
+entitlements or billing amounts. Claude/Cursor refreshable files, Grok/Codex quiescent copies,
+other OpenCode OAuth methods/providers and Rosetta remain outside this live matrix. Native source
+and synthetic checks cover their separately documented selection/import boundaries.
+
+Normal rows exported the exact uppercase contents of a fresh input file. Cancellation rows observed
+native output on the original reader before abort, then required a cancelled settlement. Desktop
+also ran five invalid-account controls with competing valid keys available to the controller;
+Grok/OpenCode source inputs contained unselected competing key records. All five produced no task
+result and failed without fallback, then cleaned up. Their sanitized reports do not retain raw
+provider error messages or claim an exact HTTP authentication status. One additional Desktop
+configured-key attempt failed during sandbox startup before native entry; its original record is
+retained, fully cleaned, and excluded from the forty-four positive rows. A fresh attempt passed.
+
+Retained root: `/Volumes/AGENAI/Qualification/sdk-auth/EP-20261028-002`. Original r3 archives and
+installed examples are under `ms004-packed-r3`; the ten development archives still carry 0.4.6
+version fields and are **not published 0.4.6 replacements**. Exact SHA-256 values and sizes are in
+the corrective ExecPlan's `artifacts/ms004-evidence.json`. Later corrective release artifacts must
+retain this original identity and explicitly reconcile any changed payload; no version rename alone
+constitutes a new native run.
+
+Desktop uses macOS 26.5.1, native arm64, Desktop 4.54.0 / Engine 29.1.2, host Node 24.15.0 and guest
+Node 24.18.0. Linux uses x86_64, Engine 29.1.3 and Node 24.18.0. Both retain the original native input
+pins, immutable Node/GCC image digests, caller-prepared network authority and private per-run state.
+Desktop's r2 preparation is reused only after complete r2/r3 archive and guest-asset comparison:
+three package manifests differ solely in dependency-key ordering; all other package bytes and all
+four guest assets match. Linux installed r3 frozen/offline with only rebased pnpm-hook checksums;
+package resolutions did not change.
+
+Desktop's final audit covers 28 attempts, 229 original plus 229 repeated resource-absence HTTP 404s,
+651 original recovery checkpoints and removal of all 58 owned prepared images. Linux covers 22
+attempts, 158 original plus 158 repeated HTTP 404s, 470 original checkpoints and removal of all 43
+owned prepared images. Both preserve their two borrowed base images. The final checkpoint of every
+attempt matches its original SDK-returned destroyed record. Private account imports were removed;
+file-source identity checks passed. The audit never translated a recovery record or replayed a task.
+
+Independent review found OpenCode 2.1.2 proactively resolves OAuth by refreshing within five minutes
+of expiry, even with an empty refresh field. The correction rejects access-only inputs already inside
+that window and reports refresh credentials as `not_supplied`; a delayed or later resolution may
+still fail early. The original fresh-token live passes remain valid. Their original `refresh: disabled`
+metadata describes excluded refresh authority too broadly and is superseded by this clarification;
+the reports are retained unchanged. The native-resolution regression and final candidate comparison
+are recorded in the corrective ExecPlan, separately from the original forty-four positive runs.
+
+### Corrective 0.4.7 candidate applicability
+
+The coordinated unpublished `ms005-platform-r1` 0.4.7 archive set passes the portable installed
+sandbox proof. Its complete ten-package comparison against reviewed `ms004-packed-r5` allows only
+package version, internal SDK dependency ranges, dependency-map ordering and README changes; all
+runtime, declaration and native-asset bytes match. The five example differences are documentation
+and the Claude example workspace version. Execution code and guest launchers match. This establishes
+applicability through the recorded r3 → r4 → r5 → 0.4.7 comparison chain, including the separately
+reviewed OpenCode expiry guard. It does not rename the original live runs as 0.4.7 executions.
+The original and candidate archive digests remain in the corrective plan's evidence manifests.

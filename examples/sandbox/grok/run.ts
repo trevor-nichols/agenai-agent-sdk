@@ -3,12 +3,12 @@ import type { Sandbox } from '@agen-ai/sandbox';
 import { captureSandboxRecipeFields, parseSandboxCliPrompt } from '../credentials/index.js';
 import { createSandboxGrokClient } from './client.js';
 import { reserveSandboxGrok } from './launch.js';
-import type { SandboxGrokInput } from './launch.js';
+import type { SandboxGrokCredential, SandboxGrokInput } from './launch.js';
 import type { SandboxAcpFileBudgets } from './requests.js';
 import { captureBudgets } from './requests.js';
 
 export interface SandboxGrokTurnInput {
-  readonly launch: SandboxGrokInput;
+  readonly launch: SandboxGrokInput<SandboxGrokCredential>;
   readonly task: string;
   readonly grant: Readonly<{ kind: 'read_only' | 'read_write' }>;
   readonly budgets: SandboxAcpFileBudgets;
@@ -45,7 +45,8 @@ export async function runSandboxGrokTurn(sandbox: Sandbox, input: SandboxGrokTur
   if (grant.kind !== 'read_only' && grant.kind !== 'read_write') throw new TypeError('Select a Grok file grant.');
   const budgets = captureBudgets(input.budgets);
   const limits = input.limits === undefined ? undefined : Object.freeze({ ...input.limits });
-  const { reservation, preflight } = reserveSandboxGrok(sandbox, input.launch);
+  signal?.throwIfAborted();
+  const { reservation, preflight } = await reserveSandboxGrok(sandbox, input.launch);
   let integration: ReturnType<typeof createSandboxGrokClient> | undefined;
   let sessionId: string | undefined;
   let active = false;
@@ -125,7 +126,9 @@ export async function runSandboxGrokTurn(sandbox: Sandbox, input: SandboxGrokTur
       clientInfo: { name: 'agenai-sandbox-grok-example', version: '1.0.0' }, clientCapabilities: { ...files.capabilities } }));
     const authMethods = initialized?.authMethods;
     if (object(initialized?._meta)?.agentVersion !== '1.0.62' || !Array.isArray(authMethods)
-      || !authMethods.some((method) => object(method)?.id === 'xai.api_key')) throw new Error('Unexpected native Grok version or auth route.');
+      || !authMethods.some((method) => object(method)?.id === (preflight.credentialRoute === 'api_key' ? 'xai.api_key' : 'cached_token'))) {
+      throw new Error('Unexpected native Grok version or auth route.');
+    }
     const session = object(await request('session/new', { cwd: sandbox.workspace, mcpServers: [],
       _meta: { clientFsRead: true, clientFsWrite: grant.kind === 'read_write', clientTerminal: false } }));
     if (typeof session?.sessionId !== 'string' || object(session.models)?.currentModelId !== 'grok-build-0.1') {

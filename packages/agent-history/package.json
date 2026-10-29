@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/agent-history",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": false,
   "description": "Provider-neutral native conversation catalogs, transcripts, search and explicit saved-session management.",
   "type": "module",

@@ -5,6 +5,21 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.7 - Unreleased
+
+Complete API-key and existing-login Docker recipes for all five native harnesses, with matching
+coordinated package versions. Protocol V13 and recovery v3 remain unchanged; read
+[UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md).
+
+- Add Claude OAuth-token/saved-account and Grok native subscription-account selection.
+- Add OpenCode provider/model-specific key or native OAuth import into fresh private state, and
+  Cursor native account-token/file selection; preserve existing synchronous key interfaces.
+- Add explicit access-only Grok/Codex/OpenAI-OpenCode projections for existing active host logins.
+  Reject OpenCode access-only credentials already inside its five-minute native refresh window.
+- Retain forty required real key/account normal/cancellation passes across Linux x64 and Desktop
+  arm64, four additional configured OpenCode-key passes, invalid-account controls and exact cleanup.
+  Evidence and native-input limitations are in the [parity record](examples/sandbox/HANDOFF.md#authentication-parity-native-campaigns-2026-10-28).
+
 ## 0.4.6 - 2026-10-28
 
 All ten published packages are coordinated at `0.4.6`; npm `beta` and `latest` select this release.

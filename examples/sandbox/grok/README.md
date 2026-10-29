@@ -209,14 +209,14 @@ and reads actual bytes from the in-memory guest port. Counterfactual peer
 responses echo the newly selected host IDs; none of those synthetic replies
 is presented as additional native evidence.
 
-## Explicit xAI API-key launch
+## Explicit API-key and saved-account launch
 
 [`reserveSandboxGrok`](launch.ts) adds the selected Grok Build `1.0.62`
 (`1474f9cbdd91`) API-key route. It accepts a closed explicit
 `credential: { kind: 'api_key', value }` and exact
 `guestExecutable: '/opt/agenai/native/grok'`. Only that key enters `XAI_API_KEY`.
 It neither reads host environment credentials nor accepts a caller environment, endpoint,
-saved-login object or auth-provider program. The secret-free `preflight` reports fixed
+ambient saved-login object or auth-provider program. The secret-free `preflight` reports fixed
 provider/version/transport, source kind, native destination and candidate HTTPS endpoints;
 `nativeQualification` and `endpointEvidence` retain static labels from the historical predecessor.
 They do not attest caller images or authentication. The [0.4.6 follow-up](../HANDOFF.md#credential-reuse-native-campaigns-2026-10-28)
@@ -246,7 +246,7 @@ umask, then `exec`s the native executable with
 preparation. No gateway, secret config text, runtime controller callback or second reservation
 is involved. Preparation failures leave cleanup with the same sandbox owner.
 
-The config fixes `[model."grok-build-0.1"]` to `env_key = "XAI_API_KEY"`,
+In key mode the fixed launcher completes `[model."grok-build-0.1"]` to `env_key = "XAI_API_KEY"`,
 `api_backend = "chat_completions"` and `base_url = "https://api.x.ai/v1"`.
 There is no `api_key` or `auth_provider_command`. Fresh home removes the saved-session
 competitor; the explicit per-model env binding selects this key ahead of a general fallback.
@@ -315,5 +315,21 @@ need a caller cancellation decision; the example adds no business timeout.
 
 The chosen HTTPS/443 destinations are `api.x.ai` routes `/v1/chat/completions`, `/v1/models` and
 `/v1/api-key`. These preflight facts do not configure an egress allowlist. Native endpoint and
-credential revision qualification remain separate. Browser/device sign-in, subscription import,
-host `auth.json`, OIDC configuration and an external auth-provider command are unsupported here.
+credential revision qualification remain separate. The existing-account route uses the same launcher and model with `base_url = "https://cli-chat-proxy.grok.com/v1"` and no API `env_key` override. Supply:
+
+```ts
+const launch = await reserveSandboxGrok(sandbox, {
+  guestExecutable: '/opt/agenai/native/grok',
+  credential: {
+    kind: 'auth_json', path: selectedNativeAuthFile, lineage: 'access_token_only',
+    bootstrapExecutable: '/opt/agenai/bin/agenai-credential-bootstrap', preparationTimeoutMs: 30000,
+  },
+  signal,
+});
+```
+
+The same credential works in `runSandboxGrokTurn`'s `launch` input. Key reservations remain synchronous; file reservations return a promise after the bounded selected-file read. The source must contain the selected first-party native OIDC account at `https://auth.x.ai::b1a00492-073a-47ea-816f-4c329264a828`. A missing or API-key-only account rejects. Other scopes are omitted from the private guest copy, so a saved API key cannot become a fallback. The native binary owns entitlement. `access_token_only` omits the refresh token before private delivery, allowing an existing active login to be reused without rotating its host credential. Expiry or rejection remains a native failure; there is no API-key fallback. The account mode requires `cli-chat-proxy.grok.com:443` and `auth.x.ai:443`, uses `GROK_AUTH_PATH=$HOME/.agenai-credentials/auth.json` and checks the native `cached_token` ACP method before prompting. It supplies neither `XAI_API_KEY` nor an API base override.
+
+Only the caller-selected private file is read. The source remains unchanged; private guest state is excluded from workspace export. For explicit `lineage: 'caller_quiescent'`, stop all other consumers of the copied rotating lineage; that variant retains native refresh authority. A native refresh can invalidate the original snapshot. Neither variant writes back or synchronizes host credentials. Interactive browser/device sign-in, custom OIDC configuration and external auth-provider programs are not performed by this recipe.
+
+The exact 1.0.62 binary has selected a synthetic account from `GROK_AUTH_PATH` and sent it to `/v1/chat/completions` on the subscription proxy in an offline controlled endpoint probe. That proves native selection and routing only. The separate [authentication parity record](../HANDOFF.md#authentication-parity-native-campaigns-2026-10-28) records real API-key and existing-account normal tasks and entered cancellation on Linux x64 and native-arm64 Docker Desktop. Its account rows select `access_token_only`; refreshable `caller_quiescent` copies are not live-qualified. Preflight points to the exact route and platform record and does not attest the current credential.

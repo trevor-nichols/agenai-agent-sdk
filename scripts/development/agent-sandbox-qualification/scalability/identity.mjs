@@ -30,7 +30,7 @@ export async function installedIdentity(consumer) {
     assert(within(modules, root), 'Installed package must stay within consumer node_modules.');
     const manifest = JSON.parse((await boundedFile(join(root, 'package.json'), 1024 ** 2)).toString('utf8'));
     assert.equal(manifest.name, `@agen-ai/${name}`);
-    assert.equal(manifest.version, '0.4.6');
+    assert.equal(manifest.version, '0.4.7');
     assert.equal(manifest.type, 'module');
     const digest = createHash('sha256');
     let files = 0;

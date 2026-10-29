@@ -14,21 +14,6 @@ max_retries = 0
 rate_limit_retry_threshold = 1
 subagent_rate_limit_max_attempts = 0
 
-[model."grok-build-0.1"]
-model = "grok-build-0.1"
-name = "grok-build-0.1"
-base_url = "https://api.x.ai/v1"
-env_key = "XAI_API_KEY"
-api_backend = "chat_completions"
-agent_type = "grok-build"
-context_window = 256000
-max_completion_tokens = 1024
-max_retries = 0
-rate_limit_retry_threshold = 1
-subagent_rate_limit_max_attempts = 0
-supports_backend_search = false
-supports_reasoning_effort = false
-
 [features]
 turn_summary = false
 session_recap = false
@@ -55,3 +40,17 @@ enabled = false
 
 [session]
 load_envrc = false
+
+# The fixed launcher appends authentication fields to this final model table.
+[model."grok-build-0.1"]
+model = "grok-build-0.1"
+name = "grok-build-0.1"
+api_backend = "chat_completions"
+agent_type = "grok-build"
+context_window = 256000
+max_completion_tokens = 1024
+max_retries = 0
+rate_limit_retry_threshold = 1
+subagent_rate_limit_max_attempts = 0
+supports_backend_search = false
+supports_reasoning_effort = false

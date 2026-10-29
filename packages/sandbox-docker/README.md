@@ -1,6 +1,6 @@
 # @agen-ai/sandbox-docker
 
-Explicit local Docker Engine resources for `@agen-ai/sandbox`. Current source is the unpublished coordinated `0.4.6` candidate; `0.4.5` is the published release. It implements bounded provisioning, binary process streams, file import, terminal compute removal, retained file export and cleanup-only recovery, and adds opt-in Linux and explicitly prepared Desktop restricted HTTPS infrastructure. The optional `@agen-ai/sandbox/acp` bridge composes process streams with the public Node ACP provider. The installed candidate has separate restricted-network and recovery evidence on the exact local Linux composition described below; historical native-agent qualification retains its original scope.
+Explicit local Docker Engine resources for `@agen-ai/sandbox`. Current source is the unpublished coordinated `0.4.7` candidate; `0.4.6` is the published release. It implements bounded provisioning, binary process streams, file import, terminal compute removal, retained file export and cleanup-only recovery, and adds opt-in Linux and explicitly prepared Desktop restricted HTTPS infrastructure. The optional `@agen-ai/sandbox/acp` bridge composes process streams with the public Node ACP provider. The installed candidate has separate restricted-network and recovery evidence on the exact local Linux composition described below; historical native-agent qualification retains its original scope.
 
 ```ts
 import { createDockerSandboxBackend } from '@agen-ai/sandbox-docker';
