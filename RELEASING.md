@@ -4,6 +4,8 @@ The three core packages and seven optional packages (orchestration, ACP transpor
 ACP registry, history, sandbox and Docker sandbox) form the published coordinated ten-package
 `0.4.6` release. npm `beta` and `latest` select `0.4.6` for all ten names; see the
 [v0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6).
+Current source prepares the unpublished `0.4.7` authentication-parity candidate; read
+[UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md).
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -251,7 +253,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.6
+VERSION=0.4.7
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest

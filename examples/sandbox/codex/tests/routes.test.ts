@@ -28,7 +28,7 @@ test('Codex selected key reaches only its native environment and fixed exec rout
     assert(!JSON.stringify(spec.args).includes(value));
     assert.deepEqual(launch.preflight, {
       provider: 'codex', version: '0.163.0', transport: 'native_cli_exec', credentialRoute: 'api_key',
-      sourceKind: 'explicit_api_key', nativeDestination: 'CODEX_API_KEY', model: 'gpt-6-luna', reasoning: 'low',
+      sourceKind: 'explicit_api_key', refresh: 'not_applicable', nativeDestination: 'CODEX_API_KEY', model: 'gpt-6-luna', reasoning: 'low',
       httpsDestinations: ['https://api.openai.com:443'], endpointEvidence: 'observed_in_ms005_native_campaign',
       nativeQualification: 'recorded_linux_x64_and_desktop_native_arm64', preparation: 'caller_must_verify_image_binary_platform_and_empty_configuration',
     });

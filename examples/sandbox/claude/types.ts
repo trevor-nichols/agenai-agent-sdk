@@ -7,8 +7,19 @@ import type { SandboxProcessExit } from '@agen-ai/sandbox';
 
 export type ClaudeSandboxTool = 'Read' | 'Write' | 'Edit' | 'Bash';
 
-export interface ClaudeSandboxRequest {
-  readonly credential: Readonly<{ kind: 'api_key'; value: string }>;
+export type ClaudeInlineCredential = Readonly<{ kind: 'api_key'; value: string }> | Readonly<{ kind: 'oauth_token'; value: string }>;
+export type ClaudeSavedCredential = Readonly<{
+  kind: 'auth_json';
+  path: string;
+  /** No other process may refresh this copied account lineage during the run. */
+  lineage: 'caller_quiescent';
+  bootstrapExecutable: string;
+  preparationTimeoutMs: number;
+}>;
+export type ClaudeSandboxCredential = ClaudeInlineCredential | ClaudeSavedCredential;
+
+export interface ClaudeSandboxRequest<Credential extends ClaudeSandboxCredential = Extract<ClaudeInlineCredential, { kind: 'api_key' }>> {
+  readonly credential: Credential;
   readonly guestExecutable: string;
   readonly model: string;
   readonly tools: readonly ClaudeSandboxTool[];

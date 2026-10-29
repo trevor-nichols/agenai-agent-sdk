@@ -26,7 +26,7 @@ test('closed configuration rejects host callbacks, ambient options and malformed
     { ...request, prompt: '\u0000'.repeat(6000) }, { ...request, [Symbol('hidden')]: true },
     Object.defineProperty({ ...request }, 'hooks', { value: [], enumerable: false }),
     Object.defineProperty({ ...request }, 'prompt', { enumerable: true, get() { getterCalls++; return 'untrusted'; } }),
-    ...[undefined, null, {}, { kind: 'oauth_token', value: secret }, { kind: 'api_key' },
+    ...[undefined, null, {}, { kind: 'unsupported', value: secret }, { kind: 'api_key' },
       { kind: 'api_key', value: secret, token: secret }, { kind: 'api_key', value: secret, env: { ANTHROPIC_API_KEY: secret } },
       { kind: 'api_key', value: secret, [Symbol('hidden')]: secret },
       Object.defineProperty({ kind: 'api_key', value: secret }, 'token', { value: secret, enumerable: false }),
@@ -44,25 +44,27 @@ test('closed configuration rejects host callbacks, ambient options and malformed
   } finally { await physical.owner.destroy(); }
 });
 
-test('the explicit key is captured before SDK entry and reaches the reserved guest environment unchanged', { timeout: 2000 }, async () => {
-  for (const value of [' synthetic-claude-key-preserves-spaces ', 'é'.repeat(4096)]) {
+test('explicit key and account token selection are captured before SDK entry without competing credentials', { timeout: 2000 }, async () => {
+  for (const kind of ['api_key', 'oauth_token'] as const) for (const value of [' synthetic-claude-secret-preserves-spaces ', 'é'.repeat(4096)]) {
+    const selected = kind === 'api_key' ? 'ANTHROPIC_API_KEY' : 'CLAUDE_CODE_OAUTH_TOKEN';
+    const competing = kind === 'api_key' ? 'CLAUDE_CODE_OAUTH_TOKEN' : 'ANTHROPIC_API_KEY';
     const physical = fixture(); const sandbox = await physical.owner.start();
-    const credential = { kind: 'api_key' as const, value };
+    const credential = { kind, value };
     const supplied = { ...request, credential };
     const fixtureSdk = sdkFixture((child, options) => {
-      assert.equal(options.env?.ANTHROPIC_API_KEY, value); child.stdin.end();
+      assert.equal(options.env?.[selected], value); child.stdin.end();
     });
     const sdk: ClaudeSdk = { query(input) {
       credential.value = 'caller-mutation-after-boundary';
-      supplied.credential = { kind: 'api_key', value: 'caller-replacement-after-boundary' };
+      supplied.credential = { kind, value: 'caller-replacement-after-boundary' };
       return fixtureSdk.sdk.query(input);
     } };
     const run = createSandboxClaudeRun(sdk, sandbox, supplied);
     try {
       for await (const _message of run.messages) { /* keep the sole reader active through settlement */ }
-      assert.equal(physical.specification?.env.ANTHROPIC_API_KEY, value);
+      assert.equal(physical.specification?.env[selected], value);
       assert.equal(physical.specification?.env.HOME, '/home/sandbox');
-      assert.equal(physical.specification?.env.CLAUDE_CODE_OAUTH_TOKEN, undefined);
+      assert.equal(physical.specification?.env[competing], undefined);
       assert.equal(physical.specification?.env.OPENAI_API_KEY, undefined);
       assert.equal(physical.processCalls, 1);
       assert.deepEqual(await run.settled, { kind: 'receipt', receipt: { kind: 'exited', code: 7 } });

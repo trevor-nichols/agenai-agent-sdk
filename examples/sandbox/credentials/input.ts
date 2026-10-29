@@ -24,8 +24,12 @@ export function captureSandboxRecipeFields(input: unknown, required: readonly st
 
 /** The returned string is a selected secret; never include it in preflight or reports. */
 export function captureSandboxApiKey(input: unknown): string {
+  return captureSandboxCredentialValue(input, 'api_key');
+}
+
+export function captureSandboxCredentialValue(input: unknown, kind: 'api_key' | 'auth_token'): string {
   const fields = captureSandboxRecipeFields(input, ['kind', 'value']);
-  if (fields.kind !== 'api_key' || typeof fields.value !== 'string' || !fields.value.isWellFormed()
+  if (fields.kind !== kind || typeof fields.value !== 'string' || !fields.value.isWellFormed()
     || fields.value.length === 0 || Buffer.byteLength(fields.value) > 8192 || /[\u0000\r\n]/u.test(fields.value)) invalid();
   return fields.value;
 }

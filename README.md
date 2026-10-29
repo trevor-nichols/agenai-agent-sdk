@@ -2,8 +2,8 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> The coordinated **ten-package 0.4.6 release** is published under npm `latest` and `beta`, with Agent Protocol **V13** and sandbox recovery **v3** unchanged. It adds explicit native-harness credential reuse, provider recipes, default-port CONNECT compatibility and an ACP process-cleanup correction.
-> See the [v0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6), [upgrade guide](UPGRADING-TO-0.4.6.md) and [credential qualification record](examples/sandbox/HANDOFF.md#credential-reuse-native-campaigns-2026-10-28). The retained campaign covers twenty API-key cases on Linux and native-arm64 Desktop; all four Codex saved-login cases remain deferred. Native campaigns retain their original source/archive/platform identities; the final ACP cleanup correction has separate regression proof.
+> Current source is the unpublished coordinated **0.4.7 candidate**, completing API-key and existing-login sandbox recipes for Claude, Grok, OpenCode, Cursor and Codex. Agent Protocol **V13** and sandbox recovery **v3** are unchanged. Read the [candidate guide](UPGRADING-TO-0.4.7.md) and [authentication parity record](examples/sandbox/HANDOFF.md#authentication-parity-native-campaigns-2026-10-28).
+> Published npm `latest` and `beta` remain **0.4.6**. Its original [release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6), [upgrade guide](UPGRADING-TO-0.4.6.md) and [qualification](examples/sandbox/HANDOFF.md#credential-reuse-native-campaigns-2026-10-28) are historical; source preparation does not publish the correction.
 > The preceding ten-package [0.4.5 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.5) added restricted HTTPS, live guest files and confined symbolic-link transfers on explicit Linux/Desktop profiles. Its [upgrade guide](UPGRADING-TO-0.4.5.md) retains the caller/driver and recovery migration instructions.
 > The preceding ten-package [0.4.4 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.4) introduced native structured final responses, optional runtime execution input, history and sandbox packages. Execution input has no supported public native provider. Its [upgrade guide](UPGRADING-TO-0.4.4.md) retains that release's migration instructions.
 > The preceding seven-package `0.4.3` release did not include history or either sandbox package.
@@ -52,7 +52,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages and current source are coordinated at `0.4.6`.
+schema assets. All ten current-source packages are coordinated at unpublished `0.4.7`; published packages remain at `0.4.6`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -130,7 +130,7 @@ pnpm add @agen-ai/validation@0.4.6 @agen-ai/agent-protocol@0.4.6
 ```
 
 Keep every SDK package at the same coordinated version, including optional packages. Use the
-published `v0.4.6` checkout for current examples and read [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md)
+published `v0.4.6` checkout for published-release examples and read [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md)
 for explicit credential reuse and the unchanged V13/recovery-v3 boundary. Repository `pnpm examples:*`
 commands require the matching built checkout; example source files are not additional npm entrypoints.
 
@@ -727,7 +727,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching `v0.4.6` checkout:
+run from the built matching 0.4.7 candidate checkout:
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \

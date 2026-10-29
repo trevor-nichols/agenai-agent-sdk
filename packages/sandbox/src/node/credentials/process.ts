@@ -20,7 +20,7 @@ export function reserveSandboxCredentialProcess(sandbox: Sandbox, input: Sandbox
   const fields = dataFields(input, ['bootstrapExecutable', 'process', 'file', 'preparationTimeoutMs']);
   const file = dataFields(fields.file, ['name', 'bytes']);
   if (typeof file.name !== 'string' || file.name.length > SANDBOX_CREDENTIAL_MAX_NAME_BYTES
-    || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(file.name)) invalid('file.name');
+    || !/^\.?[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(file.name)) invalid('file.name');
   if (!(file.bytes instanceof Uint8Array) || file.bytes.byteLength < 1 || file.bytes.byteLength > SANDBOX_CREDENTIAL_MAX_BYTES) invalid('file.bytes');
   if (!Number.isInteger(fields.preparationTimeoutMs) || typeof fields.preparationTimeoutMs !== 'number'
     || fields.preparationTimeoutMs < 1 || fields.preparationTimeoutMs > 60_000) invalid('preparationTimeoutMs');

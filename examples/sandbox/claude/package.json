@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/example-sandbox-claude",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": true,
   "type": "module",
   "license": "MIT",

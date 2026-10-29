@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/sandbox",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": false,
   "description": "Bounded provider-neutral sandbox ownership, processes, files and recovery contracts.",
   "type": "module",

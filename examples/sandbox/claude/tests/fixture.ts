@@ -12,14 +12,26 @@ import { createSandboxBackend, type SandboxBackendDriver } from '@agen-ai/sandbo
 import type { Options, SDKMessage, SpawnedProcess, SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import type { ClaudeSdk } from '../index.js';
 
-export function fixture({ firstStopFails = false, startGate, echo = false, finishOnEof = true, network = { kind: 'isolated' } }:
-  { firstStopFails?: boolean; startGate?: Promise<void>; echo?: boolean; finishOnEof?: boolean; network?: SandboxNetworkPolicy } = {}) {
+export function fixture({ bootstrap = false, firstStopFails = false, startGate, echo = false, finishOnEof = true, network = { kind: 'isolated' } }:
+  { bootstrap?: boolean; firstStopFails?: boolean; startGate?: Promise<void>; echo?: boolean; finishOnEof?: boolean; network?: SandboxNetworkPolicy } = {}) {
   const stdout = new Readable({ read() {} }); const stderr = new Readable({ read() {} });
   const started = Promise.withResolvers<void>(); const exit = Promise.withResolvers<SandboxProcessExit>();
   const received: Buffer[] = []; let stopAttempts = 0; let processCalls = 0; let specification: SandboxProcessSpec | undefined;
   const resources = new Set<string>();
+  let prefix = Buffer.alloc(0); let prepared = !bootstrap;
+  let credentialFile: Readonly<{ name: string; bytes: Buffer }> | undefined;
   const stdin = new Writable({ write(chunk: Buffer, _encoding, callback) {
-    received.push(Buffer.from(chunk)); if (echo) stdout.push(Buffer.from(chunk)); callback();
+    if (!prepared) {
+      prefix = Buffer.concat([prefix, chunk]);
+      if (prefix.length >= 12) {
+        const nameLength = prefix.readUInt16BE(4); const size = prefix.readUInt32BE(8);
+        if (prefix.length === 12 + nameLength + size) {
+          credentialFile = { name: prefix.subarray(12, 12 + nameLength).toString('ascii'), bytes: Buffer.from(prefix.subarray(12 + nameLength)) };
+          prefix.fill(0); prepared = true; stdout.push(Buffer.from('AGC1 PREPARED\n'));
+        }
+      }
+    } else { received.push(Buffer.from(chunk)); if (echo) stdout.push(Buffer.from(chunk)); }
+    callback();
   }, final(callback) { if (finishOnEof) { stdout.push(null); stderr.push(null); exit.resolve({ kind: 'exited', code: 7 }); } callback(); } });
   const digest = `sha256:${'1'.repeat(64)}`;
   let record = parseSandboxRecoveryRecord({ format: 'agenai.sandbox-recovery.v3', backendId: 'claude-fixture', backendRevision: '1',
@@ -50,6 +62,7 @@ export function fixture({ firstStopFails = false, startGate, echo = false, finis
             processCalls++; specification = spec;
             return { id: parseSandboxProcessId('primary'), async start() {
               started.resolve(); await startGate;
+              if (bootstrap) stdout.push(Buffer.from('AGC1 HELLO\n'));
               return { stdin, stdout, stderr, exit: exit.promise };
             } };
           },
@@ -69,6 +82,7 @@ export function fixture({ firstStopFails = false, startGate, echo = false, finis
     transfers: SANDBOX_DEFAULT_TRANSFER_BUFFERS, streams: { ...SANDBOX_DEFAULT_STREAM_LIMITS, maxStdinBytes: 1024 * 1024 },
   } }, { kind: 'in_process' });
   return { owner, resources, stdout, stderr, stdin, started: started.promise, exit, received,
+    get credentialFile() { return credentialFile; },
     get stopAttempts() { return stopAttempts; }, get processCalls() { return processCalls; }, get specification() { return specification; } };
 }
 

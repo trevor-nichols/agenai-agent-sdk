@@ -4,3 +4,4 @@
 
 export { createSandboxClaudeRun } from './query.js';
 export type { ClaudeSandboxRequest, ClaudeSandboxRun, ClaudeSandboxTool, ClaudeSdk, ClaudeProcessSettlement } from './types.js';
+export type { ClaudeSandboxCredential, ClaudeInlineCredential, ClaudeSavedCredential } from './types.js';

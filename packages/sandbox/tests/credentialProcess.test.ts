@@ -19,14 +19,14 @@ const input = (bytes: Uint8Array = payload, preparationTimeoutMs = 1000) => ({
   file: { name: 'auth.json', bytes }, preparationTimeoutMs,
 });
 
-function protocol(options: { nativeOutput?: Buffer; prepared?: boolean; onRecipe?: (spec: SandboxProcessInput) => void } = {}) {
+function protocol(options: { prefixLength?: number; nativeOutput?: Buffer; prepared?: boolean; onRecipe?: (spec: SandboxProcessInput) => void } = {}) {
   const output = new Readable({ read() {} });
   const received: Buffer[] = [];
   let total = 0;
   const writable = new Writable({ write(chunk: Buffer, _encoding, callback) {
     received.push(Buffer.from(chunk));
     total += chunk.byteLength;
-    if (total === prefix.byteLength && options.prepared !== false) {
+    if (total === (options.prefixLength ?? prefix.byteLength) && options.prepared !== false) {
       output.push(Buffer.concat([Buffer.from('AGC1 PREPARED\n'), options.nativeOutput ?? Buffer.alloc(0)]));
     }
     callback();
@@ -37,26 +37,27 @@ function protocol(options: { nativeOutput?: Buffer; prepared?: boolean; onRecipe
   } }), received };
 }
 
-test('credential preparation snapshots bytes, preserves the one recipe and hands off untouched binary streams', bounded, async () => {
+for (const name of ['auth.json', '.credentials.json']) test(`credential preparation preserves ${name}, the one recipe and untouched binary streams`, bounded, async () => {
+  const expected = Buffer.concat([Buffer.from([65, 71, 67, 49, 0, name.length, 0, 0, 0, 0, 0, 6]), Buffer.from(name), payload]);
   const output = Buffer.from([0, 255, 65, 128]);
   let recipe: SandboxProcessInput | undefined;
-  const control = protocol({ nativeOutput: output, onRecipe: (spec) => { recipe = spec; } });
+  const control = protocol({ prefixLength: expected.length, nativeOutput: output, onRecipe: (spec) => { recipe = spec; } });
   const sandbox = await control.physical.backend.reserve(request(), recovery).start();
   const source = Buffer.from(payload);
-  const reservation = reserveSandboxCredentialProcess(sandbox, input(source));
+  const reservation = reserveSandboxCredentialProcess(sandbox, { ...input(source), file: { name, bytes: source } });
   source.fill(42);
   assert.equal(reservation.id, 'process-1');
   assert.equal(reservation.stopScope, 'sandbox');
   assert.equal(control.physical.processStarted, false);
   const streams = await reservation.start();
   assert.deepEqual(recipe, { ...processSpec, executable: '/usr/local/bin/agenai-credential-bootstrap', args: ['/bin/fixture'] });
-  assert.deepEqual(Buffer.concat(control.received), prefix);
+  assert.deepEqual(Buffer.concat(control.received), expected);
   assert.deepEqual(source, Buffer.alloc(payload.length, 42));
   assert.equal(streams.stdin.writableEnded, false);
   assert.deepEqual(streams.stdout.read(output.length), output);
   const nativeInput = Buffer.from([9, 0, 254, 10]);
   await new Promise<void>((resolve, reject) => streams.stdin.write(nativeInput, (error) => error ? reject(error) : resolve()));
-  assert.deepEqual(Buffer.concat(control.received), Buffer.concat([prefix, nativeInput]));
+  assert.deepEqual(Buffer.concat(control.received), Buffer.concat([expected, nativeInput]));
   control.physical.errorOutput.push(Buffer.from([253, 0]));
   control.physical.errorOutput.push(null);
   assert.deepEqual(await bytes(streams.stderr), Buffer.from([253, 0]));

@@ -4,8 +4,8 @@ import type { SandboxApiKeyCredential } from '../credentials/index.js';
 export type SandboxCodexCredential = SandboxApiKeyCredential | Readonly<{
   kind: 'auth_json';
   path: string;
-  /** The caller has stopped every other consumer of this copied rotating lineage. */
-  lineage: 'caller_quiescent';
+  /** Quiescent copies own refresh; access-token-only copies use native externally managed auth. */
+  lineage: 'caller_quiescent' | 'access_token_only';
   bootstrapExecutable: string;
   preparationTimeoutMs: number;
 }>;
@@ -30,8 +30,9 @@ export interface SandboxCodexPreflight {
   readonly model: 'gpt-6-luna';
   readonly reasoning: 'low';
   readonly httpsDestinations: readonly string[];
-  readonly endpointEvidence: 'observed_in_ms005_native_campaign';
-  readonly nativeQualification: 'recorded_linux_x64_and_desktop_native_arm64';
+  readonly refresh: 'not_applicable' | 'native_owned' | 'disabled';
+  readonly endpointEvidence: 'observed_in_ms005_native_campaign' | 'pinned_native_source';
+  readonly nativeQualification: 'recorded_linux_x64_and_desktop_native_arm64' | 'see_handoff_for_exact_route_and_platform_evidence';
   readonly preparation: 'caller_must_verify_image_binary_platform_and_empty_configuration';
 }
 

@@ -7,12 +7,30 @@ import type { Sandbox } from '@agen-ai/sandbox';
 import { admitSpawn, claudeOptions, parseClaudeSandboxRequest } from './config.js';
 import { claudeEgress } from './egress.js';
 import { createClaudeProcess } from './process.js';
-import type { ClaudeProcessSettlement, ClaudeSandboxRequest, ClaudeSandboxRun, ClaudeSdk } from './types.js';
+import { readClaudeCredential } from './credentials.js';
+import type { ClaudeInlineCredential, ClaudeSavedCredential, ClaudeProcessSettlement, ClaudeSandboxCredential, ClaudeSandboxRequest, ClaudeSandboxRun, ClaudeSdk } from './types.js';
 
-export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: ClaudeSandboxRequest): ClaudeSandboxRun {
+export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: ClaudeSandboxRequest<ClaudeInlineCredential>): ClaudeSandboxRun;
+export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: ClaudeSandboxRequest<ClaudeSavedCredential>): Promise<ClaudeSandboxRun>;
+export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: ClaudeSandboxRequest<ClaudeSandboxCredential>): ClaudeSandboxRun | Promise<ClaudeSandboxRun>;
+export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: ClaudeSandboxRequest<ClaudeSandboxCredential>): ClaudeSandboxRun | Promise<ClaudeSandboxRun> {
   const request = parseClaudeSandboxRequest(input);
-  const egress = claudeEgress(sandbox);
+  const egress = claudeEgress(sandbox, request.credential.kind);
   request.signal?.throwIfAborted();
+  if (request.credential.kind === 'auth_json') {
+    const credential = request.credential;
+    return readClaudeCredential(credential, request.signal).then((bytes) => {
+      try {
+        request.signal?.throwIfAborted();
+        return startClaudeRun(sdk, sandbox, request, egress, { credential, bytes });
+      } finally { bytes.fill(0); }
+    });
+  }
+  return startClaudeRun(sdk, sandbox, request, egress);
+}
+
+function startClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, request: ClaudeSandboxRequest<ClaudeSandboxCredential>,
+  egress: Readonly<Record<string, string>>, file?: Readonly<{ credential: ClaudeSavedCredential; bytes: Uint8Array }>): ClaudeSandboxRun {
   const controller = new AbortController();
   let bridge: ReturnType<typeof createClaudeProcess> | undefined;
   let query: ReturnType<ClaudeSdk['query']> | undefined;
@@ -44,7 +62,7 @@ export function createSandboxClaudeRun(sdk: ClaudeSdk, sandbox: Sandbox, input: 
     const options = claudeOptions(request, sandbox.workspace, controller, egress);
     options.spawnClaudeCodeProcess = (spawn) => {
       if (bridge || closed) throw new Error('Claude permits exactly one sandbox process reservation.');
-      bridge = createClaudeProcess(sandbox, admitSpawn(spawn, request, sandbox.workspace, egress));
+      bridge = createClaudeProcess(sandbox, admitSpawn(spawn, request, sandbox.workspace, egress), file);
       bridge.settled.then(processReady.resolve);
       return bridge.child;
     };

@@ -1,8 +1,8 @@
-# Cursor CLI user API-key recipe
+# Cursor CLI API-key and existing-account recipes
 
 [`reserveSandboxCursor`](index.ts) composes native Cursor CLI
 `2026.10.22-27dcf5f` in headless stream-JSON mode using public sandbox processes. It requires an
-explicit user API key and a bounded account-admitted model ID; empty, `auto` and malformed
+explicit user API key, existing account token, or selected native account file, and a bounded account-admitted model ID; empty, `auto` and malformed
 model choices are rejected. There is no implicit model or credential fallback.
 
 Before construction, independently verify the caller's immutable prepared image, Linux
@@ -53,11 +53,11 @@ prompt operand: option-shaped text such as `--model=auto` or a subcommand name s
 cannot select a native flag or command. `--force` permits native guest tools within the caller's
 sandbox. It grants no host filesystem callbacks. The task must contain no secret.
 
-The only secret destination is `CURSOR_API_KEY`. The replacement environment fixes
+For the API-key route the secret destination is `CURSOR_API_KEY`. The replacement environment fixes
 `AGENT_CLI_CREDENTIAL_STORE=memory`, `CURSOR_CONFIG_DIR=$HOME/cursor/config`,
 `CURSOR_DATA_DIR=$HOME/cursor/data` under the guest HOME, fresh XDG roots, and
-`CURSOR_API_ENDPOINT=https://api2.cursor.sh`. No argv key, auth token, host dotenv, saved login,
-service-account document, endpoint override or imported project configuration is accepted.
+`CURSOR_API_ENDPOINT=https://api2.cursor.sh`. No argv secret, host dotenv, service-account document, endpoint override or imported project configuration is accepted.
+`DIRENV_DISABLE=1` prevents workspace direnv from overriding the selected environment.
 The empty in-memory store avoids reusing native persisted refresh state. Home/config/data must
 remain outside workspace exports and disappear only after whole-sandbox stop/destruction.
 
@@ -71,7 +71,7 @@ destinations; under restricted HTTPS they are refused unless the caller admits t
 The caller owns explicit egress/spend policy; this metadata does not install an allowlist.
 A denied destination stays a failed attempt requiring evidence and an intentional policy revision.
 
-A browser login is not an exported user key. This recipe performs no login, token extraction,
+A browser login is not an exported user key. This recipe performs no login, implicit token extraction,
 credential-store inspection, installer or download. It does not claim Cursor SDK or service-account
 task support. Current SDK user/service-account capabilities and independent SDK history browsing
 qualification do not qualify this CLI composition. The [0.4.6 follow-up](../HANDOFF.md#credential-reuse-native-campaigns-2026-10-28)
@@ -79,3 +79,37 @@ records normal file tasks and cancellation after observed native entry with `gro
 the exact Linux x64 and Desktop native arm64 tuples, with explicit Engine 404 cleanup evidence.
 Other models, accounts and changed inputs require their own proof; Rosetta Linux amd64 remains
 unqualified for this credential route.
+
+## Existing account selection
+
+An explicitly supplied native token uses `credential: { kind: 'auth_token', value: selectedToken }`.
+The synchronous return shape is unchanged. This maps only `CURSOR_AUTH_TOKEN`, leaves
+`CURSOR_API_KEY` absent and uses the empty in-memory native store. It does not select user-key exchange.
+
+For a selected native file, await the asynchronous overload:
+
+```ts
+const selected = await reserveSandboxCursor(sandbox, {
+  guestExecutable: '/opt/agenai/native/cursor-agent', model: selectedAccountModelId, task: nonsecretTask,
+  credential: { kind: 'auth_json', path: selectedPrivateAccountFile, lineage: 'caller_quiescent',
+    bootstrapExecutable: '/opt/agenai/bin/agenai-credential-bootstrap', preparationTimeoutMs: 10_000 },
+  signal,
+});
+```
+
+The file must contain native `accessToken` and `refreshToken` strings. The bounded no-follow reader
+projects only those fields: a key, Bedrock credential or other account-store data cannot override them.
+Prepare the public credential bootstrap and copy `guest/launch-cursor.sh` into
+`/opt/agenai/examples/cursor/launch-cursor.sh`. Its single owned process moves the privately delivered
+file into `$HOME/.agenai-credentials/cursor/auth.json` with directory/file modes 0700/0600, selects
+`AGENT_CLI_CREDENTIAL_STORE=file` and `XDG_CONFIG_HOME=$HOME/.agenai-credentials`, then execs the CLI.
+Neither API-key nor token environment overrides are present. The native Linux file store uses XDG;
+`CURSOR_CONFIG_DIR` alone does not redirect authentication. The macOS default can use Keychain, so a
+missing host JSON file does not mean the user is logged out. Host-store export is explicit caller work.
+
+All concurrent consumers of the selected refresh lineage must be stopped before file reuse. Guest
+state is disposable with no host writeback. The pinned native refresh helper inspected here refreshes
+API-key sessions; this example does not promise renewal of a saved account token or indefinite token
+lifetime. Native authentication failure stays failure. The live token route has the separate record below; the refreshable file alternative has no live renewal qualification. Keep all account files out of workspace exports, images, tasks and retained reports.
+
+The [authentication parity record](../HANDOFF.md#authentication-parity-native-campaigns-2026-10-28) adds real existing-account `auth_token` and API-key normal/cancellation proof on Linux x64 and native-arm64 Docker Desktop. The token was read from the existing native macOS credential store by the explicitly authorized campaign controller. The SDK takes the selected token explicitly; it does not discover keychain entries. The refreshable `auth_json` alternative retains deterministic and native synthetic file-store proof, without a live renewal claim.

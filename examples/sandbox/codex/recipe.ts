@@ -42,15 +42,17 @@ export function codexProcess(executable: string, cwd: string,
   };
 }
 
-export function codexPreflight(route: 'api_key' | 'auth_json'): SandboxCodexPreflight {
+export function codexPreflight(route: 'api_key' | 'auth_json', lineage: 'caller_quiescent' | 'access_token_only' = 'caller_quiescent'): SandboxCodexPreflight {
   return Object.freeze({
     provider: 'codex', version: '0.163.0', transport: 'native_cli_exec', credentialRoute: route,
     sourceKind: route === 'api_key' ? 'explicit_api_key' : 'explicit_native_auth_file',
+    refresh: route === 'api_key' ? 'not_applicable' : lineage === 'access_token_only' ? 'disabled' : 'native_owned',
     nativeDestination: route === 'api_key' ? 'CODEX_API_KEY' : '/home/sandbox/.agenai-credentials/auth.json',
     model: 'gpt-6-luna', reasoning: 'low',
     httpsDestinations: Object.freeze(route === 'api_key' ? ['https://api.openai.com:443']
       : ['https://chatgpt.com:443', 'https://auth.openai.com:443']),
-    endpointEvidence: 'observed_in_ms005_native_campaign', nativeQualification: 'recorded_linux_x64_and_desktop_native_arm64',
+    endpointEvidence: route === 'api_key' ? 'observed_in_ms005_native_campaign' : 'pinned_native_source',
+    nativeQualification: route === 'api_key' ? 'recorded_linux_x64_and_desktop_native_arm64' : 'see_handoff_for_exact_route_and_platform_evidence',
     preparation: 'caller_must_verify_image_binary_platform_and_empty_configuration',
   });
 }

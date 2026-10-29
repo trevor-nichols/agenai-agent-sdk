@@ -6,14 +6,19 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { SpawnedProcess, SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import type { Sandbox, SandboxProcessStreams } from '@agen-ai/sandbox';
+import { reserveSandboxCredentialProcess } from '@agen-ai/sandbox/node';
 import { ClaudeInput } from './input.js';
-import type { ClaudeProcessSettlement } from './types.js';
+import type { ClaudeProcessSettlement, ClaudeSavedCredential } from './types.js';
 
-export function createClaudeProcess(sandbox: Sandbox, options: SpawnOptions) {
+export function createClaudeProcess(sandbox: Sandbox, options: SpawnOptions,
+  file?: Readonly<{ credential: ClaudeSavedCredential; bytes: Uint8Array }>) {
   const environment: Record<string, string> = {};
   for (const [key, value] of Object.entries(options.env)) if (value !== undefined) environment[key] = value;
-  const reservation = sandbox.reserveProcess({ executable: options.command, args: options.args,
-    cwd: options.cwd ?? sandbox.workspace, env: environment });
+  const process = { executable: options.command, args: options.args, cwd: options.cwd ?? sandbox.workspace, env: environment };
+  const reservation = file === undefined ? sandbox.reserveProcess(process) : reserveSandboxCredentialProcess(sandbox, {
+    bootstrapExecutable: file.credential.bootstrapExecutable, preparationTimeoutMs: file.credential.preparationTimeoutMs,
+    file: { name: '.credentials.json', bytes: file.bytes }, process,
+  });
   const events = new EventEmitter();
   const output = new PassThrough({ highWaterMark: 16 * 1024 });
   const ready = Promise.withResolvers<SandboxProcessStreams>();

@@ -1,7 +1,7 @@
 # Explicit Docker platform verification
 
 This credential-free lane verifies one selected controller, daemon, image and profile. Current
-source is the unpublished coordinated 0.4.6 candidate. The SDK has retained 0.4.4 Linux x64
+source is the unpublished coordinated 0.4.7 candidate. The SDK has retained 0.4.4 Linux x64
 evidence; it does not qualify changed candidate bytes. The 0.4.5 candidate, before publication, had separately
 passed actual Apple Virtualization native-arm64 and Rosetta-amd64 baseline rows on the exact Mac
 tuple below. Linux fixtures, synthetic admission and installed configuration checks alone do not

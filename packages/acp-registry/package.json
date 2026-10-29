@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/acp-registry",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": false,
   "description": "Bounded ACP registry metadata, immutable installation plans, and explicit Node operations.",
   "type": "module",
