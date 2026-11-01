@@ -164,12 +164,26 @@ class MemberEffects implements DesktopCoordinatorMember {
   }
 
   private async runQueuedCleanup(effectSequence: number, perform: () => Promise<void>): Promise<void> {
-    try { await this.journal.run('cleanup', perform); }
+    try {
+      await this.journal.run('cleanup', async () => {
+        try { await perform(); }
+        catch (cause) {
+          // Fence unresolved effects before releasing the physical slot to another member.
+          this.fenceEntered(effectSequence, cause);
+          throw cause;
+        }
+      });
+    }
     catch (cause) {
       try { await this.cancelQueued(effectSequence); }
       catch (cancelCause) { throw new AggregateError([cause, cancelCause], 'Original cleanup and its unentered queue cancellation did not both settle.'); }
       throw cause;
     }
+  }
+
+  private fenceEntered(effectSequence: number, cause: unknown): void {
+    const generation = this.journal.snapshot().generation;
+    if (generation.kind === 'dirty' && generation.entered?.effectSequence === effectSequence) this.journal.fence(cause);
   }
 
   private async nonDispatch(effectSequence: number, role: ResourceRole): Promise<void> {
@@ -221,10 +235,7 @@ class MemberEffects implements DesktopCoordinatorMember {
           return inspection;
         } catch (cause) {
           if (!dispatched) await this.nonDispatch(effectSequence, role);
-          else {
-            const generation = this.journal.snapshot().generation;
-            if (generation.kind === 'dirty' && generation.entered?.effectSequence === effectSequence) this.journal.fence(cause);
-          }
+          else this.fenceEntered(effectSequence, cause);
           throw cause;
         }
       }), signal);
@@ -266,10 +277,7 @@ class MemberEffects implements DesktopCoordinatorMember {
           return inspection;
         } catch (cause) {
           if (!dispatched) await this.nonDispatch(effectSequence, role);
-          else {
-            const generation = this.journal.snapshot().generation;
-            if (generation.kind === 'dirty' && generation.entered?.effectSequence === effectSequence) this.journal.fence(cause);
-          }
+          else this.fenceEntered(effectSequence, cause);
           throw cause;
         }
       }), signal);

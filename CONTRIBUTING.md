@@ -60,9 +60,9 @@ hosted CI success from its configured workflow; no hosted Docker result is recor
 original operation/cleanup failures and exact resource identities when changing lifecycle code.
 Recovery is cleanup-only, and uncertain command outcomes must never be replayed automatically.
 
-Current source and the published coordinated family are ten packages at `0.4.8` with Agent Protocol V13,
+Current source prepares ten packages at `0.4.9`; the published coordinated family remains `0.4.8` with Agent Protocol V13,
 including history and both sandbox packages. npm `beta` and `latest` select that complete release.
-Read [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for the current release and [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for recovery migration,
+Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the source correction and [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for the published release and [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for recovery migration,
 and [UPGRADING-TO-0.4.4.md](UPGRADING-TO-0.4.4.md) for the published history and sandbox setup,
 and [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) before changing V12 lifecycle behavior.
 Earlier `0.4.1` artifacts retain V11.

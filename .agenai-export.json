@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "1097f90e306ec84ed021736dec53a886adc7a137",
+  "sourceRevision": "2edbc12320c252fc78cd09807e3ec7ec3ad5661c",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -84,6 +84,7 @@
     "UPGRADING-TO-0.4.6.md",
     "UPGRADING-TO-0.4.7.md",
     "UPGRADING-TO-0.4.8.md",
+    "UPGRADING-TO-0.4.9.md",
     "examples/delegation/README.md",
     "examples/delegation/acp.ts",
     "examples/delegation/durable.ts",
@@ -1264,6 +1265,7 @@
     "packages/sandbox-docker/tests/desktop-census.test.ts",
     "packages/sandbox-docker/tests/desktop-client.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-allocation.test.ts",
+    "packages/sandbox-docker/tests/desktop-coordinator-cleanup.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-control-failure.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-effects.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-endpoint.test.ts",
@@ -1783,6 +1785,7 @@
     "scripts/release/artifact/metadata.mjs",
     "scripts/release/artifact/restore.mjs",
     "scripts/release/package-inventory.mjs",
+    "scripts/release/publication-workflow.test.mjs",
     "scripts/release/restore-release-artifact.mjs",
     "scripts/release/restore-release-artifact.test.mjs",
     "scripts/release/verify-package-publication.mjs",
