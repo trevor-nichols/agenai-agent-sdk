@@ -52,8 +52,9 @@ export function installLostAcknowledgement({ socketPath, select, evidence, onRes
           report.transportErrorIssued = true;
           report.transportErrorBeforeOriginalClose = report.selected.requestClosedAt === null;
           injectedError = new Error('Explicit MS005 qualification lost acknowledgement after original response capture.');
-          if (request.destroyed) request.emit('error', injectedError);
-          else request.destroy(injectedError);
+          // A consumed response may make destroy(error) close without delivering the error.
+          try { request.emit('error', injectedError); }
+          finally { request.destroy(); }
         }
       };
       const finish = (terminal, error) => {
