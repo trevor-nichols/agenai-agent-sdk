@@ -1,10 +1,34 @@
-# SDK 0.4.8 candidate platform and consumer handoff
+# SDK sandbox platform and consumer handoff
 
-This handoff targets the coordinated, unpublished **0.4.8 candidate**, with Agent Protocol
-**V13** unchanged. Use the exact governed source export and its ten locally packed archives.
-Published npm **0.4.7** remains a separate release. Earlier platform records below retain their
-original source and archive identities. Publication, Docker Desktop configuration and Battle Bots
-changes are not performed by this handoff.
+The published coordinated release is **0.4.8**, with Agent Protocol **V13** unchanged.
+Current source adds the unreleased cleanup correction below. Use an exact governed source export
+and its ten locally packed archives. Earlier candidate and platform records retain their original
+source and archive identities. Publication, Docker Desktop configuration and Battle Bots changes
+remain separate actions.
+
+## Original-owner cleanup correction (2026-11-01, unreleased)
+
+Published `0.4.8` has an original-owner retry defect after an entered coordinated delete rejects.
+Current source corrects that path and the equivalent control-close rejection. It fences the group
+before releasing the physical slot, retains the original receipt and uses existing exact-resource
+reconciliation on retry. Join each member's original stop attempt, then retry through its original
+owner; a peer stop can retain its own failure while the first member's effect remains pending.
+
+Four source regressions failed before the correction and passed afterward; the relevant source
+selection passed 186 tests. The packed candidate passed four targeted native-arm64 Desktop cases:
+single-owner pre-send volume-delete rejection, the same with an active peer, lost deletion
+acknowledgement and repeated rejection. Original-owner retries and clean coordinator closure
+passed, with 56 independent exact-resource 404 observations. One earlier peer-ordering attempt
+remains failed, with successful final same-owner cleanup; it is excluded from that pass count.
+
+Native scope is macOS 26.5.1 / Node 24.18.0 / Desktop 4.54.0 build 212467 / Engine 29.1.2 API 1.52,
+using the original prepared helpers. The tested sandbox-docker candidate archive SHA-256 is
+`027d6185f571edf8bed383d85e5a87601d542c59537876a93fc748af20d843ca`; its installed runtime
+`memberEffects.js` SHA-256 is `fb3556f94a1c2c50adb01e327dfd1505bcf5b555a1ccae670c26e3a1d5cace07`.
+The archive keeps 0.4.8 only as a local candidate version and is distinct from published 0.4.8.
+The final documentation follows that pack; runtime bytes are unchanged. This is focused cleanup
+evidence, not renewed Rosetta, Linux, full-platform or consumer-adoption qualification. Publish a
+new patch release and rerun the consumer's interrupted-cleanup gate against those final bytes.
 
 ## Select one reviewable candidate
 

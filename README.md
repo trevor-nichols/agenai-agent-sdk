@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> The coordinated **ten-package 0.4.8 release** is published under npm `latest` and `beta`. It adds opt-in Docker Desktop coordination for up to four restricted members on one Engine. Agent Protocol **V13** and sandbox recovery **v3** are unchanged. Read the [v0.4.8 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.8), [upgrade guide](UPGRADING-TO-0.4.8.md) and [original coordination record](examples/sandbox/HANDOFF.md#concurrent-desktop-coordination-native-campaigns-2026-10-31). November 1 runtime repairs have source/portable validation separate from the original native archives.
+> Current source prepares the coordinated **ten-package 0.4.9 cleanup correction**; npm `latest` and `beta` still select `0.4.8`. It preserves original-owner cleanup retries after entered Docker Desktop coordinator failures. Agent Protocol **V13**, recovery **v3** and backend identities are unchanged. Read the [0.4.9 upgrade guide](UPGRADING-TO-0.4.9.md); retain the [0.4.8 coordination guide](UPGRADING-TO-0.4.8.md) for mode adoption and typed stream closure.
 > The preceding **ten-package 0.4.7 release** completed the authentication-parity update. It introduced explicit API-key and existing-login sandbox recipes for Claude, Grok, OpenCode, Cursor and Codex. Agent Protocol **V13** and sandbox recovery **v3** are unchanged.
 > See the [v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7), [upgrade guide](UPGRADING-TO-0.4.7.md) and [authentication parity record](examples/sandbox/HANDOFF.md#authentication-parity-native-campaigns-2026-10-28). Original Linux/native-arm64 Desktop campaigns retain their development archive identities and finite access-only/refresh limits.
 > The preceding ten-package [0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6) introduced explicit credential reuse. Its [upgrade guide](UPGRADING-TO-0.4.6.md), API-key evidence and deferred-account record remain historical; the 0.4.7 parity record supplies the separate subsequent account evidence.
@@ -54,7 +54,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages and current source are coordinated at `0.4.8`.
+schema assets. All ten current source packages are coordinated at `0.4.9`; the published family remains `0.4.8` until verified promotion.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 

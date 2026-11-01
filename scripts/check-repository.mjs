@@ -92,7 +92,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.4.8");
+assert.equal(rootManifest.version, "0.4.9");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
@@ -163,12 +163,15 @@ assert.ok(providerPublish < registryInspection && registryInspection < registryP
 assert.ok(registryPublish < historyInspection && historyInspection < historyPublish);
 assert.ok(historyPublish < sandboxInspection && sandboxInspection < sandboxPublish);
 assert.ok(sandboxPublish < sandboxDockerInspection && sandboxDockerInspection < sandboxDockerPublish);
+const completePublicationVerification = releaseWorkflow.indexOf("Verify all package publications");
+assert.ok(sandboxDockerPublish < completePublicationVerification);
+assert.ok(completePublicationVerification < releaseWorkflow.indexOf("Verify registry signatures and provenance"));
 assert.match(releaseWorkflow, /verify-package-publication\.mjs/u);
 assert.match(releaseWorkflow, /--require-present --attempts 90 --delay-ms 10000/u);
 assert.match(releaseWorkflow, /release_ref:/u);
 assert.match(releaseWorkflow, /release_commit="\$\(git rev-parse "\$RELEASE_REF\^\{commit\}"\)"/u);
 assert.match(releaseWorkflow, /RELEASE_SHA=\$release_commit/u);
-assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 20);
+assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 11);
 assert.match(releaseWorkflow, /git diff --exit-code/u);
 assert.match(releaseWorkflow, /scripts\/architecture\/agent-sdk-consumers/u);
 assert.match(releaseWorkflow, /scripts\/development\/agent-sandbox-qualification/u);

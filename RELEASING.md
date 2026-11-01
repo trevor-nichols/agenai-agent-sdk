@@ -1,11 +1,8 @@
 # Releasing
 
-The three core packages and seven optional packages (orchestration, ACP transport, ACP provider,
-ACP registry, history, sandbox and Docker sandbox) form the published coordinated ten-package
-`0.4.8` release. npm `beta` and `latest` select `0.4.8` for all ten names; see the
-[v0.4.8 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.8).
-Current source matches this opt-in concurrent Desktop coordination release; read
-[UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md).
+The three core packages and seven optional packages prepare coordinated `0.4.9`.
+The published npm `beta` and `latest` tags still select `0.4.8` until verified publication and
+promotion. Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the cleanup correction.
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -88,6 +85,16 @@ order `package.json` dependency keys differently, so compare repacked manifests 
 identify qualified archives by their retained hashes, not by a repack. Package checks and
 synthetic ACP examples establish source behavior; they do not establish native agent, account,
 inference, installed-host or fleet qualification. Deployment remains a separate operation.
+
+Publication uploads remain sequential in dependency order after complete source/archive admission
+and original artifact retention. After all uploads, exact registry publication checks run in batches
+of at most three. Each batch joins every entered verifier even when one fails. Signature auditing
+and stable promotion require the complete set to pass; an accepted upload is never proof of complete
+attestation visibility. Recovery still inspects each existing version before skipping or uploading.
+
+Overlap independent read-only checks and consumer preparation where possible. Reuse a completed
+gate only for identical source, lockfile and relevant artifact identities. Documentation-only follow-up
+changes receive focused checks. Record unrelated private CI results separately from SDK release gates.
 
 Retain actual native qualification separately using the
 [opt-in runner](examples/delegation/native/README.md). The prepared source has direct
@@ -257,7 +264,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.8
+VERSION=0.4.9
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest

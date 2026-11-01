@@ -261,15 +261,6 @@ jobs:
         if: steps.validation.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-validation-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
-      - name: Verify validation publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-validation-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
-
       - name: Inspect agent protocol publication
         id: agent_protocol
         run: >-
@@ -283,15 +274,6 @@ jobs:
       - name: Publish agent protocol
         if: steps.agent_protocol.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
-
-      - name: Verify agent protocol publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-protocol-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect agent runtime publication
         id: agent_runtime
@@ -307,15 +289,6 @@ jobs:
         if: steps.agent_runtime.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
-      - name: Verify agent runtime publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-runtime-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
-
       - name: Inspect agent orchestration publication
         id: agent_orchestration
         run: >-
@@ -329,15 +302,6 @@ jobs:
       - name: Publish agent orchestration
         if: steps.agent_orchestration.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-agent-orchestration-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
-
-      - name: Verify agent orchestration publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-orchestration-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect ACP transport publication
         id: acp_transport
@@ -353,15 +317,6 @@ jobs:
         if: steps.acp_transport.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-acp-transport-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
-      - name: Verify ACP transport publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-acp-transport-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
-
       - name: Inspect ACP provider publication
         id: provider_acp
         run: >-
@@ -375,15 +330,6 @@ jobs:
       - name: Publish ACP provider
         if: steps.provider_acp.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-provider-acp-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
-
-      - name: Verify ACP provider publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-provider-acp-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect ACP registry publication
         id: acp_registry
@@ -399,15 +345,6 @@ jobs:
         if: steps.acp_registry.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-acp-registry-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
-      - name: Verify ACP registry publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-acp-registry-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
-
       - name: Inspect agent history publication
         id: agent_history
         run: >-
@@ -421,15 +358,6 @@ jobs:
       - name: Publish agent history
         if: steps.agent_history.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-agent-history-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
-
-      - name: Verify agent history publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-agent-history-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
 
       - name: Inspect sandbox publication
         id: sandbox
@@ -445,15 +373,6 @@ jobs:
         if: steps.sandbox.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-sandbox-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
-      - name: Verify sandbox publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-sandbox-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
-
       - name: Inspect Docker sandbox publication
         id: sandbox_docker
         run: >-
@@ -468,14 +387,28 @@ jobs:
         if: steps.sandbox_docker.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-sandbox-docker-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
-      - name: Verify Docker sandbox publication
-        run: >-
-          node scripts/release/verify-package-publication.mjs
-          --tarball release/agen-ai-sandbox-docker-${RELEASE_TAG#v}.tgz
-          --npm-tag "${{ inputs.npm_tag }}"
-          --release-ref "$RELEASE_REF"
-          --release-sha "$RELEASE_SHA"
-          --require-present --attempts 90 --delay-ms 10000
+      - name: Verify all package publications
+        shell: bash
+        env:
+          NPM_TAG: ${{ inputs.npm_tag }}
+        run: |
+          set -euo pipefail
+          tarballs=(release/*.tgz)
+          for ((offset=0; offset<${#tarballs[@]}; offset+=3)); do
+            pids=()
+            for tarball in "${tarballs[@]:offset:3}"; do
+              node scripts/release/verify-package-publication.mjs \
+                --tarball "$tarball" --npm-tag "$NPM_TAG" \
+                --release-ref "$RELEASE_REF" --release-sha "$RELEASE_SHA" \
+                --require-present --attempts 90 --delay-ms 10000 &
+              pids+=("$!")
+            done
+            failed=0
+            for pid in "${pids[@]}"; do
+              wait "$pid" || failed=1
+            done
+            if ((failed)); then exit 1; fi
+          done
 
       - name: Verify registry signatures and provenance
         shell: bash

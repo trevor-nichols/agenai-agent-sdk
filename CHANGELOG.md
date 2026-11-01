@@ -5,6 +5,23 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.9 - 2026-11-01 (release candidate)
+
+All ten source packages are coordinated at `0.4.9`; npm `beta` and `latest` still select `0.4.8`
+until the separately verified publication and promotion. Agent Protocol V13, recovery v3 and
+backend identities are unchanged. Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md).
+
+- Keep dependency-ordered uploads and original artifact retention, then verify publication in
+  batches of at most three before signature auditing or stable promotion. Every original
+  archive, manifest and provenance check remains mandatory; recovery retains exact accepted bytes.
+
+- Repair original-owner cleanup after an entered coordinated Desktop delete or helper shutdown
+  rejects. Fence the group before releasing its physical operation slot, retain the exact pending
+  receipt, and reconcile subsequent cleanup through the original owners. This covers failed
+  dispatch, lost deletion responses and repeated cleanup failure without a recovery-format change.
+  A peer's already-entered stop can report its own cleanup failure; join that attempt and retain
+  its owner for retry after the original effect settles.
+
 ## 0.4.8 - 2026-11-01
 
 All ten published packages are coordinated at `0.4.8`; npm `beta` and `latest` select this release.
