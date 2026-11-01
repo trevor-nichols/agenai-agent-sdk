@@ -1,9 +1,9 @@
 # Upgrading to 0.4.9
 
-The coordinated ten-package `0.4.9` source is a cleanup correction to `0.4.8`. It is a release
-candidate until npm publication and stable promotion are independently verified. Upgrade the
-complete package family together after publication. Agent Protocol V13, recovery v3, coordinator
-journal format, native helpers, dependencies and backend identities are unchanged.
+The published coordinated ten-package `0.4.9` release is a cleanup correction to `0.4.8`.
+npm `beta` and `latest` select `0.4.9` for all ten packages after exact archive/provenance,
+installed-consumer and stable-tag verification. Upgrade the complete package family together. Agent Protocol V13, recovery v3, coordinator
+journal format, native helpers, external dependency versions and backend identities are unchanged.
 
 ## Retain original cleanup owners
 
