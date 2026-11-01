@@ -1,8 +1,10 @@
 # Releasing
 
-The three core packages and seven optional packages prepare coordinated `0.4.9`.
-The published npm `beta` and `latest` tags still select `0.4.8` until verified publication and
-promotion. Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the cleanup correction.
+The three core packages and seven optional packages form published coordinated `0.4.9`.
+npm `beta` and `latest` select `0.4.9` for all ten names; see the
+[v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9).
+Current source matches this cleanup patch. Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md).
+Agent Protocol V13, recovery v3, journal format, native helpers and backend identities are unchanged.
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -22,7 +24,8 @@ The coordinated `0.4.8` release retains Agent Protocol V13 and recovery v3 from 
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for the current release,
+[UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the current cleanup patch,
+[UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for coordinator adoption,
 [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md) for the preceding authentication-parity release,
 [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md) for the preceding credential-reuse release,
 [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for the preceding sandbox capability update,

@@ -2,7 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-> Current source prepares the coordinated **ten-package 0.4.9 cleanup correction**; npm `latest` and `beta` still select `0.4.8`. It preserves original-owner cleanup retries after entered Docker Desktop coordinator failures. Agent Protocol **V13**, recovery **v3** and backend identities are unchanged. Read the [0.4.9 upgrade guide](UPGRADING-TO-0.4.9.md); retain the [0.4.8 coordination guide](UPGRADING-TO-0.4.8.md) for mode adoption and typed stream closure.
+> The coordinated **ten-package 0.4.9 cleanup patch** is published under npm `latest` and `beta`. It preserves original-owner cleanup retry after entered Docker Desktop coordinator failures. Agent Protocol **V13**, sandbox recovery **v3**, journal format, native helpers and backend identities are unchanged. Read the [v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9) and [upgrade guide](UPGRADING-TO-0.4.9.md). The [original cleanup record](examples/sandbox/HANDOFF.md#original-owner-cleanup-correction-2026-11-01-unreleased) retains its development-archive identity and qualification limits.
 > The preceding **ten-package 0.4.7 release** completed the authentication-parity update. It introduced explicit API-key and existing-login sandbox recipes for Claude, Grok, OpenCode, Cursor and Codex. Agent Protocol **V13** and sandbox recovery **v3** are unchanged.
 > See the [v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7), [upgrade guide](UPGRADING-TO-0.4.7.md) and [authentication parity record](examples/sandbox/HANDOFF.md#authentication-parity-native-campaigns-2026-10-28). Original Linux/native-arm64 Desktop campaigns retain their development archive identities and finite access-only/refresh limits.
 > The preceding ten-package [0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6) introduced explicit credential reuse. Its [upgrade guide](UPGRADING-TO-0.4.6.md), API-key evidence and deferred-account record remain historical; the 0.4.7 parity record supplies the separate subsequent account evidence.
@@ -54,7 +54,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten current source packages are coordinated at `0.4.9`; the published family remains `0.4.8` until verified promotion.
+schema assets. All ten published packages and current source are coordinated at `0.4.9`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -118,21 +118,22 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published `0.4.8` runtime:
+Install the published `0.4.9` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.8
+pnpm add @agen-ai/agent-runtime@0.4.9
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.8 @agen-ai/agent-protocol@0.4.8
+pnpm add @agen-ai/validation@0.4.9 @agen-ai/agent-protocol@0.4.9
 ```
 
 Keep every SDK package at the same coordinated version, including optional packages. Use the
-published `v0.4.8` checkout for published-release examples. Read
+published `v0.4.9` checkout for published-release examples. Read
+[UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the cleanup patch,
 [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for Desktop coordination and typed stream closure,
 and [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md) for explicit authentication recipes.
 The V13/recovery-v3 boundary is unchanged. Repository `pnpm examples:*` commands require the
@@ -731,7 +732,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching `v0.4.8` checkout:
+run from the built matching `v0.4.9` checkout:
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \
