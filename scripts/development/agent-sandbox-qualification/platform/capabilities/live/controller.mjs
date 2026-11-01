@@ -1,3 +1,5 @@
+import { nativeControllerReady } from '../../native-controller.mjs';
+import { cleanupDiagnostic, finishRunCleanup } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -11,7 +13,7 @@ import { census, failure, jsonWriter } from './evidence.mjs';
 import { faultCases } from './faults.mjs';
 import { lifecycleCases } from './lifecycle.mjs';
 import { operationCases } from './operations.mjs';
-import { settleOwnerCleanup } from './owner-cleanup.mjs';
+import { originalOwnerCleanup, settleOwnerCleanup } from './owner-cleanup.mjs';
 import { closeSentinels } from './sentinel.mjs';
 
 const [path] = process.argv.slice(2);
@@ -34,6 +36,7 @@ assert.match(config.namespacePrefix, /^platform-live-[a-f0-9]{8}-$/u);
 const cancellation = new AbortController();
 const interrupt = () => cancellation.abort(new Error('Installed live qualification interrupted.'));
 process.on('SIGTERM', interrupt); process.on('SIGINT', interrupt);
+await nativeControllerReady();
 await mkdir(config.output, { mode: 0o700 });
 const report = { format: 'agenai.sandbox-platform-live.v1', status: 'running', profile: config.profile,
   imageDigest: config.imageDigest, guestNodeVersion: config.guestNodeVersion, filesystem: config.capabilities.filesystem, sourceIdentity: config.sourceIdentity,
@@ -65,37 +68,16 @@ async function settleCleanup(run, entry, operation) {
 }
 
 async function cleanup(run) {
-  let sentinelsClosed = true;
-  try { await closeSentinels(run, baseContext); }
-  catch (error) { sentinelsClosed = false; run.evidence.cleanupErrors.push(failure(error)); }
-  for (const entry of [...run.owners].reverse()) {
-    try {
-      if (!sentinelsClosed) {
-        await run.settleCleanup(entry, 'stop');
-        throw new Error('Workspace destruction retained until its sentinel fixture ownership settles.');
-      }
-      await run.settleCleanup(entry, 'destroy');
-      entry.record = entry.owner.recoveryRecord;
-      run.evidence.owners.find(({ namespace }) => namespace === entry.namespace).finalRecord = entry.record;
-      run.evidence.census.push(...await census(engine, entry.record, 'case-final-absence', true));
-    } catch (error) { run.evidence.cleanupErrors.push({ namespace: entry.namespace, ...failure(error) }); }
-  }
-  for (const session of run.sessions) {
-    try { run.evidence.observations.push({ kind: 'sole-guest-reader-joined', result: await session.join() }); }
-    catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  for (const proxy of [...run.proxies].reverse()) {
-    try { await proxy.close(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  for (const after of run.afterCleanup) {
-    try { await after(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  if (run.evidence.crashOwner && (!run.evidence.crashOwner.controllerQuiescent || !run.evidence.crashOwner.recovered)) {
-    run.evidence.cleanupErrors.push({ name: 'RetainedControllerOwnership', ...run.evidence.crashOwner });
-  }
-  run.evidence.cleanupComplete = run.evidence.cleanupErrors.length === 0;
-  if (!run.evidence.cleanupComplete) run.evidence.status = 'failed';
-  await run.save();
+  await finishRunCleanup(run, { timeoutMs: config.capabilities.limits.cleanupMs,
+    readerKind: 'sole-guest-reader-joined', census: (entry) => census(engine, entry.owner.recoveryRecord, 'case-final-absence', true),
+    async beforeOwners(cleanup) {
+      await cleanup.step('sentinels', () => closeSentinels(run, baseContext),
+        { retryRejected: true, complete: () => run.fixtures.every(({ removed }) => removed) });
+    }, async after(cleanup) {
+      await cleanup.step('original-controller-closed', async () => {
+        if (run.evidence.crashOwner) assert(run.evidence.crashOwner.controllerQuiescent && run.evidence.crashOwner.recovered);
+      }, { retryRejected: true });
+    } });
 }
 
 try {
@@ -112,7 +94,7 @@ try {
     const deadline = new AbortController(); let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true; deadline.abort(new Error('Live scenario deadline.'));
-      for (const entry of run.owners) void entry.owner.stop().catch(() => {});
+      for (const entry of run.owners) void originalOwnerCleanup(entry.owner, 'stop').catch(() => {});
     }, config.capabilities.limits.scenarioMs);
     // Each case closes over one context. Its signal joins the outer interrupt and scenario deadline.
     const signal = AbortSignal.any([cancellation.signal, deadline.signal]);
@@ -123,12 +105,11 @@ try {
       evidence.status = 'passed';
     } catch (error) { evidence.status = 'failed'; evidence.failure = failure(error); }
     finally { clearTimeout(timer); await cleanup(run); await saveReport(report); }
-    process.stdout.write(`${JSON.stringify({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete })}\n`);
-    if (!evidence.cleanupComplete) break;
+    cleanupDiagnostic({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete });
+    if (evidence.status !== 'passed' || !evidence.cleanupComplete) break;
   }
 } catch (error) { report.failure = failure(error); }
 finally {
-  process.removeListener('SIGTERM', interrupt); process.removeListener('SIGINT', interrupt);
   report.matrix = Object.fromEntries(Object.entries(report.requirements).map(([row, names]) => [row, {
     status: names.every((name) => report.cases.some((entry) => entry.name === name && entry.status === 'passed' && entry.cleanupComplete)) ? 'passed' : 'failed', cases: names,
   }]));

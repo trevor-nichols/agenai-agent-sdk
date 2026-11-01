@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { extract, pack, type Header } from 'tar-stream';
 import { createDockerSandboxBackend } from '../../src/index.js';
 import type { DockerSandboxDataset, DockerSandboxProfile } from '../../src/index.js';
-import type { DockerSandboxEgressOptions, DockerSandboxFilesystemOptions } from '../../src/policy/config.js';
+import type { DockerSandboxEgressOptions, DockerSandboxFilesystemOptions } from '../../src/policy/options.js';
 import type { SandboxNetworkPolicy, SandboxRecoveryResource } from '@agen-ai/sandbox';
 import { parseSandboxRequest, SANDBOX_DEFAULT_TRANSFER_BUFFERS, SANDBOX_DEFAULT_STREAM_LIMITS } from '@agen-ai/sandbox';
 
@@ -45,6 +45,7 @@ export interface FixtureOptions {
   readonly pauseComputeCreate?: PromiseWithResolvers<void>;
   readonly loseComputeReply?: boolean;
   readonly loseContainerReplyForRole?: SandboxRecoveryResource['role'];
+  readonly beforeContainerReply?: (resource: Readonly<{ id: string; name: string }>) => Promise<'reply' | 'drop'>;
   readonly failDeleteVolumeOnce?: boolean;
   readonly normalizeUnsupportedOomOnStart?: boolean;
   readonly containerWarnings?: (role: 'compute' | 'export') => readonly string[];
@@ -155,6 +156,7 @@ export async function engineFixture(options: FixtureOptions = {}) {
         if (options.loseComputeReply) { response.destroy(); return; }
       }
       if (options.loseContainerReplyForRole && name.endsWith(`-${options.loseContainerReplyForRole}`)) { response.destroy(); return; }
+      if (await options.beforeContainerReply?.({ id: containerId, name }) === 'drop') { response.destroy(); return; }
       return json(201, { Id: containerId, Warnings: options.containerWarnings?.(name.endsWith('-compute') ? 'compute' : 'export') ?? [] });
     }
     const containerMatch = /^\/v1\.52\/containers\/([^/]+)(?:\/(json|archive|start))?$/u.exec(path);

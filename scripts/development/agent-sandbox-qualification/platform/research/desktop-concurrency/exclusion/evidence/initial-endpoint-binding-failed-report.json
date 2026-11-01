@@ -1,0 +1,88 @@
+{
+  "researchOnly": true,
+  "attempt": "/private/tmp/agenai-ms001-exclusion-VXuPkr",
+  "at": "2026-10-29T22:41:55.687Z",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v24.15.0",
+  "frozenInput": "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/reproduction-input-r3.json",
+  "frozenInputSha256": "cd0338d495d049850273b24c9810abbf738e64a985cbc770fbd0759bf4b99726",
+  "selectedAliases": [
+    "unix:///Users/tan/.docker/run/docker.sock",
+    "unix:///var/run/docker.sock"
+  ],
+  "expectedEngine": {
+    "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+    "version": "29.1.2",
+    "apiVersion": "1.52",
+    "architecture": "arm64",
+    "kernelVersion": "6.12.54-linuxkit",
+    "operatingSystem": "Docker Desktop"
+  },
+  "sources": {
+    "lock-holder.c": "7ba7d67ea8c5e52dff3ab5b2ddd2c0c4291fa718fb97d75970a1ac5449aba972",
+    "controller.mjs": "c25eb866e02c11dbced79ad31d83dae5092334592c4acc347542364dba3ba217",
+    "prepare.mjs": "735c91f257de674cac5df509d21587088b648758105289e97b15d7194db2ab05",
+    "endpoint-binding.mjs": "85b25ac7c8c714ea0f66fbd1549ecd3c9760c33f3b52cb7925fde7acfd976a66",
+    "run-endpoint-binding.mjs": "699ea3699a8ec1a8a82886ec4e6ab6f44429b0f0b024f7d1ab29b3b6e55e2cb8"
+  },
+  "sourceDigestEncoding": "SHA-256 of raw file bytes",
+  "command": [
+    "/Users/tan/.nvm/versions/node/v24.15.0/bin/node",
+    "/Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run-endpoint-binding.mjs"
+  ],
+  "binaries": "/private/tmp/agenai-ms001-exclusion-VXuPkr/lock-holder:        Mach-O 64-bit executable arm64\n/private/tmp/agenai-ms001-exclusion-VXuPkr/lock-holder-x86_64: Mach-O 64-bit executable x86_64",
+  "actualRequests": [
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:41:55.660Z",
+      "settled": "2026-10-29T22:41:55.680Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "2e5bc8971d5b76077382e56146d4e84a6b7dd9ce90c8d44c8ef29166a1204066"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:41:55.656Z",
+      "settled": "2026-10-29T22:41:55.681Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "2e5bc8971d5b76077382e56146d4e84a6b7dd9ce90c8d44c8ef29166a1204066"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:41:55.681Z",
+      "settled": "2026-10-29T22:41:55.686Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:41:55.681Z",
+      "settled": "2026-10-29T22:41:55.686Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    }
+  ],
+  "syntheticRequests": [],
+  "dockerMutations": 0,
+  "actualSocketMutations": 0,
+  "productionAuthorityRootTouched": false,
+  "rows": [
+    {
+      "name": "existing selected and /var/run aliases resolve one actual physical socket and daemon",
+      "result": "fail",
+      "error": "Error: engine_identity_conflict\n    at observeEndpoint (file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/endpoint-binding.mjs:78:80)\n    at async Promise.all (index 0)\n    at async file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run-endpoint-binding.mjs:53:20\n    at async row (file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run-endpoint-binding.mjs:32:46)\n    at async file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run-endpoint-binding.mjs:52:3"
+    }
+  ]
+}

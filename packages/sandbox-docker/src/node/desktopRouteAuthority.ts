@@ -13,6 +13,6 @@ export type DockerDesktopRouteAuthorityOptions = DockerDesktopRouteAuthorityIden
 
 export function createDockerDesktopRouteAuthority(options: DockerDesktopRouteAuthorityOptions): DockerDesktopRouteAuthority {
   const identity = parseDockerDesktopRouteAuthority(options);
-  return registerDockerDesktopRouteAuthority({ identity, observeHost: (signal) => readDesktopHostObservation(identity, signal),
+  return registerDockerDesktopRouteAuthority({ identity, observeHost: (signal, budget) => readDesktopHostObservation(identity, signal, budget),
     observeEngineSocket: (signal) => inspectDesktopEngineSocket(identity.engine.endpoint, signal) });
 }

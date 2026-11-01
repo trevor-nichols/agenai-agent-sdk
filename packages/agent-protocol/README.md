@@ -6,8 +6,8 @@ capabilities, typed operations, safe configuration and managed-content inventori
 observations, effective harness content and package catalogs, environment observations, account-quota observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
-Current source is the unpublished coordinated eight-package `0.4.4` candidate and uses Agent
-Protocol V13, adding structured final output. Published `0.4.3` is the seven-package V12 release,
+Current source is the unpublished coordinated ten-package `0.4.8` candidate and uses Agent
+Protocol V13, unchanged from published `0.4.7`; V13 added structured final output. Published `0.4.3` is the seven-package V12 release,
 including exact request unavailability and session decisions, forms and plan reviews. Published
 `0.4.1` retains V11; `0.4.0` retains V10. Source versioning does not establish registry publication.
 Keep all installed SDK packages at one coordinated version. The [0.4.2 migration
@@ -415,7 +415,7 @@ before delegation; a composer can use the same pure functions to preserve and ex
 ## Versioning and release
 
 Agent Protocol V13 defines the current source contract shared with `@agen-ai/agent-runtime`.
-The coordinated eight-package `0.4.4` candidate is unpublished. Published `0.4.3` retains V12,
+The coordinated ten-package `0.4.8` candidate is unpublished; published `0.4.7` also uses V13. Published `0.4.3` retains V12,
 `0.4.1` retains V11 and `0.4.0` retains V10. Registry publication and dist-tag state are release
 metadata outside this contract. Earlier public releases remain historical. The complete candidate
 release inventory must use one coordinated source version. Optional `@agen-ai/agent-history`
@@ -427,7 +427,7 @@ V12 at live boundaries. There is one current parser. V12 and older serialized da
 historical owner's frozen decoder and are rejected by the live V13 parser where versioned.
 The environment and account-quota namespaces each retain their own schema version 1.
 
-The repository release proof builds and packs the exact eight-package release set, rejects
+The repository release proof builds and packs the exact ten-package release set, rejects
 workspace-only or private references, then typechecks and runs a consumer outside the monorepo.
 
 From the public repository root, run `pnpm check` to execute the same packed-consumer proof.

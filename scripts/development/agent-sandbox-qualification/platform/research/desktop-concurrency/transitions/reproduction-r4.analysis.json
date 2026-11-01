@@ -1,0 +1,5436 @@
+{
+  "format": "agenai.desktop-concurrency-trace-analysis.v1",
+  "input": "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/reproduction-r4",
+  "identity": {
+    "report": "f37dd0801813652bdafa5523029fca712ead52de402ea09bee56bfad18d4ac63",
+    "index": "7fcab14244ad9b8e0ecfa3aef02b3df4369aabb90cb09abb432c2a72142e72e2",
+    "trace": "9f543ba81243e462ac0ddafe105332c1c615bd1ff436bc705dd7b9703dfff03e"
+  },
+  "scope": "Read-only analysis through current source decoders/validators; no capture modified. 0 censuses require explicit report metadata fallback for unretained /info. Host files, when present, are separate phase samples rather than complete per-VM host brackets.",
+  "reportStatus": "reproduced",
+  "packages": [
+    {
+      "name": "@agen-ai/sandbox",
+      "version": "0.4.7",
+      "subpath": ".",
+      "entrySha256": "4a94a0682179fca5f4d0b5e0a80dde3ce09a88e1f36c155c7a479bf4228f9a25"
+    },
+    {
+      "name": "@agen-ai/sandbox-docker",
+      "version": "0.4.7",
+      "subpath": ".",
+      "entrySha256": "f3fb02b951cff8825f21c5e2c03c4506b9e29cf5a12afd49cd60bc50e708e1ee"
+    },
+    {
+      "name": "@agen-ai/sandbox-docker",
+      "version": "0.4.7",
+      "subpath": "./node",
+      "entrySha256": "4bd75325a7ea0b7d48d210825bceb6f7e229fb13e5957d23c09fece5efdb3e50"
+    }
+  ],
+  "captureEntriesVerified": 285,
+  "checkpointsVerified": 47,
+  "vmObservationsDecoded": 28,
+  "completeNetworkCensusesDecoded": 14,
+  "hostObservations": [
+    {
+      "phase": "before-a",
+      "file": "host-before-a.json",
+      "sha256": "3f18c59d2ce4277374a5d3b0413b57c103070f41f14425847a9325fd5e1ef1af",
+      "fingerprint": "cab7ea54eec7af4fb5086944015103c3fb52bdc6a84a37fa4fca613d5b47de5b"
+    },
+    {
+      "phase": "a-ready",
+      "file": "host-a-ready.json",
+      "sha256": "abc6b17dc927ce2f540934cfddbdae5e05eea97e2a5a98c5d2456a1788875260",
+      "fingerprint": "cab7ea54eec7af4fb5086944015103c3fb52bdc6a84a37fa4fca613d5b47de5b"
+    },
+    {
+      "phase": "after-b",
+      "file": "host-after-b.json",
+      "sha256": "31836603ae1037d0bf0511a9cfd0330c11aadc883e90086112e18c49920465d4",
+      "fingerprint": "cab7ea54eec7af4fb5086944015103c3fb52bdc6a84a37fa4fca613d5b47de5b"
+    },
+    {
+      "phase": "after-cleanup",
+      "file": "host-after-cleanup.json",
+      "sha256": "31836603ae1037d0bf0511a9cfd0330c11aadc883e90086112e18c49920465d4",
+      "fingerprint": "cab7ea54eec7af4fb5086944015103c3fb52bdc6a84a37fa4fca613d5b47de5b"
+    }
+  ],
+  "members": [
+    {
+      "label": "a",
+      "namespace": "research-concurrency-4038e5a6-a",
+      "bridgeName": "agd5e02524cff2a",
+      "resources": [
+        {
+          "role": "compute",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-compute",
+          "identity": {
+            "kind": "identified",
+            "id": "76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a",
+            "fingerprint": "sha256:b3ca7655aeeb573e3108f0a6fad465a2ac8ab3d2f8f464d4841511278312da5d"
+          }
+        },
+        {
+          "role": "storage",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-storage",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-storage",
+            "fingerprint": "sha256:82cf1187359a045799507876b8b27d2001d630f324eb033a248daf9b880104c9"
+          }
+        },
+        {
+          "role": "export",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-export",
+          "identity": {
+            "kind": "identified",
+            "id": "08f68137fbf53edb6995ff6d5e4e19713d111775758c2c8489bb63390b9d1c2d",
+            "fingerprint": "sha256:694142aeba0a8b71f22e75bc9f55445339b8ac0d7a62515cd481eb259f9edc10"
+          }
+        },
+        {
+          "role": "network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "identity": {
+            "kind": "identified",
+            "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+            "fingerprint": "sha256:7fd8cf5fa11230768ddbe56f3819909a75be53d81928240a764d6a062ab6ec58"
+          }
+        },
+        {
+          "role": "egress_socket",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_socket",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_socket",
+            "fingerprint": "sha256:bd3cd3bcdf61c5cb85ec0103f5c9ef07462d9e369adb599023f3dd60f4c154ef"
+          }
+        },
+        {
+          "role": "egress_broker",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_broker",
+          "identity": {
+            "kind": "identified",
+            "id": "6afef0d1dd6747364708cdeab0dea1ce8d98b5317181da687c28414779043461",
+            "fingerprint": "sha256:3edd2c588ba47b920eb2cb8d029ece8e42278ec58c2f6734881a7089d9df2318"
+          }
+        },
+        {
+          "role": "egress_relay",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_relay",
+          "identity": {
+            "kind": "identified",
+            "id": "117fd66debfc91de80a42cc99d50d0ce7bace046a12f056e0738a446a6508a58",
+            "fingerprint": "sha256:a60351c0e3cde7dbb8d9caaa07ef0da99b299691c461a4917a90e83bb5fa2742"
+          }
+        },
+        {
+          "role": "filesystem",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-filesystem",
+          "identity": {
+            "kind": "identified",
+            "id": "f44018c12041151836222d2bdd47089bfaa3397753dde8fcda10f892cd40d095",
+            "fingerprint": "sha256:253b657583db189adf28884d9b6dc8bcaac050dcf4278cd14c713e5cc7c2e3ec"
+          }
+        },
+        {
+          "role": "route_observer",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-route_observer",
+          "identity": {
+            "kind": "identified",
+            "id": "2492d12493937ec4be32bbebe79d09616b93a9948a280293dda88957e3267d04",
+            "fingerprint": "sha256:452ef551e74ca25e7b7c302ad859ce6a50c770be419766cd3a656f9153f19f53"
+          }
+        }
+      ],
+      "start": "ready",
+      "finalState": {
+        "kind": "destroyed"
+      },
+      "finalCensus": [
+        {
+          "role": "compute",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "storage",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "export",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "network",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "egress_socket",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "egress_broker",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "egress_relay",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "filesystem",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "route_observer",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        }
+      ]
+    },
+    {
+      "label": "b",
+      "namespace": "research-concurrency-4038e5a6-b",
+      "bridgeName": "ag1fee1deb8616d",
+      "resources": [
+        {
+          "role": "compute",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-compute",
+          "identity": {
+            "kind": "identified",
+            "id": "b310f6e005dde9c3d1f35924d309ada39af8fa581a11601eb55bd2bb0a9b930d",
+            "fingerprint": "sha256:8633ca3102eb71603e101223a114821aee78e96c8643a4f9a18878f29db26ea3"
+          }
+        },
+        {
+          "role": "storage",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-storage",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-storage",
+            "fingerprint": "sha256:8a5e050ef6d116129281784eb04ac4f338d928efdde9581c3c82423b67d16ce8"
+          }
+        },
+        {
+          "role": "export",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-export",
+          "identity": {
+            "kind": "identified",
+            "id": "b9913a87525442c6f85484f1b82fca4dcd61ce044856446faca4a70de72c8191",
+            "fingerprint": "sha256:059bf48c023229f1aee5d20ae7f142c83099dda7a934582159417dc5f58d5c29"
+          }
+        },
+        {
+          "role": "network",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network",
+          "identity": {
+            "kind": "identified",
+            "id": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+            "fingerprint": "sha256:724ab0997bd562b53d60a92e83cc4fcfe721c0640dab9bf388597ac2e705ea16"
+          }
+        },
+        {
+          "role": "egress_socket",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-egress_socket",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-egress_socket",
+            "fingerprint": "sha256:99746ef0ee1844597c43b425f54d9ab71d4d0e2bbc82c8660a7dde8f05995f50"
+          }
+        },
+        {
+          "role": "egress_broker",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-egress_broker",
+          "identity": {
+            "kind": "identified",
+            "id": "f4d7b248f97d4a08ff924fd29a9b7611b7a3c60d3d2d3d9265a00b2f3e235deb",
+            "fingerprint": "sha256:62116de1fedf4cfc03fb1b5b9515ea9644b42b3f8402caacc25dc3ebe22068ee"
+          }
+        },
+        {
+          "role": "egress_relay",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-egress_relay",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "filesystem",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-filesystem",
+          "identity": {
+            "kind": "identified",
+            "id": "4ee2250128e2bd428794a16b21fb6712afb204c9848e4b5249fcc3545abdb33e",
+            "fingerprint": "sha256:99151592b76d11b3e2b39bb45abd131dc0a835a83284bc7a6f888bd6598ea4ae"
+          }
+        },
+        {
+          "role": "route_observer",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-route_observer",
+          "identity": {
+            "kind": "identified",
+            "id": "a91f2472a8260999dbb40a27e2d462645389e4bb49760ead5e32013bdf3f3466",
+            "fingerprint": "sha256:425e52f3f8a431e00565a76eba3a09346f052ffbefaf7a2471c5de455707e79f"
+          }
+        }
+      ],
+      "start": "failed",
+      "failure": {
+        "name": "SandboxStartError",
+        "message": "Sandbox startup failed; its reservation retains cleanup ownership.",
+        "cause": {
+          "name": "SandboxOperationError",
+          "message": "External VM authority changed during the finite owned link-local transition.",
+          "code": "driver_failure"
+        }
+      },
+      "finalState": {
+        "kind": "destroyed"
+      },
+      "finalCensus": [
+        {
+          "role": "compute",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "storage",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "export",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "network",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "egress_socket",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "egress_broker",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "egress_relay",
+          "status": 404,
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "filesystem",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        },
+        {
+          "role": "route_observer",
+          "status": 404,
+          "identity": {
+            "kind": "identified"
+          }
+        }
+      ]
+    }
+  ],
+  "checkpoints": [
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:34.744Z",
+      "file": "checkpoint-0001.json",
+      "phase": "reserved",
+      "changedRoles": [
+        {
+          "role": "compute",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "storage",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "export",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "network",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "egress_socket",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "egress_broker",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "egress_relay",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "filesystem",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "route_observer",
+          "identity": {
+            "kind": "planned"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:34.944Z",
+      "file": "checkpoint-0002.json",
+      "phase": "starting",
+      "changedRoles": []
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:34.975Z",
+      "file": "checkpoint-0003.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "route_observer",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.016Z",
+      "file": "checkpoint-0004.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "route_observer",
+          "identity": {
+            "kind": "identified",
+            "id": "2492d12493937ec4be32bbebe79d09616b93a9948a280293dda88957e3267d04",
+            "fingerprint": "sha256:452ef551e74ca25e7b7c302ad859ce6a50c770be419766cd3a656f9153f19f53"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.283Z",
+      "file": "checkpoint-0005.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "storage",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.289Z",
+      "file": "checkpoint-0006.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "storage",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-storage",
+            "fingerprint": "sha256:82cf1187359a045799507876b8b27d2001d630f324eb033a248daf9b880104c9"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.305Z",
+      "file": "checkpoint-0007.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "filesystem",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.330Z",
+      "file": "checkpoint-0008.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "filesystem",
+          "identity": {
+            "kind": "identified",
+            "id": "f44018c12041151836222d2bdd47089bfaa3397753dde8fcda10f892cd40d095",
+            "fingerprint": "sha256:253b657583db189adf28884d9b6dc8bcaac050dcf4278cd14c713e5cc7c2e3ec"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.445Z",
+      "file": "checkpoint-0009.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "network",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.463Z",
+      "file": "checkpoint-0010.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "network",
+          "identity": {
+            "kind": "identified",
+            "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+            "fingerprint": "sha256:7fd8cf5fa11230768ddbe56f3819909a75be53d81928240a764d6a062ab6ec58"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.571Z",
+      "file": "checkpoint-0011.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_socket",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.576Z",
+      "file": "checkpoint-0012.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_socket",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_socket",
+            "fingerprint": "sha256:bd3cd3bcdf61c5cb85ec0103f5c9ef07462d9e369adb599023f3dd60f4c154ef"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.587Z",
+      "file": "checkpoint-0013.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_broker",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.610Z",
+      "file": "checkpoint-0014.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_broker",
+          "identity": {
+            "kind": "identified",
+            "id": "6afef0d1dd6747364708cdeab0dea1ce8d98b5317181da687c28414779043461",
+            "fingerprint": "sha256:3edd2c588ba47b920eb2cb8d029ece8e42278ec58c2f6734881a7089d9df2318"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.810Z",
+      "file": "checkpoint-0015.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "compute",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.834Z",
+      "file": "checkpoint-0016.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "compute",
+          "identity": {
+            "kind": "identified",
+            "id": "76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a",
+            "fingerprint": "sha256:b3ca7655aeeb573e3108f0a6fad465a2ac8ab3d2f8f464d4841511278312da5d"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.854Z",
+      "file": "checkpoint-0017.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "export",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:35.875Z",
+      "file": "checkpoint-0018.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "export",
+          "identity": {
+            "kind": "identified",
+            "id": "08f68137fbf53edb6995ff6d5e4e19713d111775758c2c8489bb63390b9d1c2d",
+            "fingerprint": "sha256:694142aeba0a8b71f22e75bc9f55445339b8ac0d7a62515cd481eb259f9edc10"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:39.322Z",
+      "file": "checkpoint-0019.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_relay",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:39.347Z",
+      "file": "checkpoint-0020.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_relay",
+          "identity": {
+            "kind": "identified",
+            "id": "117fd66debfc91de80a42cc99d50d0ce7bace046a12f056e0738a446a6508a58",
+            "fingerprint": "sha256:a60351c0e3cde7dbb8d9caaa07ef0da99b299691c461a4917a90e83bb5fa2742"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:39.550Z",
+      "file": "checkpoint-0021.json",
+      "phase": "running",
+      "changedRoles": []
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:41.759Z",
+      "file": "checkpoint-0022.json",
+      "phase": "stopping",
+      "changedRoles": []
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:41.993Z",
+      "file": "checkpoint-0023.json",
+      "phase": "stopped",
+      "changedRoles": []
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:44.258Z",
+      "file": "checkpoint-0024.json",
+      "phase": "destroying",
+      "changedRoles": []
+    },
+    {
+      "owner": "a",
+      "at": "2026-10-29T22:47:44.522Z",
+      "file": "checkpoint-0025.json",
+      "phase": "destroyed",
+      "changedRoles": []
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.084Z",
+      "file": "checkpoint-0001.json",
+      "phase": "reserved",
+      "changedRoles": [
+        {
+          "role": "compute",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "storage",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "export",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "network",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "egress_socket",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "egress_broker",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "egress_relay",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "filesystem",
+          "identity": {
+            "kind": "planned"
+          }
+        },
+        {
+          "role": "route_observer",
+          "identity": {
+            "kind": "planned"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.181Z",
+      "file": "checkpoint-0002.json",
+      "phase": "starting",
+      "changedRoles": []
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.196Z",
+      "file": "checkpoint-0003.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "route_observer",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.221Z",
+      "file": "checkpoint-0004.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "route_observer",
+          "identity": {
+            "kind": "identified",
+            "id": "a91f2472a8260999dbb40a27e2d462645389e4bb49760ead5e32013bdf3f3466",
+            "fingerprint": "sha256:425e52f3f8a431e00565a76eba3a09346f052ffbefaf7a2471c5de455707e79f"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.408Z",
+      "file": "checkpoint-0005.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "storage",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.414Z",
+      "file": "checkpoint-0006.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "storage",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-storage",
+            "fingerprint": "sha256:8a5e050ef6d116129281784eb04ac4f338d928efdde9581c3c82423b67d16ce8"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.427Z",
+      "file": "checkpoint-0007.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "filesystem",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.449Z",
+      "file": "checkpoint-0008.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "filesystem",
+          "identity": {
+            "kind": "identified",
+            "id": "4ee2250128e2bd428794a16b21fb6712afb204c9848e4b5249fcc3545abdb33e",
+            "fingerprint": "sha256:99151592b76d11b3e2b39bb45abd131dc0a835a83284bc7a6f888bd6598ea4ae"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.543Z",
+      "file": "checkpoint-0009.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "network",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.560Z",
+      "file": "checkpoint-0010.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "network",
+          "identity": {
+            "kind": "identified",
+            "id": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+            "fingerprint": "sha256:724ab0997bd562b53d60a92e83cc4fcfe721c0640dab9bf388597ac2e705ea16"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.665Z",
+      "file": "checkpoint-0011.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_socket",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.670Z",
+      "file": "checkpoint-0012.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_socket",
+          "identity": {
+            "kind": "identified",
+            "id": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-egress_socket",
+            "fingerprint": "sha256:99746ef0ee1844597c43b425f54d9ab71d4d0e2bbc82c8660a7dde8f05995f50"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.680Z",
+      "file": "checkpoint-0013.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_broker",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.703Z",
+      "file": "checkpoint-0014.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "egress_broker",
+          "identity": {
+            "kind": "identified",
+            "id": "f4d7b248f97d4a08ff924fd29a9b7611b7a3c60d3d2d3d9265a00b2f3e235deb",
+            "fingerprint": "sha256:62116de1fedf4cfc03fb1b5b9515ea9644b42b3f8402caacc25dc3ebe22068ee"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:41.959Z",
+      "file": "checkpoint-0015.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "compute",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:42.003Z",
+      "file": "checkpoint-0016.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "compute",
+          "identity": {
+            "kind": "identified",
+            "id": "b310f6e005dde9c3d1f35924d309ada39af8fa581a11601eb55bd2bb0a9b930d",
+            "fingerprint": "sha256:8633ca3102eb71603e101223a114821aee78e96c8643a4f9a18878f29db26ea3"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:42.020Z",
+      "file": "checkpoint-0017.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "export",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:42.054Z",
+      "file": "checkpoint-0018.json",
+      "phase": "starting",
+      "changedRoles": [
+        {
+          "role": "export",
+          "identity": {
+            "kind": "identified",
+            "id": "b9913a87525442c6f85484f1b82fca4dcd61ce044856446faca4a70de72c8191",
+            "fingerprint": "sha256:059bf48c023229f1aee5d20ae7f142c83099dda7a934582159417dc5f58d5c29"
+          }
+        }
+      ]
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:43.742Z",
+      "file": "checkpoint-0019.json",
+      "phase": "stopping",
+      "changedRoles": []
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:43.944Z",
+      "file": "checkpoint-0020.json",
+      "phase": "stopped",
+      "changedRoles": []
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:43.946Z",
+      "file": "checkpoint-0021.json",
+      "phase": "destroying",
+      "changedRoles": []
+    },
+    {
+      "owner": "b",
+      "at": "2026-10-29T22:47:44.239Z",
+      "file": "checkpoint-0022.json",
+      "phase": "destroyed",
+      "changedRoles": []
+    }
+  ],
+  "censuses": [
+    {
+      "owner": "a",
+      "observerBefore": "00009-observer.json",
+      "observerAfter": "00017-observer.json",
+      "open": "00011-engine.json",
+      "close": "00016-engine.json",
+      "info": "00010-engine.json",
+      "start": "2026-10-29T22:47:35.234Z",
+      "end": "2026-10-29T22:47:35.256Z",
+      "checkpoint": "checkpoint-0004.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "16ae1c68b206f498e0131f09567dddc27ec94df623726d92c7b3e8c2fe5330ef",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": null,
+      "brokerValidationError": null,
+      "linkLocalSettled": null,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": null,
+      "vmDeltaFromPrevious": null
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00029-observer.json",
+      "observerAfter": "00038-observer.json",
+      "open": "00031-engine.json",
+      "close": "00037-engine.json",
+      "info": "00030-engine.json",
+      "start": "2026-10-29T22:47:35.481Z",
+      "end": "2026-10-29T22:47:35.503Z",
+      "checkpoint": "checkpoint-0010.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "490e06f974e953435bb1cac17e3b9cdb205755bc41de9f7e1e80fe02240be18b",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": null,
+      "brokerValidationError": null,
+      "linkLocalSettled": null,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 4099,
+              "operationalState": 2,
+              "carrier": 0,
+              "tsoMaxSize": 65536,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "f35c6feaa27203e7e7b95c7d6802185a72c4c20318233a1eb506c6bebfd3deda"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [],
+          "added": [
+            {
+              "family": 4,
+              "destination": "172.19.0.0",
+              "prefix": 16,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 253,
+              "type": 1,
+              "flags": 16,
+              "preferredSource": "172.19.0.1",
+              "priority": null,
+              "fingerprint": "a85b4492319f2040453ae64d2c228c57d535e94d98ec526c881619cbe5375528"
+            },
+            {
+              "family": 4,
+              "destination": "172.19.0.1",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 254,
+              "type": 2,
+              "flags": 0,
+              "preferredSource": "172.19.0.1",
+              "priority": null,
+              "fingerprint": "f94ff6c7209ee719e63847b011de2efd713addf941feae26d7408e75f1049ae4"
+            },
+            {
+              "family": 4,
+              "destination": "172.19.255.255",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 253,
+              "type": 3,
+              "flags": 16,
+              "preferredSource": "172.19.0.1",
+              "priority": null,
+              "fingerprint": "9280ce9cddb32853fc68a813857cdc588a75d2ac4537ede0a7c39199b4d2c4e0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00039-observer.json",
+      "observerAfter": "00048-observer.json",
+      "open": "00041-engine.json",
+      "close": "00047-engine.json",
+      "info": "00040-engine.json",
+      "start": "2026-10-29T22:47:35.529Z",
+      "end": "2026-10-29T22:47:35.549Z",
+      "checkpoint": "checkpoint-0010.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "490e06f974e953435bb1cac17e3b9cdb205755bc41de9f7e1e80fe02240be18b",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": null,
+      "brokerValidationError": null,
+      "linkLocalSettled": null,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00065-observer.json",
+      "observerAfter": "00074-observer.json",
+      "open": "00067-engine.json",
+      "close": "00073-engine.json",
+      "info": "00066-engine.json",
+      "start": "2026-10-29T22:47:35.993Z",
+      "end": "2026-10-29T22:47:36.012Z",
+      "checkpoint": "checkpoint-0018.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "9e872414e27a0594d52e6f8cbbf0cb381c508c265a7c3dbc1a9459ae540c34ee",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00055-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": false,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 4099,
+              "operationalState": 2,
+              "carrier": 0,
+              "tsoMaxSize": 65536,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "f35c6feaa27203e7e7b95c7d6802185a72c4c20318233a1eb506c6bebfd3deda"
+            }
+          ],
+          "added": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 192,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "a82452f7d029512f3ddfdba81c2d88bbe473815c7a2f987d33ab39712a04a240"
+            },
+            {
+              "index": 44,
+              "name": "veth18e727b",
+              "kind": "veth",
+              "macAddress": "de:db:95:10:ec:78",
+              "masterIndex": 43,
+              "linkIndex": 11,
+              "networkNamespaceId": 1,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:dcdb:95ff:fe10:ec78",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 192,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "859e29f2ed46b706bb8401e39911399d5ec886cbf59b8833085101fd9b8db0b1"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [
+            {
+              "family": 4,
+              "destination": "172.19.0.0",
+              "prefix": 16,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 253,
+              "type": 1,
+              "flags": 16,
+              "preferredSource": "172.19.0.1",
+              "priority": null,
+              "fingerprint": "a85b4492319f2040453ae64d2c228c57d535e94d98ec526c881619cbe5375528"
+            },
+            {
+              "family": 4,
+              "destination": "172.19.255.255",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 253,
+              "type": 3,
+              "flags": 16,
+              "preferredSource": "172.19.0.1",
+              "priority": null,
+              "fingerprint": "9280ce9cddb32853fc68a813857cdc588a75d2ac4537ede0a7c39199b4d2c4e0"
+            }
+          ],
+          "added": [
+            {
+              "family": 4,
+              "destination": "172.19.0.0",
+              "prefix": 16,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 253,
+              "type": 1,
+              "flags": 0,
+              "preferredSource": "172.19.0.1",
+              "priority": null,
+              "fingerprint": "bff0794a1f1bd7f26e2cbb8b277f0d1f249e0e051bfcafdc42717baba007b96d"
+            },
+            {
+              "family": 4,
+              "destination": "172.19.255.255",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 253,
+              "type": 3,
+              "flags": 0,
+              "preferredSource": "172.19.0.1",
+              "priority": null,
+              "fingerprint": "a6c8e22d1f4be6cbc58d33e2ab8040d9cffd25d98d99509b1c6004d194e1feb3"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 64,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 0,
+              "type": 1,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "c91bb30686745e7f1daef6e46706d2f640058dd17bba67b44fe698395e4a1ba0"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 64,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 0,
+              "type": 1,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "651c3d3f741f97a0dd0b2dd9b575c0d7efb00e4785aafe47eacfc6d1c5d6a49e"
+            },
+            {
+              "family": 6,
+              "destination": "ff00:0:0:0:0:0:0:0",
+              "prefix": 8,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 5,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "ebd227dd1d75a25dd6958b6e0c9be017cc958c239f0bee00078ccf5644d917e1"
+            },
+            {
+              "family": 6,
+              "destination": "ff00:0:0:0:0:0:0:0",
+              "prefix": 8,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 5,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "7a215eb33cf4453d1849be78fd0a85a9b9b44af4235ca3e0bb87a5fbb37581cc"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00076-observer.json",
+      "observerAfter": "00085-observer.json",
+      "open": "00078-engine.json",
+      "close": "00084-engine.json",
+      "info": "00077-engine.json",
+      "start": "2026-10-29T22:47:37.059Z",
+      "end": "2026-10-29T22:47:37.095Z",
+      "checkpoint": "checkpoint-0018.json",
+      "vmBracketEqual": false,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 192,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "a82452f7d029512f3ddfdba81c2d88bbe473815c7a2f987d33ab39712a04a240"
+            }
+          ],
+          "added": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "44d040d08a35e1109f9288db7bfb93585634c503c44e8ade8a8513ab0e5fb939"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [],
+          "added": [
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 4,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "fd94f7241af4579a283e3cb8b9b37d3ae88036d6539d34628a1aefce9690e278"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:7099:61ff:fe9a:b132",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 2,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "ee0e85f2322acb3f920bfc7d53c4370fba04f842c4eed0d36ffbef862606fdb6"
+            }
+          ]
+        }
+      },
+      "vmFingerprint": "08ed37c9733539624a2655d1e48d36abd45850715fe909e7822c98a3e7c5bc0c",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00055-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": false,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 192,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "a82452f7d029512f3ddfdba81c2d88bbe473815c7a2f987d33ab39712a04a240"
+            }
+          ],
+          "added": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "44d040d08a35e1109f9288db7bfb93585634c503c44e8ade8a8513ab0e5fb939"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [],
+          "added": [
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 4,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "fd94f7241af4579a283e3cb8b9b37d3ae88036d6539d34628a1aefce9690e278"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:7099:61ff:fe9a:b132",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 43,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 2,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "ee0e85f2322acb3f920bfc7d53c4370fba04f842c4eed0d36ffbef862606fdb6"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00087-observer.json",
+      "observerAfter": "00096-observer.json",
+      "open": "00089-engine.json",
+      "close": "00095-engine.json",
+      "info": "00088-engine.json",
+      "start": "2026-10-29T22:47:38.142Z",
+      "end": "2026-10-29T22:47:38.188Z",
+      "checkpoint": "checkpoint-0018.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "0a5f9173a74a86da65926166e31149bedbc80c8881a367e4e98ece17447b52cd",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00055-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": true,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [
+            {
+              "index": 44,
+              "name": "veth18e727b",
+              "kind": "veth",
+              "macAddress": "de:db:95:10:ec:78",
+              "masterIndex": 43,
+              "linkIndex": 11,
+              "networkNamespaceId": 1,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:dcdb:95ff:fe10:ec78",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 192,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "859e29f2ed46b706bb8401e39911399d5ec886cbf59b8833085101fd9b8db0b1"
+            }
+          ],
+          "added": [
+            {
+              "index": 44,
+              "name": "veth18e727b",
+              "kind": "veth",
+              "macAddress": "de:db:95:10:ec:78",
+              "masterIndex": 43,
+              "linkIndex": 11,
+              "networkNamespaceId": 1,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:dcdb:95ff:fe10:ec78",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "28c2e5904f26a7eb0aafce9fd63369038bfe58c4e4697232223c0f1faa10deec"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [],
+          "added": [
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 4,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "5839fbc2ca25d815498e0e1512c0eac0ca56ff9fd37aee06b5ebb7b11afee4b2"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:dcdb:95ff:fe10:ec78",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 2,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "ecc4dc8cbcd4e9819bbe2b2cba724e34034e8119fb57c887846aeb712e4557f1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00099-observer.json",
+      "observerAfter": "00108-observer.json",
+      "open": "00101-engine.json",
+      "close": "00107-engine.json",
+      "info": "00100-engine.json",
+      "start": "2026-10-29T22:47:39.250Z",
+      "end": "2026-10-29T22:47:39.292Z",
+      "checkpoint": "checkpoint-0018.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "0a5f9173a74a86da65926166e31149bedbc80c8881a367e4e98ece17447b52cd",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00055-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": true,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00114-observer.json",
+      "observerAfter": "00123-observer.json",
+      "open": "00116-engine.json",
+      "close": "00122-engine.json",
+      "info": "00115-engine.json",
+      "start": "2026-10-29T22:47:39.490Z",
+      "end": "2026-10-29T22:47:39.510Z",
+      "checkpoint": "checkpoint-0020.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "0a5f9173a74a86da65926166e31149bedbc80c8881a367e4e98ece17447b52cd",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00055-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": true,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00132-observer.json",
+      "observerAfter": "00141-observer.json",
+      "open": "00134-engine.json",
+      "close": "00140-engine.json",
+      "info": "00133-engine.json",
+      "start": "2026-10-29T22:47:40.591Z",
+      "end": "2026-10-29T22:47:40.629Z",
+      "checkpoint": "checkpoint-0021.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "0a5f9173a74a86da65926166e31149bedbc80c8881a367e4e98ece17447b52cd",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00127-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": true,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "owner": "b",
+      "observerBefore": "00158-observer.json",
+      "observerAfter": "00167-observer.json",
+      "open": "00160-engine.json",
+      "close": "00166-engine.json",
+      "info": "00159-engine.json",
+      "start": "2026-10-29T22:47:41.335Z",
+      "end": "2026-10-29T22:47:41.382Z",
+      "checkpoint": "checkpoint-0004.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "0a5f9173a74a86da65926166e31149bedbc80c8881a367e4e98ece17447b52cd",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer",
+            "b:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": null,
+      "brokerValidationError": null,
+      "linkLocalSettled": null,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": null,
+      "vmDeltaFromPrevious": null
+    },
+    {
+      "owner": "b",
+      "observerBefore": "00179-observer.json",
+      "observerAfter": "00189-observer.json",
+      "open": "00181-engine.json",
+      "close": "00188-engine.json",
+      "info": "00180-engine.json",
+      "start": "2026-10-29T22:47:41.578Z",
+      "end": "2026-10-29T22:47:41.597Z",
+      "checkpoint": "checkpoint-0010.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "59b026dbcc13c3b1087ad6f264bade0a19077312466176ba16a54d1858c5defb",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+          "owner": "b:network",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.20.0.0/16",
+              "Gateway": "172.20.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.20.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer",
+            "b:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": null,
+      "brokerValidationError": null,
+      "linkLocalSettled": null,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": [
+            {
+              "index": 45,
+              "name": "ag1fee1deb8616d",
+              "kind": "bridge",
+              "macAddress": "6e:9a:b7:f5:fb:45",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 4099,
+              "operationalState": 2,
+              "carrier": 0,
+              "tsoMaxSize": 65536,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.20.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.20.255.255",
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "7eae2bbff54065ae3d80a55a19a1d5853be1eaab19725e583ea81e114871f0a5"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [],
+          "added": [
+            {
+              "family": 4,
+              "destination": "172.20.0.0",
+              "prefix": 16,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 253,
+              "type": 1,
+              "flags": 16,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "9800d916c546fcb58cfea2b21d083112cb47fc3f38f462fc4f2d23de9a36fd32"
+            },
+            {
+              "family": 4,
+              "destination": "172.20.0.1",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 254,
+              "type": 2,
+              "flags": 0,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "c3f6248bd9acaa179ccd4668bec7ddcdcbc405ec31ee58d2729bf8df37249e77"
+            },
+            {
+              "family": 4,
+              "destination": "172.20.255.255",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 253,
+              "type": 3,
+              "flags": 16,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "3b9a117a730efad9754fa5874c08b989fc3f4723d1c45bfeb9e0e03391ce2db7"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "owner": "b",
+      "observerBefore": "00190-observer.json",
+      "observerAfter": "00200-observer.json",
+      "open": "00192-engine.json",
+      "close": "00199-engine.json",
+      "info": "00191-engine.json",
+      "start": "2026-10-29T22:47:41.626Z",
+      "end": "2026-10-29T22:47:41.645Z",
+      "checkpoint": "checkpoint-0010.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "59b026dbcc13c3b1087ad6f264bade0a19077312466176ba16a54d1858c5defb",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+          "owner": "b:network",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.20.0.0/16",
+              "Gateway": "172.20.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.20.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer",
+            "b:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": null,
+      "brokerValidationError": null,
+      "linkLocalSettled": null,
+      "externalEngineError": null,
+      "externalVmEqualsOriginalBaseline": true,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": []
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "owner": "a",
+      "observerBefore": "00204-observer.json",
+      "observerAfter": "00217-observer.json",
+      "open": "00208-engine.json",
+      "close": "00216-engine.json",
+      "info": "00207-engine.json",
+      "start": "2026-10-29T22:47:41.695Z",
+      "end": "2026-10-29T22:47:41.740Z",
+      "checkpoint": "checkpoint-0021.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "59b026dbcc13c3b1087ad6f264bade0a19077312466176ba16a54d1858c5defb",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+          "owner": "b:network",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.20.0.0/16",
+              "Gateway": "172.20.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.20.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "a:route_observer",
+            "b:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "a:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [
+            "a:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00145-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": true,
+      "externalEngineError": "External Desktop Engine network configuration or membership changed.",
+      "externalVmEqualsOriginalBaseline": false,
+      "externalVmDeltaFromBaseline": {
+        "removed": [],
+        "added": [
+          {
+            "index": 45,
+            "name": "ag1fee1deb8616d",
+            "kind": "bridge",
+            "macAddress": "6e:9a:b7:f5:fb:45",
+            "masterIndex": null,
+            "linkIndex": null,
+            "networkNamespaceId": null,
+            "flags": 4099,
+            "operationalState": 2,
+            "carrier": 0,
+            "tsoMaxSize": 65536,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "172.20.0.1",
+                "prefix": 16,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "172.20.255.255",
+                "anycast": null
+              }
+            ],
+            "fingerprint": "7eae2bbff54065ae3d80a55a19a1d5853be1eaab19725e583ea81e114871f0a5"
+          }
+        ]
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [],
+          "added": [
+            {
+              "index": 45,
+              "name": "ag1fee1deb8616d",
+              "kind": "bridge",
+              "macAddress": "6e:9a:b7:f5:fb:45",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 4099,
+              "operationalState": 2,
+              "carrier": 0,
+              "tsoMaxSize": 65536,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.20.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.20.255.255",
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "7eae2bbff54065ae3d80a55a19a1d5853be1eaab19725e583ea81e114871f0a5"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [],
+          "added": [
+            {
+              "family": 4,
+              "destination": "172.20.0.0",
+              "prefix": 16,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 253,
+              "type": 1,
+              "flags": 16,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "9800d916c546fcb58cfea2b21d083112cb47fc3f38f462fc4f2d23de9a36fd32"
+            },
+            {
+              "family": 4,
+              "destination": "172.20.0.1",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 254,
+              "type": 2,
+              "flags": 0,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "c3f6248bd9acaa179ccd4668bec7ddcdcbc405ec31ee58d2729bf8df37249e77"
+            },
+            {
+              "family": 4,
+              "destination": "172.20.255.255",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 253,
+              "type": 3,
+              "flags": 16,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "3b9a117a730efad9754fa5874c08b989fc3f4723d1c45bfeb9e0e03391ce2db7"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "owner": "b",
+      "observerBefore": "00244-observer.json",
+      "observerAfter": "00254-observer.json",
+      "open": "00246-engine.json",
+      "close": "00253-engine.json",
+      "info": "00245-engine.json",
+      "start": "2026-10-29T22:47:42.180Z",
+      "end": "2026-10-29T22:47:42.205Z",
+      "checkpoint": "checkpoint-0018.json",
+      "vmBracketEqual": true,
+      "vmBracketDelta": {
+        "interfaces": {
+          "removed": [],
+          "added": []
+        },
+        "routes": {
+          "removed": [],
+          "added": []
+        }
+      },
+      "vmFingerprint": "9c116e32e122c6e59453351ad603a68d06a5c5f39ba22bf733c5f339590d426a",
+      "networkMembers": [
+        {
+          "id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "owner": "external:054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "name": "agenai-local_default",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.18.0.0/16",
+              "Gateway": "172.18.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.18.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+          "owner": "b:network",
+          "name": "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network",
+          "members": [
+            "b:egress_broker"
+          ],
+          "allocation": [
+            {
+              "Subnet": "172.20.0.0/16",
+              "Gateway": "172.20.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.20.0.0/16": {
+                  "IPsInUse": 4,
+                  "DynamicIPsAvailable": 65532
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "owner": "external:6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "name": "host",
+          "members": [
+            "b:route_observer"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "owner": "external:ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "name": "none",
+          "members": [
+            "b:compute"
+          ],
+          "allocation": null,
+          "status": {
+            "IPAM": {}
+          }
+        },
+        {
+          "id": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "owner": "a:network",
+          "name": "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.19.0.0/16",
+              "Gateway": "172.19.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.19.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "owner": "external:edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "name": "bridge",
+          "members": [],
+          "allocation": [
+            {
+              "Subnet": "172.17.0.0/16",
+              "Gateway": "172.17.0.1",
+              "IPRange": ""
+            }
+          ],
+          "status": {
+            "IPAM": {
+              "Subnets": {
+                "172.17.0.0/16": {
+                  "IPsInUse": 3,
+                  "DynamicIPsAvailable": 65533
+                }
+              }
+            }
+          }
+        }
+      ],
+      "memberVmError": null,
+      "independentBrokerReadback": "00230-engine.json",
+      "brokerValidationError": null,
+      "linkLocalSettled": false,
+      "externalEngineError": "External Desktop Engine network configuration or membership changed.",
+      "externalVmEqualsOriginalBaseline": false,
+      "externalVmDeltaFromBaseline": {
+        "removed": [
+          {
+            "index": 43,
+            "name": "agd5e02524cff2a",
+            "kind": "bridge",
+            "macAddress": "72:99:61:9a:b1:32",
+            "masterIndex": null,
+            "linkIndex": null,
+            "networkNamespaceId": null,
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "172.19.0.1",
+                "prefix": 16,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "172.19.255.255",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ],
+            "fingerprint": "44d040d08a35e1109f9288db7bfb93585634c503c44e8ade8a8513ab0e5fb939"
+          },
+          {
+            "index": 44,
+            "name": "veth18e727b",
+            "kind": "veth",
+            "macAddress": "de:db:95:10:ec:78",
+            "masterIndex": 43,
+            "linkIndex": 11,
+            "networkNamespaceId": 1,
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:dcdb:95ff:fe10:ec78",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ],
+            "fingerprint": "28c2e5904f26a7eb0aafce9fd63369038bfe58c4e4697232223c0f1faa10deec"
+          }
+        ],
+        "added": [
+          {
+            "index": 43,
+            "name": "agd5e02524cff2a",
+            "kind": "bridge",
+            "macAddress": "72:99:61:9a:b1:32",
+            "masterIndex": null,
+            "linkIndex": null,
+            "networkNamespaceId": null,
+            "flags": 4163,
+            "operationalState": 6,
+            "carrier": 0,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "172.19.0.1",
+                "prefix": 16,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "172.19.255.255",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ],
+            "fingerprint": "c1c7e745c3aab25e5dc8a16a4381e764b44d6fb9a7f26dccd32d429f6263a893"
+          }
+        ]
+      },
+      "vmDeltaFromPrevious": {
+        "interfaces": {
+          "removed": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "44d040d08a35e1109f9288db7bfb93585634c503c44e8ade8a8513ab0e5fb939"
+            },
+            {
+              "index": 44,
+              "name": "veth18e727b",
+              "kind": "veth",
+              "macAddress": "de:db:95:10:ec:78",
+              "masterIndex": 43,
+              "linkIndex": 11,
+              "networkNamespaceId": 1,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:dcdb:95ff:fe10:ec78",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "28c2e5904f26a7eb0aafce9fd63369038bfe58c4e4697232223c0f1faa10deec"
+            },
+            {
+              "index": 45,
+              "name": "ag1fee1deb8616d",
+              "kind": "bridge",
+              "macAddress": "6e:9a:b7:f5:fb:45",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 4099,
+              "operationalState": 2,
+              "carrier": 0,
+              "tsoMaxSize": 65536,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.20.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.20.255.255",
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "7eae2bbff54065ae3d80a55a19a1d5853be1eaab19725e583ea81e114871f0a5"
+            }
+          ],
+          "added": [
+            {
+              "index": 43,
+              "name": "agd5e02524cff2a",
+              "kind": "bridge",
+              "macAddress": "72:99:61:9a:b1:32",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 4163,
+              "operationalState": 6,
+              "carrier": 0,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.19.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.19.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:7099:61ff:fe9a:b132",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "c1c7e745c3aab25e5dc8a16a4381e764b44d6fb9a7f26dccd32d429f6263a893"
+            },
+            {
+              "index": 45,
+              "name": "ag1fee1deb8616d",
+              "kind": "bridge",
+              "macAddress": "6e:9a:b7:f5:fb:45",
+              "masterIndex": null,
+              "linkIndex": null,
+              "networkNamespaceId": null,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 4,
+                  "address": "172.20.0.1",
+                  "prefix": 16,
+                  "scope": 0,
+                  "flags": 128,
+                  "peer": null,
+                  "broadcast": "172.20.255.255",
+                  "anycast": null
+                },
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:6c9a:b7ff:fef5:fb45",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 192,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "0ecf1aa3d8271475eb233521cb664500c1de95e81afa382c8f246afe0cb75708"
+            },
+            {
+              "index": 46,
+              "name": "veth3c04535",
+              "kind": "veth",
+              "macAddress": "3e:16:3c:6d:3f:01",
+              "masterIndex": 45,
+              "linkIndex": 11,
+              "networkNamespaceId": 2,
+              "flags": 69699,
+              "operationalState": 6,
+              "carrier": 1,
+              "tsoMaxSize": 524280,
+              "addresses": [
+                {
+                  "family": 6,
+                  "address": "fe80:0:0:0:3c16:3cff:fe6d:3f01",
+                  "prefix": 64,
+                  "scope": 253,
+                  "flags": 192,
+                  "peer": null,
+                  "broadcast": null,
+                  "anycast": null
+                }
+              ],
+              "fingerprint": "6d891019335d3813f65933b91d02483c53c8d5d7972dfc5c6e1282b3448522b9"
+            }
+          ]
+        },
+        "routes": {
+          "removed": [
+            {
+              "family": 4,
+              "destination": "172.20.0.0",
+              "prefix": 16,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 253,
+              "type": 1,
+              "flags": 16,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "9800d916c546fcb58cfea2b21d083112cb47fc3f38f462fc4f2d23de9a36fd32"
+            },
+            {
+              "family": 4,
+              "destination": "172.20.255.255",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 253,
+              "type": 3,
+              "flags": 16,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "3b9a117a730efad9754fa5874c08b989fc3f4723d1c45bfeb9e0e03391ce2db7"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 4,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "5839fbc2ca25d815498e0e1512c0eac0ca56ff9fd37aee06b5ebb7b11afee4b2"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 64,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 0,
+              "type": 1,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "651c3d3f741f97a0dd0b2dd9b575c0d7efb00e4785aafe47eacfc6d1c5d6a49e"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:dcdb:95ff:fe10:ec78",
+              "prefix": 128,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 2,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 0,
+              "fingerprint": "ecc4dc8cbcd4e9819bbe2b2cba724e34034e8119fb57c887846aeb712e4557f1"
+            },
+            {
+              "family": 6,
+              "destination": "ff00:0:0:0:0:0:0:0",
+              "prefix": 8,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 44,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 5,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "7a215eb33cf4453d1849be78fd0a85a9b9b44af4235ca3e0bb87a5fbb37581cc"
+            }
+          ],
+          "added": [
+            {
+              "family": 4,
+              "destination": "172.20.0.0",
+              "prefix": 16,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 253,
+              "type": 1,
+              "flags": 0,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "a1b218842ee9ce55ac6fa8d467bd54bccf1d0fded75061ec6fd2e7b3fb49b7a3"
+            },
+            {
+              "family": 4,
+              "destination": "172.20.255.255",
+              "prefix": 32,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 253,
+              "type": 3,
+              "flags": 0,
+              "preferredSource": "172.20.0.1",
+              "priority": null,
+              "fingerprint": "d32788895ebbf140d39720fac576bf2a2548c5e69febead5e410d6e4a2d20afd"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 64,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 0,
+              "type": 1,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "bf5e2e0dce3a74ab33d4601e334993d4eb26242c61595b0de00410b09aebd055"
+            },
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 64,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 46,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 0,
+              "type": 1,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "00971fb8d25ced5fe8250ac957b4b1552392b3272b292c6e1f3dda1fe8ea71a7"
+            },
+            {
+              "family": 6,
+              "destination": "ff00:0:0:0:0:0:0:0",
+              "prefix": 8,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 45,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 5,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "d6739f0235353d61bb0e961716ca475b86bde0889abafc9983bbf1310235ecaa"
+            },
+            {
+              "family": 6,
+              "destination": "ff00:0:0:0:0:0:0:0",
+              "prefix": 8,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 46,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 5,
+              "flags": 0,
+              "preferredSource": null,
+              "priority": 256,
+              "fingerprint": "4d434fe240429847c72569721e579ef7c5e10a2cd445ea5411a2eedb89b9db4a"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "containerTopology": [
+    {
+      "file": "00004-engine.json",
+      "at": "2026-10-29T22:47:35.013Z",
+      "identity": "a:route_observer",
+      "running": false,
+      "state": "created",
+      "configuredMode": "host",
+      "attachments": {
+        "host": {
+          "NetworkID": "",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00008-engine.json",
+      "at": "2026-10-29T22:47:35.213Z",
+      "identity": "a:route_observer",
+      "running": true,
+      "state": "running",
+      "configuredMode": "host",
+      "attachments": {
+        "host": {
+          "NetworkID": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "EndpointID": "e75d9bd08fa70426e0af29fdac9b79c97fe626a8b8b4d75be22ab93043e14767",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00022-engine.json",
+      "at": "2026-10-29T22:47:35.328Z",
+      "identity": "a:filesystem",
+      "running": false,
+      "state": "created",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00025-engine.json",
+      "at": "2026-10-29T22:47:35.432Z",
+      "identity": "a:filesystem",
+      "running": true,
+      "state": "running",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00053-engine.json",
+      "at": "2026-10-29T22:47:35.609Z",
+      "identity": "a:egress_broker",
+      "running": false,
+      "state": "created",
+      "configuredMode": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+      "attachments": {
+        "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network": {
+          "NetworkID": "",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00055-engine.json",
+      "at": "2026-10-29T22:47:35.795Z",
+      "identity": "a:egress_broker",
+      "running": true,
+      "state": "running",
+      "configuredMode": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+      "attachments": {
+        "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network": {
+          "NetworkID": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "EndpointID": "24e788b211e862d78fe8b3b127cf855dd94a58ef87cb5b21b24535d85be8c16d",
+          "MacAddress": "fe:77:0a:4a:47:17",
+          "IPAddress": "172.19.0.2",
+          "IPPrefixLen": 16,
+          "Gateway": "172.19.0.1"
+        }
+      }
+    },
+    {
+      "file": "00058-engine.json",
+      "at": "2026-10-29T22:47:35.832Z",
+      "identity": "a:compute",
+      "running": false,
+      "state": "created",
+      "configuredMode": "none",
+      "attachments": {
+        "none": {
+          "NetworkID": "",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00061-engine.json",
+      "at": "2026-10-29T22:47:35.874Z",
+      "identity": "a:export",
+      "running": false,
+      "state": "created",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00064-engine.json",
+      "at": "2026-10-29T22:47:35.980Z",
+      "identity": "a:compute",
+      "running": true,
+      "state": "running",
+      "configuredMode": "none",
+      "attachments": {
+        "none": {
+          "NetworkID": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "EndpointID": "70adb2e4dc0b0890eff3b47d424e8b108433e54fd914cba40f82e90647d6663f",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00111-engine.json",
+      "at": "2026-10-29T22:47:39.346Z",
+      "identity": "a:egress_relay",
+      "running": false,
+      "state": "created",
+      "configuredMode": "container:76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a",
+      "attachments": {}
+    },
+    {
+      "file": "00113-engine.json",
+      "at": "2026-10-29T22:47:39.468Z",
+      "identity": "a:egress_relay",
+      "running": true,
+      "state": "running",
+      "configuredMode": "container:76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a",
+      "attachments": {}
+    },
+    {
+      "file": "00152-engine.json",
+      "at": "2026-10-29T22:47:41.220Z",
+      "identity": "b:route_observer",
+      "running": false,
+      "state": "created",
+      "configuredMode": "host",
+      "attachments": {
+        "host": {
+          "NetworkID": "",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00157-engine.json",
+      "at": "2026-10-29T22:47:41.310Z",
+      "identity": "b:route_observer",
+      "running": true,
+      "state": "running",
+      "configuredMode": "host",
+      "attachments": {
+        "host": {
+          "NetworkID": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "EndpointID": "57aa2bbecfd4040d90442e8a68e91b44f255601208d6b7927bc48cc0d934094b",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00172-engine.json",
+      "at": "2026-10-29T22:47:41.449Z",
+      "identity": "b:filesystem",
+      "running": false,
+      "state": "created",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00175-engine.json",
+      "at": "2026-10-29T22:47:41.533Z",
+      "identity": "b:filesystem",
+      "running": true,
+      "state": "running",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00206-engine.json",
+      "at": "2026-10-29T22:47:41.702Z",
+      "identity": "b:egress_broker",
+      "running": false,
+      "state": "created",
+      "configuredMode": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+      "attachments": {
+        "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network": {
+          "NetworkID": "",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00223-engine.json",
+      "at": "2026-10-29T22:47:41.870Z",
+      "identity": "a:egress_relay",
+      "running": false,
+      "state": "exited",
+      "configuredMode": "container:76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a",
+      "attachments": {}
+    },
+    {
+      "file": "00226-engine.json",
+      "at": "2026-10-29T22:47:41.896Z",
+      "identity": "a:egress_broker",
+      "running": false,
+      "state": "exited",
+      "configuredMode": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+      "attachments": {
+        "agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-network": {
+          "NetworkID": "b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00229-engine.json",
+      "at": "2026-10-29T22:47:41.934Z",
+      "identity": "a:filesystem",
+      "running": false,
+      "state": "exited",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00230-engine.json",
+      "at": "2026-10-29T22:47:41.938Z",
+      "identity": "b:egress_broker",
+      "running": true,
+      "state": "running",
+      "configuredMode": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+      "attachments": {
+        "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network": {
+          "NetworkID": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+          "EndpointID": "6f77d269b41188dbd63f77b767c75ec7258fbf99c7ac7d1fb940c57c90579fe9",
+          "MacAddress": "92:c5:e7:fd:29:8b",
+          "IPAddress": "172.20.0.2",
+          "IPPrefixLen": 16,
+          "Gateway": "172.20.0.1"
+        }
+      }
+    },
+    {
+      "file": "00234-engine.json",
+      "at": "2026-10-29T22:47:41.976Z",
+      "identity": "a:route_observer",
+      "running": false,
+      "state": "exited",
+      "configuredMode": "host",
+      "attachments": {
+        "host": {
+          "NetworkID": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00237-engine.json",
+      "at": "2026-10-29T22:47:42.001Z",
+      "identity": "b:compute",
+      "running": false,
+      "state": "created",
+      "configuredMode": "none",
+      "attachments": {
+        "none": {
+          "NetworkID": "",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00240-engine.json",
+      "at": "2026-10-29T22:47:42.054Z",
+      "identity": "b:export",
+      "running": false,
+      "state": "created",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00243-engine.json",
+      "at": "2026-10-29T22:47:42.159Z",
+      "identity": "b:compute",
+      "running": true,
+      "state": "running",
+      "configuredMode": "none",
+      "attachments": {
+        "none": {
+          "NetworkID": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "EndpointID": "e8839e826cfae2648f8a427661abebc51b19df475df215cdab89e36ae090f179",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00262-engine.json",
+      "at": "2026-10-29T22:47:43.844Z",
+      "identity": "b:egress_broker",
+      "running": false,
+      "state": "exited",
+      "configuredMode": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+      "attachments": {
+        "agenai-sbx-1fee1deb8616d70af01d1150f40aae89-network": {
+          "NetworkID": "661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    },
+    {
+      "file": "00265-engine.json",
+      "at": "2026-10-29T22:47:43.880Z",
+      "identity": "b:filesystem",
+      "running": false,
+      "state": "exited",
+      "configuredMode": "none",
+      "networkDisabled": true,
+      "attachments": {}
+    },
+    {
+      "file": "00268-engine.json",
+      "at": "2026-10-29T22:47:43.919Z",
+      "identity": "b:route_observer",
+      "running": false,
+      "state": "exited",
+      "configuredMode": "host",
+      "attachments": {
+        "host": {
+          "NetworkID": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "EndpointID": "",
+          "MacAddress": "",
+          "IPAddress": "",
+          "IPPrefixLen": 0,
+          "Gateway": ""
+        }
+      }
+    }
+  ],
+  "effects": [
+    {
+      "id": 8,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-route_observer&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:34.976Z",
+      "finishedAt": "2026-10-29T22:47:35.008Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 10,
+      "method": "POST",
+      "target": "/v1.52/containers/2492d12493937ec4be32bbebe79d09616b93a9948a280293dda88957e3267d04/attach?stream=true&stdin=true&stdout=true&stderr=true",
+      "status": 101,
+      "startedAt": "2026-10-29T22:47:35.017Z",
+      "finishedAt": "2026-10-29T22:47:41.781Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 13,
+      "method": "POST",
+      "target": "/v1.52/containers/2492d12493937ec4be32bbebe79d09616b93a9948a280293dda88957e3267d04/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:35.041Z",
+      "finishedAt": "2026-10-29T22:47:35.142Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 24,
+      "method": "POST",
+      "target": "/v1.52/volumes/create",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:35.284Z",
+      "finishedAt": "2026-10-29T22:47:35.287Z",
+      "failure": null,
+      "owner": null
+    },
+    {
+      "id": 28,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-filesystem&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:35.306Z",
+      "finishedAt": "2026-10-29T22:47:35.324Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 30,
+      "method": "POST",
+      "target": "/v1.52/containers/f44018c12041151836222d2bdd47089bfaa3397753dde8fcda10f892cd40d095/attach?stream=true&stdin=true&stdout=true&stderr=true",
+      "status": 101,
+      "startedAt": "2026-10-29T22:47:35.330Z",
+      "finishedAt": "2026-10-29T22:47:41.759Z",
+      "failure": {
+        "name": "Error",
+        "message": "Premature close"
+      },
+      "owner": "a"
+    },
+    {
+      "id": 33,
+      "method": "POST",
+      "target": "/v1.52/containers/f44018c12041151836222d2bdd47089bfaa3397753dde8fcda10f892cd40d095/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:35.361Z",
+      "finishedAt": "2026-10-29T22:47:35.417Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 39,
+      "method": "POST",
+      "target": "/v1.52/networks/create",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:35.446Z",
+      "finishedAt": "2026-10-29T22:47:35.458Z",
+      "failure": null,
+      "owner": null
+    },
+    {
+      "id": 59,
+      "method": "POST",
+      "target": "/v1.52/volumes/create",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:35.572Z",
+      "finishedAt": "2026-10-29T22:47:35.574Z",
+      "failure": null,
+      "owner": null
+    },
+    {
+      "id": 63,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_broker&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:35.588Z",
+      "finishedAt": "2026-10-29T22:47:35.606Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 65,
+      "method": "POST",
+      "target": "/v1.52/containers/6afef0d1dd6747364708cdeab0dea1ce8d98b5317181da687c28414779043461/attach?stream=true&stdin=true&stdout=true&stderr=true",
+      "status": 101,
+      "startedAt": "2026-10-29T22:47:35.610Z",
+      "finishedAt": "2026-10-29T22:47:41.784Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 68,
+      "method": "POST",
+      "target": "/v1.52/containers/6afef0d1dd6747364708cdeab0dea1ce8d98b5317181da687c28414779043461/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:35.631Z",
+      "finishedAt": "2026-10-29T22:47:35.726Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 72,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-compute&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:35.812Z",
+      "finishedAt": "2026-10-29T22:47:35.825Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 76,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-export&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:35.855Z",
+      "finishedAt": "2026-10-29T22:47:35.868Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 80,
+      "method": "PUT",
+      "target": "/v1.52/containers/76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a/archive?path=%2Fworkspace%2Fwork&noOverwriteDirNonDir=true",
+      "status": 200,
+      "startedAt": "2026-10-29T22:47:35.892Z",
+      "finishedAt": "2026-10-29T22:47:35.897Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 83,
+      "method": "POST",
+      "target": "/v1.52/containers/76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:35.915Z",
+      "finishedAt": "2026-10-29T22:47:35.976Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 119,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_relay&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:39.322Z",
+      "finishedAt": "2026-10-29T22:47:39.342Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 121,
+      "method": "POST",
+      "target": "/v1.52/containers/117fd66debfc91de80a42cc99d50d0ce7bace046a12f056e0738a446a6508a58/attach?stream=true&stdin=true&stdout=true&stderr=true",
+      "status": 101,
+      "startedAt": "2026-10-29T22:47:39.348Z",
+      "finishedAt": "2026-10-29T22:47:41.784Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 124,
+      "method": "POST",
+      "target": "/v1.52/containers/117fd66debfc91de80a42cc99d50d0ce7bace046a12f056e0738a446a6508a58/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:39.365Z",
+      "finishedAt": "2026-10-29T22:47:39.446Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 168,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-1fee1deb8616d70af01d1150f40aae89-route_observer&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:41.197Z",
+      "finishedAt": "2026-10-29T22:47:41.216Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 170,
+      "method": "POST",
+      "target": "/v1.52/containers/a91f2472a8260999dbb40a27e2d462645389e4bb49760ead5e32013bdf3f3466/attach?stream=true&stdin=true&stdout=true&stderr=true",
+      "status": 101,
+      "startedAt": "2026-10-29T22:47:41.222Z",
+      "finishedAt": "2026-10-29T22:47:43.775Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 173,
+      "method": "POST",
+      "target": "/v1.52/containers/a91f2472a8260999dbb40a27e2d462645389e4bb49760ead5e32013bdf3f3466/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.241Z",
+      "finishedAt": "2026-10-29T22:47:41.298Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 185,
+      "method": "POST",
+      "target": "/v1.52/volumes/create",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:41.409Z",
+      "finishedAt": "2026-10-29T22:47:41.411Z",
+      "failure": null,
+      "owner": null
+    },
+    {
+      "id": 189,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-1fee1deb8616d70af01d1150f40aae89-filesystem&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:41.427Z",
+      "finishedAt": "2026-10-29T22:47:41.445Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 191,
+      "method": "POST",
+      "target": "/v1.52/containers/4ee2250128e2bd428794a16b21fb6712afb204c9848e4b5249fcc3545abdb33e/attach?stream=true&stdin=true&stdout=true&stderr=true",
+      "status": 101,
+      "startedAt": "2026-10-29T22:47:41.450Z",
+      "finishedAt": "2026-10-29T22:47:43.742Z",
+      "failure": {
+        "name": "Error",
+        "message": "Premature close"
+      },
+      "owner": "b"
+    },
+    {
+      "id": 194,
+      "method": "POST",
+      "target": "/v1.52/containers/4ee2250128e2bd428794a16b21fb6712afb204c9848e4b5249fcc3545abdb33e/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.465Z",
+      "finishedAt": "2026-10-29T22:47:41.518Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 200,
+      "method": "POST",
+      "target": "/v1.52/networks/create",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:41.545Z",
+      "finishedAt": "2026-10-29T22:47:41.555Z",
+      "failure": null,
+      "owner": null
+    },
+    {
+      "id": 222,
+      "method": "POST",
+      "target": "/v1.52/volumes/create",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:41.666Z",
+      "finishedAt": "2026-10-29T22:47:41.668Z",
+      "failure": null,
+      "owner": null
+    },
+    {
+      "id": 226,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-1fee1deb8616d70af01d1150f40aae89-egress_broker&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:41.680Z",
+      "finishedAt": "2026-10-29T22:47:41.699Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 229,
+      "method": "POST",
+      "target": "/v1.52/containers/f4d7b248f97d4a08ff924fd29a9b7611b7a3c60d3d2d3d9265a00b2f3e235deb/attach?stream=true&stdin=true&stdout=true&stderr=true",
+      "status": 101,
+      "startedAt": "2026-10-29T22:47:41.704Z",
+      "finishedAt": "2026-10-29T22:47:43.778Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 237,
+      "method": "POST",
+      "target": "/v1.52/containers/f4d7b248f97d4a08ff924fd29a9b7611b7a3c60d3d2d3d9265a00b2f3e235deb/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.727Z",
+      "finishedAt": "2026-10-29T22:47:41.839Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 244,
+      "method": "DELETE",
+      "target": "/v1.52/containers/76e095d94e885d0d3705ee3e7ffa59d16aafe16f6cfca1338dee68cfbee5511a?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.783Z",
+      "finishedAt": "2026-10-29T22:47:41.850Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 249,
+      "method": "DELETE",
+      "target": "/v1.52/containers/117fd66debfc91de80a42cc99d50d0ce7bace046a12f056e0738a446a6508a58?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.870Z",
+      "finishedAt": "2026-10-29T22:47:41.880Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 254,
+      "method": "DELETE",
+      "target": "/v1.52/containers/6afef0d1dd6747364708cdeab0dea1ce8d98b5317181da687c28414779043461?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.896Z",
+      "finishedAt": "2026-10-29T22:47:41.910Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 259,
+      "method": "DELETE",
+      "target": "/v1.52/containers/f44018c12041151836222d2bdd47089bfaa3397753dde8fcda10f892cd40d095?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.935Z",
+      "finishedAt": "2026-10-29T22:47:41.954Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 265,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-1fee1deb8616d70af01d1150f40aae89-compute&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:41.960Z",
+      "finishedAt": "2026-10-29T22:47:41.998Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 268,
+      "method": "DELETE",
+      "target": "/v1.52/containers/2492d12493937ec4be32bbebe79d09616b93a9948a280293dda88957e3267d04?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:41.977Z",
+      "finishedAt": "2026-10-29T22:47:41.989Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 273,
+      "method": "POST",
+      "target": "/v1.52/containers/create?name=agenai-sbx-1fee1deb8616d70af01d1150f40aae89-export&platform=linux%2Farm64",
+      "status": 201,
+      "startedAt": "2026-10-29T22:47:42.021Z",
+      "finishedAt": "2026-10-29T22:47:42.051Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 277,
+      "method": "PUT",
+      "target": "/v1.52/containers/b310f6e005dde9c3d1f35924d309ada39af8fa581a11601eb55bd2bb0a9b930d/archive?path=%2Fworkspace%2Fwork&noOverwriteDirNonDir=true",
+      "status": 200,
+      "startedAt": "2026-10-29T22:47:42.077Z",
+      "finishedAt": "2026-10-29T22:47:42.085Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 280,
+      "method": "POST",
+      "target": "/v1.52/containers/b310f6e005dde9c3d1f35924d309ada39af8fa581a11601eb55bd2bb0a9b930d/start",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:42.097Z",
+      "finishedAt": "2026-10-29T22:47:42.156Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 294,
+      "method": "DELETE",
+      "target": "/v1.52/containers/b310f6e005dde9c3d1f35924d309ada39af8fa581a11601eb55bd2bb0a9b930d?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:43.781Z",
+      "finishedAt": "2026-10-29T22:47:43.825Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 299,
+      "method": "DELETE",
+      "target": "/v1.52/containers/f4d7b248f97d4a08ff924fd29a9b7611b7a3c60d3d2d3d9265a00b2f3e235deb?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:43.844Z",
+      "finishedAt": "2026-10-29T22:47:43.856Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 304,
+      "method": "DELETE",
+      "target": "/v1.52/containers/4ee2250128e2bd428794a16b21fb6712afb204c9848e4b5249fcc3545abdb33e?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:43.882Z",
+      "finishedAt": "2026-10-29T22:47:43.896Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 309,
+      "method": "DELETE",
+      "target": "/v1.52/containers/a91f2472a8260999dbb40a27e2d462645389e4bb49760ead5e32013bdf3f3466?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:43.920Z",
+      "finishedAt": "2026-10-29T22:47:43.937Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 314,
+      "method": "DELETE",
+      "target": "/v1.52/containers/b9913a87525442c6f85484f1b82fca4dcd61ce044856446faca4a70de72c8191?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:43.961Z",
+      "finishedAt": "2026-10-29T22:47:43.971Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 319,
+      "method": "DELETE",
+      "target": "/v1.52/volumes/agenai-sbx-1fee1deb8616d70af01d1150f40aae89-storage",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:43.995Z",
+      "finishedAt": "2026-10-29T22:47:43.997Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 324,
+      "method": "DELETE",
+      "target": "/v1.52/volumes/agenai-sbx-1fee1deb8616d70af01d1150f40aae89-egress_socket",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:44.015Z",
+      "finishedAt": "2026-10-29T22:47:44.018Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 329,
+      "method": "DELETE",
+      "target": "/v1.52/networks/661a36194b21bb676c35b7413366b61c670a315bfdbfe59f7d14bfd1c8dc4c22",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:44.036Z",
+      "finishedAt": "2026-10-29T22:47:44.233Z",
+      "failure": null,
+      "owner": "b"
+    },
+    {
+      "id": 334,
+      "method": "DELETE",
+      "target": "/v1.52/containers/08f68137fbf53edb6995ff6d5e4e19713d111775758c2c8489bb63390b9d1c2d?force=true&v=false",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:44.275Z",
+      "finishedAt": "2026-10-29T22:47:44.286Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 339,
+      "method": "DELETE",
+      "target": "/v1.52/volumes/agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-storage",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:44.310Z",
+      "finishedAt": "2026-10-29T22:47:44.312Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 344,
+      "method": "DELETE",
+      "target": "/v1.52/volumes/agenai-sbx-d5e02524cff2a11a315dd5f1969e108a-egress_socket",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:44.329Z",
+      "finishedAt": "2026-10-29T22:47:44.332Z",
+      "failure": null,
+      "owner": "a"
+    },
+    {
+      "id": 349,
+      "method": "DELETE",
+      "target": "/v1.52/networks/b8e36f3532d34f07a4e71247d77ad6ad1ecbec2e69ecd154457170a95beb05b7",
+      "status": 204,
+      "startedAt": "2026-10-29T22:47:44.349Z",
+      "finishedAt": "2026-10-29T22:47:44.515Z",
+      "failure": null,
+      "owner": "a"
+    }
+  ],
+  "pool": {
+    "candidate": "10.240.0.0/24",
+    "subnets": [
+      "10.240.0.0/28",
+      "10.240.0.16/28",
+      "10.240.0.32/28",
+      "10.240.0.48/28",
+      "10.240.0.64/28",
+      "10.240.0.80/28",
+      "10.240.0.96/28",
+      "10.240.0.112/28",
+      "10.240.0.128/28",
+      "10.240.0.144/28",
+      "10.240.0.160/28",
+      "10.240.0.176/28",
+      "10.240.0.192/28",
+      "10.240.0.208/28",
+      "10.240.0.224/28",
+      "10.240.0.240/28"
+    ],
+    "engineOccupancy": [
+      "172.18.0.0/16",
+      "172.17.0.0/16",
+      "172.19.0.0/16",
+      "172.20.0.0/16"
+    ],
+    "vmOccupancy": [
+      "127.0.0.0/8",
+      "127.0.0.1/32",
+      "127.255.255.255/32",
+      "172.17.0.0/16",
+      "172.17.0.1/32",
+      "172.17.255.255/32",
+      "172.18.0.0/16",
+      "172.18.0.1/32",
+      "172.18.255.255/32",
+      "172.19.0.0/16",
+      "172.19.0.1/32",
+      "172.19.255.255/32",
+      "172.20.0.0/16",
+      "172.20.0.1/32",
+      "172.20.255.255/32",
+      "192.168.65.0/24",
+      "192.168.65.1/32",
+      "192.168.65.255/32",
+      "192.168.65.3/32",
+      "192.168.65.6/32",
+      "192.168.65.7/32"
+    ],
+    "conflicts": [],
+    "engineAndVmNonoverlapObserved": true,
+    "hostOccupancy": [
+      "100.64.0.0/10",
+      "104.154.230.142/32",
+      "104.16.184.241/32",
+      "104.16.185.241/32",
+      "104.18.30.50/32",
+      "104.18.31.50/32",
+      "104.21.88.9/32",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "172.191.134.155/32",
+      "172.67.149.227/32",
+      "192.168.1.0/24",
+      "20.14.23.55/32",
+      "209.237.208.194/32",
+      "224.0.0.0/4",
+      "255.255.255.255/32",
+      "32.197.113.29/32",
+      "34.133.159.212/32",
+      "40.38.176.247/32",
+      "40.38.57.47/32",
+      "40.39.70.111/32",
+      "54.145.67.205/32",
+      "98.85.23.198/32"
+    ],
+    "hostConflicts": [],
+    "hostNonoverlap": true,
+    "reservationOrLiveBrokerProof": "not performed by the frozen reproduction"
+  },
+  "cleanup": {
+    "failures": 0,
+    "exactIdentifiedAbsence": true,
+    "enteredResources": 17,
+    "finalVmObservationAfterNetworkRemoval": false,
+    "limitation": "Final exact resource absence is retained in report.json; no final VM observer remains to prove the entire final VM topology."
+  }
+}

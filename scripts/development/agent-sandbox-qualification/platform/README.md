@@ -1,7 +1,7 @@
 # Explicit Docker platform verification
 
 This credential-free lane verifies one selected controller, daemon, image and profile. Current
-source is the unpublished coordinated 0.4.7 candidate. The SDK has retained 0.4.4 Linux x64
+source is the unpublished coordinated 0.4.8 candidate. The SDK has retained 0.4.4 Linux x64
 evidence; it does not qualify changed candidate bytes. The 0.4.5 candidate, before publication, had separately
 passed actual Apple Virtualization native-arm64 and Rosetta-amd64 baseline rows on the exact Mac
 tuple below. Linux fixtures, synthetic admission and installed configuration checks alone do not
@@ -387,7 +387,9 @@ claim a native HTTP 302 flow, bulk tunnel backpressure or IPv6 connectivity.
 The public backend and each newly constructed authority handle bind the same exact task-owned
 Unix proxy socket. Evidence retains the original manifest descriptor, derived descriptor bytes,
 actual configuration digest/checkpoints, socket device/inode/mode and verified upstream Engine
-mapping. Keep proxy and upstream quiescent through cleanup. `network/network-report.json` binds
+mapping. The proxy forwards at most sixteen Engine requests at once and queues up to 32 more on at most
+32 connections, so an SDK polling burst waits for a slot rather than seeing a reset the Engine never
+produces. Keep proxy and upstream quiescent through cleanup. `network/network-report.json` binds
 every full case report by path/byte count/SHA-256; `fixtures.json` owns every fixture reservation,
 entered create/start/exec/control/delete, bounded stdout/stderr and cleanup outcome. Paused and
 killed controllers retain original PID/group controls, immutable checkpoint bytes and cleanup-only

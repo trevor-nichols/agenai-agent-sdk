@@ -1,3 +1,4 @@
+import { cleanupAction } from '../cleanup/obligations.mjs';
 // ------------------------------------------------------------------------------------------------
 //                host-failures.mjs - Native host representation, cancellation and publication owners
 // ------------------------------------------------------------------------------------------------
@@ -277,7 +278,7 @@ async function cleanupRetry(run, context, variant) {
     assert.deepEqual(inode(await lstat(destination, { bigint: true })), originalIdentity);
     await chmod(destination, 0o700); restricted = false;
   };
-  run.beforeCleanup.push(restore);
+  run.beforeCleanup.push(cleanupAction(restore, () => !restricted));
   const forwarding = { ...sandbox, async exportTree(...args) {
     const summary = await sandbox.exportTree(...args);
     await assertAbsent(join(destination, 'files'));

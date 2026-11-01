@@ -9,21 +9,27 @@ import { DESKTOP_VM_CONTROLLER_PROTOCOL, parseDesktopVmObserverFrame } from './p
 import type { DesktopVmObserverConfiguration, DesktopVmObserverCommand } from './protocol.js';
 import { parseDesktopVmObservation } from './observation/vm.js';
 import type { DesktopVmObservation } from './observation/vm.js';
+import type { DesktopObservationByteBudget } from './observation/budget.js';
 
 export interface DesktopVmObserverClient {
   readonly ready: Promise<void>;
   readonly settled: Promise<void>;
-  observe(signal?: AbortSignal): Promise<DesktopVmObservation>;
+  beginReadiness(): void;
+  stopRenewal(): void;
+  observe(signal?: AbortSignal, budget?: DesktopObservationByteBudget): Promise<DesktopVmObservation>;
   close(): Promise<DesktopVmObserverSettlement>;
 }
 export type DesktopVmObserverSettlement = Readonly<{ kind: 'confirmed_stop' }>
   | Readonly<{ kind: 'attachment_joined'; failure: SandboxOperationError }>;
 interface PendingObservation {
-  readonly sequence: number;
+  sequence: number | undefined;
   readonly result: ReturnType<typeof Promise.withResolvers<DesktopVmObservation>>;
   readonly timer: ReturnType<typeof setTimeout>;
   readonly detach: () => void;
+  readonly budget?: DesktopObservationByteBudget;
 }
+type QueuedCommand = Readonly<{ kind: 'heartbeat' | 'stop' }>
+  | Readonly<{ kind: 'observe'; observation: PendingObservation }>;
 
 export function createDesktopVmObserverClient(options: {
   readonly attachment: DockerEngineAttachment;
@@ -35,6 +41,7 @@ export function createDesktopVmObserverClient(options: {
   void ready.promise.catch(() => {});
   let enteredReady = false;
   let closing = false;
+  let renewing = true;
   let closedReceipt = false;
   let failure: SandboxOperationError | undefined;
   let sequence = 0;
@@ -45,6 +52,8 @@ export function createDesktopVmObserverClient(options: {
   let retiringObservationSequence: number | undefined;
   let writing: Promise<void> = Promise.resolve();
   let closeActual: Promise<DesktopVmObserverSettlement> | undefined;
+  let readinessStarted = false;
+  let readinessDeadline: ReturnType<typeof setTimeout> | undefined;
   const fail = (cause: unknown) => {
     if (failure) return;
     failure = cause instanceof SandboxOperationError ? cause : new SandboxOperationError('driver_failure', 'Desktop route observer control failed.', { cause });
@@ -58,9 +67,19 @@ export function createDesktopVmObserverClient(options: {
     if (!Number.isSafeInteger(sequence + 1)) throw new SandboxOperationError('driver_failure', 'Desktop observer sequence is exhausted.');
     sequence += 1; return sequence;
   };
-  const write = (command: DesktopVmObserverCommand) => {
+  const write = (queued: QueuedCommand) => {
     writing = writing.then(() => new Promise<void>((resolve, reject) => {
+      if (queued.kind === 'heartbeat' && (!renewing || closing || failure)) { resolve(); return; }
+      if (queued.kind === 'observe' && (closing || failure || pending !== queued.observation)) { resolve(); return; }
       if (attachment.stream.destroyed) { reject(new SandboxOperationError('driver_failure', 'Desktop observer attachment is closed.')); return; }
+      const currentSequence = nextSequence();
+      if (queued.kind === 'observe') queued.observation.sequence = currentSequence;
+      else if (queued.kind === 'heartbeat') {
+        heartbeatSequence = currentSequence;
+        heartbeatDeadline = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Desktop observer heartbeat acknowledgement expired.')), configuration.leaseTimeoutMs);
+        heartbeatDeadline.unref();
+      }
+      const command: DesktopVmObserverCommand = { protocol: DESKTOP_VM_CONTROLLER_PROTOCOL, kind: queued.kind, sequence: currentSequence };
       const deadline = setTimeout(() => {
         const error = new SandboxOperationError('deadline_exceeded', 'Desktop observer control write did not settle.');
         reject(error); fail(error);
@@ -74,16 +93,9 @@ export function createDesktopVmObserverClient(options: {
     return writing;
   };
   const heartbeat = () => {
-    if (closing || failure) return;
-    try {
-      heartbeatSequence = nextSequence();
-      void write({ protocol: DESKTOP_VM_CONTROLLER_PROTOCOL, kind: 'heartbeat', sequence: heartbeatSequence });
-      heartbeatDeadline = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Desktop observer heartbeat acknowledgement expired.')), configuration.leaseTimeoutMs);
-      heartbeatDeadline.unref();
-    } catch (cause) { fail(cause); }
+    if (!renewing || closing || failure) return;
+    void write({ kind: 'heartbeat' });
   };
-  const readinessDeadline = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Desktop observer readiness expired.')), configuration.commandTimeoutMs);
-  readinessDeadline.unref();
   const decoder = new DockerFrameDecoder();
   let bytesPending = Buffer.alloc(0);
   const deliver = async (channel: 1 | 2, bytes: Uint8Array) => {
@@ -97,18 +109,20 @@ export function createDesktopVmObserverClient(options: {
       bytesPending = Buffer.concat([bytesPending, bytes.subarray(offset, end)]);
       offset = newline < 0 ? bytes.byteLength : newline + 1;
       if (newline < 0) continue;
+      const frameBytes = bytesPending.byteLength + 1;
+      pending?.budget?.consume(frameBytes);
       const frame = parseDesktopVmObserverFrame(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytesPending)));
       bytesPending = Buffer.alloc(0);
       if (closedReceipt) throw new SandboxOperationError('driver_failure', 'Desktop observer sent output after close.');
       if (frame.kind === 'ready') {
         if (enteredReady) throw new SandboxOperationError('driver_failure', 'Desktop observer repeated readiness.');
         enteredReady = true; clearTimeout(readinessDeadline);
-        if (!closing) { ready.resolve(); heartbeat(); }
+        if (!closing) { ready.resolve(); if (readinessStarted) heartbeat(); }
       } else if (!enteredReady) throw new SandboxOperationError('driver_failure', 'Desktop observer responded before readiness.');
       else if (frame.kind === 'heartbeat') {
         if (heartbeatSequence === undefined || frame.sequence !== heartbeatSequence) throw new SandboxOperationError('driver_failure', 'Desktop observer acknowledged an unexpected heartbeat.');
         heartbeatSequence = undefined; clearTimeout(heartbeatDeadline);
-        if (!closing) { heartbeatTimer = setTimeout(heartbeat, configuration.heartbeatMs); heartbeatTimer.unref(); }
+        if (renewing && !closing) { heartbeatTimer = setTimeout(heartbeat, configuration.heartbeatMs); heartbeatTimer.unref(); }
       } else if (frame.kind === 'observation') {
         if (closing && frame.sequence === retiringObservationSequence) {
           parseDesktopVmObservation(frame.document);
@@ -146,8 +160,7 @@ export function createDesktopVmObserverClient(options: {
       void settled.then(() => entered.result.reject(failure ?? new SandboxOperationError('cancelled', 'Desktop observation was stopped.')));
     }
     if (!attachment.stream.destroyed) {
-      try { void write({ protocol: DESKTOP_VM_CONTROLLER_PROTOCOL, kind: 'stop', sequence: nextSequence() }); }
-      catch (cause) { fail(cause); }
+      void write({ kind: 'stop' });
     }
     const deadline = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Desktop observer close did not settle.')), configuration.commandTimeoutMs);
     closeActual = settled.then((): DesktopVmObserverSettlement => {
@@ -157,10 +170,22 @@ export function createDesktopVmObserverClient(options: {
     }).finally(() => clearTimeout(deadline));
     return closeActual;
   };
-  return Object.freeze({ ready: ready.promise, settled, close, async observe(signal?: AbortSignal) {
+  return Object.freeze({ ready: ready.promise, settled, close,
+    beginReadiness() {
+      if (failure) throw failure;
+      if (closing) throw new SandboxOperationError('cancelled', 'Desktop observer control is closing.');
+      if (readinessStarted) return;
+      readinessStarted = true;
+      if (enteredReady) heartbeat();
+      else {
+        readinessDeadline = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Desktop observer readiness expired.')), configuration.commandTimeoutMs);
+        readinessDeadline.unref();
+      }
+    },
+    stopRenewal() { renewing = false; clearTimeout(heartbeatTimer); }, async observe(signal?: AbortSignal, budget?: DesktopObservationByteBudget) {
     signal?.throwIfAborted();
     await ready.promise;
-    if (closing || failure) throw failure ?? new SandboxStateError('Desktop observer admission is closed.');
+    if (!renewing || closing || failure) throw failure ?? new SandboxStateError('Desktop observer admission is closed.');
     if (pending) throw new SandboxStateError('A Desktop observation is already entered.');
     const result = Promise.withResolvers<DesktopVmObservation>();
     void result.promise.catch(() => {});
@@ -168,11 +193,11 @@ export function createDesktopVmObserverClient(options: {
     const timer = setTimeout(() => {
       fail(new SandboxOperationError('deadline_exceeded', 'Desktop VM observation exceeded its command deadline.'));
     }, configuration.commandTimeoutMs);
-    const entered: PendingObservation = { sequence: nextSequence(), result, timer, detach: () => signal?.removeEventListener('abort', abort) };
+    const entered: PendingObservation = { sequence: undefined, result, timer, budget, detach: () => signal?.removeEventListener('abort', abort) };
     pending = entered;
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
-    else void write({ protocol: DESKTOP_VM_CONTROLLER_PROTOCOL, kind: 'observe', sequence: entered.sequence });
+    else void write({ kind: 'observe', observation: entered });
     try { return await result.promise; }
     catch (cause) { await settled; throw cause; }
   } });

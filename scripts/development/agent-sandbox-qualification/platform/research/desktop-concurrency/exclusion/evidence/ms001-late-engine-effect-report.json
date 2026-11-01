@@ -1,0 +1,1025 @@
+{
+  "format": "agenai.ms001-late-engine-effect.v1",
+  "fixture": {
+    "researchOnly": true,
+    "requiresExplicitRun": true,
+    "originalControllerDeath": "SIGKILL after independent parent gateway durably accepts one original request",
+    "engineEffects": [
+      "at most one internal IPv4 bridge-network create",
+      "at most one delete by its exact returned ID"
+    ],
+    "lateAuthority": "request is retained in the independent parent gateway before actual Engine dispatch; never replayed",
+    "dirtyBarrier": "same native helper journal and daemon-derived key in one unique scratch authority root",
+    "cleanup": "join original acknowledgement, verify exact original labels/IPAM/ID, persist delete intent, verify exact absence",
+    "unsupported": "production crash settlement, arbitrary proxy recovery, Engine-internal queued request proof, workload survival"
+  },
+  "at": "2026-10-29T22:57:03.953Z",
+  "attempt": "/private/tmp/agenai-ms001-exclusion-8HrU7Q",
+  "frozenInput": "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/reproduction-input-r3.json",
+  "frozenInputSha256": "cd0338d495d049850273b24c9810abbf738e64a985cbc770fbd0759bf4b99726",
+  "sourceHashes": {
+    "lock-holder.c": "7ba7d67ea8c5e52dff3ab5b2ddd2c0c4291fa718fb97d75970a1ac5449aba972",
+    "controller.mjs": "c25eb866e02c11dbced79ad31d83dae5092334592c4acc347542364dba3ba217",
+    "prepare.mjs": "735c91f257de674cac5df509d21587088b648758105289e97b15d7194db2ab05",
+    "endpoint-binding.mjs": "477f2aaf6a8f930808effeb50a9aa028066651e1a5eb13089649d67a6e9ca464",
+    "late-engine-effect.mjs": "b75e1ce26fef131f1b9f3c66377df21b4a32e0f56a94974414199cf3c893f926",
+    "late-engine-controller.mjs": "ad1865b90bb89952f69a277f3835e1044d348dc9976da35f3ba92d280ee7c47f",
+    "late-engine-gateway.mjs": "f375adb2e945ddc0cab6e203902ba013fdea0e8c19f33f7d54394755be0785a3",
+    "late-engine-ipam.mjs": "7fedf7fda12516a7c82ad817fe49e3e6c64d5df52e12a6949683981705a78e9c",
+    "late-engine-transport.mjs": "376d58a6edba2697610107985b95df6f595995a6e5e937aea3dca3208bed1683"
+  },
+  "sourceDigestEncoding": "SHA-256 of raw file bytes",
+  "command": [
+    "/Volumes/AGENAI/Qualification/sdk-mac/EP-20261026-001/toolchain/node-v24.18.0-darwin-arm64/bin/node",
+    "/Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/late-engine-effect.mjs",
+    "--run",
+    "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/reproduction-input-r3.json"
+  ],
+  "node": "v24.18.0",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "manifest": {
+    "mode": "explicit-run",
+    "attempt": "/private/tmp/agenai-ms001-exclusion-8HrU7Q",
+    "attemptId": "3d9a9e15-aea5-4b37-925c-ea59130a750b",
+    "requestId": "75219cd6-fd25-4ccb-91f3-f3440f82be10",
+    "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+    "engineSocket": "/Users/tan/.docker/run/docker.sock",
+    "expected": {
+      "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+      "version": "29.1.2",
+      "apiVersion": "1.52",
+      "architecture": "arm64",
+      "kernelVersion": "6.12.54-linuxkit",
+      "operatingSystem": "Docker Desktop"
+    },
+    "binary": "/private/tmp/agenai-ms001-exclusion-8HrU7Q/lock-holder",
+    "gateway": "/private/tmp/agenai-ms001-exclusion-8HrU7Q/held-create.sock",
+    "name": "agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+    "subnet": "10.253.247.0/28",
+    "gatewayAddress": "10.253.247.1",
+    "bridgeName": "ag77896b8759c8e"
+  },
+  "ipam": {
+    "subnet": "10.253.247.0/28",
+    "gatewayAddress": "10.253.247.1",
+    "observations": [
+      {
+        "cidr": "10.253.247.0/28",
+        "start": 184416000,
+        "end": 184416015,
+        "prefix": 28,
+        "conflicts": []
+      },
+      {
+        "cidr": "10.253.247.16/28",
+        "start": 184416016,
+        "end": 184416031,
+        "prefix": 28,
+        "conflicts": []
+      },
+      {
+        "cidr": "10.253.247.32/28",
+        "start": 184416032,
+        "end": 184416047,
+        "prefix": 28,
+        "conflicts": []
+      },
+      {
+        "cidr": "10.253.247.48/28",
+        "start": 184416048,
+        "end": 184416063,
+        "prefix": 28,
+        "conflicts": []
+      }
+    ],
+    "engineRanges": [
+      {
+        "networkId": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+        "networkName": "agenai-local_default",
+        "cidr": "172.18.0.0/16",
+        "start": 2886860800,
+        "end": 2886926335,
+        "prefix": 16
+      },
+      {
+        "networkId": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+        "networkName": "bridge",
+        "cidr": "172.17.0.0/16",
+        "start": 2886795264,
+        "end": 2886860799,
+        "prefix": 16
+      }
+    ],
+    "hostRoutesRaw": "Routing tables\n\nInternet:\nDestination        Gateway            Flags               Netif Expire\ndefault            192.168.1.1        UGScg                 en0       \ndefault            link#26            UCSIg               utun4       \n20.14.23.55/32     link#26            UCS                 utun4       \n32.197.113.29/32   link#26            UCS                 utun4       \n34.133.159.212/32  link#26            UCS                 utun4       \n40.38.57.47/32     link#26            UCS                 utun4       \n40.38.176.247/32   link#26            UCS                 utun4       \n40.39.70.111/32    link#26            UCS                 utun4       \n54.145.67.205/32   link#26            UCS                 utun4       \n98.85.23.198/32    link#26            UCS                 utun4       \n100.64/10          link#26            UCS                 utun4       \n100.79.82.15       link#26            UHWIi               utun4       \n100.100.100.100/32 link#26            UCS                 utun4       \n100.100.100.100    link#26            UHWIi               utun4       \n100.110.94.69      100.110.94.69      UH                  utun4       \n104.16.184.241/32  link#26            UCS                 utun4       \n104.16.185.241/32  link#26            UCS                 utun4       \n104.18.30.50/32    link#26            UCS                 utun4       \n104.18.31.50/32    link#26            UCS                 utun4       \n104.21.88.9/32     link#26            UCS                 utun4       \n104.154.230.142/32 link#26            UCS                 utun4       \n127                127.0.0.1          UCS                   lo0       \n127.0.0.1          127.0.0.1          UH                    lo0       \n169.254            link#11            UCS                   en0      !\n172.67.149.227/32  link#26            UCS                 utun4       \n172.67.149.227     link#26            UHWIi               utun4       \n172.191.134.155/32 link#26            UCS                 utun4       \n192.168.1          link#11            UCS                   en0      !\n192.168.1.1/32     link#11            UCS                   en0      !\n192.168.1.1        8:2:8e:a7:b7:95    UHLWIir               en0   1200\n192.168.1.4        0:9:b0:14:90:1d    UHLWI                 en0   1018\n192.168.1.14       f4:f5:d8:a8:fa:7a  UHLWI                 en0   1000\n192.168.1.15       d8:be:65:f9:b2:aa  UHLWI                 en0   1145\n192.168.1.19/32    link#11            UCS                   en0      !\n192.168.1.19       2e:7d:87:4a:5f:db  UHLWI                 lo0       \n192.168.1.23       80:47:86:79:2a:7a  UHLWI                 en0   1023\n192.168.1.25       b6:39:56:6c:49:92  UHLWI                 en0   1032\n192.168.1.26       b6:39:56:6c:49:92  UHLWI                 en0    781\n192.168.1.28       d2:4e:8b:8f:58:1b  UHLWI                 en0      !\n192.168.1.33       4:4b:ed:ad:21:c8   UHLWIi                en0   1102\n192.168.1.35       6c:1f:8a:91:2d:c7  UHLWI                 en0    933\n192.168.1.37       6:d2:d8:a3:f6:a6   UHLWI                 en0   1009\n192.168.1.38       d4:90:9c:d2:61:f5  UHLWI                 en0    935\n192.168.1.39       94:ad:23:92:21:46  UHLWI                 en0    927\n192.168.1.43       40:16:3b:a2:5f:27  UHLWI                 en0   1199\n192.168.1.47       84:a9:3e:cc:a0:d   UHLWI                 en0    517\n192.168.1.96       9c:8e:cd:5:c2:f5   UHLWI                 en0   1175\n192.168.1.97       9c:8c:6e:1f:49:89  UHLWI                 en0   1200\n192.168.1.255      ff:ff:ff:ff:ff:ff  UHLWbI                en0      !\n209.237.208.194/32 link#26            UCS                 utun4       \n224.0.0/4          link#11            UmCS                  en0      !\n224.0.0/4          link#26            UmCSI               utun4       \n224.0.0.251        1:0:5e:0:0:fb      UHmLWI                en0       \n239.255.255.250    1:0:5e:7f:ff:fa    UHmLWI                en0       \n255.255.255.255/32 link#11            UCS                   en0      !\n255.255.255.255    ff:ff:ff:ff:ff:ff  UHLWbI                en0      !\n255.255.255.255/32 link#26            UCSI                utun4       \n",
+    "defaultRoutesExcludedFromAddressOverlap": true,
+    "scope": "all current Engine IPAM and Darwin IPv4 routes; no new VM observer or production network-authority claim"
+  },
+  "originalIntent": {
+    "format": "agenai.ms001-late-engine-intent.v1",
+    "requestId": "75219cd6-fd25-4ccb-91f3-f3440f82be10",
+    "generation": "81ec648e-eea6-4d75-85bb-da5252f315e0",
+    "engineId": "7ea1aaea-951c-4129-a920-8f003143c27b",
+    "endpointBinding": {
+      "filesystem": {
+        "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+        "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+        "chain": [
+          {
+            "path": "/Users",
+            "device": "16777229",
+            "inode": "20697",
+            "mode": "16877",
+            "uid": "0",
+            "gid": "80"
+          },
+          {
+            "path": "/Users/tan",
+            "device": "16777229",
+            "inode": "32056",
+            "mode": "16872",
+            "uid": "501",
+            "gid": "20"
+          },
+          {
+            "path": "/Users/tan/.docker",
+            "device": "16777229",
+            "inode": "721600",
+            "mode": "16877",
+            "uid": "501",
+            "gid": "20"
+          },
+          {
+            "path": "/Users/tan/.docker/run",
+            "device": "16777229",
+            "inode": "721651",
+            "mode": "16877",
+            "uid": "501",
+            "gid": "20"
+          },
+          {
+            "path": "/Users/tan/.docker/run/docker.sock",
+            "device": "16777229",
+            "inode": "244664084",
+            "mode": "49645",
+            "uid": "501",
+            "gid": "20"
+          }
+        ],
+        "socket": {
+          "device": "16777229",
+          "inode": "244664084",
+          "mode": "49645",
+          "uid": "501",
+          "gid": "20",
+          "birthtimeNs": "1793129160674198478",
+          "ctimeNs": "1793129160674218852"
+        }
+      },
+      "engine": {
+        "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+        "version": "29.1.2",
+        "apiVersion": "1.52",
+        "architecture": "arm64",
+        "kernelVersion": "6.12.54-linuxkit",
+        "operatingSystem": "Docker Desktop"
+      },
+      "rawIdentity": {
+        "info": {
+          "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+          "ServerVersion": "29.1.2",
+          "Architecture": "aarch64",
+          "KernelVersion": "6.12.54-linuxkit",
+          "OperatingSystem": "Docker Desktop"
+        },
+        "version": {
+          "Version": "29.1.2",
+          "ApiVersion": "1.52",
+          "MinAPIVersion": "1.44",
+          "Arch": "arm64",
+          "Os": "linux",
+          "KernelVersion": "6.12.54-linuxkit",
+          "GitCommit": "de45c2a",
+          "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+        }
+      }
+    },
+    "original": {
+      "format": "agenai.sandbox-recovery.v3",
+      "backendId": "docker-engine",
+      "backendRevision": "engine-1.52-v7-research-network-only",
+      "namespace": "ms001-late-create",
+      "operationId": "3d9a9e15-aea5-4b37-925c-ea59130a750b",
+      "sandboxId": "docker-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+      "imageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "policyDigest": "sha256:9255996773228d68fd89b98ddf59b4994a744d7602644fc44de897c4e3c47196",
+      "configurationDigest": "sha256:52097f70bff2ff735874f843c58c2e2e958fb46b22d68337827e9db8a313fee2",
+      "phase": "starting",
+      "authority": {
+        "kind": "verified",
+        "backendIdentity": "7ea1aaea-951c-4129-a920-8f003143c27b"
+      },
+      "resources": [
+        {
+          "role": "network",
+          "name": "agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+          "identity": {
+            "kind": "creating"
+          }
+        }
+      ]
+    },
+    "body": {
+      "Name": "agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+      "CheckDuplicate": true,
+      "Driver": "bridge",
+      "Internal": true,
+      "Attachable": false,
+      "EnableIPv4": true,
+      "EnableIPv6": false,
+      "IPAM": {
+        "Driver": "default",
+        "Config": [
+          {
+            "Subnet": "10.253.247.0/28",
+            "Gateway": "10.253.247.1",
+            "IPRange": ""
+          }
+        ]
+      },
+      "Options": {
+        "com.docker.network.bridge.name": "ag77896b8759c8e"
+      },
+      "Labels": {
+        "ai.agen.research.attempt": "3d9a9e15-aea5-4b37-925c-ea59130a750b",
+        "ai.agen.research.request": "75219cd6-fd25-4ccb-91f3-f3440f82be10",
+        "ai.agen.research.generation": "81ec648e-eea6-4d75-85bb-da5252f315e0",
+        "ai.agen.research.member": "73dc8e2b5ebc0d956a7dc84e98fe88b09bc3e8df3241789bc62e1d98eec9ef7f"
+      }
+    },
+    "requestBodySha256": "af7b4afcb447b691713fbd833a7aea8ee0c370960c65e4715b6ecd0cd88dcfa8",
+    "notice": "Network-only research fixture; the zero image digest is not a workload image or SDK resource claim."
+  },
+  "acknowledgement": {
+    "socketPath": "/Users/tan/.docker/run/docker.sock",
+    "method": "POST",
+    "path": "/v1.52/networks/create",
+    "entered": "2026-10-29T22:57:01.996Z",
+    "settled": "2026-10-29T22:57:03.689Z",
+    "status": 201,
+    "requestSha256": "af7b4afcb447b691713fbd833a7aea8ee0c370960c65e4715b6ecd0cd88dcfa8",
+    "responseSha256": "444ac46782e4585e80e7c87b5b40182992d7a345a9f6eff8756e06964e51b7d8",
+    "responseBytes": 87,
+    "body": {
+      "Id": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+      "Warning": ""
+    }
+  },
+  "exactReturnedId": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+  "forwardCount": 1,
+  "deleteEntered": true,
+  "deleteAcknowledged": true,
+  "absenceVerified": true,
+  "cleanPersisted": true,
+  "engineReceipts": [
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks",
+      "entered": "2026-10-29T22:57:00.724Z",
+      "settled": "2026-10-29T22:57:00.725Z",
+      "status": 200,
+      "requestSha256": null,
+      "responseSha256": "ac196b94f40904a19057bc2c0db3abe418c0831218b4ac6229cfe7890cd7689b",
+      "responseBytes": 2258,
+      "body": [
+        {
+          "Name": "agenai-local_default",
+          "Id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "Created": "2026-06-01T21:31:06.800610877Z",
+          "Scope": "local",
+          "Driver": "bridge",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+              {
+                "Subnet": "172.18.0.0/16",
+                "IPRange": "",
+                "Gateway": "172.18.0.1"
+              }
+            ]
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {
+            "com.docker.network.enable_ipv4": "true",
+            "com.docker.network.enable_ipv6": "false"
+          },
+          "Labels": {
+            "com.docker.compose.config-hash": "7b99011e8149ca6eaa9f88fa1431ae82cad76d43456456a57ded0860cc1cf483",
+            "com.docker.compose.network": "default",
+            "com.docker.compose.project": "agenai-local",
+            "com.docker.compose.version": "2.40.3"
+          }
+        },
+        {
+          "Name": "host",
+          "Id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "Created": "2026-03-31T15:37:01.345176333Z",
+          "Scope": "local",
+          "Driver": "host",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": null
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {},
+          "Labels": {}
+        },
+        {
+          "Name": "bridge",
+          "Id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "Created": "2026-10-29T22:28:32.742996625Z",
+          "Scope": "local",
+          "Driver": "bridge",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+              {
+                "Subnet": "172.17.0.0/16",
+                "IPRange": "",
+                "Gateway": "172.17.0.1"
+              }
+            ]
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {
+            "com.docker.network.bridge.default_bridge": "true",
+            "com.docker.network.bridge.enable_icc": "true",
+            "com.docker.network.bridge.enable_ip_masquerade": "true",
+            "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+            "com.docker.network.bridge.name": "docker0",
+            "com.docker.network.driver.mtu": "65535"
+          },
+          "Labels": {}
+        },
+        {
+          "Name": "none",
+          "Id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "Created": "2026-03-31T15:37:01.344231791Z",
+          "Scope": "local",
+          "Driver": "null",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": null
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {},
+          "Labels": {}
+        }
+      ]
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks/agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+      "entered": "2026-10-29T22:57:00.737Z",
+      "settled": "2026-10-29T22:57:00.738Z",
+      "status": 404,
+      "requestSha256": null,
+      "responseSha256": "d7ae10788e2c0c4f8c13d5c50acc055fde0a32e76d717539abea0bbc6f72acb2",
+      "responseBytes": 86,
+      "body": {
+        "message": "network agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b not found"
+      }
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks/agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+      "entered": "2026-10-29T22:57:01.095Z",
+      "settled": "2026-10-29T22:57:01.096Z",
+      "status": 404,
+      "requestSha256": null,
+      "responseSha256": "d7ae10788e2c0c4f8c13d5c50acc055fde0a32e76d717539abea0bbc6f72acb2",
+      "responseBytes": 86,
+      "body": {
+        "message": "network agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b not found"
+      }
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks",
+      "entered": "2026-10-29T22:57:01.983Z",
+      "settled": "2026-10-29T22:57:01.985Z",
+      "status": 200,
+      "requestSha256": null,
+      "responseSha256": "ac196b94f40904a19057bc2c0db3abe418c0831218b4ac6229cfe7890cd7689b",
+      "responseBytes": 2258,
+      "body": [
+        {
+          "Name": "agenai-local_default",
+          "Id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "Created": "2026-06-01T21:31:06.800610877Z",
+          "Scope": "local",
+          "Driver": "bridge",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+              {
+                "Subnet": "172.18.0.0/16",
+                "IPRange": "",
+                "Gateway": "172.18.0.1"
+              }
+            ]
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {
+            "com.docker.network.enable_ipv4": "true",
+            "com.docker.network.enable_ipv6": "false"
+          },
+          "Labels": {
+            "com.docker.compose.config-hash": "7b99011e8149ca6eaa9f88fa1431ae82cad76d43456456a57ded0860cc1cf483",
+            "com.docker.compose.network": "default",
+            "com.docker.compose.project": "agenai-local",
+            "com.docker.compose.version": "2.40.3"
+          }
+        },
+        {
+          "Name": "host",
+          "Id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "Created": "2026-03-31T15:37:01.345176333Z",
+          "Scope": "local",
+          "Driver": "host",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": null
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {},
+          "Labels": {}
+        },
+        {
+          "Name": "bridge",
+          "Id": "edab1f367dcef240cccd4d3636d8f893e4b2e29f20c53117ae2ccbef5c8b4c5a",
+          "Created": "2026-10-29T22:28:32.742996625Z",
+          "Scope": "local",
+          "Driver": "bridge",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+              {
+                "Subnet": "172.17.0.0/16",
+                "IPRange": "",
+                "Gateway": "172.17.0.1"
+              }
+            ]
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {
+            "com.docker.network.bridge.default_bridge": "true",
+            "com.docker.network.bridge.enable_icc": "true",
+            "com.docker.network.bridge.enable_ip_masquerade": "true",
+            "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+            "com.docker.network.bridge.name": "docker0",
+            "com.docker.network.driver.mtu": "65535"
+          },
+          "Labels": {}
+        },
+        {
+          "Name": "none",
+          "Id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "Created": "2026-03-31T15:37:01.344231791Z",
+          "Scope": "local",
+          "Driver": "null",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": null
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {},
+          "Labels": {}
+        }
+      ]
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "POST",
+      "path": "/v1.52/networks/create",
+      "entered": "2026-10-29T22:57:01.996Z",
+      "settled": "2026-10-29T22:57:03.689Z",
+      "status": 201,
+      "requestSha256": "af7b4afcb447b691713fbd833a7aea8ee0c370960c65e4715b6ecd0cd88dcfa8",
+      "responseSha256": "444ac46782e4585e80e7c87b5b40182992d7a345a9f6eff8756e06964e51b7d8",
+      "responseBytes": 87,
+      "body": {
+        "Id": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+        "Warning": ""
+      }
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks/eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+      "entered": "2026-10-29T22:57:03.709Z",
+      "settled": "2026-10-29T22:57:03.711Z",
+      "status": 200,
+      "requestSha256": null,
+      "responseSha256": "df2c666f2a3d84c3e430f2c034a4b118a26a487766a06947083aa3596252e63a",
+      "responseBytes": 945,
+      "body": {
+        "Name": "agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+        "Id": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+        "Created": "2026-10-29T22:57:03.681997833Z",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv4": true,
+        "EnableIPv6": false,
+        "IPAM": {
+          "Driver": "default",
+          "Options": null,
+          "Config": [
+            {
+              "Subnet": "10.253.247.0/28",
+              "IPRange": "",
+              "Gateway": "10.253.247.1"
+            }
+          ]
+        },
+        "Internal": true,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+          "Network": ""
+        },
+        "ConfigOnly": false,
+        "Options": {
+          "com.docker.network.bridge.name": "ag77896b8759c8e"
+        },
+        "Labels": {
+          "ai.agen.research.attempt": "3d9a9e15-aea5-4b37-925c-ea59130a750b",
+          "ai.agen.research.generation": "81ec648e-eea6-4d75-85bb-da5252f315e0",
+          "ai.agen.research.member": "73dc8e2b5ebc0d956a7dc84e98fe88b09bc3e8df3241789bc62e1d98eec9ef7f",
+          "ai.agen.research.request": "75219cd6-fd25-4ccb-91f3-f3440f82be10"
+        },
+        "Containers": {},
+        "Status": {
+          "IPAM": {
+            "Subnets": {
+              "10.253.247.0/28": {
+                "IPsInUse": 3,
+                "DynamicIPsAvailable": 13
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "DELETE",
+      "path": "/v1.52/networks/eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+      "entered": "2026-10-29T22:57:03.734Z",
+      "settled": "2026-10-29T22:57:03.856Z",
+      "status": 204,
+      "requestSha256": null,
+      "responseSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "responseBytes": 0,
+      "body": null
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks/eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+      "entered": "2026-10-29T22:57:03.861Z",
+      "settled": "2026-10-29T22:57:03.863Z",
+      "status": 404,
+      "requestSha256": null,
+      "responseSha256": "f67221e634043dd4ac3694dd71c6789183dc737757696e7ca186e48bc2a16dc4",
+      "responseBytes": 97,
+      "body": {
+        "message": "network eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b not found"
+      }
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks/agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+      "entered": "2026-10-29T22:57:03.863Z",
+      "settled": "2026-10-29T22:57:03.865Z",
+      "status": 404,
+      "requestSha256": null,
+      "responseSha256": "380a7db557743d50ab3304e5353f242c0d69390a72f5e6089a485a4e0b5f0107",
+      "responseBytes": 87,
+      "body": {
+        "message": "network agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b not found"
+      }
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks",
+      "entered": "2026-10-29T22:57:03.865Z",
+      "settled": "2026-10-29T22:57:03.866Z",
+      "status": 200,
+      "requestSha256": null,
+      "responseSha256": "9d01ae5aadad9e69d94591a1f0d6a44b23e380db848e51c9f1ded0d06a8dde18",
+      "responseBytes": 2256,
+      "body": [
+        {
+          "Name": "agenai-local_default",
+          "Id": "054f5294e44cf087f57679445790523b66ab4c0dd19fe47b6ce959c0dc6873d3",
+          "Created": "2026-06-01T21:31:06.800610877Z",
+          "Scope": "local",
+          "Driver": "bridge",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+              {
+                "Subnet": "172.18.0.0/16",
+                "IPRange": "",
+                "Gateway": "172.18.0.1"
+              }
+            ]
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {
+            "com.docker.network.enable_ipv4": "true",
+            "com.docker.network.enable_ipv6": "false"
+          },
+          "Labels": {
+            "com.docker.compose.config-hash": "7b99011e8149ca6eaa9f88fa1431ae82cad76d43456456a57ded0860cc1cf483",
+            "com.docker.compose.network": "default",
+            "com.docker.compose.project": "agenai-local",
+            "com.docker.compose.version": "2.40.3"
+          }
+        },
+        {
+          "Name": "host",
+          "Id": "6a30ac84e39202967a0766a5a1cfe4346a428caae6603390368906b05074871f",
+          "Created": "2026-03-31T15:37:01.345176333Z",
+          "Scope": "local",
+          "Driver": "host",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": null
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {},
+          "Labels": {}
+        },
+        {
+          "Name": "none",
+          "Id": "ae351e6cf7e9e47c4327704cbda5df9f9c29c56ee00ef3a8baaa3d25082cd020",
+          "Created": "2026-03-31T15:37:01.344231791Z",
+          "Scope": "local",
+          "Driver": "null",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": null
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {},
+          "Labels": {}
+        },
+        {
+          "Name": "bridge",
+          "Id": "e5864f4fb8f2995c9bf5e0bc577976d96572299c927407e29f443af8136d4af0",
+          "Created": "2026-10-29T22:57:03.4555035Z",
+          "Scope": "local",
+          "Driver": "bridge",
+          "EnableIPv4": true,
+          "EnableIPv6": false,
+          "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+              {
+                "Subnet": "172.17.0.0/16",
+                "IPRange": "",
+                "Gateway": "172.17.0.1"
+              }
+            ]
+          },
+          "Internal": false,
+          "Attachable": false,
+          "Ingress": false,
+          "ConfigFrom": {
+            "Network": ""
+          },
+          "ConfigOnly": false,
+          "Options": {
+            "com.docker.network.bridge.default_bridge": "true",
+            "com.docker.network.bridge.enable_icc": "true",
+            "com.docker.network.bridge.enable_ip_masquerade": "true",
+            "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+            "com.docker.network.bridge.name": "docker0",
+            "com.docker.network.driver.mtu": "65535"
+          },
+          "Labels": {}
+        }
+      ]
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks/eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+      "entered": "2026-10-29T22:57:03.948Z",
+      "settled": "2026-10-29T22:57:03.950Z",
+      "status": 404,
+      "requestSha256": null,
+      "responseSha256": "f67221e634043dd4ac3694dd71c6789183dc737757696e7ca186e48bc2a16dc4",
+      "responseBytes": 97,
+      "body": {
+        "message": "network eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b not found"
+      }
+    },
+    {
+      "socketPath": "/Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/networks/agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b",
+      "entered": "2026-10-29T22:57:03.950Z",
+      "settled": "2026-10-29T22:57:03.953Z",
+      "status": 404,
+      "requestSha256": null,
+      "responseSha256": "380a7db557743d50ab3304e5353f242c0d69390a72f5e6089a485a4e0b5f0107",
+      "responseBytes": 87,
+      "body": {
+        "message": "network agenai-ms001-late-3d9a9e15-aea5-4b37-925c-ea59130a750b not found"
+      }
+    }
+  ],
+  "identityReceipts": [
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:57:00.633Z",
+      "settled": "2026-10-29T22:57:00.721Z",
+      "status": 200,
+      "bytes": 9150,
+      "responseSha256": "c36f8ea60604f5c42109aa6f15484da56fec0661fb6410fbf902e20b4a2a46af"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:57:00.721Z",
+      "settled": "2026-10-29T22:57:00.723Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:57:01.093Z",
+      "settled": "2026-10-29T22:57:01.094Z",
+      "status": 200,
+      "bytes": 9150,
+      "responseSha256": "c36f8ea60604f5c42109aa6f15484da56fec0661fb6410fbf902e20b4a2a46af"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:57:01.094Z",
+      "settled": "2026-10-29T22:57:01.095Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:57:01.992Z",
+      "settled": "2026-10-29T22:57:01.992Z",
+      "status": 200,
+      "bytes": 9150,
+      "responseSha256": "c36f8ea60604f5c42109aa6f15484da56fec0661fb6410fbf902e20b4a2a46af"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:57:01.992Z",
+      "settled": "2026-10-29T22:57:01.993Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:57:03.699Z",
+      "settled": "2026-10-29T22:57:03.705Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "03ee9359cdcd83b18b0f90b12c92877ce054ea834d99b28da673a9768b31a2c1"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:57:03.705Z",
+      "settled": "2026-10-29T22:57:03.709Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:57:03.723Z",
+      "settled": "2026-10-29T22:57:03.730Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "d92f06be511a1685ad475faa1090da20e43e6a476147443140c43e4fcdda618d"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:57:03.730Z",
+      "settled": "2026-10-29T22:57:03.733Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:57:03.870Z",
+      "settled": "2026-10-29T22:57:03.876Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "4dcfb56645d56bc39c95e677a4bc93f164cea59b2f7544ddd749aa0419366264"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:57:03.876Z",
+      "settled": "2026-10-29T22:57:03.879Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:57:03.936Z",
+      "settled": "2026-10-29T22:57:03.944Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "6de2457558d4d16c27e1df010583e8f1634f62ea07dae8592645603c35a63306"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:57:03.944Z",
+      "settled": "2026-10-29T22:57:03.948Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-10-29T22:57:01.090Z",
+      "stage": "gateway_holds_original_message_before_engine_dispatch",
+      "requestId": "75219cd6-fd25-4ccb-91f3-f3440f82be10",
+      "forwardCount": 0
+    },
+    {
+      "at": "2026-10-29T22:57:01.983Z",
+      "stage": "released_kernel_claim_and_current_absence_do_not_clear_dirty_barrier",
+      "generation": "81ec648e-eea6-4d75-85bb-da5252f315e0"
+    },
+    {
+      "at": "2026-10-29T22:57:03.699Z",
+      "stage": "same_original_request_completed_after_controller_death",
+      "exactId": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+      "requestId": "75219cd6-fd25-4ccb-91f3-f3440f82be10"
+    },
+    {
+      "at": "2026-10-29T22:57:03.886Z",
+      "stage": "original_exact_resource_removed_and_generation_clean",
+      "exactId": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b"
+    },
+    {
+      "at": "2026-10-29T22:57:03.953Z",
+      "stage": "fresh_generation_and_independent_exact_absence_verified"
+    }
+  ],
+  "result": "passed",
+  "productionRootTouched": false,
+  "replayedCreateRequests": 0,
+  "warning": "Only the original child controller dies; independent parent gateway authority remains. Not production crash settlement."
+}

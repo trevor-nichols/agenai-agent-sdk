@@ -10,7 +10,8 @@ import { dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { prepareSandboxCredentialBootstrap, readSandboxCredentialFile } from "@agen-ai/sandbox/node";
 import { prepareDockerSandboxEgressHelpers, prepareDockerSandboxFilesystemHelper,
-  prepareDockerDesktopHostNetworkObserver, prepareDockerDesktopVmRouteObserver } from "@agen-ai/sandbox-docker/node";
+  prepareDockerDesktopHostNetworkObserver, prepareDockerDesktopVmRouteObserver,
+  prepareDockerDesktopCoordinatorHelper } from "@agen-ai/sandbox-docker/node";
 
 const root = fileURLToPath(new URL("../sandbox-preparation/", import.meta.url));
 const require = createRequire(import.meta.url);
@@ -110,6 +111,20 @@ assert.equal(host.toolchain.compiler.path, "/explicit-offline-toolchain/clang", 
 await assert.rejects(prepareDockerDesktopHostNetworkObserver({ ...hostOptions, toolchain: host.toolchain }), { code: "EEXIST" });
 assert.deepEqual(await contextFiles(host.directory), hostFiles);
 
+const coordinatorOptions = { directory: join(root, "desktop-coordinator"), toolchain: host.toolchain };
+const coordinator = await prepareDockerDesktopCoordinatorHelper(coordinatorOptions);
+assert.equal(coordinator.protocol, "agenai.desktop-coordinator.v1");
+assert.equal(coordinator.architecture, "darwin/arm64");
+assert.equal(coordinator.executable, "agenai-desktop-coordinator");
+const coordinatorFiles = await verifyContext(coordinator, dockerPackageRoot, "", ["manifest.json", "commands.json"]);
+assert.equal((await stat(coordinator.directory)).mode & 0o777, 0o700);
+assert.deepEqual(JSON.parse(await readFile(join(coordinator.directory, "commands.json"), "utf8")), {
+  cwd: coordinator.directory, compilerSha256: host.toolchain.compiler.sha256, commands: coordinator.commands,
+});
+await assert.rejects(stat(join(coordinator.directory, coordinator.executable)), { code: "ENOENT" });
+await assert.rejects(prepareDockerDesktopCoordinatorHelper(coordinatorOptions), { code: "EEXIST" });
+assert.deepEqual(await contextFiles(coordinator.directory), coordinatorFiles);
+
 const vmOptions = { directory: join(root, "desktop-vm"), toolchainImageDigest, baseImageDigest, user };
 const vm = await prepareDockerDesktopVmRouteObserver(vmOptions);
 assert.equal(vm.protocol, "agenai.sandbox.desktop-route-observer.v1");
@@ -165,6 +180,8 @@ process.stdout.write(`${JSON.stringify({ proof: "packed-sandbox-helper-preparati
     sourceDigest: filesystem.sourceDigest, manifest: filesystem.files, context: filesystemFiles, existingContext: "preserved" },
   desktopHost: { protocol: host.protocol, architecture: host.architecture, sourceDigest: host.sourceDigest,
     manifest: host.files, context: hostFiles, existingContext: "preserved" },
+  desktopCoordinator: { protocol: coordinator.protocol, architecture: coordinator.architecture, sourceDigest: coordinator.sourceDigest,
+    manifest: coordinator.files, context: coordinatorFiles, existingContext: "preserved" },
   desktopVm: { protocol: vm.protocol, observationProtocol: vm.observationProtocol, platform: vm.platform,
     sourceDigest: vm.sourceDigest, manifest: vm.files, context: vmFiles, runtimeClosure: "imported", existingContext: "preserved" },
   credentials: { protocol: credentials.protocol, guestDirectory: credentials.guestDirectory, executableName: credentials.executableName,

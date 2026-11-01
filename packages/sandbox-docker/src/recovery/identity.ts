@@ -7,7 +7,7 @@ import { parseSandboxId, parseSandboxNamespace, parseSandboxRecoveryRecord, Sand
 import type { SandboxRecoveryRecord, SandboxRecoveryResource, SandboxRequest } from '@agen-ai/sandbox';
 import type { DockerSandboxConfig } from '../policy/config.js';
 import { DOCKER_BACKEND_ID } from '../policy/config.js';
-import { dockerBackendRevision } from '../policy/profiles.js';
+import { dockerBackendRevision, dockerCoordinatedBackendRevision } from '../policy/profiles.js';
 
 export type ResourceRole = SandboxRecoveryResource['role'];
 
@@ -24,8 +24,14 @@ export function desktopBridgeName(record: SandboxRecoveryRecord): string {
 }
 
 export function configurationDigest(config: DockerSandboxConfig): string {
-  return digest({ profile: config.profile, endpoint: config.endpoint, user: config.user,
-    imageDigest: config.imageDigest, datasets: config.datasets, egress: config.egress, filesystem: config.filesystem });
+  const configuration = { profile: config.profile, endpoint: config.endpoint, user: config.user,
+    imageDigest: config.imageDigest, datasets: config.datasets, egress: config.egress, filesystem: config.filesystem };
+  return config.coordination === undefined ? digest(configuration) : digest({ ...configuration,
+    namespace: config.namespace, spillDirectory: config.spillDirectory, coordination: config.coordination });
+}
+
+export function configurationBackendRevision(config: DockerSandboxConfig): string {
+  return config.coordination === undefined ? dockerBackendRevision(config.profile) : dockerCoordinatedBackendRevision(config.profile);
 }
 
 export function newRecoveryRecord(config: DockerSandboxConfig, request: SandboxRequest): SandboxRecoveryRecord {
@@ -35,7 +41,7 @@ export function newRecoveryRecord(config: DockerSandboxConfig, request: SandboxR
   if (request.policy.network.kind === 'restricted_https') roles.push('egress_socket', 'egress_broker', 'egress_relay');
   if (request.policy.files.kind !== 'disabled') roles.push('filesystem');
   if (request.policy.network.kind === 'restricted_https' && config.profile !== 'linux-x64') roles.push('route_observer');
-  return parseSandboxRecoveryRecord({ format: 'agenai.sandbox-recovery.v3', backendId: DOCKER_BACKEND_ID, backendRevision: dockerBackendRevision(config.profile),
+  return parseSandboxRecoveryRecord({ format: 'agenai.sandbox-recovery.v3', backendId: DOCKER_BACKEND_ID, backendRevision: configurationBackendRevision(config),
     namespace: parseSandboxNamespace(config.namespace), operationId, sandboxId: parseSandboxId(`docker-${operationId}`),
     imageDigest: config.imageDigest, configurationDigest: configurationDigest(config), policyDigest: digest(request.policy),
     phase: 'reserved', authority: { kind: 'unverified' },
@@ -71,7 +77,7 @@ export function validateRecord(record: SandboxRecoveryRecord, config: DockerSand
   const topology = exactRoles('compute', 'storage', 'export') || exactRoles('compute', 'storage', 'export', 'network')
     || config.egress !== undefined && exactRoles('compute', 'storage', 'export', 'network', 'egress_socket', 'egress_broker', 'egress_relay',
       ...(config.profile === 'linux-x64' ? [] : ['route_observer'] satisfies ResourceRole[]));
-  return record.format === 'agenai.sandbox-recovery.v3' && record.backendId === DOCKER_BACKEND_ID && record.backendRevision === dockerBackendRevision(config.profile)
+  return record.format === 'agenai.sandbox-recovery.v3' && record.backendId === DOCKER_BACKEND_ID && record.backendRevision === configurationBackendRevision(config)
     && record.namespace === config.namespace && record.imageDigest === config.imageDigest
     && record.configurationDigest === configurationDigest(config)
     && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u.test(record.operationId)

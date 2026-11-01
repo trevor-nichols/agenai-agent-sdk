@@ -167,13 +167,15 @@ export class SandboxOwner implements SandboxReservation {
   private beginStop(): Promise<void> {
     if (this.stopActual) return this.stopActual;
     if (this.snapshot.kind !== 'destroying') this.snapshot = Object.freeze({ kind: 'stopping' });
+    const reason = new SandboxOperationError('cancelled', 'Sandbox compute is stopping.');
+    const closed = this.infrastructureFailure ?? reason;
     // Enter physical shutdown before joining work that may need shutdown to settle.
     const physical = Promise.withResolvers<void>();
     let transferCleanup: Promise<void> | undefined;
     const actual = physical.promise.then(async () => {
       await settled(this.startup);
       await settled(this.process?.actual);
-      this.streams?.close();
+      this.streams?.close(closed);
       await this.streams?.settled;
       await transferCleanup;
       await liveCleanup;
@@ -185,7 +187,6 @@ export class SandboxOwner implements SandboxReservation {
     });
     this.stopActual = actual;
     void actual.catch(() => {});
-    const reason = new SandboxOperationError('cancelled', 'Sandbox compute is stopping.');
     this.startupController.abort(reason);
     this.process?.controller.abort(reason);
     if (this.transfer?.kind === 'import') this.transfer.controller.abort(reason);
@@ -199,7 +200,7 @@ export class SandboxOwner implements SandboxReservation {
     }
     const liveCleanup = this.cleanupLive();
     void liveCleanup.catch(() => {});
-    this.streams?.close();
+    this.streams?.close(closed);
     return actual;
   }
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { SandboxOperationError } from '@agen-ai/sandbox';
 import type { SandboxProcessStreams } from '@agen-ai/sandbox';
 
 function record(value: unknown): Record<string, unknown> {
@@ -46,7 +47,7 @@ export class CombinedProgramSession {
   private readerFailure: AggregateError | undefined;
 
   constructor(private readonly streams: SandboxProcessStreams, private readonly timeoutMs: number) {
-    streams.stdin.on('error', (error: Error) => this.fail(error));
+    streams.stdin.on('error', (error: Error) => { if (!this.expectedStopClose(error)) this.fail(error); });
     const stdout = this.readStdout().catch((error: unknown) => this.fail(error));
     const stderr = this.readStderr().catch((error: unknown) => this.fail(error));
     this.readers = Promise.all([stdout, stderr]).then(() => {});
@@ -92,7 +93,7 @@ export class CombinedProgramSession {
   }
 
   private expectedStopClose(error: unknown): boolean {
-    return this.phase === 'stopping' && error instanceof Error && 'code' in error && error.code === 'ERR_STREAM_PREMATURE_CLOSE';
+    return this.phase === 'stopping' && error instanceof SandboxOperationError && error.code === 'cancelled';
   }
 
   private async next(): Promise<Record<string, unknown>> {

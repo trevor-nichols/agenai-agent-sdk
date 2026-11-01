@@ -1,3 +1,5 @@
+import { nativeControllerReady } from '../../native-controller.mjs';
+import { cleanupDiagnostic, finishChildCleanup, waitForInterruption } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { acquireJsonInput } from '../input.mjs';
@@ -6,7 +8,7 @@ import { until } from '../../../engine.mjs';
 import { assertGuestFacts, backend, request } from './installed.mjs';
 import { failure, jsonWriter } from './evidence.mjs';
 import { sha } from './operations.mjs';
-import { settleOwnerCleanup } from './owner-cleanup.mjs';
+import { originalOwnerCleanup, settleOwnerCleanup } from './owner-cleanup.mjs';
 
 const [mode, configurationPath] = process.argv.slice(2);
 assert(process.argv.length === 4 && ['start', 'lease', 'recover', 'absent'].includes(mode));
@@ -15,6 +17,10 @@ assert.deepEqual(Object.keys(config).sort(), ['challenge', 'config', 'directory'
   'originalPath', 'readyPath', 'recoveryPath', 'resultPath'].sort());
 const saveResult = jsonWriter(config.resultPath); const saveRecovery = jsonWriter(config.recoveryPath);
 const result = { mode, pid: process.pid, challenge: config.challenge, status: 'entered', cleanupErrors: [], checkpoints: [], cleanupObservations: [] };
+const cancellation = new AbortController();
+const interrupt = () => cancellation.abort(new Error('Installed child qualification interrupted.'));
+process.on('SIGTERM', interrupt); process.on('SIGINT', interrupt);
+await nativeControllerReady();
 await saveResult(result);
 let owner; let session;
 const resume = Promise.withResolvers();
@@ -33,7 +39,7 @@ const settleCleanup = (operation) => settleOwnerCleanup(owner, operation, {
 async function initialize(selected) {
   owner = selected.reserve(request(config.config), { kind: 'persisted', persist: saveRecovery });
   await saveRecovery(owner.recoveryRecord);
-  const sandbox = await owner.start();
+  const sandbox = await owner.start({ signal: cancellation.signal });
   const source = await readFile(new URL('../../../capabilities/live/guest.mjs', import.meta.url));
   await sandbox.importTree([fileFromBytes('qualification/live-guest.mjs', source)]);
   const streams = await sandbox.reserveProcess({ executable: '/usr/local/bin/node', args: [`${sandbox.workspace}/qualification/live-guest.mjs`],
@@ -55,12 +61,12 @@ async function initialize(selected) {
     readyAt: new Date().toISOString(), resumeListenerInstalledAt: result.resumeListenerInstalledAt ?? null };
   await jsonWriter(config.readyPath)(ready);
   result.checkpoints.push({ phase: 'initialized-with-native-read-write', ready }); await saveResult(result);
-  process.stdout.write(`${JSON.stringify({ phase: 'ready', pid: process.pid, challenge: config.challenge })}\n`);
+  cleanupDiagnostic({ phase: 'ready', pid: process.pid, challenge: config.challenge });
   return { sandbox, ready };
 }
 
 async function finishLease(sandbox, ready) {
-  result.resume = await resume.promise;
+  result.resume = await Promise.race([resume.promise, waitForInterruption(cancellation.signal)]);
   assert(result.resume.receivedAt >= ready.readyAt);
   await saveResult(result);
   await until(() => owner.state.kind !== 'ready', config.config.capabilities.limits.requestMs,
@@ -101,7 +107,7 @@ try {
   if (mode === 'start' || mode === 'lease') {
     const { sandbox, ready } = await initialize(selected);
     if (mode === 'lease') await finishLease(sandbox, ready);
-    else await new Promise(() => {});
+    else await waitForInterruption(cancellation.signal);
   } else {
     const bytes = await readFile(config.originalPath); assert(bytes.length <= 128 * 1024);
     const record = parseSandboxRecoveryRecord(JSON.parse(bytes.toString('utf8')));
@@ -114,11 +120,11 @@ try {
       for (const method of ['start', 'reserveProcess', 'importTree', 'exportTree', 'files']) assert.equal(typeof owner[method], 'undefined');
       await saveRecovery(owner.recoveryRecord); result.checkpoints.push({ phase: 'cleanup-only-reconciled', record: owner.recoveryRecord });
       let firstFailure;
-      try { await owner.destroy(); } catch (error) { firstFailure = error; }
+      try { await originalOwnerCleanup(owner, 'destroy'); } catch (error) { firstFailure = error; }
       if (config.expectRetry) {
         assert(firstFailure instanceof SandboxCleanupError); assert.equal(firstFailure.owner, owner);
         result.retainedFailure = failure(firstFailure); await saveRecovery(owner.recoveryRecord); await saveResult(result);
-        await firstFailure.owner.destroy();
+        await originalOwnerCleanup(firstFailure.owner, 'destroy');
         result.checkpoints.push({ phase: 'retry-original-cleanup-owner', record: owner.recoveryRecord });
       } else if (firstFailure) throw firstFailure;
       await owner.destroy(); result.checkpoints.push({ phase: 'duplicate-destroy', record: owner.recoveryRecord });
@@ -129,11 +135,10 @@ try {
   }
 } catch (error) {
   result.status = 'failed'; result.failure = failure(error);
-  if (owner) {
-    try { await settleCleanup('destroy'); } catch (cleanup) { result.cleanupErrors.push(failure(cleanup)); }
-    result.finalRecord = owner.recoveryRecord;
-    try { await saveRecovery(owner.recoveryRecord); } catch (cleanup) { result.cleanupErrors.push(failure(cleanup)); }
-  }
-  if (session) { try { result.session = await session.join(); } catch (cleanup) { result.cleanupErrors.push(failure(cleanup)); } }
-  await saveResult(result); process.stderr.write(`${JSON.stringify(result.failure)}\n`); process.exitCode = 1;
-} finally { process.removeListener('SIGCONT', resumed); }
+  cleanupDiagnostic(result.failure, 2); process.exitCode = 1;
+} finally {
+  await finishChildCleanup({ result, save: () => saveResult(result), owners: owner ? [owner] : [], sessions: session ? [session] : [],
+    timeoutMs: config.config.capabilities.limits.cleanupMs });
+  if (owner) try { await saveRecovery(owner.recoveryRecord); } catch (error) { result.status = 'failed'; result.cleanupErrors.push(failure(error)); process.exitCode = 1; }
+  process.removeListener('SIGCONT', resumed);
+}

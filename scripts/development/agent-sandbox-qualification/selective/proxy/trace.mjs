@@ -3,12 +3,13 @@
 // ------------------------------------------------------------------------------------------------
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { open } from 'node:fs/promises';
 
 export class RequestTrace {
-  constructor(file) { this.file = file; this.pending = Promise.resolve(); this.nextId = 0; this.row = 'setup'; this.summaries = new Map(); }
+  constructor(file, path, capacity) { this.file = file; this.path = path; this.offset = 0; this.capacity = capacity; this.pending = Promise.resolve(); this.nextId = 0; this.row = 'setup'; this.summaries = new Map(); }
 
-  static async create(path) { return new RequestTrace(await open(path, 'wx', 0o600)); }
+  static async create(path, capacity) { return new RequestTrace(await open(path, 'wx', 0o600), path, capacity); }
 
   begin(method, target) {
     const url = new URL(target, 'http://engine.invalid');
@@ -19,8 +20,7 @@ export class RequestTrace {
 
   async finish(record) {
     record.finishedAt = new Date().toISOString();
-    const bytes = Buffer.from(`${JSON.stringify(record)}\n`);
-    assert(bytes.length <= 2048, 'Engine trace record exceeded its bounded envelope.');
+    record.admission = this.capacity();
     let row = this.summaries.get(record.row);
     if (!row) {
       assert(this.summaries.size < 64, 'Qualification row census exceeded its selected bound.');
@@ -35,19 +35,35 @@ export class RequestTrace {
       if (['/workspace', '/workspace/work', '/workspace/', '/workspace/work/'].includes(record.archivePath)) row.rootArchiveGets += 1;
     }
     if (record.failure !== null) row.failures += 1;
+    return Object.freeze({ traceId: record.id, ...await this.append(record) });
+  }
+
+  rejected(boundary, request) {
+    return this.append({ kind: 'admission_rejected', boundary, row: this.row, at: new Date().toISOString(),
+      method: request?.method ?? null, target: request?.url ?? null, archivePath: null, admission: this.capacity() });
+  }
+
+  async append(record) {
+    const bytes = Buffer.from(`${JSON.stringify(record)}\n`);
+    assert(bytes.length <= 2048, 'Engine trace record exceeded its bounded envelope.');
+    let start;
     const actual = this.pending.then(async () => {
+      start = this.offset;
       let offset = 0;
       while (offset < bytes.length) {
         const { bytesWritten } = await this.file.write(bytes, offset, bytes.length - offset, null);
         assert(bytesWritten > 0);
-        offset += bytesWritten;
+        offset += bytesWritten; this.offset += bytesWritten;
       }
     });
     this.pending = actual;
     await actual;
+    return Object.freeze({ original: Object.freeze({ path: this.path, offset: start, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }),
+      bytes: Buffer.from(bytes) });
   }
 
   summary(row) { return { ...(this.summaries.get(row) ?? { requests: 0, archiveHeads: 0, archiveGets: 0, archiveBytes: 0n, rootArchiveGets: 0, failures: 0 }) }; }
+  async idle() { await this.pending; }
   async close() {
     const failures = [];
     try { await this.pending; } catch (error) { failures.push(error); }

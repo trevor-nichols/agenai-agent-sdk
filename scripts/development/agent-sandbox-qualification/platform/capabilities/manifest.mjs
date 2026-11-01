@@ -4,8 +4,9 @@ import { within } from '../../native/configuration.mjs';
 import { routeAuthority } from './authority.mjs';
 import { captureData, physicalPath } from './input.mjs';
 import { boundedText, control, endpoint, imageDigest, integer, keys, resources, sha256, temporaryBytes, user } from './validation.mjs';
+import { parseConcurrencyManifest } from './concurrency/manifest.mjs';
 
-export const advancedRows = Object.freeze(['live-files', 'preserve-internal', 'restricted-https', 'combined']);
+export const advancedRows = Object.freeze(['live-files', 'preserve-internal', 'restricted-https', 'combined', 'desktop-concurrency']);
 
 // Admission reserves the independent diagnostic and both simultaneous marker fixtures.
 const diagnosticBudget = Object.freeze({ nanoCpus: 1_000_000_000, memoryBytes: 256 * 1024 ** 2 });
@@ -18,7 +19,7 @@ function helperBudget(value) {
   keys(value, ['resources', 'temporaryBytes']); resources(value.resources); temporaryBytes(value.temporaryBytes);
 }
 
-function filesystem(value, limits) {
+export function filesystem(value, limits) {
   keys(value, ['sourceDigest', 'configuration']); imageDigest(value.sourceDigest);
   const config = value.configuration;
   keys(config, ['imageDigest', 'protocol', 'executable', 'layout', 'user', 'resources', 'temporaryBytes', 'control']);
@@ -70,7 +71,7 @@ function fixtureNetwork(value) {
   assert(host !== 0 && !value.hostAddress.startsWith('127.'), 'Host marker requires a non-loopback, non-unspecified IPv4 address.');
 }
 
-function network(value, platform, limits) {
+export function network(value, platform, limits) {
   keys(value, ['egress', 'routeAuthority', 'positive', 'fixtures']);
   keys(value.egress, ['sourceDigest', 'configuration']); imageDigest(value.egress.sourceDigest);
   const config = value.egress.configuration;
@@ -104,6 +105,7 @@ function aggregateBudget(value) {
 }
 
 export function parseCapabilityManifest(input, { row, platform, platformInput, consumer, output }) {
+  if (row === 'desktop-concurrency') return parseConcurrencyManifest(input, { platform, platformInput, consumer, output });
   const value = captureData(input);
   const sections = row === 'combined' ? ['filesystem', 'transfers', 'network']
     : row === 'live-files' ? ['filesystem'] : row === 'preserve-internal' ? ['filesystem', 'transfers'] : ['network'];

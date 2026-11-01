@@ -133,7 +133,7 @@ export function parseDesktopHostObservation(input: unknown): DesktopHostObservat
   const interfaceFacts = value.interfaces.map((device) => {
     requireFact(!indexes.has(device.index) && !names.has(device.name), 'Duplicate host interface identity.');
     indexes.add(device.index); names.add(device.name);
-    const addresses = device.addresses.map((entry) => {
+    const addresses = device.addresses.flatMap((entry) => {
       requireFact(++addressCount <= 4096, 'Host address observation exceeds its total entry bound.');
       const ip = scoped(entry.address, entry.family, entry.scopeId, device.index);
       const mask = maskPrefix(entry.netmask, entry.family);
@@ -145,9 +145,12 @@ export function parseDesktopHostObservation(input: unknown): DesktopHostObservat
       add(entry.family, ip, mask.prefix, mask.mask);
       if (remote !== null) add(entry.family, remote, addressWidth(entry.family));
       if (broadcast !== null) add(entry.family, broadcast, addressWidth(entry.family));
-      return { family: entry.family, address: addressString(ip, entry.family), prefix: mask.prefix, scopeId: entry.scopeId,
+      // Darwin replaces IPv6 link-local addresses whenever it randomizes a MAC (AWDL/LLW); their ranges stay excluded
+      // and complete observations deny all IPv6, so they are not host route authority.
+      if (entry.family === 6 && (ip >> 118n) === 0x3fan) return [];
+      return [{ family: entry.family, address: addressString(ip, entry.family), prefix: mask.prefix, scopeId: entry.scopeId,
         flags: entry.flags, peer: remote === null ? null : addressString(remote, entry.family),
-        broadcast: broadcast === null ? null : addressString(broadcast, entry.family) };
+        broadcast: broadcast === null ? null : addressString(broadcast, entry.family) }];
     }).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
     return { index: device.index, name: device.name, flags: device.flags, addresses };
   }).sort((left, right) => left.index - right.index);
@@ -185,7 +188,9 @@ export function parseDesktopHostObservation(input: unknown): DesktopHostObservat
     scopeId: route.scopeId, scoped: !!(route.flags & routeFlags.scoped), gateway: route.gateway?.kind === 'ip'
       ? { ...route.gateway, address: addressString(route.gateway.address, route.gateway.family) } : route.gateway }))
     .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
-  const fingerprint = createHash('sha256').update(JSON.stringify({ host: value.host, interfaces: interfaceFacts, excludedCidrs, defaults, proxy: value.proxy })).digest('hex');
+  // Darwin recomputes kern.boottime whenever the wall clock is stepped, and a reboot ends every holder of this authority.
+  const { boot: _boot, ...host } = value.host;
+  const fingerprint = createHash('sha256').update(JSON.stringify({ host, interfaces: interfaceFacts, excludedCidrs, defaults, proxy: value.proxy })).digest('hex');
   freezeObservation(value);
   return Object.freeze({ snapshot: value, excludedCidrs: Object.freeze(excludedCidrs), fingerprint, proxySafe: true });
 }

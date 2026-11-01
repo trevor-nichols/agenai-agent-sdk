@@ -1,3 +1,4 @@
+import { cleanupProof, cleanupAction, finishControllerCleanup, joinedCleanupChild } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { chmod, copyFile, readFile } from 'node:fs/promises';
@@ -131,9 +132,9 @@ async function childCase(run, context, mode) {
   run.evidence.childOwner = { configuration: path, directory, originalPath: childConfig.child.originalPath,
     namespace: childConfig.child.namespace, challenge: childConfig.child.challenge, cleanupKind: null, quiescent: false,
     originalReservationConfirmed: false };
-  await run.save(); let child; let original; let bytes; let completed = false;
-  let resumedAt;
-  run.afterCleanup.push(async () => {
+  let child; let original; let bytes; let completed = false;
+  let resumedAt, intentionalCrash = false, recoveryAttempt;
+  run.afterCleanup.push(cleanupProof(async () => {
     const bytes = await readFile(join(run.directory, 'trace.jsonl')); assert(bytes.length <= 4 * 1024 ** 2);
     const entries = bytes.toString().trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     const creates = entries.filter(({ method, target }) => method === 'POST' && target.startsWith('/v1.52/containers/create?'));
@@ -141,19 +142,27 @@ async function childCase(run, context, mode) {
     if (resumedAt) assert.equal(entries.filter(({ method, target, startedAt }) => destructive(method, target) && startedAt < resumedAt).length, 0);
     await run.observe({ kind: 'original-controller-no-create-replay', containerCreates: creates.length, resumedAt: resumedAt ?? null,
       traceBytes: bytes.length, traceSha256: sha(bytes) });
-  });
+  }));
   const recover = async (kind) => {
     const recoveryConfig = { ...childConfig, child: { ...childConfig.child, mode: 'cleanup',
       resultPath: join(run.directory, `${kind}-result.json`) } };
-    const recoveryPath = join(run.directory, `${kind}.json`); await jsonWriter(recoveryPath)(recoveryConfig);
-    const cleanup = startController({ script, configuration: recoveryPath, cwd: context.config.consumer, env: process.env,
-      timeoutMs: limits.cleanupMs * 2 + limits.requestMs, maxOutputBytes: limits.maxOutputBytes, signal: context.signal });
-    const exit = await cleanup.join(); const result = JSON.parse(await readFile(recoveryConfig.child.resultPath, 'utf8'));
-    await run.observe({ kind: 'fresh-process-original-checkpoint-cleanup-only', exit, result });
-    assert.equal(exit.code, 0); assert.equal(result.status, 'passed'); assert.equal(result.finalRecord.phase, 'destroyed');
+    recoveryAttempt = kind;
+    const recoveryPath = join(run.directory, `${kind}.json`);
+    const exit = await joinedCleanupChild(run, kind, async () => {
+      await jsonWriter(recoveryPath)(recoveryConfig);
+      return { command: process.execPath, args: [script, 'start', recoveryPath], cwd: context.config.consumer, env: process.env,
+        timeoutMs: limits.cleanupMs * 2 + limits.requestMs, maxOutputBytes: limits.maxOutputBytes };
+    });
+    const result = JSON.parse(await readFile(recoveryConfig.child.resultPath, 'utf8'));
+    assert.equal(result.pid, exit.pid); assert.equal(result.challenge, childConfig.child.challenge);
+    assert.equal(result.cleanupComplete, true); assert.equal(result.finalRecord.phase, 'destroyed');
+    run.evidence.census.push(...await census(context.engine, result.finalRecord, 'fresh-cleanup-exact-absence', true));
     run.evidence.childOwner.cleanupKind = kind; run.evidence.childOwner.recovered = true; completed = true;
+    await run.observe({ kind: 'fresh-process-original-checkpoint-cleanup-only', exit, result });
+    assert.equal(exit.status, 0); assert.equal(result.status, 'passed');
   };
   try {
+    await run.save();
     child = startController({ script, configuration: path, cwd: context.config.consumer, env: process.env,
       mode: mode === 'lease' ? 'lease' : 'start', timeoutMs: limits.scenarioMs, maxOutputBytes: limits.maxOutputBytes,
       signal: context.signal, onControl: () => run.save() });
@@ -169,6 +178,7 @@ async function childCase(run, context, mode) {
     await run.observe({ kind: 'original-controller-durable-ready', initialized, original,
       census: await census(context.engine, original, 'controller-ready') });
     if (mode === 'crash') {
+      intentionalCrash = true;
       const exit = await child.kill(); assert.equal(exit.signal, 'SIGKILL'); assert.equal(exit.groupQuiescent, true);
       await run.observe({ kind: 'original-controller-killed-and-joined', exit }); run.evidence.childOwner.quiescent = true;
       await recover('fresh-process-cleanup');
@@ -229,23 +239,24 @@ async function childCase(run, context, mode) {
     assert.deepEqual(await readFile(childConfig.child.originalPath), bytes);
     await run.observe({ kind: 'independent-original-controller-resource-absence', census: await census(context.engine, original, 'child-final', true) });
   } finally {
-    if (child && !run.evidence.childOwner.quiescent) {
-      try { const exit = await child.kill(); run.evidence.childOwner.quiescent = exit.groupQuiescent; await run.observe({ kind: 'failed-case-controller-join', exit }); }
-      catch (error) { run.evidence.childOwner.quiescent = error.quiescent === true; await run.observe({ kind: 'failed-case-controller-join-error', failure: failure(error) }); }
-    }
-    if (!completed && run.evidence.childOwner.quiescent) {
-      try {
+    await finishControllerCleanup(run, limits.cleanupMs, async (cleanup) => {
+      if (!child) { completed = true; run.evidence.childOwner.quiescent = true; run.evidence.childOwner.cleanupKind = 'not-entered'; }
+      if (child && !run.evidence.childOwner.quiescent) await cleanup.step('original-controller', async () => {
+        try { const exit = await child.finish(); run.evidence.childOwner.quiescent = exit.groupQuiescent; }
+        catch (error) { run.evidence.childOwner.quiescent = error.quiescent === true; throw error; }
+      }, { retryRejected: true, complete: () => run.evidence.childOwner.quiescent });
+      if (!completed && !intentionalCrash) await cleanup.step('original-controller-result', async () => {
         const result = JSON.parse(await readFile(childConfig.child.resultPath, 'utf8'));
-        assert.equal(result.pid, child.pid); assert.equal(result.challenge, childConfig.child.challenge);
-        if (result.finalRecord?.phase === 'destroyed') {
-          await run.observe({ kind: 'failed-child-original-owner-already-cleaned', result,
-            census: await census(context.engine, result.finalRecord, 'failed-child-final', true) });
-          run.evidence.childOwner.cleanupKind = 'failed-child-original-owner-cleanup'; completed = true;
+        assert.equal(result.pid, child.pid); assert.equal(result.challenge, childConfig.child.challenge); assert.equal(result.cleanupComplete, true);
+        if (result.finalRecord) {
+          assert.equal(result.finalRecord.phase, 'destroyed');
+          run.evidence.census.push(...await census(context.engine, result.finalRecord, 'failed-original-child-exact-absence', true));
         }
-      } catch (error) { if (error.code !== 'ENOENT') await run.observe({ kind: 'failed-child-result-read', failure: failure(error) }); }
-      try { if (!completed) { await readFile(childConfig.child.originalPath); await recover('failed-test-fresh-cleanup-only'); } }
-      catch (error) { run.evidence.cleanupErrors.push(failure(error)); await run.save(); }
-    }
+        run.evidence.childOwner.cleanupKind = 'failed-child-original-owner-cleanup'; completed = true;
+      }, { retryRejected: true });
+      if (!completed) await cleanup.step('original-record-cleanup', () => recover(recoveryAttempt ?? 'failed-test-fresh-cleanup-only'),
+        { retryRejected: true, complete: () => completed });
+    });
   }
 }
 
@@ -283,7 +294,7 @@ export function faultCases(context) {
       const path = join(run.directory, 'host-observer'); await copyFile(original.path, path); await chmod(path, 0o500);
       assert.equal(sha(await readFile(path)), original.sha256);
       const opened = await restricted(run, context, { hostExecutable: { path, sha256: original.sha256 } }); await hold(run, context, opened);
-      run.beforeCleanup.push(() => chmod(path, 0o500)); await run.observe({ kind: 'owned-host-observer-permission-loss-entered', path });
+      run.beforeCleanup.push(cleanupAction(() => chmod(path, 0o500))); await run.observe({ kind: 'owned-host-observer-permission-loss-entered', path });
       await chmod(path, 0); await stopped(run, context, opened);
     }],
     ['authority-loss-during-resource-create', async (run) => {
@@ -308,7 +319,7 @@ export function faultCases(context) {
     ['observed-owned-route-addition', async (run) => {
       const opened = await restricted(run, context); await hold(run, context, opened);
       const bridge = await context.fixtures.createBridge('route_drift');
-      run.afterCleanup.push(() => context.fixtures.remove(bridge));
+      run.afterCleanup.push(cleanupAction(() => context.fixtures.remove(bridge), () => bridge.state === 'removed'));
       await run.observe({ kind: 'owned-public-route-created-after-original-seal', bridge }); await stopped(run, context, opened);
     }],
     ['foreign-member-authority-fence', async (run) => {

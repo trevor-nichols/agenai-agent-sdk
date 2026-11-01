@@ -9,6 +9,8 @@ import type { DockerApi } from '../resources/api.js';
 import type { DockerSandboxConfig } from './config.js';
 import { DOCKER_API } from './config.js';
 import { dockerProfile } from './profiles.js';
+import type { DockerSandboxProfile } from './profiles.js';
+import type { DockerDesktopRouteAuthorityIdentity } from '../network/desktopAuthority.js';
 import { empty, sameStrings } from './hostIsolation.js';
 import { EGRESS_PROTOCOL, HELPER_ENVIRONMENT, HELPER_IMAGE_PROTOCOL_LABEL, HELPER_IMAGE_SOURCE_LABEL, HELPER_IMAGE_USER_LABEL } from '../helpers/protocol.js';
 import type { DockerLinuxRouteCensus } from '../network/routeAuthority.js';
@@ -41,16 +43,18 @@ function supportsDatasetMountNames(version: string | undefined): boolean {
   return major > 29n || major === 29n && (minor > 1n || minor === 1n && patch >= 4n);
 }
 
-export function assertDockerController(config: DockerSandboxConfig): void {
+export function assertDockerController(config: Pick<DockerSandboxConfig, 'profile'>): void {
   const profile = dockerProfile(config.profile);
   if (process.platform !== profile.controllerOS || process.arch !== profile.controllerArchitecture) {
     throw new SandboxUnsupportedError(`Docker profile ${config.profile} requires a ${profile.controllerOS}/${profile.controllerArchitecture} controller.`);
   }
 }
 
-export async function verifyDaemon(api: DockerApi, config: DockerSandboxConfig, signal?: AbortSignal): Promise<string> {
-  assertDockerController(config);
-  const profile = dockerProfile(config.profile);
+async function verifySelectedDaemon(api: DockerApi, selected: Readonly<{
+  profile: DockerSandboxProfile; datasets: boolean; expectedDesktopId?: string;
+}>, signal?: AbortSignal): Promise<string> {
+  assertDockerController(selected);
+  const profile = dockerProfile(selected.profile);
   const version = await api.json('GET', '/version', versionSchema, { signal });
   const info = await api.json('GET', '/info', infoSchema, { signal });
   const security = info.SecurityOptions;
@@ -65,18 +69,27 @@ export async function verifyDaemon(api: DockerApi, config: DockerSandboxConfig, 
     || security.includes('name=apparmor') === profile.desktop
     || !security.includes('name=seccomp,profile=builtin')
     || !security.includes('name=cgroupns')) {
-    throw new SandboxUnsupportedError(`Docker daemon does not match profile ${config.profile}, its architecture, cgroup-v2 controllers or required default isolation.`);
+    throw new SandboxUnsupportedError(`Docker daemon does not match profile ${selected.profile}, its architecture, cgroup-v2 controllers or required default isolation.`);
   }
-  if (config.datasets.length > 0 && (info.Driver !== 'overlayfs' || imageStore?.length !== 1 || imageStore[0][1] !== 'io.containerd.snapshotter.v1')) {
+  if (selected.datasets && (info.Driver !== 'overlayfs' || imageStore?.length !== 1 || imageStore[0][1] !== 'io.containerd.snapshotter.v1')) {
     throw new SandboxUnsupportedError('Docker image datasets require the explicitly admitted overlayfs containerd image store.');
   }
-  if (config.datasets.length > 0 && !supportsDatasetMountNames(version.Version)) {
+  if (selected.datasets && !supportsDatasetMountNames(version.Version)) {
     throw new SandboxUnsupportedError('Docker image datasets require a stable Engine release of at least 29.1.4 with the image-layer filename fix.');
   }
-  if (config.egressAuthority?.kind === 'local_docker_desktop' && info.ID !== config.egressAuthority.identity.engine.id) {
+  if (selected.expectedDesktopId !== undefined && info.ID !== selected.expectedDesktopId) {
     throw new SandboxUnsupportedError('Docker daemon differs from the exact Engine selected by the Desktop route authority.');
   }
   return info.ID;
+}
+
+export function verifyDaemon(api: DockerApi, config: DockerSandboxConfig, signal?: AbortSignal): Promise<string> {
+  return verifySelectedDaemon(api, { profile: config.profile, datasets: config.datasets.length > 0,
+    ...(config.egressAuthority?.kind === 'local_docker_desktop' ? { expectedDesktopId: config.egressAuthority.identity.engine.id } : {}) }, signal);
+}
+
+export function verifyDesktopCoordinatorDaemon(api: DockerApi, identity: DockerDesktopRouteAuthorityIdentity, signal?: AbortSignal): Promise<string> {
+  return verifySelectedDaemon(api, { profile: identity.profile, datasets: false, expectedDesktopId: identity.engine.id }, signal);
 }
 
 export async function verifyDatasetImages(api: DockerApi, config: DockerSandboxConfig, signal?: AbortSignal): Promise<void> {

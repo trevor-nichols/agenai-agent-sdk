@@ -11,6 +11,8 @@ import type { EgressControllerFrame, EgressHelperRole } from '../helpers/protoco
 export interface EgressHelperController {
   readonly ready: Promise<void>;
   readonly settled: Promise<void>;
+  beginReadiness(): void;
+  stopRenewal(): void;
   close(): Promise<void>;
 }
 
@@ -25,8 +27,11 @@ export function createEgressHelperController(options: {
   const ready = Promise.withResolvers<void>();
   void ready.promise.catch(() => {});
   let closing = false;
-  let failed = false;
+  let renewing = true;
+  let failure: SandboxOperationError | undefined;
   let enteredReady = false;
+  let readinessStarted = false;
+  let readinessTimer: ReturnType<typeof setTimeout> | undefined;
   let sequence = 0;
   let expectedReply = 0;
   let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
@@ -35,36 +40,37 @@ export function createEgressHelperController(options: {
   let closeActual: Promise<void> | undefined;
   const clearTimers = () => { clearTimeout(heartbeatTimer); clearTimeout(replyTimer); clearTimeout(readinessTimer); };
   const fail = (cause: unknown) => {
-    if (closing || failed) return;
-    failed = true;
+    if (closing || failure) return;
     clearTimers();
     const error = cause instanceof SandboxOperationError ? cause : new SandboxOperationError('driver_failure', 'Egress helper control failed.', { cause });
+    failure = error;
     ready.reject(error);
     attachment.stream.destroy();
     onFailure(error);
   };
   const write = (frame: EgressControllerFrame) => {
     writeTail = writeTail.then(() => new Promise<void>((resolve, reject) => {
+      if (frame.kind === 'heartbeat' && (!renewing || closing || failure)) { resolve(); return; }
       if (attachment.stream.destroyed) { reject(new SandboxOperationError('driver_failure', 'Egress helper control is closed.')); return; }
+      if (frame.kind === 'heartbeat') {
+        expectedReply = frame.sequence;
+        replyTimer = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Egress helper heartbeat acknowledgement expired.')), leaseTimeoutMs);
+        replyTimer.unref();
+      }
       attachment.stream.write(`${JSON.stringify(frame)}\n`, (error) => error ? reject(error) : resolve());
     }));
     void writeTail.catch(fail);
   };
   const heartbeat = () => {
-    if (closing || failed) return;
+    if (!renewing || closing || failure) return;
     if (!Number.isSafeInteger(sequence + 1)) { fail(new SandboxOperationError('driver_failure', 'Egress heartbeat sequence is exhausted.')); return; }
     sequence += 1;
-    expectedReply = sequence;
     write({ protocol: EGRESS_PROTOCOL, kind: 'heartbeat', sequence });
-    replyTimer = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Egress helper heartbeat acknowledgement expired.')), leaseTimeoutMs);
-    replyTimer.unref();
   };
-  const readinessTimer = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Egress helper readiness expired.')), leaseTimeoutMs);
-  readinessTimer.unref();
   let pending = Buffer.alloc(0);
   const decoder = new DockerFrameDecoder();
   const deliver = async (channel: 1 | 2, bytes: Uint8Array) => {
-    if (closing || failed) return;
+    if (closing || failure) return;
     if (channel !== 1) throw new SandboxOperationError('driver_failure', 'Egress helper wrote unexpected stderr output.');
     let offset = 0;
     while (offset < bytes.byteLength) {
@@ -85,8 +91,7 @@ export function createEgressHelperController(options: {
         if (frame.sequence !== expectedReply || expectedReply === 0) throw new SandboxOperationError('driver_failure', 'Egress helper acknowledged an unexpected heartbeat.');
         expectedReply = 0;
         clearTimeout(replyTimer);
-        heartbeatTimer = setTimeout(heartbeat, heartbeatMs);
-        heartbeatTimer.unref();
+        if (renewing) { heartbeatTimer = setTimeout(heartbeat, heartbeatMs); heartbeatTimer.unref(); }
       } else throw new SandboxOperationError('driver_failure', `Egress helper closed its authority (${frame.reason}).`);
     }
   };
@@ -97,18 +102,35 @@ export function createEgressHelperController(options: {
       if (!(bytes instanceof Uint8Array) || bytes.byteLength > 65536) throw new SandboxOperationError('output_limit', 'Egress control returned invalid or oversized bytes.');
       await decoder.accept(bytes, deliver);
     }
-    if (!closing && !failed) {
+    if (!closing && !failure) {
       decoder.finish();
       throw new SandboxOperationError('driver_failure', 'Egress helper control closed unexpectedly.');
     }
   })().catch(fail);
   const settled = Promise.all([pumping, attachment.closed.catch(fail)]).then(async () => { await writeTail.catch(() => {}); });
-  heartbeat();
-  return Object.freeze({ ready: ready.promise, settled, close() {
+  return Object.freeze({ ready: ready.promise, settled,
+    beginReadiness() {
+      if (failure) throw failure;
+      if (closing) throw new SandboxOperationError('cancelled', 'Egress helper control is closing.');
+      if (readinessStarted) return;
+      readinessStarted = true;
+      if (!enteredReady) {
+        readinessTimer = setTimeout(() => fail(new SandboxOperationError('deadline_exceeded', 'Egress helper readiness expired.')), leaseTimeoutMs);
+        readinessTimer.unref();
+      }
+      heartbeat();
+    },
+    stopRenewal() { renewing = false; clearTimeout(heartbeatTimer); }, close() {
     if (closeActual) return closeActual;
     closing = true;
     clearTimers();
     ready.reject(new SandboxOperationError('cancelled', 'Egress helper control is closing.'));
+    if (!readinessStarted) {
+      // The owner has not dispatched start, so no helper can consume STOP.
+      attachment.stream.destroy();
+      closeActual = settled;
+      return closeActual;
+    }
     if (!attachment.stream.destroyed) write({ protocol: EGRESS_PROTOCOL, kind: 'stop' });
     const timeout = setTimeout(() => attachment.stream.destroy(), leaseTimeoutMs);
     closeActual = settled.finally(() => clearTimeout(timeout));

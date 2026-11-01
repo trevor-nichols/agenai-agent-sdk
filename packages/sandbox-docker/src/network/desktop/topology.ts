@@ -172,14 +172,12 @@ export function validateDesktopOwnedVm(observation: DesktopVmObservation, owned:
   return devices;
 }
 
-export function validateDesktopBrokerReceipt(owned: DesktopOwnedBridge, engine: DesktopEngineNetworkCensus, receipt: DesktopStartedTopologyReceipt): void {
+function brokerNetwork(owned: DesktopOwnedBridge, engine: DesktopEngineNetworkCensus): DesktopEngineNetwork {
   const network = engine.networks.find((entry) => entry.Id === owned.receipt.networkId);
   if (!network) throw new SandboxOperationError('driver_failure', 'Owned broker network disappeared.');
-  const ids = Object.keys(network.Containers);
-  const actual = network.Containers[receipt.broker.id];
-  requireFact(ids.length === 1 && actual !== undefined && receipt.broker.networkId === network.Id,
-    'Owned broker is not the sole exact Engine endpoint.');
-  if (!actual) throw new SandboxOperationError('driver_failure', 'Owned broker endpoint is absent.');
+  return network;
+}
+function brokerEndpoint(owned: DesktopOwnedBridge, receipt: DesktopStartedTopologyReceipt, actual: DesktopEngineNetwork['Containers'][string]): void {
   requireFact(actual.EndpointID === receipt.broker.endpointId && actual.MacAddress === receipt.broker.macAddress
     && actual.IPv4Address === `${receipt.broker.address}/${receipt.broker.prefixLength}` && actual.IPv6Address === ''
     && receipt.broker.prefixLength === owned.prefix && receipt.broker.gateway === owned.gateway,
@@ -188,6 +186,8 @@ export function validateDesktopBrokerReceipt(owned: DesktopOwnedBridge, engine: 
   const address = addressNumber(receipt.broker.address, 4);
   requireFact((address & prefixMask(4, subnet.prefix)) === subnet.address && receipt.broker.address !== owned.gateway
     && address !== subnet.address && address !== (subnet.address | (0xffff_ffffn ^ prefixMask(4, subnet.prefix))), 'Owned broker address is outside its usable subnet.');
+}
+function brokerAddressHeld(owned: DesktopOwnedBridge, network: DesktopEngineNetwork): void {
   const initialAllocation = ownedSubnetStatus(owned.network, owned.subnet);
   const allocation = ownedSubnetStatus(network, owned.subnet);
   requireFact(allocation.IPsInUse === initialAllocation.IPsInUse + 1
@@ -195,6 +195,40 @@ export function validateDesktopBrokerReceipt(owned: DesktopOwnedBridge, engine: 
     'Owned broker IPAM allocation accounting differs from its sole IPv4 endpoint.');
   requireSameAuthority(networkIdentity(network, owned.subnet), networkIdentity(owned.network, owned.subnet),
     'Owned network configuration changed before broker sealing.');
+}
+
+export function validateDesktopBrokerReceipt(owned: DesktopOwnedBridge, engine: DesktopEngineNetworkCensus, receipt: DesktopStartedTopologyReceipt): void {
+  const network = brokerNetwork(owned, engine);
+  const ids = Object.keys(network.Containers);
+  const actual = network.Containers[receipt.broker.id];
+  requireFact(ids.length === 1 && actual !== undefined && receipt.broker.networkId === network.Id,
+    'Owned broker is not the sole exact Engine endpoint.');
+  if (!actual) throw new SandboxOperationError('driver_failure', 'Owned broker endpoint is absent.');
+  brokerEndpoint(owned, receipt, actual);
+  brokerAddressHeld(owned, network);
+}
+
+/**
+ * Moby stores an endpoint's retirement in steps: it leaves the sandbox (listed as ep-<endpoint>), is unlisted,
+ * and only then releases its address. Returns true once the network is its exact empty receipt again.
+ */
+export function validateDesktopRetiringBroker(owned: DesktopOwnedBridge, engine: DesktopEngineNetworkCensus,
+  receipt: DesktopStartedTopologyReceipt, brokerName: string): boolean {
+  const network = brokerNetwork(owned, engine);
+  const [entry, ...others] = Object.entries(network.Containers);
+  if (!entry && ownedSubnetStatus(network, owned.subnet).IPsInUse === ownedSubnetStatus(owned.network, owned.subnet).IPsInUse) {
+    requireSameAuthority(network, owned.network, 'Empty Desktop network differs from its original exact receipt.');
+    return true;
+  }
+  requireFact(others.length === 0 && receipt.broker.networkId === network.Id
+    && (!entry || entry[0] === receipt.broker.id || entry[0] === `ep-${receipt.broker.endpointId}`),
+  'Owned broker is not the sole exact Engine endpoint.');
+  if (entry) {
+    requireFact(entry[1].Name === brokerName, 'Desktop broker endpoint name differs from its original resource.');
+    brokerEndpoint(owned, receipt, entry[1]);
+  }
+  brokerAddressHeld(owned, network);
+  return false;
 }
 
 function positiveU32(value: number | null): boolean {

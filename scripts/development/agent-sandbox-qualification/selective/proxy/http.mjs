@@ -6,27 +6,41 @@ import http from 'node:http';
 import { once } from 'node:events';
 import { finished, pipeline } from 'node:stream/promises';
 
-async function write(response, bytes, signal) {
-  if (!response.write(bytes)) await once(response, 'drain', { signal });
-}
-
 export async function forwardHttp({ request, response, socketPath, record, fault, trace, signal, observeResponse, observeResponseBody }) {
+  // First-wins abort reason: identity proves the client closed before any upstream failure or proxy-side cancellation,
+  // so the proxy's own cancellation must reach this controller before the sockets it destroys report closing.
   const cancellation = new AbortController();
-  const activeSignal = AbortSignal.any([signal, cancellation.signal]);
-  const abort = () => { if (!response.writableFinished) cancellation.abort(new Error('Downstream HTTP observer closed.')); };
+  const activeSignal = cancellation.signal;
+  const proxyCancelled = () => cancellation.abort(signal.reason);
+  if (signal.aborted) proxyCancelled(); else signal.addEventListener('abort', proxyCancelled, { once: true });
+  const downstreamClosed = new Error('Downstream HTTP observer closed.');
+  const abandoned = () => cancellation.signal.reason === downstreamClosed;
+  const abort = () => { if (!response.writableFinished) cancellation.abort(downstreamClosed); };
   response.on('close', abort);
+  // A chunk the downstream socket accepted is forwarded, even when the client closes while the proxy awaits drain.
+  const write = async (bytes) => {
+    if (response.destroyed) abort();
+    activeSignal.throwIfAborted();
+    const accepted = response.write(bytes);
+    record.forwardedBodyBytes += bytes.length;
+    if (!accepted) await once(response, 'drain', { signal: activeSignal });
+  };
   let upstream;
   let responseWork;
   let writer;
+  let upstreamClosed;
+  let receipt;
   let bodyObserver;
   let complete = false;
-  let recorded = false;
+  const responseClosed = response.closed ? Promise.resolve() : new Promise((resolve) => response.once('close', resolve));
+  if (response.closed) cancellation.abort(new Error('Downstream HTTP observer already closed.'));
   try {
     let resolveResponse;
     let rejectResponse;
     const received = new Promise((resolve, reject) => { resolveResponse = resolve; rejectResponse = reject; });
     upstream = http.request({ socketPath, path: request.url, method: request.method, headers: request.headers,
       agent: false, maxHeaderSize: 16 * 1024, signal: activeSignal }, (source) => { source.on('error', () => {}); resolveResponse(source); });
+    upstreamClosed = upstream.closed ? Promise.resolve() : new Promise((resolve) => upstream.once('close', resolve));
     upstream.once('error', rejectResponse);
     writer = pipeline(request, async function* (source) {
       for await (const chunk of source) { record.uploadedBytes += chunk.length; yield chunk; }
@@ -59,31 +73,30 @@ export async function forwardHttp({ request, response, socketPath, record, fault
         activeSignal.throwIfAborted();
         record.upstreamBodyBytes += chunk.length;
         await bodyObserver?.body(chunk);
-        await write(response, chunk, activeSignal);
-        record.forwardedBodyBytes += chunk.length;
+        await write(chunk);
       }
       complete = true;
-      if (fault?.kind === 'late-trailer') {
-        await write(response, Buffer.from([1]), activeSignal);
-        record.forwardedBodyBytes += 1;
-      }
+      if (fault?.kind === 'late-trailer') await write(Buffer.from([1]));
       await writer;
-      await trace.finish(record);
-      recorded = true;
       response.end();
       await finished(response, { cleanup: true });
-    })().finally(() => bodyObserver?.complete({ complete }));
+    })().finally(() => bodyObserver?.complete({ complete, abandoned: abandoned() }));
     await responseWork;
   } catch (error) {
-    record.failure = { name: error instanceof Error ? error.name : 'ThrownValue', message: String(error instanceof Error ? error.message : error).slice(0, 512) };
+    record.failure = { name: error instanceof Error ? error.name : 'ThrownValue', message: String(error instanceof Error ? error.message : error).slice(0, 512),
+      ...(typeof error?.code === 'string' ? { code: error.code.slice(0, 128) } : {}) };
     cancellation.abort(error);
     upstream?.destroy(error instanceof Error ? error : new Error('Forwarding failed.'));
     response.destroy(error instanceof Error ? error : new Error('Forwarding failed.'));
     await Promise.allSettled([writer, responseWork]);
-    if (!recorded) { await trace.finish(record); recorded = true; }
   } finally {
+    signal.removeEventListener('abort', proxyCancelled);
     response.removeListener('close', abort);
     upstream?.destroy();
-    if (fault?.kind === 'drop-response' && !recorded) await trace.finish(record);
+    await Promise.allSettled([writer, responseWork, upstreamClosed, responseClosed]);
+    record.terminal = { kind: 'http', upstreamRequestClosed: upstream?.closed === true, downstreamResponseClosed: response.closed === true,
+      downstreamAbandoned: abandoned() };
+    receipt = await trace.finish(record);
   }
+  return receipt;
 }

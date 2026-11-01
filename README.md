@@ -2,6 +2,7 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
+> Current source is the unpublished coordinated **0.4.8 candidate**. It adds an opt-in Docker Desktop coordinator for up to four concurrent restricted sandboxes on one Engine, across native arm64 and Rosetta profiles. Agent Protocol **V13** and sandbox recovery **v3** are unchanged. Read the [candidate guide](UPGRADING-TO-0.4.8.md) and [coordination record](examples/sandbox/HANDOFF.md#concurrent-desktop-coordination-native-campaigns-2026-10-31); source preparation does not publish it.
 > The coordinated **ten-package 0.4.7 release** is published under npm `latest` and `beta`. It completes explicit API-key and existing-login sandbox recipes for Claude, Grok, OpenCode, Cursor and Codex. Agent Protocol **V13** and sandbox recovery **v3** are unchanged.
 > See the [v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7), [upgrade guide](UPGRADING-TO-0.4.7.md) and [authentication parity record](examples/sandbox/HANDOFF.md#authentication-parity-native-campaigns-2026-10-28). Original Linux/native-arm64 Desktop campaigns retain their development archive identities and finite access-only/refresh limits.
 > The preceding ten-package [0.4.6 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.6) introduced explicit credential reuse. Its [upgrade guide](UPGRADING-TO-0.4.6.md), API-key evidence and deferred-account record remain historical; the 0.4.7 parity record supplies the separate subsequent account evidence.
@@ -53,7 +54,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages and current source are coordinated at `0.4.7`.
+schema assets. All ten current-source packages are coordinated at unpublished `0.4.8`; published packages remain at `0.4.7`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -728,7 +729,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching `v0.4.7` checkout:
+run from the built matching 0.4.8 candidate checkout:
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \

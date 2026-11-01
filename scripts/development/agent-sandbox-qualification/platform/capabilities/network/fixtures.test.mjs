@@ -1,9 +1,93 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { networkInterfaces, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { assertNoOverlap, createFixtures } from './fixtures.mjs';
+import { assertNoOverlap, createFixtures, hostFacts } from './fixtures.mjs';
+
+function markerEngine(image) {
+  const containers = new Map(); const channels = new Map(); let next = 0;
+  const endpoint = { NetworkID: 'd'.repeat(64), EndpointID: 'e'.repeat(64), MacAddress: '02:42:ac:11:00:02',
+    Gateway: '172.17.0.1', IPAddress: '172.17.0.2', IPPrefixLen: 16 };
+  return {
+    async request(method, target, body) {
+      if (method === 'GET' && target.startsWith('/images/')) return { status: 200,
+        data: { Id: image, Architecture: 'arm64', Os: 'linux', Config: {} } };
+      if (method === 'POST' && target.startsWith('/containers/create?')) {
+        const id = String(++next).padStart(64, '0'); const configuration = JSON.parse(body.Cmd.at(-1));
+        containers.set(id, { Id: id, Name: `/${new URL(target, 'http://engine').searchParams.get('name')}`, Image: image,
+          Config: body, HostConfig: body.HostConfig, Mounts: [], State: { Running: false },
+          NetworkSettings: { Networks: { [body.HostConfig.NetworkMode]: structuredClone(endpoint) } }, configuration });
+        return { status: 201, data: { Id: id } };
+      }
+      const [, , id, action] = new URL(target, 'http://engine').pathname.split('/'); const actual = containers.get(id);
+      if (method === 'GET') return { status: actual ? 200 : 404, data: actual };
+      if (method === 'POST' && action === 'start') {
+        actual.State.Running = true;
+        channels.get(id).stdout = Buffer.from(JSON.stringify({ ready: true, ports: actual.configuration.ports.map((port) => port || 49152),
+          udpPort: actual.configuration.udp, facts: { platform: 'linux', architecture: 'arm64', node: 'v24.18.0', uid: 1000, gid: 1000, pid: 1,
+            ...(actual.configuration.role === 'vm_marker' ? { primaryInterface: { name: 'eth0', addresses: [
+              { address: '192.168.65.3', family: 'IPv4', internal: false },
+            ] } } : {}) } }) + '\n');
+        return { status: 204 };
+      }
+      assert.equal(method, 'DELETE'); containers.delete(id); await channels.get(id).close(); return { status: 204 };
+    },
+    async hijack(target) {
+      const id = target.split('/')[2]; const completion = Promise.withResolvers();
+      const stream = { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), closed: false, completion: completion.promise,
+        socket: { write(bytes, callback) {
+          const command = JSON.parse(bytes.toString());
+          const result = command.kind === 'quiescence' ? { observedAt: new Date().toISOString(), raw: '' }
+            : { connections: 0, requests: 0, invalidRequests: 0, datagrams: 0, active: 0 };
+          stream.stdout = Buffer.concat([stream.stdout, Buffer.from(JSON.stringify({ id: command.id, result }) + '\n')]);
+          callback(); if (command.kind === 'close') void stream.close();
+        }, destroy() {} },
+        async close() { stream.closed = true; completion.resolve(); } };
+      channels.set(id, stream); return stream;
+    },
+  };
+}
+
+test('fixture base creates only the selected lifetime marker set before bootstrap capture', async (t) => {
+  const hostAddress = Object.values(networkInterfaces()).flat().find(({ family, internal }) => family === 'IPv4' && !internal)?.address;
+  assert(hostAddress, 'The real local host marker requires a noninternal IPv4 interface.');
+  for (const [name, options, roles] of [
+    ['existing default retains the foreign marker', undefined, ['vm_marker', 'public_marker']],
+    ['explicit omission never acquires the foreign marker', { includeForeignMarker: false }, ['vm_marker']],
+  ]) await t.test(name, async (t) => {
+    const output = await mkdtemp(join(tmpdir(), 'network-fixture-base-'));
+    t.after(() => rm(output, { recursive: true, force: true }));
+    const image = `sha256:${'b'.repeat(64)}`;
+    const fixtures = await createFixtures({ engine: markerEngine(image), config: { output, profile: 'desktop-apple-virtualization-native-arm64',
+      guestNodeVersion: '24.18.0', fixtureOwner: '12345678-1234-4123-8123-123456789abc', capabilities: { network: {
+        fixtures: { imageDigest: image, hostAddress }, routeAuthority: { deployment: { dockerSubnet: '192.168.65.0/24' } },
+      }, limits: { requestMs: 1000, startupMs: 1000 } } } });
+    try {
+      await fixtures.startBase(options);
+      assert.deepEqual(fixtures.record.resources.map(({ kind, role, state }) => ({ kind, role, state })),
+        roles.map((role) => ({ kind: 'container', role, state: 'running' })));
+      assert.equal(new Set(fixtures.record.resources.map(({ id }) => id)).size, roles.length);
+      assert.equal(fixtures.record.bootstrap, null, 'Marker membership is fixed before any bootstrap census is captured.');
+    } finally { await fixtures.close(); }
+    assert.equal(fixtures.record.closed, true); assert.equal(fixtures.record.host.state, 'closed');
+    assert(fixtures.record.resources.every(({ state, controlSettlement }) => state === 'removed'
+      && controlSettlement.every(({ status }) => status === 'fulfilled')));
+  });
+});
+
+test('host interface facts ignore rotated link-local addresses and keep every routable address', () => {
+  const entry = (address, mac, extra = {}) => ({ address, netmask: address.includes(':') ? 'ffff:ffff:ffff:ffff::' : '255.255.255.0',
+    family: address.includes(':') ? 'IPv6' : 'IPv4', internal: false, cidr: `${address}/${address.includes(':') ? 64 : 24}`, mac, ...extra });
+  const host = (awdl, en0 = []) => ({ en0: [entry('192.168.1.20', 'aa:bb:cc:dd:ee:ff'), entry('fe80::1', 'aa:bb:cc:dd:ee:ff', { scopeid: 15 }), ...en0],
+    awdl0: [entry(`fe80::${awdl}`, `02:00:00:00:00:${awdl}`, { scopeid: 14 })] });
+  assert.deepEqual(hostFacts(host('24a7')), hostFacts(host('cc76')));
+  assert.deepEqual(Object.keys(hostFacts(host('24a7'))), ['en0']);
+  for (const routable of [entry('192.168.1.21', 'aa:bb:cc:dd:ee:ff'), entry('2001:db8::1', 'aa:bb:cc:dd:ee:ff', { scopeid: 0 }),
+    entry('fec0::1', 'aa:bb:cc:dd:ee:ff', { scopeid: 0 })]) {
+    assert.notDeepEqual(hostFacts(host('24a7', [routable])), hostFacts(host('24a7')), routable.address);
+  }
+});
 
 test('fixture allocation census accepts exact local unallocated builtins and rejects unavailable allocated coverage', async (t) => {
   const builtin = (name, driver) => ({ Id: (name === 'host' ? 'a' : 'b').repeat(64), Name: name, Driver: driver, Scope: 'local',

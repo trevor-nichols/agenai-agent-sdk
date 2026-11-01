@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { runOwnedCommand } from '../../../command.mjs';
 import { until } from '../../../engine.mjs';
+import { setTimeout as delay } from 'node:timers/promises';
 
 function groupExists(pid) {
   try { process.kill(-pid, 0); return true; }
@@ -12,19 +13,38 @@ function groupExists(pid) {
 export function startController({ script, configuration, cwd, env, timeoutMs, maxOutputBytes, signal,
   mode = 'start', onControl = async () => {} }) {
   assert(['start', 'lease'].includes(mode));
-  const child = spawn(process.execPath, [script, mode, configuration], { cwd, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [script, mode, configuration], { cwd, env, detached: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
   let closed = false; let failure; let stdout = ''; let stderr = ''; let bytes = 0;
+  let handlerReady = false, gracefulRequested = false, paused = false;
   let killObservation; let killLogging;
   const controls = [];
   const completion = Promise.withResolvers();
-  const sendSignal = async (name) => {
+  const requestCleanup = () => {
+    if (!handlerReady || !failure || closed || gracefulRequested) return;
+    gracefulRequested = true;
+    try { child.kill('SIGTERM'); } catch (error) { failure ??= error; }
+  };
+  const fail = (error) => { failure ??= error; requestCleanup(); };
+  child.on('message', (value) => {
+    if (value?.format !== 'agenai.native-controller-ready.v1' || value.pid !== child.pid || handlerReady) {
+      fail(new Error('Original controller graceful readiness did not identify its exact PID.')); return;
+    }
+    handlerReady = true; requestCleanup();
+  });
+  const sendSignal = async (name, { cleanup = false } = {}) => {
     assert(child.pid && !closed, 'Control signals require the original live child process.');
     const observation = { signal: name, pid: child.pid, pgid: child.pid, enteredAt: new Date().toISOString(), status: 'entered' };
     controls.push(observation); assert(controls.length <= 8);
-    try { await onControl(observation); }
-    catch (error) { failure ??= error; throw error; }
+    if (!cleanup) {
+      try { await onControl(observation); }
+      catch (error) { fail(error); throw error; }
+    }
     if (closed) { observation.status = 'closed-before-signal'; await onControl(observation); return observation; }
-    try { process.kill(-child.pid, name); observation.status = 'sent'; }
+    try {
+      process.kill(-child.pid, name); observation.status = 'sent';
+      if (name === 'SIGSTOP') paused = true;
+      if (name === 'SIGCONT') paused = false;
+    }
     catch (error) { observation.status = error.code === 'ESRCH' ? 'absent' : 'failed'; if (error.code !== 'ESRCH') throw error; }
     observation.sentAt = new Date().toISOString();
     try { await onControl(observation); } catch (error) { failure ??= error; }
@@ -35,7 +55,7 @@ export function startController({ script, configuration, cwd, env, timeoutMs, ma
     killObservation = { signal: 'SIGKILL', pid: child.pid, pgid: child.pid,
       enteredAt: new Date().toISOString(), status: 'entered', loggingStatus: 'pending' };
     controls.push(killObservation);
-    // Abort must retire the owned group even when evidence persistence is blocked.
+    // Only the explicit durable-checkpoint crash fixture may kill its original group.
     try { process.kill(-child.pid, 'SIGKILL'); killObservation.status = 'sent'; }
     catch (error) {
       killObservation.status = error.code === 'ESRCH' ? 'absent' : 'failed';
@@ -47,13 +67,14 @@ export function startController({ script, configuration, cwd, env, timeoutMs, ma
   };
   const receive = (field, chunk) => {
     bytes += chunk.byteLength;
-    if (bytes > maxOutputBytes) { failure ??= new Error('Owned recovery controller exceeded its output bound.'); kill(); return; }
+    if (bytes > maxOutputBytes) { fail(new Error('Owned recovery controller exceeded its output bound.')); return; }
     if (field === 'stdout') stdout += chunk.toString('utf8'); else stderr += chunk.toString('utf8');
   };
   child.stdout.on('data', (chunk) => receive('stdout', chunk)); child.stderr.on('data', (chunk) => receive('stderr', chunk));
-  child.once('error', (error) => { failure ??= error; });
-  const timer = setTimeout(() => { failure ??= new Error('Owned recovery controller exceeded its deadline.'); kill(); }, timeoutMs);
-  const abort = () => { failure ??= new Error('Owned recovery controller was cancelled.'); kill(); };
+  child.stdout.on('error', fail); child.stderr.on('error', fail);
+  child.once('error', fail);
+  const timer = setTimeout(() => fail(new Error('Owned recovery controller exceeded its deadline.')), timeoutMs);
+  const abort = () => fail(new Error('Owned recovery controller was cancelled.'));
   signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort();
   child.once('close', (code, exitedSignal) => {
     closed = true; clearTimeout(timer); signal?.removeEventListener('abort', abort);
@@ -90,7 +111,7 @@ export function startController({ script, configuration, cwd, env, timeoutMs, ma
     controls,
     snapshot,
     pause,
-    resume: () => sendSignal('SIGCONT'),
+    async resume() { const result = await sendSignal('SIGCONT'); paused = false; return result; },
     async ready(timeout) {
       return until(() => {
         if (failure) throw failure;
@@ -104,7 +125,7 @@ export function startController({ script, configuration, cwd, env, timeoutMs, ma
     },
     async join() {
       const exit = await completion.promise;
-      if (child.pid) await until(() => !groupExists(child.pid), 5000, 'Original controller process group remains owned after child closure.');
+      if (child.pid) while (groupExists(child.pid)) await delay(20);
       if (killLogging) {
         let timer;
         try {
@@ -118,5 +139,10 @@ export function startController({ script, configuration, cwd, env, timeoutMs, ma
       return { ...exit, stdout, stderr, groupQuiescent: true, controls };
     },
     async kill() { kill(); return this.join(); },
+    async finish() {
+      if (paused && !closed) await sendSignal('SIGCONT', { cleanup: true });
+      fail(new Error('Original controller work ended before its planned completion; retain original cleanup.'));
+      return this.join();
+    },
   };
 }

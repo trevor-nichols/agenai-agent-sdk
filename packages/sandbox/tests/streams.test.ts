@@ -7,6 +7,8 @@ import { createHash } from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import { SandboxOperationError } from '../src/index.js';
+import { createSandboxBackend } from '../src/backend/index.js';
+import type { SandboxDriverStartOptions } from '../src/backend/index.js';
 import { bytes, fixture, gate, nextTurn, processSpec, request } from './fixtures/backend.js';
 
 const bounded = { timeout: 3000 };
@@ -81,6 +83,66 @@ test('reader abandonment fences the other stream and removes the complete comput
   streams.stdout.destroy();
   await failed; await sandbox.stop();
   assert.deepEqual([...physical.resources], ['storage']);
+  await sandbox.destroy(); assert.deepEqual([...physical.resources], []);
+});
+
+test('stop fails active readers with its typed cancellation', bounded, async () => {
+  const physical = fixture();
+  const sandbox = await physical.backend.reserve(request(), inProcess).start();
+  const streams = await sandbox.reserveProcess(processSpec).start();
+  const stopped = (error: unknown) => { assert.ok(error instanceof SandboxOperationError); assert.equal(error.code, 'cancelled'); return true; };
+  const readers = Promise.all([assert.rejects(bytes(streams.stdout), stopped), assert.rejects(bytes(streams.stderr), stopped)]);
+  await sandbox.stop();
+  await readers;
+  await sandbox.destroy(); assert.deepEqual([...physical.resources], []);
+});
+
+test('stop closes backend outputs that ended without auto-destroy without an unowned error', bounded, async () => {
+  const output = new Readable({ read() {}, autoDestroy: false }); const errorOutput = new Readable({ read() {}, autoDestroy: false });
+  const physical = fixture({ output, errorOutput });
+  const sandbox = await physical.backend.reserve(request(), inProcess).start();
+  const streams = await sandbox.reserveProcess(processSpec).start();
+  const drained = Promise.all([bytes(streams.stdout), bytes(streams.stderr)]);
+  output.push(null); errorOutput.push(null);
+  assert.deepEqual(await drained, [Buffer.alloc(0), Buffer.alloc(0)]);
+  await nextTurn();
+  assert.equal(output.destroyed, false);
+  await sandbox.stop();
+  await nextTurn();
+  assert.equal(output.destroyed, true); assert.equal(errorOutput.destroyed, true);
+  await sandbox.destroy(); assert.deepEqual([...physical.resources], []);
+});
+
+test('an infrastructure failure before stop reaches active readers instead of the stop cancellation', bounded, async () => {
+  const physical = fixture();
+  let opening: SandboxDriverStartOptions | undefined;
+  const backend = createSandboxBackend({ ...physical.driver, reserve(input) {
+    const reservation = physical.driver.reserve(input);
+    return { ...reservation, start(context) { opening = context; return reservation.start(context); } };
+  } });
+  const sandbox = await backend.reserve(request(), inProcess).start();
+  const streams = await sandbox.reserveProcess(processSpec).start();
+  const failed = new SandboxOperationError('driver_failure', 'relay lost while output was active');
+  const readers = Promise.all([assert.rejects(bytes(streams.stdout), (error: unknown) => error === failed),
+    assert.rejects(bytes(streams.stderr), (error: unknown) => error === failed)]);
+  assert(opening); opening.onInfrastructureFailure(failed);
+  await readers;
+  await sandbox.stop();
+  await sandbox.destroy(); assert.deepEqual([...physical.resources], []);
+});
+
+test('backend output closed before EOF reaches readers as a typed stream failure', bounded, async () => {
+  const physical = fixture();
+  const sandbox = await physical.backend.reserve(request(), inProcess).start();
+  const streams = await sandbox.reserveProcess(processSpec).start();
+  const failed = (error: unknown) => {
+    assert.ok(error instanceof SandboxOperationError); assert.equal(error.code, 'stream_failure');
+    assert.ok(error.cause instanceof Error); return true;
+  };
+  const readers = Promise.all([assert.rejects(bytes(streams.stdout), failed), assert.rejects(bytes(streams.stderr), failed)]);
+  physical.output.destroy();
+  await readers;
+  await sandbox.stop();
   await sandbox.destroy(); assert.deepEqual([...physical.resources], []);
 });
 

@@ -1,3 +1,5 @@
+import { nativeControllerReady } from '../../native-controller.mjs';
+import { cleanupDiagnostic, finishChildCleanup, waitForInterruption } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -17,6 +19,10 @@ assert.equal(config.format, 'agenai.sandbox-platform-combined-controller.v1');
 assert(['crash', 'cleanup'].includes(config.child.mode)); assert.equal(process.argv[2], 'start');
 assert(fileURLToPath(import.meta.url).startsWith(`${config.consumer}/qualification/`));
 assert(config.child.namespace.startsWith(config.namespacePrefix)); assert.match(config.child.challenge, /^[a-f0-9-]{36}$/u);
+const cancellation = new AbortController();
+const interrupt = () => cancellation.abort(new Error('Installed child qualification interrupted.'));
+process.on('SIGTERM', interrupt); process.on('SIGINT', interrupt);
+await nativeControllerReady();
 await mkdir(config.output, { recursive: true, mode: 0o700 });
 const result = { format: 'agenai.sandbox-platform-combined-child.v1', status: 'running', pid: process.pid,
   challenge: config.child.challenge, mode: config.child.mode, cut: config.child.cut,
@@ -24,9 +30,9 @@ const result = { format: 'agenai.sandbox-platform-combined-child.v1', status: 'r
 const writer = jsonWriter(config.child.resultPath);
 const save = () => { assert(Buffer.byteLength(json(result)) <= 4 * 1024 ** 2); return writer(result); };
 const engine = new Engine(config.endpoint.slice(7), '1.52', { requestMs: config.capabilities.limits.requestMs, outputBytes: 4 * 1024 ** 2 });
-const run = { directory: config.output, hostDirectory: config.output, evidence: result, owners: [], save,
+const run = { directory: config.output, hostDirectory: config.output, evidence: result, owners: [], localCleanupOwners: [], save,
   observe: (value) => appendObservation(result, value, save) };
-const context = { config, engine, fixtures: { targets: () => ({ host: config.child.target }) } };
+const context = { config, engine, signal: cancellation.signal, fixtures: { targets: () => ({ host: config.child.target }) } };
 let recovering;
 const settle = (owner) => settleOwnerCleanup(owner, 'destroy', { cleanupMs: config.capabilities.limits.cleanupMs,
   observe: (observation) => run.observe(observation) });
@@ -34,8 +40,8 @@ async function cut(entry, witness) {
   assert.equal(result.cutWitness, undefined, 'The original child may acknowledge one cut only.');
   result.cutWitness = witness; result.originalRecord = entry.owner.recoveryRecord;
   await jsonWriter(config.child.originalPath)(result.originalRecord); await save();
-  process.stdout.write(JSON.stringify({ phase: 'ready', pid: process.pid, challenge: config.child.challenge, cut: config.child.cut }) + '\n');
-  await new Promise(() => {});
+  cleanupDiagnostic({ phase: 'ready', pid: process.pid, challenge: config.child.challenge, cut: config.child.cut });
+  await waitForInterruption(cancellation.signal);
 }
 try {
   await save();
@@ -61,18 +67,17 @@ try {
       scratchDirectory: config.child.scratchDirectory,
       mode: ['entered-live-write', 'stop-entered'].includes(config.child.cut) ? 'cancel' : 'normal',
       async onObservation(observation, entry) {
+        cancellation.signal.throwIfAborted();
         if (phases[config.child.cut] === observation.phase) await cut(entry, { kind: 'public-workflow-audit', observation });
       } });
     throw new Error('The selected combined crash cut was never entered.');
   }
 } catch (error) {
   result.status = 'failed'; result.failure = failure(error);
-  for (const entry of run.owners) if (entry.owner) {
-    try { await settle(entry.owner); } catch (cleanup) { result.cleanupErrors.push(failure(cleanup)); }
-    result.finalRecord = entry.owner.recoveryRecord;
-  }
-  if (recovering) try { await settle(recovering); result.finalRecord = recovering.recoveryRecord; }
-  catch (cleanup) { result.cleanupErrors.push(failure(cleanup)); }
   process.exitCode = 1;
-} finally { result.finishedAt = new Date().toISOString(); await save(); }
+} finally {
+  await finishChildCleanup({ result, save, owners: [...run.owners.map(({ owner }) => owner).filter(Boolean), ...(recovering ? [recovering] : [])],
+    sessions: [], localCleanupOwners: run.localCleanupOwners, timeoutMs: config.capabilities.limits.cleanupMs });
+  result.finishedAt = new Date().toISOString(); await save();
+}
 process.stdout.write(JSON.stringify({ phase: 'complete', pid: process.pid, status: result.status }) + '\n');

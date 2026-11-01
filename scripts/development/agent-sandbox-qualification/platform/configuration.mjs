@@ -9,7 +9,7 @@ import { acquireJsonInput } from './capabilities/input.mjs';
 import { advancedRows } from './capabilities/manifest.mjs';
 
 export const usage = `Usage:
-  node scripts/development/agent-sandbox-qualification/platform/run.mjs --row core|datasets|observer|grok-initialize|live-files|preserve-internal|restricted-https|combined --manifest /absolute/platform.json --consumer /absolute/current/consumer --output /new/absolute/output [--mode monorepo|standalone] [--test-concurrency 1..8] [--capabilities-manifest /absolute/capabilities.json]
+  node scripts/development/agent-sandbox-qualification/platform/run.mjs --row core|datasets|observer|grok-initialize|live-files|preserve-internal|restricted-https|combined|desktop-concurrency --manifest /absolute/platform.json --consumer /absolute/current/consumer --output /new/absolute/output [--mode monorepo|standalone] [--test-concurrency 1..8] [--capabilities-manifest /absolute/capabilities.json]
 
 Select an existing local Engine, exact existing source images and an explicit platform profile.
 Core runs baseline source scenarios and the installed two-turn controlled ACP example.
@@ -24,6 +24,9 @@ installed transfer, confinement and host-publication cases across the selected r
 Restricted-https runs installed Desktop network and lifecycle cases. Combined runs installed public
 link/network/live workflows and recovery for Desktop and Linux. Linux restricted-https validates
 captured inputs then fails UNIMPLEMENTED before effects.
+Desktop-concurrency selects one frozen public workflow/fault case with two explicitly prepared
+Desktop member profiles/images, original native helpers, independent marker/daemon observers,
+complete phase evidence and cleanup-only fresh recovery. It never prepares images implicitly.
 Baseline rows reject --capabilities-manifest.
 `;
 

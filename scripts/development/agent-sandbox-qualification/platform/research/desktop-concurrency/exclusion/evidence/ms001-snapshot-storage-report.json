@@ -1,0 +1,281 @@
+{
+  "format": "agenai.ms001-snapshot-storage.v1",
+  "at": "2026-10-29T23:03:44.810Z",
+  "attempt": "/private/tmp/agenai-ms001-snapshot-wyXoQ4",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v24.15.0",
+  "sourceHashes": {
+    "snapshot-holder.c": "e93dc9c7ac40fd3e7e7eefd66c734b716f48e33ab98b961d1e352a4b8592b95f",
+    "run-snapshot-storage.mjs": "e7c3ffadd5bfc1a73e657fffdae26cde82bdedbd3f6d8439828575cedff0a79d",
+    "controller.mjs": "c25eb866e02c11dbced79ad31d83dae5092334592c4acc347542364dba3ba217"
+  },
+  "sourceDigestEncoding": "SHA-256 of raw file bytes",
+  "maxStateBytes": 1048576,
+  "maxTempBytes": 1048576,
+  "dockerRequests": 0,
+  "powerLossQualified": false,
+  "rows": [
+    {
+      "name": "explicit bootstrap and stable lock are required; no activation creation fallback",
+      "result": "pass",
+      "automaticStateCreation": false,
+      "duplicateClaimRejected": true,
+      "partialBootstrapNotRepaired": true
+    },
+    {
+      "name": "SIGKILL after before_temp preserves a complete conservative published snapshot",
+      "result": "pass",
+      "cut": "before_temp",
+      "publishedSequence": 1,
+      "oldStateSelected": true,
+      "obligations": [
+        "original-effect-a"
+      ],
+      "lockInode": 247547987,
+      "stateInode": 247547989,
+      "incompleteTempNeverPromoted": true,
+      "sizes": [
+        {
+          "name": "43ea6bb8ff5fe95d23347a77d6cc9c7e6a7e525e856a6ba83eee88b36c7bbafc.lock",
+          "bytes": 0
+        },
+        {
+          "name": "43ea6bb8ff5fe95d23347a77d6cc9c7e6a7e525e856a6ba83eee88b36c7bbafc.state",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "name": "SIGKILL after temp_opened preserves a complete conservative published snapshot",
+      "result": "pass",
+      "cut": "temp_opened",
+      "publishedSequence": 1,
+      "oldStateSelected": true,
+      "obligations": [
+        "original-effect-a"
+      ],
+      "lockInode": 247547991,
+      "stateInode": 247547993,
+      "incompleteTempNeverPromoted": true,
+      "sizes": [
+        {
+          "name": "a99bbe9c721e370ff4fea1d368e14d8d48bb2b75d1ddf29559b195cfd075b3cf.lock",
+          "bytes": 0
+        },
+        {
+          "name": "a99bbe9c721e370ff4fea1d368e14d8d48bb2b75d1ddf29559b195cfd075b3cf.next",
+          "bytes": 0
+        },
+        {
+          "name": "a99bbe9c721e370ff4fea1d368e14d8d48bb2b75d1ddf29559b195cfd075b3cf.state",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "name": "SIGKILL after temp_written preserves a complete conservative published snapshot",
+      "result": "pass",
+      "cut": "temp_written",
+      "publishedSequence": 1,
+      "oldStateSelected": true,
+      "obligations": [
+        "original-effect-a"
+      ],
+      "lockInode": 247547997,
+      "stateInode": 247547999,
+      "incompleteTempNeverPromoted": true,
+      "sizes": [
+        {
+          "name": "06496bcaac83dd0e2ffbd2cdae1e961567efa60ce6f4f2192a1cfabdc34a6232.lock",
+          "bytes": 0
+        },
+        {
+          "name": "06496bcaac83dd0e2ffbd2cdae1e961567efa60ce6f4f2192a1cfabdc34a6232.next",
+          "bytes": 319
+        },
+        {
+          "name": "06496bcaac83dd0e2ffbd2cdae1e961567efa60ce6f4f2192a1cfabdc34a6232.state",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "name": "SIGKILL after temp_fsynced preserves a complete conservative published snapshot",
+      "result": "pass",
+      "cut": "temp_fsynced",
+      "publishedSequence": 1,
+      "oldStateSelected": true,
+      "obligations": [
+        "original-effect-a"
+      ],
+      "lockInode": 247548001,
+      "stateInode": 247548003,
+      "incompleteTempNeverPromoted": true,
+      "sizes": [
+        {
+          "name": "901c366a1049ef9e92eb74a8d225c258cdb7625eb1b3e5ba1119b1a22b2d3fe2.lock",
+          "bytes": 0
+        },
+        {
+          "name": "901c366a1049ef9e92eb74a8d225c258cdb7625eb1b3e5ba1119b1a22b2d3fe2.next",
+          "bytes": 319
+        },
+        {
+          "name": "901c366a1049ef9e92eb74a8d225c258cdb7625eb1b3e5ba1119b1a22b2d3fe2.state",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "name": "SIGKILL after renamed preserves a complete conservative published snapshot",
+      "result": "pass",
+      "cut": "renamed",
+      "publishedSequence": 2,
+      "oldStateSelected": false,
+      "obligations": [
+        "original-effect-a",
+        "armed-effect-b"
+      ],
+      "lockInode": 247548005,
+      "stateInode": 247548008,
+      "incompleteTempNeverPromoted": true,
+      "sizes": [
+        {
+          "name": "0c669aaf698f2a14bed8f61416b28b86dd6a0cf16f402d5d11bcfd767ff51b49.lock",
+          "bytes": 0
+        },
+        {
+          "name": "0c669aaf698f2a14bed8f61416b28b86dd6a0cf16f402d5d11bcfd767ff51b49.state",
+          "bytes": 319
+        }
+      ]
+    },
+    {
+      "name": "SIGKILL after directory_fsynced preserves a complete conservative published snapshot",
+      "result": "pass",
+      "cut": "directory_fsynced",
+      "publishedSequence": 2,
+      "oldStateSelected": false,
+      "obligations": [
+        "original-effect-a",
+        "armed-effect-b"
+      ],
+      "lockInode": 247548009,
+      "stateInode": 247548012,
+      "incompleteTempNeverPromoted": true,
+      "sizes": [
+        {
+          "name": "f7bf3cb1838ba75894934f24ed3fc728f3382f63c01ba1e5900f9db96339f58b.lock",
+          "bytes": 0
+        },
+        {
+          "name": "f7bf3cb1838ba75894934f24ed3fc728f3382f63c01ba1e5900f9db96339f58b.state",
+          "bytes": 319
+        }
+      ]
+    },
+    {
+      "name": "SIGKILL after commit_acknowledged preserves a complete conservative published snapshot",
+      "result": "pass",
+      "cut": "commit_acknowledged",
+      "publishedSequence": 2,
+      "oldStateSelected": false,
+      "obligations": [
+        "original-effect-a",
+        "armed-effect-b"
+      ],
+      "lockInode": 247548013,
+      "stateInode": 247548016,
+      "incompleteTempNeverPromoted": true,
+      "sizes": [
+        {
+          "name": "2d557ac26bd241cfa869aed7b02511b95a1ee4ba7be7d12903447c16300f00f7.lock",
+          "bytes": 0
+        },
+        {
+          "name": "2d557ac26bd241cfa869aed7b02511b95a1ee4ba7be7d12903447c16300f00f7.state",
+          "bytes": 319
+        }
+      ]
+    },
+    {
+      "name": "selected maximum budgets fit one bounded current snapshot and retain cleanup replacement space",
+      "result": "pass",
+      "allocatedContentBytes": 544768,
+      "actualJsonPayloadBytes": 545856,
+      "maximumPublishedBytes": 546004,
+      "maximumStateCapBytes": 1048576,
+      "maximumTempCapBytes": 1048576,
+      "measuredPeakFixtureFiles": [
+        {
+          "name": "a9e5683c78e8504ac7cc79658122f5e51f8c9b303a9e1e9f672aa696d30191c1.lock",
+          "bytes": 0
+        },
+        {
+          "name": "a9e5683c78e8504ac7cc79658122f5e51f8c9b303a9e1e9f672aa696d30191c1.next",
+          "bytes": 283
+        },
+        {
+          "name": "a9e5683c78e8504ac7cc79658122f5e51f8c9b303a9e1e9f672aa696d30191c1.state",
+          "bytes": 546004
+        }
+      ],
+      "repeatedCommitCount": 102,
+      "appendHistoryFiles": 0,
+      "finalFiles": [
+        {
+          "name": "a9e5683c78e8504ac7cc79658122f5e51f8c9b303a9e1e9f672aa696d30191c1.lock",
+          "bytes": 0
+        },
+        {
+          "name": "a9e5683c78e8504ac7cc79658122f5e51f8c9b303a9e1e9f672aa696d30191c1.state",
+          "bytes": 285
+        }
+      ],
+      "note": "Capacity/lifecycle proof, not a performance measurement or real v3 max-record fixture."
+    },
+    {
+      "name": "oversize state is refused without replacing valid current authority",
+      "result": "pass",
+      "originalPublishedStateRetained": true,
+      "oversizedBytesPublished": 0
+    },
+    {
+      "name": "a physically full 1MiB current state and 1MiB temp still permit bounded cleanup replacement",
+      "result": "pass",
+      "peakBytes": 2097152,
+      "exactStateBytes": 1048576,
+      "exactTempBytes": 1048576,
+      "cleanupReplacementSucceeded": true,
+      "note": "Padding fills storage capacity only; it is not an additional public record allowance."
+    },
+    {
+      "name": "real partial temp-write failure retains valid previous state and never promotes temp",
+      "result": "pass",
+      "fault": "Darwin RLIMIT_FSIZE / EFBIG with inherited ignored SIGXFSZ",
+      "partialBytes": 256,
+      "originalStateTrusted": true
+    },
+    {
+      "name": "missing, corrupt, foreign-Engine and symbolic current state refuse without a fallback",
+      "result": "pass",
+      "missingRefused": true,
+      "corruptRefused": true,
+      "foreignEngineRefused": true,
+      "symbolicRefused": true
+    },
+    {
+      "name": "unexpected state inode or generation cannot replace the original live recovery binding",
+      "result": "pass",
+      "liveInodeSubstitutionRefused": true,
+      "generationConflictRefused": true
+    },
+    {
+      "name": "symbolic temp is refused by both activation and cleanup and target remains unchanged",
+      "result": "pass",
+      "targetUntouched": true
+    }
+  ],
+  "rule": "Only committed current state grants authority; unpublished temp never grants authority or replaces missing/corrupt current state."
+}

@@ -9,8 +9,8 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-Current source implements Agent Protocol V13 in the unpublished coordinated eight-package `0.4.4`
-candidate, including structured final output. Published `0.4.3` is the seven-package V12 release,
+Current source implements Agent Protocol V13 in the unpublished coordinated ten-package `0.4.8`
+candidate, unchanged from published `0.4.7`, including structured final output. Published `0.4.3` is the seven-package V12 release,
 including tagged decision responses and exact turn request unavailability. Published `0.4.1`
 retains V11 and its qualification evidence; the earlier `0.4.0` release retains V10.
 The runtime also provides neutral session forms, plan reviews, staged native continuations,
@@ -394,7 +394,7 @@ same correlation and lifecycle validation at their respective ports.
 
 ## Input during an owned execution
 
-The unpublished `0.4.4` candidate adds optional provider-neutral input on a caller-started
+The runtime offers optional provider-neutral input on a caller-started
 execution. **No public native provider ships with support for this domain.** Public ACP,
 including Grok compositions, remains unsupported. Positive native qualification belongs only to
 a separately controlled private Claude SDK `0.3.309` / Code `2.1.309` diagnostic composition on
@@ -836,8 +836,8 @@ close before joining its reader and actual callback tasks; failure also starts c
 failures and cleanup failures remain observable. A callback that ignores cancellation
 remains owned until its actual promise settles.
 
-The coordinated eight-package `0.4.4` source candidate implements Agent Protocol V13 and remains
-unpublished. Published `0.4.3` is the seven-package V12 release.
+The coordinated ten-package `0.4.8` source candidate implements Agent Protocol V13 and remains
+unpublished; published `0.4.7` also implements V13. Published `0.4.3` is the seven-package V12 release.
 The earlier `0.4.1` release retains V11.
 The earlier `0.4.0` release retains V10.
 The earlier public `0.3.0` and `0.3.1` releases implemented V9 and remain historical.

@@ -1,10 +1,10 @@
+import { cleanupProof, finishControllerCleanup, joinedCleanupChild } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { runOwnedCommand } from '../../../command.mjs';
 import { until } from '../../../engine.mjs';
 import { PublicationGate } from '../../../capabilities/live/publicationGate.mjs';
 import { createTraceProxy } from '../../../selective/proxy/index.mjs';
@@ -124,28 +124,33 @@ async function controllerCase(run, context, mode) {
   const startPath = join(run.directory, 'start.json'); await jsonWriter(startPath)(config);
   run.evidence.crashOwner = { namespace: config.namespace, originalPath, recoveryPath, startPath, mode,
     challenge: config.challenge, controllerQuiescent: true, recovered: false, cleanupKind: null };
-  await run.save();
   let child; let primary; let original; let checkpointBytes; let resumedAt;
-  let recovered = false; let quiescent = true;
+  let recovered = false; let quiescent = true; let recoveryAttempt; let intentionalCrash = false;
   const recover = async (expectRetry) => {
     const path = join(run.directory, `recover-${expectRetry ? 'fault' : 'fallback'}.json`);
     const resultPath = join(run.directory, `recover-${expectRetry ? 'fault' : 'fallback'}-result.json`);
-    await jsonWriter(path)({ ...config, expectRetry, resultPath });
-    const execution = await runOwnedCommand({ command: process.execPath, args: [script, 'recover', path],
-      cwd: context.config.consumer, env: process.env, timeoutMs: limits.cleanupMs * 4 + limits.requestMs,
-      maxOutputBytes: limits.maxOutputBytes, terminationGraceMs: limits.cleanupMs });
+    recoveryAttempt = expectRetry;
+    const execution = await joinedCleanupChild(run, `recover-${expectRetry}`, async () => {
+      await jsonWriter(path)({ ...config, expectRetry, resultPath });
+      return { command: process.execPath, args: [script, 'recover', path], cwd: context.config.consumer, env: process.env,
+        timeoutMs: limits.cleanupMs * 4 + limits.requestMs, maxOutputBytes: limits.maxOutputBytes };
+    });
     const result = JSON.parse((await readFile(resultPath)).toString('utf8'));
+    assert.equal(result.pid, execution.pid); assert.equal(result.challenge, config.challenge);
+    assert.equal(result.cleanupComplete, true); assert.equal(result.finalRecord.phase, 'destroyed');
+    run.evidence.census.push(...await census(context.engine, result.finalRecord, 'fresh-cleanup-exact-absence', true));
+    recovered = true; run.evidence.crashOwner.recovered = true;
+    run.evidence.crashOwner.cleanupKind = mode === 'lease' ? 'fresh-process-fallback' : 'fresh-process-recovery';
     assert.equal(result.status, 'passed'); assert.deepEqual(result.cleanupErrors, []);
     if (expectRetry) assert.equal(result.reconciliation, 'matched');
     else assert(['matched', 'absent'].includes(result.reconciliation));
     if (expectRetry) assert(result.retainedFailure, 'The exact lost cleanup acknowledgement must exercise a real retry owner.');
     run.evidence.observations.push({ kind: 'fresh-process-original-record-cleanup-only', execution, result });
     run.evidence.finalRecord = result.finalRecord;
-    run.evidence.crashOwner.recovered = true;
-    run.evidence.crashOwner.cleanupKind = mode === 'lease' ? 'fresh-process-fallback' : 'fresh-process-recovery'; recovered = true;
     await run.save(); return result;
   };
   try {
+    await run.save();
     quiescent = false; run.evidence.crashOwner.controllerQuiescent = false; await run.save();
     child = startController({ script, configuration: startPath, mode, cwd: context.config.consumer, env: process.env,
       timeoutMs: limits.scenarioMs, maxOutputBytes: limits.maxOutputBytes, signal: context.signal, onControl: () => run.save() });
@@ -162,6 +167,7 @@ async function controllerCase(run, context, mode) {
     run.evidence.crashOwner.originalSha256 = sha(checkpointBytes);
     run.evidence.observations.push({ kind: 'durable-original-controller-readiness', ready, before }); await run.save();
     if (mode === 'start') {
+      intentionalCrash = true;
       run.evidence.fault = { kind: 'SIGKILL-original-owned-controller-group', pid: child.pid, ready, before }; await run.save();
       const killed = await child.kill(); quiescent = true; run.evidence.crashOwner.controllerQuiescent = true;
       assert.equal(killed.code, null); assert.equal(killed.signal, 'SIGKILL'); assert.equal(killed.groupQuiescent, true);
@@ -173,10 +179,11 @@ async function controllerCase(run, context, mode) {
       assert.deepEqual(await readFile(originalPath), checkpointBytes, 'Original trusted checkpoint must remain byte-for-byte intact.');
       run.evidence.observations.push({ kind: 'independent-original-resource-absence', census: await census(context.engine, original, 'fresh-cleanup-final', true) });
       const absentPath = join(run.directory, 'absent.json'); const absentResult = join(run.directory, 'absent-result.json');
-      await jsonWriter(absentPath)({ ...config, resultPath: absentResult });
-      const execution = await runOwnedCommand({ command: process.execPath, args: [script, 'absent', absentPath], env: process.env,
-        cwd: context.config.consumer, timeoutMs: limits.cleanupMs + limits.requestMs, maxOutputBytes: limits.maxOutputBytes,
-        terminationGraceMs: limits.cleanupMs });
+      const execution = await joinedCleanupChild(run, 'absent', async () => {
+        await jsonWriter(absentPath)({ ...config, resultPath: absentResult });
+        return { command: process.execPath, args: [script, 'absent', absentPath], env: process.env,
+          cwd: context.config.consumer, timeoutMs: limits.cleanupMs + limits.requestMs, maxOutputBytes: limits.maxOutputBytes };
+      });
       const result = JSON.parse((await readFile(absentResult)).toString('utf8'));
       assert.equal(result.status, 'passed'); assert.equal(result.reconciliation, 'absent');
       assert.deepEqual(await readFile(originalPath), checkpointBytes);
@@ -203,20 +210,35 @@ async function controllerCase(run, context, mode) {
       run.evidence.observations.push({ kind: 'independent-original-resource-absence', census: await census(context.engine, original, 'same-controller-final', true) });
       await run.save();
     }
-  } catch (error) { primary = error; }
+  } catch (error) { primary = error; run.evidence.controllerFailure = failure(error); }
   finally {
-    if (!quiescent && child) {
-      try { run.evidence.observations.push({ kind: 'controller-final-group-join', result: await child.kill() }); quiescent = true; }
-      catch (error) { quiescent = error.quiescent === true; run.evidence.cleanupErrors.push(failure(error)); }
-    }
-    run.evidence.crashOwner.controllerQuiescent = quiescent;
-    if (quiescent && !recovered) {
-      try { await readFile(originalPath); await recover(false); }
-      catch (error) { run.evidence.cleanupErrors.push({ originalPath, recoveryPath, ...failure(error) }); }
-    }
-    await run.save();
+    await finishControllerCleanup(run, limits.cleanupMs, async (cleanup) => {
+      if (!child) { quiescent = true; recovered = true; run.evidence.crashOwner.recovered = true; run.evidence.crashOwner.cleanupKind = 'not-entered'; }
+      if (!quiescent && child) {
+        await cleanup.step('original-controller', async () => {
+          try { await child.finish(); quiescent = true; }
+          catch (error) { quiescent = error.quiescent === true; throw error; }
+        }, { retryRejected: true, complete: () => quiescent });
+      }
+      if (!recovered && !intentionalCrash) {
+        await cleanup.step('original-controller-result', async () => {
+          const result = JSON.parse(await readFile(config.resultPath, 'utf8'));
+          assert.equal(result.pid, child.pid); assert.equal(result.challenge, config.challenge); assert.equal(result.cleanupComplete, true);
+          if (result.finalRecord) {
+            assert.equal(result.finalRecord.phase, 'destroyed');
+            run.evidence.census.push(...await census(context.engine, result.finalRecord, 'failed-original-child-exact-absence', true));
+          }
+          recovered = true; run.evidence.crashOwner.recovered = true; run.evidence.crashOwner.cleanupKind = 'failed-original-controller-cleanup';
+        }, { retryRejected: true });
+      }
+      run.evidence.crashOwner.controllerQuiescent = quiescent;
+      if (quiescent && !recovered) await cleanup.step('original-record-cleanup', async () => {
+        await readFile(originalPath); await recover(recoveryAttempt ?? false);
+      }, { retryRejected: true, complete: () => recovered });
+    });
+    try { await run.save(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
   }
-  run.afterCleanup.push(async () => {
+  run.afterCleanup.push(cleanupProof(async () => {
     const entries = (await readFile(tracePath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
     assert.equal(entries.filter(({ method, target }) => method === 'POST' && /^\/v1\.52\/containers\/create\?/u.test(target)).length, 3,
       'Only original compute/filesystem/export acquisition may create containers; reconciliation cannot recreate a helper.');
@@ -231,7 +253,7 @@ async function controllerCase(run, context, mode) {
       run.evidence.observations.push({ kind: 'lease-expiry-has-no-native-mutation-replay-or-premature-cleanup', resumedAt,
         commandCounts: attachment.commandCounts, destructiveRequests: prohibited }); await run.save();
     }
-  });
+  }));
   if (primary) throw primary;
 }
 

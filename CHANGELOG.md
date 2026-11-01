@@ -5,6 +5,42 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.8 - Unreleased
+
+An opt-in Docker Desktop coordinator for concurrent restricted sandboxes, with matching coordinated
+package versions. Agent Protocol V13 and recovery v3 are unchanged; existing Desktop v6 and Linux v5
+owners keep their behavior. Read [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md).
+
+- Add `createDockerDesktopCoordinator`, `prepareDockerDesktopCoordinatorHelper` and
+  `createCoordinatedDockerSandboxBackend`. Up to four restricted native arm64 or Rosetta amd64
+  members share one Desktop Engine under native same-user exclusion and a durable canonical
+  journal, with private `/28` allocation that broker denial already covers.
+- Member helper or control loss stays local when a surviving observer proves the shared topology
+  unchanged; shared authority loss fences every member while keeping each cleanup owner. A fresh
+  process recovers members only through `reopenCleanup()`, with no execution authority.
+- Coordinated members use backend revision `engine-1.52-v7-<profile>`. Legacy factories return
+  `conflict` for v7 records, and coordinated backends never adopt v6 records.
+- Enforce the coordinator's freshness deadline independently of pending holder commands and
+  topology observations, retaining their original settlement ownership after fencing.
+- Retain attempted member work scopes through journal acknowledgement failures so original
+  cleanup can settle initialization, primary, writer and export ownership without replay.
+- Include already admitted member cleanup in `settle()`, through local queues and fenced-cleanup
+  handoffs, without extending its finite cut to later cleanup requests.
+- Close and join never-started egress helper attachments without a STOP/lease wait, preventing
+  cancelled startup from holding the shared topology slot until healthy peers are fenced.
+- `@agen-ai/sandbox` readers stopped by `stop()` now fail with a typed `SandboxOperationError`
+  (`cancelled`, or the infrastructure failure recorded before stop) instead of Node's premature
+  close; `@agen-ai/sandbox/backend` exports `reconcileSandboxRecovery`.
+- Desktop host identity leaves out IPv6 link-local addresses and boot time, so AWDL address
+  rotation and wall-clock steps no longer fence a Desktop owner. Coordinated member removal
+  accepts each stored stage of Moby 29's endpoint retirement and the returned veth peer, and
+  settles only on the exact empty network.
+- Native arm64, Rosetta and both mixed Desktop orders passed the concurrency campaigns, with
+  Desktop and real Linux x64 regressions. Exact scope and carried results are in the
+  [coordination record](examples/sandbox/HANDOFF.md#concurrent-desktop-coordination-native-campaigns-2026-10-31).
+  The later freshness, work-scope, cleanup-settlement and helper pre-start closure repairs have
+  source regression coverage and retain separate applicability from those native-qualified archives.
+
 ## 0.4.7 - 2026-10-29
 
 All ten published packages are coordinated at `0.4.7`; npm `beta` and `latest` select this release.
