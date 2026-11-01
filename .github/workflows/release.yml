@@ -497,3 +497,45 @@ jobs:
             "@agen-ai/sandbox@${RELEASE_TAG#v}" \
             "@agen-ai/sandbox-docker@${RELEASE_TAG#v}"
           npm audit signatures
+
+  registry_diagnostic:
+    name: Read-only registry attestation census
+    if: github.ref == 'refs/heads/codex/sdk-0.4.8-registry-diagnostic'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Compare attestation request variants without publication
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {createHash} from 'node:crypto';
+          const root='https://registry.npmjs.org/-/npm/v1/attestations/';
+          for(const name of ['validation','sandbox-docker']){
+            const canonical=root+'@agen-ai/'+name+'@0.4.8';
+            const encoded=root+'%40agen-ai%2F'+name+'%400.4.8';
+            for(const [mode,url,headers] of [
+              ['canonical',canonical,{}],
+              ['canonical-revalidate',canonical,{'cache-control':'no-cache','pragma':'no-cache'}],
+              ['canonical-unique-query',canonical+'?agenai_readback='+process.env.GITHUB_RUN_ID,{'cache-control':'no-cache'}],
+              ['encoded',encoded,{}],
+              ['encoded-unique-query',encoded+'?agenai_readback='+process.env.GITHUB_RUN_ID,{'cache-control':'no-cache'}],
+            ]){
+              try{
+                const response=await fetch(url,{headers:{accept:'application/json',...headers},redirect:'error',signal:AbortSignal.timeout(30000)});
+                const bytes=Buffer.from(await response.arrayBuffer());
+                let document;try{document=JSON.parse(bytes);}catch{}
+                console.log(JSON.stringify({runtime:process.version,name,mode,url,status:response.status,bytes:bytes.length,
+                  sha256:createHash('sha256').update(bytes).digest('hex'),
+                  headers:Object.fromEntries([...response.headers].filter(([key])=>['age','cache-control','cf-cache-status','content-type','date','etag','vary','via','x-cache','x-served-by'].includes(key))),
+                  keys:document&&typeof document==='object'?Object.keys(document):[],predicates:document?.attestations?.map(x=>x.predicateType),
+                  error:document?.error}));
+              }catch(error){console.log(JSON.stringify({runtime:process.version,name,mode,error:error.message}));}
+            }
+          }
+          JS
