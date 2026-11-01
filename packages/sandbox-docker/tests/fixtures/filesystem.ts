@@ -3,7 +3,7 @@
 // ------------------------------------------------------------------------------------------------
 
 import type { Duplex } from 'node:stream';
-import type { DockerSandboxEgressOptions, DockerSandboxFilesystemOptions } from '../../src/policy/config.js';
+import type { DockerSandboxEgressOptions, DockerSandboxFilesystemOptions } from '../../src/policy/options.js';
 import type { DockerSandboxProfile } from '../../src/policy/profiles.js';
 import { registerDockerLinuxRouteAuthority } from '../../src/network/routeAuthority.js';
 import { engineFixture, gate } from './engine.js';

@@ -24,10 +24,14 @@ import { createRouteObserverCapture } from './capabilities/network/observer-capt
 import { createEngineNetworkCapture } from './capabilities/network/engine-capture.mjs';
 import { createDaemonObserver, cleanupDaemonObserver } from './observer/index.mjs';
 import { sourceTestCommand } from './source-tests.mjs';
+import { runNativeController } from './native-controller.mjs';
+import { launchConcurrencyRow } from './capabilities/concurrency/launch.mjs';
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url));
 const encode = (value) => `${JSON.stringify(value, (_, item) => typeof item === 'bigint' ? String(item) : item, 2)}\n`;
 const liveSources = [
+  'platform/native-controller.mjs', 'platform/capabilities/cleanup/obligations.mjs',
+  'platform/capabilities/concurrency/ownership.mjs',
   'engine.mjs', 'command.mjs', 'selective/proxy/index.mjs', 'selective/proxy/http.mjs',
   'selective/proxy/upgrade.mjs', 'selective/proxy/trace.mjs', 'capabilities/live/guest.mjs',
   'capabilities/live/publicationGate.mjs', 'capabilities/production/session.mjs', 'platform/capabilities/input.mjs',
@@ -35,6 +39,8 @@ const liveSources = [
     'controller-process', 'recovery-child', 'crash', 'owner-cleanup', 'controller'].map((name) => `platform/capabilities/live/${name}.mjs`),
 ];
 const preserveSources = [
+  'platform/native-controller.mjs', 'platform/capabilities/cleanup/obligations.mjs',
+  'platform/capabilities/concurrency/ownership.mjs',
   'engine.mjs', 'command.mjs', 'selective/proxy/index.mjs', 'selective/proxy/http.mjs',
   'selective/proxy/upgrade.mjs', 'selective/proxy/trace.mjs', 'capabilities/live/guest.mjs',
   'capabilities/production/session.mjs', 'capabilities/symlinks/fixtures.mjs', 'platform/capabilities/input.mjs',
@@ -42,6 +48,8 @@ const preserveSources = [
   ...['controller', 'shared', 'host-roots', 'roundtrip', 'admission', 'host-failures'].map((name) => `platform/capabilities/preserve/${name}.mjs`),
 ];
 const networkSources = [
+  'platform/native-controller.mjs', 'platform/capabilities/cleanup/obligations.mjs',
+  'platform/capabilities/concurrency/ownership.mjs',
   'engine.mjs', 'command.mjs', 'selective/proxy/index.mjs', 'selective/proxy/http.mjs',
   'selective/proxy/upgrade.mjs', 'selective/proxy/trace.mjs', 'capabilities/desktop/fixtures.mjs',
   'capabilities/desktop/guest.mjs', 'capabilities/production/session.mjs', 'platform/capabilities/input.mjs',
@@ -69,6 +77,19 @@ async function run(options) {
     '@agen-ai/sandbox-docker', 'Selected source layout must contain the Docker package.');
   await admitOutput(options.output, options.consumer);
   const identity = await installedIdentity(options.consumer);
+  if (options.row === 'desktop-concurrency') {
+    await mkdir(options.output, { mode: 0o700 });
+    await writeFile(join(options.output, 'platform-manifest.json'), selected.utf8, { flag: 'wx', mode: 0o600 });
+    await writeFile(join(options.output, 'capabilities-manifest.json'), selected.capabilities.utf8, { flag: 'wx', mode: 0o600 });
+    const dockerConfig = join(options.output, 'docker-config'); await mkdir(dockerConfig, { mode: 0o700 });
+    const result = await launchConcurrencyRow({ options, selected, identity, env: credentialFreeEnvironment(process.env, dockerConfig) });
+    await writeFile(join(options.output, 'launcher-report.json'), encode({ format: 'agenai.sandbox-platform-launcher.v1',
+      status: result.status, options, manifestInput: selected.input, capabilitiesInput: selected.capabilities.input, ...result }), { flag: 'wx', mode: 0o600 });
+    process.stdout.write(`${JSON.stringify({ status: result.status, row: options.row, report: result.reportPath,
+      ...(result.status === 'retained_cleanup' ? { pid: result.command.pid, retrySignal: 'SIGUSR2', message: 'Original supervisor retains proxy, observers and cleanup authority.' } : {}) })}\n`);
+    if (result.status !== 'passed') process.exitCode = 1;
+    return;
+  }
   const entrypoint = ['live-files', 'preserve-internal', 'restricted-https'].includes(options.row) ? null : options.row === 'combined'
     ? join(options.consumer, 'platform-dist/examples/sandbox/combined/index.js') : join(options.consumer, 'platform-dist/examples/sandbox',
     options.row === 'grok-initialize' ? 'evidence.js' : options.row === 'datasets' ? 'datasets.js' : 'docker.js');
@@ -107,13 +128,21 @@ async function run(options) {
   let observer, proxy, routeCapture, engineCapture;
   let observerEntered = false;
   const observerRoot = join(options.output, 'observer');
-  const execute = async (name, command, args, childEnv = env, cwd = repository, timeoutMs = 300_000) => {
+  const execute = async (name, command, args, childEnv = env, cwd = repository, timeoutMs = 300_000,
+    { nativeController = false } = {}) => {
     let result, error;
-    try { result = await runOwnedCommand({ command, args, env: childEnv, cwd, timeoutMs, signal: cancellation.signal,
-      ...(['live-files', 'preserve-internal', 'restricted-https', 'combined'].includes(options.row) ? { terminationGraceMs: 120_000 } : {}) }); }
-    catch (caught) { result = caught; error = caught; commandQuiescent &&= caught.quiescent === true; }
     const log = `${name}.log`;
-    report.commands.push({ name, command, args, status: result.status, quiescent: result.quiescent, log });
+    const entry = { name, command, args, status: null, quiescent: false, log };
+    report.commands.push(entry);
+    const onStarted = async (child) => { entry.child = child; await checkpoint(); };
+    try {
+      result = await (nativeController ? runNativeController : runOwnedCommand)({ command, args, env: childEnv, cwd,
+        timeoutMs, signal: cancellation.signal, ...(nativeController ? { onStarted } : {}) });
+    } catch (caught) { result = caught; error = caught; commandQuiescent &&= caught.quiescent === true; }
+    Object.assign(entry, { status: result.status, quiescent: result.quiescent,
+      ...(nativeController ? { child: { ...entry.child, pid: result.pid, joinedAt: result.joinedAt,
+        ready: result.ready, gracefulRequest: result.gracefulRequest,
+        observedOutputBytes: result.observedOutputBytes, retainedOutputBytes: result.retainedOutputBytes } } : {}) });
     await writeFile(join(options.output, log), `${result.stdout ?? ''}\n${result.stderr ?? ''}`, { mode: 0o600 });
     await checkpoint();
     if (error) throw error;
@@ -220,10 +249,12 @@ async function run(options) {
         profile: manifest.profile, namespacePrefix, workloadImage: imageDigest, source: engineSource });
       report.engineNetworkCapture = { source: engineSource, indexPath: engineCapture.indexPath, final: null };
     }
+    // A burst above the active bound waits for a slot on a connection the bound still admits: refusing either would
+    // inject a failure the Engine never produces.
     proxy = await createTraceProxy({ socketPath: join(options.output, 'engine.sock'), upstreamEndpoint: manifest.engine,
       tracePath: join(options.output, 'engine-requests.jsonl'), observeResponse: observer.observeResponse,
       observeResponseBody: engineCapture?.observeResponseBody,
-      observeUpgrade: routeCapture?.observeUpgrade });
+      observeUpgrade: routeCapture?.observeUpgrade, maxConnections: 32, maxPendingRequests: 32 });
     proxy.setRow(options.row);
     const fixturePath = join(options.output, 'fixture.json');
     await writeFile(fixturePath, encode({ format: 'agenai.sandbox-docker-fixture.v1', imageDigest,
@@ -251,7 +282,7 @@ async function run(options) {
         scenarioBudget: selected.capabilities.scenarioBudget }), { flag: 'wx', mode: 0o600 });
       await checkpoint();
       await execute('installed-live-files', process.execPath, [join(report.controller.directory, 'platform/capabilities/live/controller.mjs'), configurationPath],
-        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * 20);
+        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * 20, { nativeController: true });
       report.live = JSON.parse((await boundedFile(join(options.output, 'live/live-report.json'), 4 * 1024 ** 2)).toString('utf8'));
       assert.equal(report.live.status, 'passed');
     } else if (options.row === 'preserve-internal') {
@@ -264,7 +295,7 @@ async function run(options) {
         hostRoots: selected.capabilities.hostRoots }), { flag: 'wx', mode: 0o600 });
       await checkpoint();
       await execute('installed-preserving-transfers', process.execPath, [join(report.controller.directory, 'platform/capabilities/preserve/controller.mjs'), configurationPath],
-        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * 256);
+        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * 256, { nativeController: true });
       report.preserve = JSON.parse((await boundedFile(join(options.output, 'preserve/preserve-report.json'), 1024 ** 2)).toString('utf8'));
       assert.equal(report.preserve.status, 'passed'); assert.equal(report.preserve.hostCleanup.complete, true);
     } else if (options.row === 'restricted-https') {
@@ -283,7 +314,7 @@ async function run(options) {
         fixtureOwner, namespacePrefix, sourceIdentity: report.controller.sources, scenarioBudget: selected.capabilities.scenarioBudget, endpointProjection }), { flag: 'wx', mode: 0o600 });
       await checkpoint();
       await execute('installed-restricted-https', process.execPath, [join(report.controller.directory, 'platform/capabilities/network/controller.mjs'), configurationPath],
-        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * 26);
+        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * 26, { nativeController: true });
       report.network = JSON.parse((await boundedFile(join(options.output, 'network/network-report.json'), 1024 ** 2)).toString('utf8'));
       assert.equal(report.network.status, 'passed'); assert.equal(report.network.fixtures.closed, true);
     } else if (options.row === 'combined') {
@@ -303,7 +334,7 @@ async function run(options) {
         entrypoint: compiledEntrypoint }), { flag: 'wx', mode: 0o600 });
       await checkpoint();
       await execute('installed-combined', process.execPath, [join(report.controller.directory, 'platform/capabilities/combined/controller.mjs'), configurationPath],
-        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * selected.capabilities.scenarioBudget.maximumCases);
+        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * selected.capabilities.scenarioBudget.maximumCases, { nativeController: true });
       report.combined = JSON.parse((await boundedFile(join(options.output, 'combined/combined-report.json'), 1024 ** 2)).toString('utf8'));
       assert.equal(report.combined.status, 'passed'); assert.equal(report.combined.fixtures.closed, true);
       assert.equal(report.combined.hostCleanup.complete, true);

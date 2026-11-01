@@ -9,7 +9,8 @@ import type { DockerApi } from '../resources/api.js';
 import type { ContainerInspection } from '../resources/inspect.js';
 import { resourceLabels } from '../recovery/identity.js';
 import { DOCKER_API } from './config.js';
-import type { DockerSandboxConfig, DockerSandboxFilesystemOptions } from './config.js';
+import type { DockerSandboxConfig } from './config.js';
+import type { DockerSandboxFilesystemOptions } from './options.js';
 import { dockerProfile } from './profiles.js';
 import { empty, isolatedHostPolicy, matchesHostIsolation, sameStrings } from './hostIsolation.js';
 import { FILESYSTEM_ENVIRONMENT, FILESYSTEM_IMAGE_PROTOCOL_LABEL, FILESYSTEM_IMAGE_LAYOUT_LABEL, FILESYSTEM_IMAGE_USER_LABEL,

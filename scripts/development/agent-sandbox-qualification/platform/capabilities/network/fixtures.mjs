@@ -1,3 +1,4 @@
+import { cleanupAction } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { Resolver } from 'node:dns/promises';
@@ -49,9 +50,12 @@ export function assertNoOverlap(candidate, exclusions, networks) {
     const [start, end] = interval(cidr); assert(first > end || start > last, `Public fixture overlaps observed ${cidr}.`);
   }
 }
-const hostFacts = () => Object.fromEntries(Object.entries(networkInterfaces()).sort().map(([name, addresses]) => [name,
-  addresses.map(({ address, netmask, family, internal, cidr, mac, scopeid }) => ({ address, netmask, family, internal, cidr, mac,
-    ...(scopeid === undefined ? {} : { scopeid }) })).sort((a, b) => a.address.localeCompare(b.address))]));
+// macOS rotates the AWDL MAC, and with it the EUI-64 link-local addresses, whenever it likes; link-local carries no fixture route.
+const linkLocal = ({ family, address }) => family === 'IPv6' && /^fe[89ab][0-9a-f]:/iu.test(address);
+export const hostFacts = (interfaces = networkInterfaces()) => Object.fromEntries(Object.entries(interfaces).sort().map(([name, addresses]) => [name,
+  addresses.filter((entry) => !linkLocal(entry)).map(({ address, netmask, family, internal, cidr, mac, scopeid }) => ({ address, netmask,
+    family, internal, cidr, mac, ...(scopeid === undefined ? {} : { scopeid }) })).sort((a, b) => a.address.localeCompare(b.address))])
+  .filter(([, addresses]) => addresses.length));
 const networkFacts = (networks, ownedNetwork, ownedContainers) => networks.filter(({ Id }) => Id !== ownedNetwork)
   .map(({ Id, Name, Driver, Internal, EnableIPv6, IPAM, Options, Containers, Labels }) => ({ Id, Name, Driver, Internal, EnableIPv6,
     IPAM, Options, Containers: Object.keys(Containers).filter((id) => !((Name === 'host' && Driver === 'host'
@@ -327,7 +331,7 @@ export async function createFixtures(context) {
   };
   const owner = {
     record, persist, note, createBridge, remove,
-    async startBase() {
+    async startBase({ includeForeignMarker = true } = {}) {
       const addresses = hostFacts(); assert(Object.values(addresses).flat().some((entry) => entry.address === selected.hostAddress && entry.internal === false),
         'Selected host marker address is not an actual noninternal host interface address.');
       const image = (await engine.request('GET', `/images/${encode(selected.imageDigest)}/json`)).data;
@@ -347,7 +351,7 @@ export async function createFixtures(context) {
         const [address] = interval(ipv4[0].address); assert(address > first && address < last, 'VM marker address is outside captured DockerSubnet.');
       }
       vm.vmAddress = ipv4[0].address; await persist();
-      await owner.prepareForeign();
+      if (includeForeignMarker) await owner.prepareForeign();
       await owner.awaitQuiescence();
     },
     async brokerPolicy(entry) {
@@ -452,7 +456,7 @@ export async function createFixtures(context) {
         assert.equal(foreign.membership, undefined);
         const membership = { networkId: null, endpoint: null, state: 'prepared' };
         foreign.membership = membership;
-        run.beforeCleanup.push(async () => {
+        run.beforeCleanup.push(cleanupAction(async () => {
           const networks = await foreignNetworks();
           const added = Object.entries(networks).filter(([name]) => name !== 'bridge');
           assert(added.length <= 1 && added.every(([, endpoint]) => endpoint.NetworkID === membership.networkId),
@@ -471,7 +475,7 @@ export async function createFixtures(context) {
           await run.observe({ kind: 'foreign-marker-default-endpoint-preserved', containerId: foreign.id,
             detachedNetworkId: membership.networkId, disconnectStatus: membership.disconnectStatus ?? null,
             defaultEndpoint: foreign.defaultEndpoint, state: foreign.state, scope: 'Row-owned marker remains running until final fixture closure.' });
-        });
+        }, () => membership.state === 'detached'));
         await persist();
       }
       return foreign;

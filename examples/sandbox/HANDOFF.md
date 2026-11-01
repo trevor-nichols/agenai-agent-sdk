@@ -1,8 +1,8 @@
-# SDK 0.4.7 candidate platform and consumer handoff
+# SDK 0.4.8 candidate platform and consumer handoff
 
-This handoff targets the coordinated, unpublished **0.4.7 candidate**, with Agent Protocol
+This handoff targets the coordinated, unpublished **0.4.8 candidate**, with Agent Protocol
 **V13** unchanged. Use the exact governed source export and its ten locally packed archives.
-Published npm **0.4.6** remains a separate release. Earlier platform records below retain their
+Published npm **0.4.7** remains a separate release. Earlier platform records below retain their
 original source and archive identities. Publication, Docker Desktop configuration and Battle Bots
 changes are not performed by this handoff.
 
@@ -63,6 +63,7 @@ qualification launcher is not a supported public authentication API.
 | Desktop live files, separately packed MS003 r2 | Native N7 and Rosetta R2 each passed 18 cases with complete cleanup and 43 final-empty scopes | Changed tuples need their own proof |
 | Desktop preserving transfers, separately packed MS004 r2 | Native N2 and Rosetta R1 each passed 136 cases across both APFS roots and workspace layouts, with complete cleanup and 230 final-empty scopes | Changed archive/controller/helper/platform tuples need their own proof |
 | Desktop restricted HTTPS, separately packed MS005 r8 | Native N12 and Rosetta R2 each passed 26 installed cases with complete cleanup and 98 final-empty scopes; exact IPv4-only caller-quiescent composition | MS006 separately records combined behavior; changed tuples need fresh proof |
+| Desktop coordinated members, development `packed-r16` matching the 0.4.8 payload | 51 two-member rows across native, Rosetta and mixed profiles; live-file, restricted-HTTPS and combined suites 114/114 on both profiles; Linux x64 regression 143/143 | Three or four live members, changed tuples, throughput and long-run stability; preserving transfers on this payload |
 | Internal and external APFS on that Mac | Each passed all 183 neutral host tests, zero skips, with native representation limits retained | Other filesystems and representations not supported by the observed APFS roots |
 | Pinned Grok 1.0.62 under AVF/Rosetta | Exact version/hash and eager ACP initialization, no session/account/model | Native tasks, authentication, tools, cancellation and model behavior on Mac |
 | Battle Bots / Electron | Reusable SDK contracts and example mappings | Dependency/config migration, application behavior, renderer grants, artifacts and replay |
@@ -570,6 +571,9 @@ mapping. No Battle Bots source was changed by this SDK plan.
 1. Drain old 0.4.4 resources with their retained controller and original recovery records, then
    verify absence. Keep failed cleanup with that owner. Follow
    [UPGRADING-TO-0.4.5.md](../../UPGRADING-TO-0.4.5.md); never rewrite v2 records as v3.
+   Before adopting the 0.4.8 Desktop coordinator on an Engine, likewise destroy every existing
+   restricted owner with its original controller and verify absence; v6 records are never
+   translated to v7. See [UPGRADING-TO-0.4.8.md](../../UPGRADING-TO-0.4.8.md).
 2. Select matching candidate archives and explicitly prepare trusted workload/helper images.
    Keep image creation, inspection, labels, budgets and disposal under a separate caller owner.
    Sandbox cleanup borrows these images and never removes them. Retain exact image architecture,
@@ -795,3 +799,98 @@ and the Claude example workspace version. Execution code and guest launchers mat
 applicability through the recorded r3 → r4 → r5 → 0.4.7 comparison chain, including the separately
 reviewed OpenCode expiry guard. It does not rename the original live runs as 0.4.7 executions.
 The original and candidate archive digests remain in the corrective plan's evidence manifests.
+
+## Concurrent Desktop coordination native campaigns (2026-10-31)
+
+This record applies to the frozen archives listed below. Current source additionally includes the
+2026-11-01 review repairs: an independent authority-freshness watchdog, retryable settlement of
+attempted member work scopes after journal acknowledgement failure, settlement cuts that retain
+admitted cleanup through member queues and fenced-cleanup handoffs, and joined closure of
+never-started egress attachments without waiting for a helper lease. Source regressions cover those
+repairs; no new native campaign qualifies their changed runtime bytes. The original archives,
+reports and hashes remain unchanged.
+
+EP-20261029-001 qualified the candidate's opt-in
+[Desktop coordinator](../../packages/sandbox-docker/README.md#concurrent-desktop-members) with the
+installed [concurrency example](concurrency/README.md) on the M3/macOS 26.5.1 Mac above: Darwin
+arm64 Node 24.18.0/pnpm 11.7.0, Docker Desktop 4.54.0, rootful arm64 Engine 29.1.2/API 1.52 and
+LinuxKit 6.12.54-linuxkit. Members ran in pairs under one coordinator on the Apple Virtualization
+native arm64 and AVF/Rosetta amd64 profiles; workflows add a replacement member after one retires.
+Rosetta changes only the workload to amd64; the coordinator, filesystem, egress and route-observer
+helpers stay arm64. The IPv4-only deployment and caller-owned route/proxy/interception quiescence
+remain mandatory.
+
+Native pairs ran all 27 cases: joint and staged workflows, interrupted acquisition, persistence
+rejection, member-local helper and control loss, foreign Engine resources, lost acknowledgements,
+crash cuts and lease expiry. Rosetta pairs and both mixed role orders each ran the four workflow and
+four control-loss cases. Every row required complete original cleanup, empty native scopes, an
+unchanged borrowed inventory and an independent audit of its complete Engine and VM capture.
+
+All 51 rows passed on the 0.4.8 candidate archives themselves (`packed-candidate-r2`), with the
+route-observer image built from the earlier `packed-r15` package; its VM sources are byte-identical.
+The final record, `campaign-c2s5.json`
+(`f4cb84aef8ecb6262411b24da7df5e0f18d0a6e7aa59e1b96947c17fa0a5e72e`), carries every verified pass
+under one frozen contract across five series: 4, 7, 15, 24 and 1 rows. The earlier series also hold
+failed attempts, each rerun to a pass: 13 refusals at the controller's disk or load admission
+before any native effect, two fixture reachability probes outside both sandboxes that hit their
+15-second deadline, and one member's held GitHub connection through its own relay and broker that
+closed cleanly with no recorded cause. Every failed attempt cleaned up completely.
+
+Before the final review, the same 51 rows had passed on development packages: 46 on `packed-r15`
+and the five it failed on `packed-r16` (`campaign-r15s1.json`
+`7cf17ae11e4c5d01e78aa6d2983e3c8e24304520f270c683ba964637f211f17f`, `campaign-r16s1.json`
+`c29a4a010b8767aad268869d04c62a488b39f167d9f3fc0d80b093eaf4ac3b10`). The final review then found
+two coordinator defects, fixed in the candidate before this rerun:
+
+- A peer's cleanup published while a member's create or start already held the physical topology
+  slot could reject that member's arm and fail its startup with a misleading `retained_ownership`.
+  The planner now arms growth requested before every queued cleanup; later growth still yields.
+- A first `initialize()` that failed after the native bootstrap left an empty journal state that
+  every later call reported as holder loss. Initialization now commits its clean snapshot
+  immediately after bootstrap, and an empty state reports `journal_invalid` `corrupt`.
+
+SDK regression tests reproduce both defects. The native rows ran with the fixes in place but do not
+target either window. Earlier packages' failed attempts, their cleanup and the repairs they led to
+remain in the plan's execution runbook.
+
+On `packed-r16`, the Desktop live-file (18), restricted-HTTPS (26) and combined (13) suites passed
+on both profiles: 114 of 114 cases, with complete cleanup and the borrowed inventory unchanged.
+They and the Linux regression below carry to the candidate, because both fixes run only on
+coordinated paths, which those suites do not use.
+Preserving transfers were outside the rerun; their last Desktop pass is 136 cases per profile on
+`packed-r5`. A real Linux x64 regression on Ubuntu 26.04 LTS, kernel `7.0.0-38-generic`, Node
+24.18.0 and rootful Engine 29.1.3/API 1.52 passed 143 of 143 cases: live files 18, preserving
+transfers 68, combined 11 and network/recovery 46. Its consumer was packed on Linux from the same
+source; installed bytes match the Mac `packed-r16` apart from dependency-key order in four package
+manifests. The Linux collection receipt is
+`e1d4e4d7fbfc2427cb2b915ffe59af56b07cb23aaecd42d61128721159d77a00`.
+
+Of the three `packed-r16` repairs, only broker retirement met its trigger live: the Rosetta-pair
+broker control-loss row passed through the endpoint-retirement stage that fenced `packed-r15`.
+Excluding boot time from the host fingerprint and attributing Moby's transient `ep-` endpoint
+listing to a recorded member are proved by SDK unit tests only. No native row admitted three or
+four live members at once. Accepted behavior limits are in the
+[upgrade guide](../../UPGRADING-TO-0.4.8.md#known-limits). These provider-neutral campaigns use no
+account, model or credentials and make no throughput, long-term stability, application, fleet or
+publication claim.
+
+The 0.4.8 candidate archives were packed from source commit `2bcb16c3f` and passed the portable
+installed proof. Across all 1,450 files of the ten packages, they differ from `packed-r16` only in
+the two fixed `sandbox-docker` runtime files (`dist/network/desktop/coordinator/journal/plans.js`
+and `dist/node/desktopCoordinator.js`), README text in six packages, and each `package.json`. The
+manifests advance only the version and internal `@agen-ai/*` ranges, and five reorder dependency
+keys. Every declaration, native-asset, VM-observer source and compiled example byte matches. The
+retained root is `/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001`.
+
+| Package | `packed-r16` archive SHA-256 | 0.4.8 candidate archive SHA-256 |
+| --- | --- | --- |
+| `@agen-ai/acp-registry` | `3bb1d4ea245718c1458f0fc1c8b0a112d9a6255c7576995752c435dfdeed7cf6` | `6161fafabe18df0d38065ceea66196a2d0208393fde1e95532f4c4d6822e01a9` |
+| `@agen-ai/acp-transport` | `1fe7f4d21c064552885d52d7fe074173d8e3d206f6accca077638018299caf88` | `36ee260d9b67fabd90fa14f0743625e2e53bb653689cf67ee5fd3577f541a3c8` |
+| `@agen-ai/agent-history` | `e6d6fefc0f05dc8f1bb403606be9b9b78ff338fa52f96267d308eac5581675b3` | `f2833562e9645762f839dba416e274985f515088f9f6a444eb9674ca3016a59b` |
+| `@agen-ai/agent-orchestration` | `dfe0872637e4a693e59cea6c0e01c6c8cab6e02c5d23f95d79afb813542eaa40` | `ed8211b285e467ee9fc5e681dc64df3cd94e4d095bbf861701b5b5273ae28430` |
+| `@agen-ai/agent-protocol` | `0230f0eae692c3e33b73bb7d9b1b6c9785f78dcf1504c0a0f93382a9d3ed89ae` | `6a20f2a214ad14d86fdbcf5119f65bf3e572faf34c0d7c3abb81ee4b40da6e22` |
+| `@agen-ai/agent-runtime` | `90fbea74f08b1dc806c2f97789c13f2cf998d4a3694a91fe8e7ed5ddd72760b1` | `e2aab26c66174b0225ddad8986c3b9050d18803d7294932ae651bdc87a616d1c` |
+| `@agen-ai/provider-acp` | `7948f1b104b807b211da11baa1cd731caa2c07e5a889f818ef656e6c588b957d` | `66ee4ecfa291a13364de3aba47a29cd2bb3545715080aec461438566d15a6848` |
+| `@agen-ai/sandbox` | `96369990b25214e204b41476f08363b4c37c92bd51d6c83cbb87e2f9bd81eb0d` | `812dfcb540275347daef0727dbf142f16da71c898b00789c31b29da840301ccc` |
+| `@agen-ai/sandbox-docker` | `2a595645c903e8089ae285ca22c1f5d56084c4f4ed69fa229302cac768dd17c3` | `4f9c79d72e16020b3ba99350166c7ae4c84b7e465e58c0e9acb9d59ed5602695` |
+| `@agen-ai/validation` | `ab78854d33b9540d246fb638a389770e21cf5b7602be9c6e4c386d801ad4ce26` | `26c324b11f6e008f81c034e4691511b94f08f7038cc59256fbf1d5d8ed76b495` |

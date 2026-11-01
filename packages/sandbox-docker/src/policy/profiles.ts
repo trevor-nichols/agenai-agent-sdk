@@ -5,6 +5,7 @@
 export const DOCKER_SANDBOX_PROFILES = ['linux-x64', 'desktop-apple-virtualization-native-arm64', 'desktop-apple-virtualization-rosetta-amd64'] as const;
 
 export type DockerSandboxProfile = typeof DOCKER_SANDBOX_PROFILES[number];
+export type DockerDesktopSandboxProfile = Exclude<DockerSandboxProfile, 'linux-x64'>;
 
 const profiles = {
   'linux-x64': {
@@ -35,4 +36,8 @@ export function dockerProfile(profile: DockerSandboxProfile) {
 
 export function dockerBackendRevision(profile: DockerSandboxProfile): string {
   return `engine-1.52-v${dockerProfile(profile).desktop ? 6 : 5}-${profile}`;
+}
+
+export function dockerCoordinatedBackendRevision(profile: DockerDesktopSandboxProfile): string {
+  return `engine-1.52-v7-${profile}`;
 }

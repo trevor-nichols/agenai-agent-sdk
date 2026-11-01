@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod/v4';
 import { SandboxOperationError } from '@agen-ai/sandbox';
-import type { DockerApi } from '../../../resources/api.js';
+import type { DockerApi, DockerResponseByteBudget } from '../../../resources/api.js';
 import { DOCKER_API } from '../../../policy/config.js';
 import { deniedCoverage } from '../../policy.js';
 import { parseNumericAddress } from '../../address.js';
@@ -26,7 +26,8 @@ const networkStatusSchema = z.object({ IPAM: ipamStatusSchema.optional() }).pass
 const networkSchema = z.object({ Id: id, Name: boundedText.min(1), Created: boundedText, Driver: boundedText.min(1), Scope: boundedText,
   Internal: z.boolean(), Attachable: z.boolean(), Ingress: z.boolean(), EnableIPv6: z.boolean(), ConfigOnly: z.boolean(),
   IPAM: z.strictObject({ Driver: boundedText, Options: stringMap.nullable(), Config: z.array(ipamSchema).max(128).nullable() }),
-  Options: stringMap, Labels: stringMap, Containers: z.record(id, endpointSchema), Status: networkStatusSchema.optional(),
+  // Moby lists an endpoint that has left its sandbox but is not yet deleted as ep-<endpoint>.
+  Options: stringMap, Labels: stringMap, Containers: z.record(z.string().regex(/^(?:ep-)?[a-f0-9]{64}$/u), endpointSchema), Status: networkStatusSchema.optional(),
 }).passthrough();
 export type DesktopEngineNetwork = z.infer<typeof networkSchema>;
 export interface DesktopEngineNetworkCensus {
@@ -44,10 +45,11 @@ export function observationFingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
 }
 
-export async function readDesktopEngineNetworks(api: DockerApi, signal?: AbortSignal): Promise<DesktopEngineNetworkCensus> {
-  const info = await api.json('GET', '/info', z.object({ ID: z.string().min(1).max(256), Name: boundedText.min(1), KernelVersion: boundedText.min(1) }), { signal });
+export async function readDesktopEngineNetworks(api: DockerApi, signal?: AbortSignal,
+  responseBudget?: DockerResponseByteBudget): Promise<DesktopEngineNetworkCensus> {
+  const info = await api.json('GET', '/info', z.object({ ID: z.string().min(1).max(256), Name: boundedText.min(1), KernelVersion: boundedText.min(1) }), { signal, responseBudget });
   const list = async () => {
-    const result = await api.json('GET', `${DOCKER_API}/networks`, z.array(z.object({ Id: id })).min(1).max(128), { signal });
+    const result = await api.json('GET', `${DOCKER_API}/networks`, z.array(z.object({ Id: id })).min(1).max(128), { signal, responseBudget });
     const ids = result.map((network) => network.Id).sort();
     if (new Set(ids).size !== ids.length) throw new SandboxOperationError('driver_failure', 'Docker network census contains duplicate identities.');
     return ids;
@@ -55,13 +57,17 @@ export async function readDesktopEngineNetworks(api: DockerApi, signal?: AbortSi
   const ids = await list();
   const networks: DesktopEngineNetwork[] = [];
   const exclusions: string[] = [];
+  const identity = { id: info.ID, hostname: info.Name, kernel: info.KernelVersion };
+  const envelopeBytes = Buffer.byteLength(JSON.stringify({ ...identity, networks: [], excludedCidrs: [] }), 'utf8');
+  let networkBytes = 0;
+  let excludedCidrs = deniedCoverage(exclusions);
   const host = (address: string) => {
     const parsed = parseNumericAddress(address);
     if (parsed === undefined) throw new SandboxOperationError('driver_failure', 'Docker IPAM contains an invalid numeric address.');
     return `${address}/${parsed.family === 4 ? 32 : 128}`;
   };
   for (const networkId of ids) {
-    const network = await api.json('GET', `${DOCKER_API}/networks/${networkId}`, networkSchema, { signal });
+    const network = await api.json('GET', `${DOCKER_API}/networks/${networkId}`, networkSchema, { signal, responseBudget });
     if (network.Id !== networkId || Object.keys(network.Containers).length > 4096) throw new SandboxOperationError('driver_failure', 'Docker network inspection identity or membership is invalid.');
     const unallocated = (network.Driver === 'host' && network.Name === 'host' || network.Driver === 'null' && network.Name === 'none')
       && network.Scope === 'local' && network.IPAM.Config === null;
@@ -80,10 +86,17 @@ export async function readDesktopEngineNetworks(api: DockerApi, signal?: AbortSi
       for (const address of Object.values(allocation.AuxiliaryAddresses ?? {})) exclusions.push(host(address));
       if (exclusions.length > 4096) throw new SandboxOperationError('output_limit', 'Docker network coverage exceeds its finite bound.');
     }
+    networkBytes += Buffer.byteLength(JSON.stringify(network), 'utf8') + (networks.length === 0 ? 0 : 1);
+    excludedCidrs = deniedCoverage(exclusions);
+    // The envelope already includes the empty exclusion-array brackets.
+    const normalizedBytes = envelopeBytes + networkBytes + Buffer.byteLength(JSON.stringify(excludedCidrs), 'utf8') - 2;
+    if (normalizedBytes > 16 * 1024 ** 2) {
+      throw new SandboxOperationError('output_limit', 'Docker normalized network census exceeds its 16-MiB byte bound.');
+    }
     networks.push(network);
   }
   if (JSON.stringify(await list()) !== JSON.stringify(ids)) throw new SandboxOperationError('driver_failure', 'Docker network identities changed during the complete census.');
-  const result = { id: info.ID, hostname: info.Name, kernel: info.KernelVersion, networks, excludedCidrs: deniedCoverage(exclusions) };
+  const result = { ...identity, networks, excludedCidrs };
   freezeObservation(result);
   return result;
 }

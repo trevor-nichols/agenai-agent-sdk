@@ -1,0 +1,24 @@
+{
+  "format": "agenai.ms001-late-engine-preparation.v1",
+  "at": "2026-10-29T22:52:44.612Z",
+  "state": "prepared_not_executed",
+  "engineRequestsByThisFixture": 0,
+  "engineMutationsByThisFixture": 0,
+  "checks": [
+    "node --check for all five new modules",
+    "explicit eslint for late-engine*.mjs",
+    "git diff --check",
+    "--describe only"
+  ],
+  "sourceHashes": {
+    "lock-holder.c": "7ba7d67ea8c5e52dff3ab5b2ddd2c0c4291fa718fb97d75970a1ac5449aba972",
+    "controller.mjs": "c25eb866e02c11dbced79ad31d83dae5092334592c4acc347542364dba3ba217",
+    "prepare.mjs": "735c91f257de674cac5df509d21587088b648758105289e97b15d7194db2ab05",
+    "endpoint-binding.mjs": "477f2aaf6a8f930808effeb50a9aa028066651e1a5eb13089649d67a6e9ca464",
+    "late-engine-effect.mjs": "b75e1ce26fef131f1b9f3c66377df21b4a32e0f56a94974414199cf3c893f926",
+    "late-engine-controller.mjs": "78f8a0320487d61a792c16ea89dc5eebc8cbf0ac7422351d730280b6d77bf4d4",
+    "late-engine-gateway.mjs": "f375adb2e945ddc0cab6e203902ba013fdea0e8c19f33f7d54394755be0785a3",
+    "late-engine-ipam.mjs": "7fedf7fda12516a7c82ad817fe49e3e6c64d5df52e12a6949683981705a78e9c",
+    "late-engine-transport.mjs": "376d58a6edba2697610107985b95df6f595995a6e5e937aea3dca3208bed1683"
+  }
+}

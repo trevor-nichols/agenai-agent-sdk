@@ -5,6 +5,7 @@
 import { SandboxValidationError } from '@agen-ai/sandbox';
 import type { DockerDesktopRouteAuthorityIdentity, DockerDesktopRouteAuthorityProfile } from './desktopAuthority.js';
 import type { DesktopHostAuthorityObservation } from './desktop/observation/host.js';
+import type { DesktopObservationByteBudget } from './desktop/observation/budget.js';
 
 const authorityBrand = Symbol('DockerLinuxRouteAuthority');
 const desktopAuthorityBrand = Symbol('DockerDesktopRouteAuthority');
@@ -49,7 +50,7 @@ export interface DockerLinuxRouteAuthorityBinding {
 export interface DockerDesktopRouteAuthorityBinding {
   readonly kind: 'local_docker_desktop';
   readonly identity: DockerDesktopRouteAuthorityIdentity;
-  observeHost(signal?: AbortSignal): Promise<DesktopHostAuthorityObservation>;
+  observeHost(signal?: AbortSignal, budget?: DesktopObservationByteBudget): Promise<DesktopHostAuthorityObservation>;
   observeEngineSocket(signal?: AbortSignal): Promise<DockerDesktopEngineSocketIdentity>;
 }
 

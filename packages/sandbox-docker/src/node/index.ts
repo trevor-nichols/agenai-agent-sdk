@@ -17,3 +17,9 @@ export type {
   DockerDesktopHostObserverPreparation, DockerDesktopHostObserverPreparationOptions,
   DockerDesktopVmObserverPreparation, DockerDesktopVmObserverPreparationOptions,
 } from './prepareDesktopObservers.js';
+export { createDockerDesktopCoordinator } from './desktopCoordinator.js';
+export type { DockerDesktopCoordinatorOptions } from '../network/desktop/coordinator/contracts.js';
+export { prepareDockerDesktopCoordinatorHelper } from './prepareDesktopCoordinator.js';
+export type {
+  DockerDesktopCoordinatorPreparation, DockerDesktopCoordinatorPreparationOptions,
+} from './prepareDesktopCoordinator.js';

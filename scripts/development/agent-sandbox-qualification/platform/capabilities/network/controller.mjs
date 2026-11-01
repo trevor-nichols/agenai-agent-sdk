@@ -1,3 +1,5 @@
+import { nativeControllerReady } from '../../native-controller.mjs';
+import { cleanupDiagnostic, finishRunCleanup, finishSuiteCleanup } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { lstat, mkdir, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -5,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Engine } from '../../../engine.mjs';
 import { acquireJsonInput, physicalPath } from '../input.mjs';
 import { appendObservation, failure, json, jsonWriter } from '../live/evidence.mjs';
-import { settleOwnerCleanup } from '../live/owner-cleanup.mjs';
+import { originalOwnerCleanup, settleOwnerCleanup } from '../live/owner-cleanup.mjs';
 import { networkCaseNames, networkScenarioBudget } from './budget.mjs';
 import { connectivityCases } from './connectivity.mjs';
 import { faultCases } from './faults.mjs';
@@ -31,6 +33,7 @@ assert.equal(config.endpointProjection.effectiveEndpoint, config.endpoint);
 assert.equal(config.endpointProjection.capturedEndpoint, config.capabilities.network.routeAuthority.engine.endpoint);
 const cancellation = new AbortController(); const interrupt = () => cancellation.abort(new Error('Installed network qualification interrupted.'));
 process.on('SIGTERM', interrupt); process.on('SIGINT', interrupt);
+await nativeControllerReady();
 await mkdir(config.output, { mode: 0o700 });
 const report = { format: 'agenai.sandbox-platform-network.v1', status: 'running', profile: config.profile,
   imageDigest: config.imageDigest, guestNodeVersion: config.guestNodeVersion, sourceIdentity: config.sourceIdentity,
@@ -75,22 +78,13 @@ async function verifyProxy(identity) {
     { device: identity.device, inode: identity.inode, mode: identity.mode, uid: identity.uid, gid: identity.gid });
 }
 async function cleanup(run) {
-  for (const action of [...run.beforeCleanup].reverse()) try { await action(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  for (const entry of [...run.owners].reverse()) {
-    try {
-      await run.settleCleanup(entry, 'destroy'); assert.equal(entry.owner.state.kind, 'destroyed');
-      run.evidence.owners.find(({ namespace }) => namespace === entry.namespace).finalRecord = entry.owner.recoveryRecord;
-      run.evidence.census.push(...await census(engine, entry.owner.recoveryRecord, 'case-final-exact-absence', true));
-      await verifyProxy(entry.proxyIdentity);
-    } catch (error) { run.evidence.cleanupErrors.push({ namespace: entry.namespace, ...failure(error) }); }
-  }
-  for (const session of run.sessions) try { await run.observe({ kind: 'sole-network-guest-reader-joined', result: await session.join() }); }
-  catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  for (const proxy of [...run.proxies].reverse()) try { await proxy.close(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  for (const action of run.afterCleanup) try { await action(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  run.evidence.cleanupComplete = run.evidence.cleanupErrors.length === 0;
-  if (!run.evidence.cleanupComplete) run.evidence.status = 'failed'; await run.save();
+  await finishRunCleanup(run, { timeoutMs: config.capabilities.limits.cleanupMs,
+    readerKind: 'sole-network-guest-reader-joined', async census(entry) {
+      const result = await census(engine, entry.owner.recoveryRecord, 'case-final-exact-absence', true);
+      await verifyProxy(entry.proxyIdentity); return result;
+    } });
 }
+
 try {
   await saveReport(); context.fixtures = await createFixtures(context); await context.fixtures.startBase();
   const all = [...connectivityCases(context), ...faultCases(context)];
@@ -124,7 +118,7 @@ try {
     const deadline = new AbortController(); context.signal = AbortSignal.any([cancellation.signal, deadline.signal]);
     let timedOut = false; const timer = setTimeout(() => {
       timedOut = true; deadline.abort(new Error('Captured network scenario deadline.'));
-      for (const entry of run.owners) void entry.owner.stop().catch(() => {});
+      for (const entry of run.owners) void originalOwnerCleanup(entry.owner, 'stop').catch(() => {});
     }, config.capabilities.limits.scenarioMs);
     try { await action(run); assert.equal(timedOut, false); evidence.status = 'passed'; }
     catch (error) { evidence.status = 'failed'; evidence.failure = failure(error); }
@@ -134,16 +128,17 @@ try {
         bytes: bytes.length, sha256: sha(bytes), originalReservations: evidence.childOwner
           ? Number(evidence.childOwner.originalReservationConfirmed) : run.owners.length }); await saveReport();
     }
-    process.stdout.write(JSON.stringify({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete }) + '\n');
+    cleanupDiagnostic({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete });
     if (evidence.status !== 'passed' || !evidence.cleanupComplete) break;
   }
 } catch (error) { report.failure = failure(error); }
 finally {
-  process.removeListener('SIGTERM', interrupt); process.removeListener('SIGINT', interrupt);
-  let releaseNetworks = true;
-  try { await context.assertNoActiveOwners(); } catch (error) { releaseNetworks = false; report.cleanupFailures.push(failure(error)); }
-  try { if (context.fixtures) await context.fixtures.close({ releaseNetworks }); }
-  catch (error) { report.cleanupFailures.push(failure(error)); }
+  await finishSuiteCleanup(report, { timeoutMs: config.capabilities.limits.cleanupMs, save: saveReport,
+    async operation(cleanup) {
+      await cleanup.step('all-original-owners', () => context.assertNoActiveOwners(), { retryRejected: true });
+      if (context.fixtures) await cleanup.step('row-fixtures', () => context.fixtures.close({ releaseNetworks: true }),
+        { retryRejected: true, complete: () => context.fixtures.record.closed });
+    } });
   report.fixtures = context.fixtures?.record ?? null;
   report.matrix = Object.fromEntries(Object.entries(report.requirements).map(([requirement, names]) => [requirement, {
     coverage: 'native_component',

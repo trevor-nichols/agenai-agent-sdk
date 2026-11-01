@@ -1,0 +1,66 @@
+{
+  "format": "agenai.ms001-late-engine-effect.v1",
+  "at": "2026-10-29T22:57:03.953Z",
+  "attempt": "/private/tmp/agenai-ms001-exclusion-8HrU7Q",
+  "command": [
+    "/Volumes/AGENAI/Qualification/sdk-mac/EP-20261026-001/toolchain/node-v24.18.0-darwin-arm64/bin/node",
+    "/Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/late-engine-effect.mjs",
+    "--run",
+    "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/reproduction-input-r3.json"
+  ],
+  "node": "v24.18.0",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "result": "passed",
+  "exactReturnedId": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+  "forwardCount": 1,
+  "deleteEntered": true,
+  "deleteAcknowledged": true,
+  "absenceVerified": true,
+  "cleanPersisted": true,
+  "productionRootTouched": false,
+  "replayedCreateRequests": 0,
+  "warning": "Only the original child controller dies; independent parent gateway authority remains. Not production crash settlement.",
+  "events": [
+    {
+      "at": "2026-10-29T22:57:01.090Z",
+      "stage": "gateway_holds_original_message_before_engine_dispatch",
+      "requestId": "75219cd6-fd25-4ccb-91f3-f3440f82be10",
+      "forwardCount": 0
+    },
+    {
+      "at": "2026-10-29T22:57:01.983Z",
+      "stage": "released_kernel_claim_and_current_absence_do_not_clear_dirty_barrier",
+      "generation": "81ec648e-eea6-4d75-85bb-da5252f315e0"
+    },
+    {
+      "at": "2026-10-29T22:57:03.699Z",
+      "stage": "same_original_request_completed_after_controller_death",
+      "exactId": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b",
+      "requestId": "75219cd6-fd25-4ccb-91f3-f3440f82be10"
+    },
+    {
+      "at": "2026-10-29T22:57:03.886Z",
+      "stage": "original_exact_resource_removed_and_generation_clean",
+      "exactId": "eb54b26f92a8edc901f38dce635ce3ba739684d5e9673e376e32f92d3703761b"
+    },
+    {
+      "at": "2026-10-29T22:57:03.953Z",
+      "stage": "fresh_generation_and_independent_exact_absence_verified"
+    }
+  ],
+  "sourceHashes": {
+    "lock-holder.c": "7ba7d67ea8c5e52dff3ab5b2ddd2c0c4291fa718fb97d75970a1ac5449aba972",
+    "controller.mjs": "c25eb866e02c11dbced79ad31d83dae5092334592c4acc347542364dba3ba217",
+    "prepare.mjs": "735c91f257de674cac5df509d21587088b648758105289e97b15d7194db2ab05",
+    "endpoint-binding.mjs": "477f2aaf6a8f930808effeb50a9aa028066651e1a5eb13089649d67a6e9ca464",
+    "late-engine-effect.mjs": "b75e1ce26fef131f1b9f3c66377df21b4a32e0f56a94974414199cf3c893f926",
+    "late-engine-controller.mjs": "ad1865b90bb89952f69a277f3835e1044d348dc9976da35f3ba92d280ee7c47f",
+    "late-engine-gateway.mjs": "f375adb2e945ddc0cab6e203902ba013fdea0e8c19f33f7d54394755be0785a3",
+    "late-engine-ipam.mjs": "7fedf7fda12516a7c82ad817fe49e3e6c64d5df52e12a6949683981705a78e9c",
+    "late-engine-transport.mjs": "376d58a6edba2697610107985b95df6f595995a6e5e937aea3dca3208bed1683"
+  },
+  "fullReportSha256": "13ea08294770ad8b9e370bef0ebe268ae55f8bc042a0be0a4425546354990b0c",
+  "originalGeneration": "81ec648e-eea6-4d75-85bb-da5252f315e0",
+  "engineRequests": 12
+}

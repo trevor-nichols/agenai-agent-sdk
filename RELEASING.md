@@ -4,8 +4,8 @@ The three core packages and seven optional packages (orchestration, ACP transpor
 ACP registry, history, sandbox and Docker sandbox) form the published coordinated ten-package
 `0.4.7` release. npm `beta` and `latest` select `0.4.7` for all ten names; see the
 [v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7).
-Current source matches this authentication-parity release; read
-[UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md).
+Current source prepares the unpublished `0.4.8` concurrent Desktop coordination candidate; read
+[UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md).
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -25,6 +25,7 @@ The coordinated `0.4.7` release retains Agent Protocol V13 and recovery v3 from 
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
+[UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for the unpublished candidate,
 [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md) for the current release,
 [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md) for the preceding credential-reuse release,
 [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for the preceding sandbox capability update,
@@ -82,7 +83,9 @@ inventory without publishing anything.
 Retain the inspected source revision, complete ten-package archive set, package versions and
 check results for release review. The workflow checks the archive inventory and retains the exact
 ten tarballs with the source lockfile in a GitHub Actions artifact before its first publication,
-rejecting missing, duplicate, foreign or mixed-version artifacts. Package checks and
+rejecting missing, duplicate, foreign or mixed-version artifacts. Packing the same source twice can
+order `package.json` dependency keys differently, so compare repacked manifests as parsed JSON and
+identify qualified archives by their retained hashes, not by a repack. Package checks and
 synthetic ACP examples establish source behavior; they do not establish native agent, account,
 inference, installed-host or fleet qualification. Deployment remains a separate operation.
 
@@ -254,7 +257,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.7
+VERSION=0.4.8
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest

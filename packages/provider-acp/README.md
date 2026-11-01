@@ -2,7 +2,7 @@
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
 Agent Client Protocol wire version 1 into the Agent Protocol V13 session API. Current source is
-the unpublished coordinated eight-package `0.4.4` candidate. Published `0.4.3` is the seven-package
+the unpublished coordinated ten-package `0.4.8` candidate; published `0.4.7` also uses V13. Published `0.4.3` is the seven-package
 V12 release; published `0.4.1` qualification remains historical evidence for its exact V11 artifacts.
 The package is ESM, MIT licensed, side-effect-free on import and requires Node.js
 22 or newer. It depends only on the public transport, runtime and protocol packages;
@@ -87,8 +87,8 @@ over other conversations or account state.
 
 ## Input during an execution
 
-The optional runtime `execution.input` contract is available in the unpublished `0.4.4`
-candidate, but this provider exposes no supported execution-input port. Consumers must narrow
+The optional runtime `execution.input` contract is available in the runtime,
+but this provider exposes no supported execution-input port. Consumers must narrow
 `execution.input?.kind === 'supported'` before sending. Absence and `{ kind: 'unsupported' }`
 both mean unsupported; use ordinary `startTurn()` for new work when idle. Strict `turns.steer`
 semantics are unchanged and remain unsupported here. The
@@ -195,7 +195,7 @@ harnesses. Process-group evidence does not establish escaped-descendant or cgrou
 the Node launcher grants no production execution authority or backend billing guarantee. The
 separate private Codex and Claude diagnostic mappings are not public provider packages and cannot
 be imported through this package. Existing history/delegation/approval qualifications below keep
-their original version-specific scope. The `0.4.4` candidate remains unpublished.
+their original version-specific scope.
 
 ## Operational failures and uncertainty
 

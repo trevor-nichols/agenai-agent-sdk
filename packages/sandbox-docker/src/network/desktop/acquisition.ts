@@ -7,11 +7,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { SandboxOperationError, SandboxStateError, SandboxUnsupportedError } from '@agen-ai/sandbox';
 import type { DockerApi } from '../../resources/api.js';
 import type { DockerDesktopEngineSocketIdentity, DockerDesktopRouteAuthorityBinding } from '../routeAuthority.js';
-import { deniedCoverage } from '../policy.js';
 import type { DesktopVmObserverClient } from './client.js';
 import type { DesktopHostAuthorityObservation } from './observation/host.js';
 import type { DesktopVmObservation } from './observation/vm.js';
-import { readDesktopEngineNetworks } from './observation/engine.js';
+import { captureDesktopCompleteObservation } from './observation/complete.js';
 import type { DesktopEngineNetworkCensus } from './observation/engine.js';
 import { desktopOwnedLinkLocalSettled, externalEngineAuthority, externalVmAuthority, identifyDesktopOwnedBridge,
   NO_DESKTOP_NONE_MEMBERS, requireSameAuthority, validateDesktopBridgeEvolution, validateDesktopBrokerReceipt,
@@ -85,27 +84,14 @@ export async function captureDesktopRouteAcquisition(options: {
   };
   const capture = async (operationSignal: AbortSignal,
     ownedTransition?: (before: DesktopVmObservation, after: DesktopVmObservation) => void): Promise<Snapshot> => {
-    operationSignal.throwIfAborted();
-    requireSameAuthority(await binding.observeEngineSocket(operationSignal), hostPreflight.socket, 'Desktop Engine socket authority changed.');
-    const host = await binding.observeHost(operationSignal);
-    requireSameAuthority(host.executableIdentity, hostPreflight.host.executableIdentity, 'Desktop host observer executable identity changed.');
-    requireSameAuthority(host.fingerprint, hostPreflight.host.fingerprint, 'Desktop host route/interface/proxy authority changed.');
-    const vm = await observer.observe(operationSignal);
-    const engine = await readDesktopEngineNetworks(api, operationSignal);
-    const afterVm = await observer.observe(operationSignal);
-    const afterHost = await binding.observeHost(operationSignal);
-    requireSameAuthority(afterHost.executableIdentity, host.executableIdentity, 'Desktop host observer executable changed during acquisition.');
-    requireSameAuthority(afterHost.fingerprint, host.fingerprint, 'Desktop host authority changed during complete acquisition.');
-    requireSameAuthority(await binding.observeEngineSocket(operationSignal), hostPreflight.socket, 'Desktop Engine socket changed during acquisition.');
-    if (engine.id !== binding.identity.engine.id || engine.kernel !== vm.snapshot.kernel) {
-      throw new SandboxUnsupportedError('Desktop Engine identity or VM kernel differs from the selected authority.');
-    }
-    if (ownedTransition) ownedTransition(vm, afterVm);
-    else requireSameAuthority(afterVm.snapshot, vm.snapshot, 'Desktop VM authority did not settle within complete acquisition.');
-    const excludedCidrs = deniedCoverage([...host.excludedCidrs, ...afterVm.excludedCidrs, ...engine.excludedCidrs,
-      binding.identity.deployment.dockerSubnet, '::/0']);
-    return Object.freeze({ host, vm: afterVm, engine, census: Object.freeze({ hostname: engine.hostname, kernel: engine.kernel,
-      excludedCidrs, host, vm: afterVm, engine }) });
+    const observation = await captureDesktopCompleteObservation({ api, binding, observer,
+      expectedHost: hostPreflight.host, assertEndpoint: async (current) => {
+        requireSameAuthority(await binding.observeEngineSocket(current), hostPreflight.socket, 'Desktop Engine socket authority changed.');
+      },
+    }, operationSignal);
+    if (ownedTransition) ownedTransition(observation.vmBefore, observation.vmAfter);
+    else requireSameAuthority(observation.vmAfter.snapshot, observation.vmBefore.snapshot, 'Desktop VM authority did not settle within complete acquisition.');
+    return Object.freeze({ host: observation.host, vm: observation.vmAfter, engine: observation.engine, census: observation.census });
   };
   const baseline = await run('baseline', signal, capture);
   const baselineEngine = externalEngineAuthority(baseline.engine, ownedObserverId, NO_DESKTOP_NONE_MEMBERS);

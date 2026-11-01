@@ -6,16 +6,31 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runOwnedCommand } from '../command.mjs';
+import { runNativeController } from '../platform/native-controller.mjs';
 import { boundedFile } from '../native/configuration.mjs';
 import { engineControl } from './resources.mjs';
 
 export async function prepareFixtureImage({ endpoint, sourceImage, preparation, env, signal, architecture = 'amd64' }) {
-  const result = await runOwnedCommand({ command: process.execPath,
-    args: [fileURLToPath(new URL('../prepare-fixture.mjs', import.meta.url)), '--engine', endpoint,
-      '--source-image', sourceImage, '--architecture', architecture, '--output', preparation], env, timeoutMs: 300_000, maxOutputBytes: 64 * 1024, signal });
+  const childReceipt = join(dirname(preparation), 'preparation-child.json');
+  let result, primary;
   try {
-    await writeFile(join(dirname(preparation), 'preparation.log'), `${result.stdout}\n${result.stderr}`, { mode: 0o600 });
+    result = await runNativeController({ command: process.execPath,
+      args: [fileURLToPath(new URL('../prepare-fixture.mjs', import.meta.url)), '--engine', endpoint,
+        '--source-image', sourceImage, '--architecture', architecture, '--output', preparation], env,
+      timeoutMs: 300_000, maxOutputBytes: 64 * 1024, signal, requireReady: false,
+      onStarted: async (receipt) => writeFile(childReceipt, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 }) });
+  } catch (error) { result = error; primary = error; }
+  try {
+    await writeFile(join(dirname(preparation), 'preparation-child-joined.json'), `${JSON.stringify({
+      pid: result.pid, command: result.command, args: result.args, cwd: result.cwd, enteredAt: result.enteredAt,
+      status: result.status, signal: result.signal,
+      quiescent: result.quiescent, joinedAt: result.joinedAt, ready: result.ready, gracefulRequest: result.gracefulRequest,
+      failure: primary ? { name: primary.name, message: primary.message } : null }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+  } catch (error) { primary ??= Object.assign(error, { quiescent: result.quiescent === true }); }
+  try { await writeFile(join(dirname(preparation), 'preparation.log'), `${result.stdout ?? ''}\n${result.stderr ?? ''}`, { flag: 'wx', mode: 0o600 }); }
+  catch (error) { primary ??= Object.assign(error, { quiescent: result.quiescent === true }); }
+  if (primary) throw primary;
+  try {
     const prepared = JSON.parse((await boundedFile(join(preparation, 'preparation.json'), 64 * 1024)).toString('utf8'));
     assert.equal(prepared.imageAcquisition, 'identified');
     assert.equal(prepared.containerRemoved, true);

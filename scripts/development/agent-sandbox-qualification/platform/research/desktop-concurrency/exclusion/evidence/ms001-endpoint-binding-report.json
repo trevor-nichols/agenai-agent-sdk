@@ -1,0 +1,1218 @@
+{
+  "researchOnly": true,
+  "attempt": "/private/tmp/agenai-ms001-exclusion-9kHLKA",
+  "at": "2026-10-29T22:42:11.597Z",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v24.15.0",
+  "frozenInput": "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/reproduction-input-r3.json",
+  "frozenInputSha256": "cd0338d495d049850273b24c9810abbf738e64a985cbc770fbd0759bf4b99726",
+  "selectedAliases": [
+    "unix:///Users/tan/.docker/run/docker.sock",
+    "unix:///var/run/docker.sock"
+  ],
+  "expectedEngine": {
+    "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+    "version": "29.1.2",
+    "apiVersion": "1.52",
+    "architecture": "arm64",
+    "kernelVersion": "6.12.54-linuxkit",
+    "operatingSystem": "Docker Desktop"
+  },
+  "sources": {
+    "lock-holder.c": "7ba7d67ea8c5e52dff3ab5b2ddd2c0c4291fa718fb97d75970a1ac5449aba972",
+    "controller.mjs": "c25eb866e02c11dbced79ad31d83dae5092334592c4acc347542364dba3ba217",
+    "prepare.mjs": "735c91f257de674cac5df509d21587088b648758105289e97b15d7194db2ab05",
+    "endpoint-binding.mjs": "477f2aaf6a8f930808effeb50a9aa028066651e1a5eb13089649d67a6e9ca464",
+    "run-endpoint-binding.mjs": "699ea3699a8ec1a8a82886ec4e6ab6f44429b0f0b024f7d1ab29b3b6e55e2cb8"
+  },
+  "sourceDigestEncoding": "SHA-256 of raw file bytes",
+  "command": [
+    "/Users/tan/.nvm/versions/node/v24.15.0/bin/node",
+    "/Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run-endpoint-binding.mjs"
+  ],
+  "binaries": "/private/tmp/agenai-ms001-exclusion-9kHLKA/lock-holder:        Mach-O 64-bit executable arm64\n/private/tmp/agenai-ms001-exclusion-9kHLKA/lock-holder-x86_64: Mach-O 64-bit executable x86_64",
+  "actualRequests": [
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:10.163Z",
+      "settled": "2026-10-29T22:42:10.182Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "1d97207eeb61f2aee9d6c35708693cf272da089ea18367825a2f1e8bcc07edab"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:10.167Z",
+      "settled": "2026-10-29T22:42:10.183Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "1d97207eeb61f2aee9d6c35708693cf272da089ea18367825a2f1e8bcc07edab"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:10.182Z",
+      "settled": "2026-10-29T22:42:10.189Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:10.183Z",
+      "settled": "2026-10-29T22:42:10.189Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:10.190Z",
+      "settled": "2026-10-29T22:42:10.196Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "5eb44d19c8f81cbcc7179651cbadc3e1c709cfdf6e9f0cef99b6b932047e4990"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:10.197Z",
+      "settled": "2026-10-29T22:42:10.199Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:10.434Z",
+      "settled": "2026-10-29T22:42:10.451Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "e6de05e45d114e410b10f6b7feedb32e844e78c2f52cf0cd2886f79023738f73"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:10.451Z",
+      "settled": "2026-10-29T22:42:10.458Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:10.460Z",
+      "settled": "2026-10-29T22:42:10.469Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "a4f9fc49f5fcf58b975b0d37b0a6b60eadd64bbf509781da375655e0b29b6b98"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:10.469Z",
+      "settled": "2026-10-29T22:42:10.474Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.473Z",
+      "settled": "2026-10-29T22:42:11.489Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "92712bd1cab996de8b077f8bda9ec5532856effe37417c113a2dac0de7590166"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.489Z",
+      "settled": "2026-10-29T22:42:11.495Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.520Z",
+      "settled": "2026-10-29T22:42:11.531Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "bf9ec306de525cfbe0ce7856b93d2c4fd8bed2bf5d36e540a4fba39b9b047e48"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.531Z",
+      "settled": "2026-10-29T22:42:11.536Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.536Z",
+      "settled": "2026-10-29T22:42:11.543Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "0f95035eea95ea5adc9865dd0bb3e5253b2e110492ef1c34c63d7ad21bfc36a7"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.543Z",
+      "settled": "2026-10-29T22:42:11.547Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.585Z",
+      "settled": "2026-10-29T22:42:11.592Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "d7bd1bd23ced29ede8334f96970b7832328cc1c1ab1ae51247cf6cd00b77e32a"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.585Z",
+      "settled": "2026-10-29T22:42:11.592Z",
+      "status": 200,
+      "bytes": 9151,
+      "responseSha256": "d7bd1bd23ced29ede8334f96970b7832328cc1c1ab1ae51247cf6cd00b77e32a"
+    },
+    {
+      "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.592Z",
+      "settled": "2026-10-29T22:42:11.596Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    },
+    {
+      "endpoint": "unix:///var/run/docker.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.592Z",
+      "settled": "2026-10-29T22:42:11.596Z",
+      "status": 200,
+      "bytes": 826,
+      "responseSha256": "fa4b8a6dc7611a075072fb042a1e7b14b6c52ee40ba5b8354a15dc26847b50ba"
+    }
+  ],
+  "syntheticRequests": [
+    {
+      "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.553Z",
+      "settled": "2026-10-29T22:42:11.554Z",
+      "status": 200,
+      "bytes": 163,
+      "responseSha256": "f206644c49ac003ba387e2b555db815c087e05e0df7c0808272efdd1ba30b6d9"
+    },
+    {
+      "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.554Z",
+      "settled": "2026-10-29T22:42:11.554Z",
+      "status": 200,
+      "bytes": 68,
+      "responseSha256": "f94d8ebaa8a6268f32ea3a06c327f21ce19b3474bb843e209254d4cb4622b579"
+    },
+    {
+      "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.557Z",
+      "settled": "2026-10-29T22:42:11.557Z",
+      "status": 200,
+      "bytes": 163,
+      "responseSha256": "f206644c49ac003ba387e2b555db815c087e05e0df7c0808272efdd1ba30b6d9"
+    },
+    {
+      "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.557Z",
+      "settled": "2026-10-29T22:42:11.557Z",
+      "status": 200,
+      "bytes": 68,
+      "responseSha256": "f94d8ebaa8a6268f32ea3a06c327f21ce19b3474bb843e209254d4cb4622b579"
+    },
+    {
+      "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-foreign-engine.sock",
+      "method": "GET",
+      "path": "/v1.52/info",
+      "entered": "2026-10-29T22:42:11.584Z",
+      "settled": "2026-10-29T22:42:11.585Z",
+      "status": 200,
+      "bytes": 146,
+      "responseSha256": "87cbcd2310bfcdeec1b62ea804469cf02379034d8e0a7c58ba976a3a39d28394"
+    },
+    {
+      "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-foreign-engine.sock",
+      "method": "GET",
+      "path": "/version",
+      "entered": "2026-10-29T22:42:11.585Z",
+      "settled": "2026-10-29T22:42:11.585Z",
+      "status": 200,
+      "bytes": 68,
+      "responseSha256": "f94d8ebaa8a6268f32ea3a06c327f21ce19b3474bb843e209254d4cb4622b579"
+    }
+  ],
+  "dockerMutations": 0,
+  "actualSocketMutations": 0,
+  "productionAuthorityRootTouched": false,
+  "rows": [
+    {
+      "name": "existing selected and /var/run aliases resolve one actual physical socket and daemon",
+      "result": "pass",
+      "observations": [
+        {
+          "filesystem": {
+            "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+            "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+            "chain": [
+              {
+                "path": "/Users",
+                "device": "16777229",
+                "inode": "20697",
+                "mode": "16877",
+                "uid": "0",
+                "gid": "80"
+              },
+              {
+                "path": "/Users/tan",
+                "device": "16777229",
+                "inode": "32056",
+                "mode": "16872",
+                "uid": "501",
+                "gid": "20"
+              },
+              {
+                "path": "/Users/tan/.docker",
+                "device": "16777229",
+                "inode": "721600",
+                "mode": "16877",
+                "uid": "501",
+                "gid": "20"
+              },
+              {
+                "path": "/Users/tan/.docker/run",
+                "device": "16777229",
+                "inode": "721651",
+                "mode": "16877",
+                "uid": "501",
+                "gid": "20"
+              },
+              {
+                "path": "/Users/tan/.docker/run/docker.sock",
+                "device": "16777229",
+                "inode": "244664084",
+                "mode": "49645",
+                "uid": "501",
+                "gid": "20"
+              }
+            ],
+            "socket": {
+              "device": "16777229",
+              "inode": "244664084",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "20",
+              "birthtimeNs": "1793129160674198478",
+              "ctimeNs": "1793129160674218852"
+            }
+          },
+          "engine": {
+            "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "version": "29.1.2",
+            "apiVersion": "1.52",
+            "architecture": "arm64",
+            "kernelVersion": "6.12.54-linuxkit",
+            "operatingSystem": "Docker Desktop"
+          },
+          "rawIdentity": {
+            "info": {
+              "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+              "ServerVersion": "29.1.2",
+              "Architecture": "aarch64",
+              "KernelVersion": "6.12.54-linuxkit",
+              "OperatingSystem": "Docker Desktop"
+            },
+            "version": {
+              "Version": "29.1.2",
+              "ApiVersion": "1.52",
+              "MinAPIVersion": "1.44",
+              "Arch": "arm64",
+              "Os": "linux",
+              "KernelVersion": "6.12.54-linuxkit",
+              "GitCommit": "de45c2a",
+              "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+            }
+          }
+        },
+        {
+          "filesystem": {
+            "endpoint": "unix:///var/run/docker.sock",
+            "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+            "chain": [
+              {
+                "path": "/var",
+                "device": "16777229",
+                "inode": "1152921500312610047",
+                "mode": "41453",
+                "uid": "0",
+                "gid": "0",
+                "symlink": "private/var"
+              },
+              {
+                "path": "/var/run",
+                "device": "16777229",
+                "inode": "79728812",
+                "mode": "16893",
+                "uid": "0",
+                "gid": "1"
+              },
+              {
+                "path": "/var/run/docker.sock",
+                "device": "16777229",
+                "inode": "226031922",
+                "mode": "41453",
+                "uid": "0",
+                "gid": "1",
+                "symlink": "/Users/tan/.docker/run/docker.sock"
+              }
+            ],
+            "socket": {
+              "device": "16777229",
+              "inode": "244664084",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "20",
+              "birthtimeNs": "1793129160674198478",
+              "ctimeNs": "1793129160674218852"
+            }
+          },
+          "engine": {
+            "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "version": "29.1.2",
+            "apiVersion": "1.52",
+            "architecture": "arm64",
+            "kernelVersion": "6.12.54-linuxkit",
+            "operatingSystem": "Docker Desktop"
+          },
+          "rawIdentity": {
+            "info": {
+              "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+              "ServerVersion": "29.1.2",
+              "Architecture": "aarch64",
+              "KernelVersion": "6.12.54-linuxkit",
+              "OperatingSystem": "Docker Desktop"
+            },
+            "version": {
+              "Version": "29.1.2",
+              "ApiVersion": "1.52",
+              "MinAPIVersion": "1.44",
+              "Arch": "arm64",
+              "Os": "linux",
+              "KernelVersion": "6.12.54-linuxkit",
+              "GitCommit": "de45c2a",
+              "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+            }
+          }
+        }
+      ],
+      "exclusionKeyAcrossCopiesAndAliases": "9a8650c56447596a478627f5ded9943897ef36ecc42cf35ebe8f251b6b2f10d9"
+    },
+    {
+      "name": "selected alias native holder excludes copied Rosetta helper using actual observed daemon ID",
+      "result": "pass",
+      "beforeAcquire": {
+        "filesystem": {
+          "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+          "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+          "chain": [
+            {
+              "path": "/Users",
+              "device": "16777229",
+              "inode": "20697",
+              "mode": "16877",
+              "uid": "0",
+              "gid": "80"
+            },
+            {
+              "path": "/Users/tan",
+              "device": "16777229",
+              "inode": "32056",
+              "mode": "16872",
+              "uid": "501",
+              "gid": "20"
+            },
+            {
+              "path": "/Users/tan/.docker",
+              "device": "16777229",
+              "inode": "721600",
+              "mode": "16877",
+              "uid": "501",
+              "gid": "20"
+            },
+            {
+              "path": "/Users/tan/.docker/run",
+              "device": "16777229",
+              "inode": "721651",
+              "mode": "16877",
+              "uid": "501",
+              "gid": "20"
+            },
+            {
+              "path": "/Users/tan/.docker/run/docker.sock",
+              "device": "16777229",
+              "inode": "244664084",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "20"
+            }
+          ],
+          "socket": {
+            "device": "16777229",
+            "inode": "244664084",
+            "mode": "49645",
+            "uid": "501",
+            "gid": "20",
+            "birthtimeNs": "1793129160674198478",
+            "ctimeNs": "1793129160674218852"
+          }
+        },
+        "engine": {
+          "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+          "version": "29.1.2",
+          "apiVersion": "1.52",
+          "architecture": "arm64",
+          "kernelVersion": "6.12.54-linuxkit",
+          "operatingSystem": "Docker Desktop"
+        },
+        "rawIdentity": {
+          "info": {
+            "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "ServerVersion": "29.1.2",
+            "Architecture": "aarch64",
+            "KernelVersion": "6.12.54-linuxkit",
+            "OperatingSystem": "Docker Desktop"
+          },
+          "version": {
+            "Version": "29.1.2",
+            "ApiVersion": "1.52",
+            "MinAPIVersion": "1.44",
+            "Arch": "arm64",
+            "Os": "linux",
+            "KernelVersion": "6.12.54-linuxkit",
+            "GitCommit": "de45c2a",
+            "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+          }
+        }
+      },
+      "afterAcquire": {
+        "filesystem": {
+          "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+          "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+          "chain": [
+            {
+              "path": "/Users",
+              "device": "16777229",
+              "inode": "20697",
+              "mode": "16877",
+              "uid": "0",
+              "gid": "80"
+            },
+            {
+              "path": "/Users/tan",
+              "device": "16777229",
+              "inode": "32056",
+              "mode": "16872",
+              "uid": "501",
+              "gid": "20"
+            },
+            {
+              "path": "/Users/tan/.docker",
+              "device": "16777229",
+              "inode": "721600",
+              "mode": "16877",
+              "uid": "501",
+              "gid": "20"
+            },
+            {
+              "path": "/Users/tan/.docker/run",
+              "device": "16777229",
+              "inode": "721651",
+              "mode": "16877",
+              "uid": "501",
+              "gid": "20"
+            },
+            {
+              "path": "/Users/tan/.docker/run/docker.sock",
+              "device": "16777229",
+              "inode": "244664084",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "20"
+            }
+          ],
+          "socket": {
+            "device": "16777229",
+            "inode": "244664084",
+            "mode": "49645",
+            "uid": "501",
+            "gid": "20",
+            "birthtimeNs": "1793129160674198478",
+            "ctimeNs": "1793129160674218852"
+          }
+        },
+        "engine": {
+          "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+          "version": "29.1.2",
+          "apiVersion": "1.52",
+          "architecture": "arm64",
+          "kernelVersion": "6.12.54-linuxkit",
+          "operatingSystem": "Docker Desktop"
+        },
+        "rawIdentity": {
+          "info": {
+            "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "ServerVersion": "29.1.2",
+            "Architecture": "aarch64",
+            "KernelVersion": "6.12.54-linuxkit",
+            "OperatingSystem": "Docker Desktop"
+          },
+          "version": {
+            "Version": "29.1.2",
+            "ApiVersion": "1.52",
+            "MinAPIVersion": "1.44",
+            "Arch": "arm64",
+            "Os": "linux",
+            "KernelVersion": "6.12.54-linuxkit",
+            "GitCommit": "de45c2a",
+            "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+          }
+        }
+      },
+      "nativeJournalIdentity": {
+        "kind": "acquired",
+        "pid": 48534,
+        "device": 16777229,
+        "inode": 247535978
+      },
+      "losingAlias": "unix:///var/run/docker.sock",
+      "engineMutations": 0
+    },
+    {
+      "name": "/var/run alias Rosetta holder excludes copied native helper and preserves physical identity",
+      "result": "pass",
+      "beforeAcquire": {
+        "filesystem": {
+          "endpoint": "unix:///var/run/docker.sock",
+          "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+          "chain": [
+            {
+              "path": "/var",
+              "device": "16777229",
+              "inode": "1152921500312610047",
+              "mode": "41453",
+              "uid": "0",
+              "gid": "0",
+              "symlink": "private/var"
+            },
+            {
+              "path": "/var/run",
+              "device": "16777229",
+              "inode": "79728812",
+              "mode": "16893",
+              "uid": "0",
+              "gid": "1"
+            },
+            {
+              "path": "/var/run/docker.sock",
+              "device": "16777229",
+              "inode": "226031922",
+              "mode": "41453",
+              "uid": "0",
+              "gid": "1",
+              "symlink": "/Users/tan/.docker/run/docker.sock"
+            }
+          ],
+          "socket": {
+            "device": "16777229",
+            "inode": "244664084",
+            "mode": "49645",
+            "uid": "501",
+            "gid": "20",
+            "birthtimeNs": "1793129160674198478",
+            "ctimeNs": "1793129160674218852"
+          }
+        },
+        "engine": {
+          "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+          "version": "29.1.2",
+          "apiVersion": "1.52",
+          "architecture": "arm64",
+          "kernelVersion": "6.12.54-linuxkit",
+          "operatingSystem": "Docker Desktop"
+        },
+        "rawIdentity": {
+          "info": {
+            "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "ServerVersion": "29.1.2",
+            "Architecture": "aarch64",
+            "KernelVersion": "6.12.54-linuxkit",
+            "OperatingSystem": "Docker Desktop"
+          },
+          "version": {
+            "Version": "29.1.2",
+            "ApiVersion": "1.52",
+            "MinAPIVersion": "1.44",
+            "Arch": "arm64",
+            "Os": "linux",
+            "KernelVersion": "6.12.54-linuxkit",
+            "GitCommit": "de45c2a",
+            "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+          }
+        }
+      },
+      "afterAcquire": {
+        "filesystem": {
+          "endpoint": "unix:///var/run/docker.sock",
+          "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+          "chain": [
+            {
+              "path": "/var",
+              "device": "16777229",
+              "inode": "1152921500312610047",
+              "mode": "41453",
+              "uid": "0",
+              "gid": "0",
+              "symlink": "private/var"
+            },
+            {
+              "path": "/var/run",
+              "device": "16777229",
+              "inode": "79728812",
+              "mode": "16893",
+              "uid": "0",
+              "gid": "1"
+            },
+            {
+              "path": "/var/run/docker.sock",
+              "device": "16777229",
+              "inode": "226031922",
+              "mode": "41453",
+              "uid": "0",
+              "gid": "1",
+              "symlink": "/Users/tan/.docker/run/docker.sock"
+            }
+          ],
+          "socket": {
+            "device": "16777229",
+            "inode": "244664084",
+            "mode": "49645",
+            "uid": "501",
+            "gid": "20",
+            "birthtimeNs": "1793129160674198478",
+            "ctimeNs": "1793129160674218852"
+          }
+        },
+        "engine": {
+          "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+          "version": "29.1.2",
+          "apiVersion": "1.52",
+          "architecture": "arm64",
+          "kernelVersion": "6.12.54-linuxkit",
+          "operatingSystem": "Docker Desktop"
+        },
+        "rawIdentity": {
+          "info": {
+            "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "ServerVersion": "29.1.2",
+            "Architecture": "aarch64",
+            "KernelVersion": "6.12.54-linuxkit",
+            "OperatingSystem": "Docker Desktop"
+          },
+          "version": {
+            "Version": "29.1.2",
+            "ApiVersion": "1.52",
+            "MinAPIVersion": "1.44",
+            "Arch": "arm64",
+            "Os": "linux",
+            "KernelVersion": "6.12.54-linuxkit",
+            "GitCommit": "de45c2a",
+            "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+          }
+        }
+      },
+      "translatedJournalIdentity": {
+        "kind": "acquired",
+        "pid": 48548,
+        "device": 16777229,
+        "inode": 247535978
+      },
+      "losingAlias": "unix:///Users/tan/.docker/run/docker.sock",
+      "engineMutations": 0
+    },
+    {
+      "name": "isolated listener inode replacement with unchanged daemon ID is refused after native acquisition",
+      "result": "pass",
+      "before": {
+        "filesystem": {
+          "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+          "canonicalPath": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+          "chain": [
+            {
+              "path": "/private",
+              "device": "16777229",
+              "inode": "79727848",
+              "mode": "16877",
+              "uid": "0",
+              "gid": "0"
+            },
+            {
+              "path": "/private/tmp",
+              "device": "16777229",
+              "inode": "226001548",
+              "mode": "17407",
+              "uid": "0",
+              "gid": "0"
+            },
+            {
+              "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA",
+              "device": "16777229",
+              "inode": "247535963",
+              "mode": "16832",
+              "uid": "501",
+              "gid": "0"
+            },
+            {
+              "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+              "device": "16777229",
+              "inode": "247535984",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "0"
+            }
+          ],
+          "socket": {
+            "device": "16777229",
+            "inode": "247535984",
+            "mode": "49645",
+            "uid": "501",
+            "gid": "0",
+            "birthtimeNs": "1793313731553022805",
+            "ctimeNs": "1793313731553046513"
+          }
+        },
+        "engine": {
+          "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+          "version": "29.1.2",
+          "apiVersion": "1.52",
+          "architecture": "arm64",
+          "kernelVersion": "6.12.54-linuxkit",
+          "operatingSystem": "Docker Desktop"
+        },
+        "rawIdentity": {
+          "info": {
+            "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "ServerVersion": "29.1.2",
+            "Architecture": "arm64",
+            "KernelVersion": "6.12.54-linuxkit",
+            "OperatingSystem": "Docker Desktop"
+          },
+          "version": {
+            "Version": "29.1.2",
+            "ApiVersion": "1.52",
+            "Arch": "arm64",
+            "Os": "linux"
+          }
+        }
+      },
+      "after": {
+        "filesystem": {
+          "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+          "canonicalPath": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+          "chain": [
+            {
+              "path": "/private",
+              "device": "16777229",
+              "inode": "79727848",
+              "mode": "16877",
+              "uid": "0",
+              "gid": "0"
+            },
+            {
+              "path": "/private/tmp",
+              "device": "16777229",
+              "inode": "226001548",
+              "mode": "17407",
+              "uid": "0",
+              "gid": "0"
+            },
+            {
+              "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA",
+              "device": "16777229",
+              "inode": "247535963",
+              "mode": "16832",
+              "uid": "501",
+              "gid": "0"
+            },
+            {
+              "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-engine.sock",
+              "device": "16777229",
+              "inode": "247535985",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "0"
+            }
+          ],
+          "socket": {
+            "device": "16777229",
+            "inode": "247535985",
+            "mode": "49645",
+            "uid": "501",
+            "gid": "0",
+            "birthtimeNs": "1793313731557051413",
+            "ctimeNs": "1793313731557069538"
+          }
+        },
+        "engine": {
+          "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+          "version": "29.1.2",
+          "apiVersion": "1.52",
+          "architecture": "arm64",
+          "kernelVersion": "6.12.54-linuxkit",
+          "operatingSystem": "Docker Desktop"
+        },
+        "rawIdentity": {
+          "info": {
+            "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "ServerVersion": "29.1.2",
+            "Architecture": "arm64",
+            "KernelVersion": "6.12.54-linuxkit",
+            "OperatingSystem": "Docker Desktop"
+          },
+          "version": {
+            "Version": "29.1.2",
+            "ApiVersion": "1.52",
+            "Arch": "arm64",
+            "Os": "linux"
+          }
+        }
+      },
+      "engineIdAloneWouldMatch": true,
+      "memberEffects": 0,
+      "dirtyGenerationRetained": "f7f87173-8e35-4c4f-9e8b-dd4fd38ed247",
+      "scope": "replacement is confined to this attempt scratch; actual aliases/listener are untouched"
+    },
+    {
+      "name": "isolated alias inode replacement to same physical listener is refused",
+      "result": "pass",
+      "before": {
+        "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias.sock",
+        "canonicalPath": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias-target.sock",
+        "chain": [
+          {
+            "path": "/private",
+            "device": "16777229",
+            "inode": "79727848",
+            "mode": "16877",
+            "uid": "0",
+            "gid": "0"
+          },
+          {
+            "path": "/private/tmp",
+            "device": "16777229",
+            "inode": "226001548",
+            "mode": "17407",
+            "uid": "0",
+            "gid": "0"
+          },
+          {
+            "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA",
+            "device": "16777229",
+            "inode": "247535963",
+            "mode": "16832",
+            "uid": "501",
+            "gid": "0"
+          },
+          {
+            "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias.sock",
+            "device": "16777229",
+            "inode": "247535987",
+            "mode": "41453",
+            "uid": "501",
+            "gid": "0",
+            "symlink": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias-target.sock"
+          }
+        ],
+        "socket": {
+          "device": "16777229",
+          "inode": "247535986",
+          "mode": "49645",
+          "uid": "501",
+          "gid": "0",
+          "birthtimeNs": "1793313731583843856",
+          "ctimeNs": "1793313731583872022"
+        }
+      },
+      "after": {
+        "endpoint": "unix:///private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias.sock",
+        "canonicalPath": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias-target.sock",
+        "chain": [
+          {
+            "path": "/private",
+            "device": "16777229",
+            "inode": "79727848",
+            "mode": "16877",
+            "uid": "0",
+            "gid": "0"
+          },
+          {
+            "path": "/private/tmp",
+            "device": "16777229",
+            "inode": "226001548",
+            "mode": "17407",
+            "uid": "0",
+            "gid": "0"
+          },
+          {
+            "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA",
+            "device": "16777229",
+            "inode": "247535963",
+            "mode": "16832",
+            "uid": "501",
+            "gid": "0"
+          },
+          {
+            "path": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias.sock",
+            "device": "16777229",
+            "inode": "247535988",
+            "mode": "41453",
+            "uid": "501",
+            "gid": "0",
+            "symlink": "/private/tmp/agenai-ms001-exclusion-9kHLKA/synthetic-alias-target.sock"
+          }
+        ],
+        "socket": {
+          "device": "16777229",
+          "inode": "247535986",
+          "mode": "49645",
+          "uid": "501",
+          "gid": "0",
+          "birthtimeNs": "1793313731583843856",
+          "ctimeNs": "1793313731583872022"
+        }
+      },
+      "physicalListenerUnchanged": true,
+      "aliasIncarnationChanged": true
+    },
+    {
+      "name": "isolated daemon-ID substitution is refused before native claim acquisition",
+      "result": "pass",
+      "mismatchedId": "different-daemon-id",
+      "nativeClaimEntered": false,
+      "memberEffects": 0
+    },
+    {
+      "name": "actual admitted aliases and daemon remain unchanged after isolated negative controls",
+      "result": "pass",
+      "observations": [
+        {
+          "filesystem": {
+            "endpoint": "unix:///Users/tan/.docker/run/docker.sock",
+            "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+            "chain": [
+              {
+                "path": "/Users",
+                "device": "16777229",
+                "inode": "20697",
+                "mode": "16877",
+                "uid": "0",
+                "gid": "80"
+              },
+              {
+                "path": "/Users/tan",
+                "device": "16777229",
+                "inode": "32056",
+                "mode": "16872",
+                "uid": "501",
+                "gid": "20"
+              },
+              {
+                "path": "/Users/tan/.docker",
+                "device": "16777229",
+                "inode": "721600",
+                "mode": "16877",
+                "uid": "501",
+                "gid": "20"
+              },
+              {
+                "path": "/Users/tan/.docker/run",
+                "device": "16777229",
+                "inode": "721651",
+                "mode": "16877",
+                "uid": "501",
+                "gid": "20"
+              },
+              {
+                "path": "/Users/tan/.docker/run/docker.sock",
+                "device": "16777229",
+                "inode": "244664084",
+                "mode": "49645",
+                "uid": "501",
+                "gid": "20"
+              }
+            ],
+            "socket": {
+              "device": "16777229",
+              "inode": "244664084",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "20",
+              "birthtimeNs": "1793129160674198478",
+              "ctimeNs": "1793129160674218852"
+            }
+          },
+          "engine": {
+            "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "version": "29.1.2",
+            "apiVersion": "1.52",
+            "architecture": "arm64",
+            "kernelVersion": "6.12.54-linuxkit",
+            "operatingSystem": "Docker Desktop"
+          },
+          "rawIdentity": {
+            "info": {
+              "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+              "ServerVersion": "29.1.2",
+              "Architecture": "aarch64",
+              "KernelVersion": "6.12.54-linuxkit",
+              "OperatingSystem": "Docker Desktop"
+            },
+            "version": {
+              "Version": "29.1.2",
+              "ApiVersion": "1.52",
+              "MinAPIVersion": "1.44",
+              "Arch": "arm64",
+              "Os": "linux",
+              "KernelVersion": "6.12.54-linuxkit",
+              "GitCommit": "de45c2a",
+              "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+            }
+          }
+        },
+        {
+          "filesystem": {
+            "endpoint": "unix:///var/run/docker.sock",
+            "canonicalPath": "/Users/tan/.docker/run/docker.sock",
+            "chain": [
+              {
+                "path": "/var",
+                "device": "16777229",
+                "inode": "1152921500312610047",
+                "mode": "41453",
+                "uid": "0",
+                "gid": "0",
+                "symlink": "private/var"
+              },
+              {
+                "path": "/var/run",
+                "device": "16777229",
+                "inode": "79728812",
+                "mode": "16893",
+                "uid": "0",
+                "gid": "1"
+              },
+              {
+                "path": "/var/run/docker.sock",
+                "device": "16777229",
+                "inode": "226031922",
+                "mode": "41453",
+                "uid": "0",
+                "gid": "1",
+                "symlink": "/Users/tan/.docker/run/docker.sock"
+              }
+            ],
+            "socket": {
+              "device": "16777229",
+              "inode": "244664084",
+              "mode": "49645",
+              "uid": "501",
+              "gid": "20",
+              "birthtimeNs": "1793129160674198478",
+              "ctimeNs": "1793129160674218852"
+            }
+          },
+          "engine": {
+            "id": "7ea1aaea-951c-4129-a920-8f003143c27b",
+            "version": "29.1.2",
+            "apiVersion": "1.52",
+            "architecture": "arm64",
+            "kernelVersion": "6.12.54-linuxkit",
+            "operatingSystem": "Docker Desktop"
+          },
+          "rawIdentity": {
+            "info": {
+              "ID": "7ea1aaea-951c-4129-a920-8f003143c27b",
+              "ServerVersion": "29.1.2",
+              "Architecture": "aarch64",
+              "KernelVersion": "6.12.54-linuxkit",
+              "OperatingSystem": "Docker Desktop"
+            },
+            "version": {
+              "Version": "29.1.2",
+              "ApiVersion": "1.52",
+              "MinAPIVersion": "1.44",
+              "Arch": "arm64",
+              "Os": "linux",
+              "KernelVersion": "6.12.54-linuxkit",
+              "GitCommit": "de45c2a",
+              "BuildTime": "2025-12-02T21:55:52.000000000+00:00"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

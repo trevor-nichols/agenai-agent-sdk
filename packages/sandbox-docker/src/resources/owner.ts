@@ -12,24 +12,17 @@ import { DOCKER_API } from '../policy/config.js';
 import { assertDockerController, assertDockerPolicy, verifyDaemon, verifyDatasetImages, verifyImage, verifyEgressImage, verifyEgressDeployment } from '../policy/preflight.js';
 import { dockerProfile } from '../policy/profiles.js';
 import { containerBody, verifyContainer } from '../policy/container.js';
-import { helperContainerBody, verifyHelperContainer } from '../policy/helperContainer.js';
 import type { EgressHelperPlacement } from '../policy/helperContainer.js';
-import { filesystemContainerBody, verifyFilesystemContainer, verifyFilesystemImage } from '../policy/filesystem.js';
-import { desktopObserverConfiguration, desktopObserverContainerBody, desktopObserverIdentity,
-  verifyDesktopObserverContainer, verifyDesktopObserverImage } from '../policy/desktopObserver.js';
-import type { FilesystemAccess } from '../policy/filesystem.js';
-import { FilesystemChannel } from '../workspace/live/channel.js';
+import { verifyFilesystemImage } from '../policy/filesystem.js';
+import { verifyDesktopObserverImage } from '../policy/desktopObserver.js';
 import { DockerFilesystem } from '../workspace/live/files.js';
 import { captureDockerRouteLease } from '../network/census.js';
 import { parseNumericAddress } from '../network/address.js';
 import type { DockerRouteLease } from '../network/census.js';
-import { createDesktopVmObserverClient } from '../network/desktop/client.js';
-import type { DesktopVmObserverClient } from '../network/desktop/client.js';
 import { captureDesktopRouteAcquisition, preflightDesktopRouteAuthority } from '../network/desktop/acquisition.js';
 import type { DesktopBridgeAuthority, DesktopPreBridgeAuthority } from '../network/desktop/acquisition.js';
 import type { DesktopOwnedNoneMembers, DesktopStartedTopologyReceipt } from '../network/desktop/topology.js';
-import { createEgressHelperController } from '../network/controller.js';
-import type { EgressHelperController } from '../network/controller.js';
+import type { DesktopCoordinatorControlledRole, DesktopCoordinatorStartedRole } from '../network/desktop/coordinator/member.js';
 import { EGRESS_PROTOCOL } from '../helpers/protocol.js';
 import { desktopBridgeName, newRecoveryRecord, resourceLabels } from '../recovery/identity.js';
 import type { ResourceRole } from '../recovery/identity.js';
@@ -37,12 +30,14 @@ import { importWorkspace } from '../workspace/imports.js';
 import { exportWorkspace } from '../workspace/exports.js';
 import { DockerApi } from './api.js';
 import { DockerProcessOwner } from '../process/owner.js';
-import { MAX_DATASET_ATTACHMENTS } from '../datasets/configuration.js';
 import { hasUnexpectedImageMountWarnings } from '../datasets/warnings.js';
-import { inspectResource, resourceKind, verifyNetworkMembership } from './inspect.js';
+import { inspectResource } from './inspect.js';
 import type { ResourceInspection } from './inspect.js';
+import { DockerMemberBridge } from './memberBridge.js';
+import { DockerInfrastructure } from './infrastructure.js';
+import { containerCreatedSchema } from './responses.js';
+import { removeInspectedDockerResource } from './removal.js';
 
-const containerCreatedSchema = z.object({ Id: z.string().regex(/^[a-f0-9]{64}$/u), Warnings: z.array(z.string()).max(MAX_DATASET_ATTACHMENTS).nullable().optional() });
 const volumeCreatedSchema = z.object({ Name: z.string() });
 const networkCreatedSchema = z.object({ Id: z.string().regex(/^[a-f0-9]{64}$/u), Warning: z.string().optional() });
 
@@ -58,24 +53,40 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
   private readonly createEffects = new Map<ResourceRole, Promise<unknown>>();
   private readonly absent = new Set<ResourceRole>();
   private process: DockerProcessOwner | undefined;
-  private readonly helperControls = new Map<'egress_broker' | 'egress_relay', EgressHelperController>();
-  private filesystemChannel: FilesystemChannel | undefined;
   private filesystem: DockerFilesystem | undefined;
-  private readonly healthController = new AbortController();
-  private healthTimer: ReturnType<typeof setTimeout> | undefined;
-  private healthActual: Promise<void> = Promise.resolve();
   private routeLease: DockerRouteLease | undefined;
-  private desktopObserver: DesktopVmObserverClient | undefined;
   private desktopAcquisition: DesktopPreBridgeAuthority | undefined;
-  private checkEgress: ((signal?: AbortSignal) => Promise<void>) | undefined;
   private onInfrastructureFailure: ((error: SandboxOperationError) => void) | undefined;
+  private readonly memberBridge: DockerMemberBridge;
+  private readonly infrastructure: DockerInfrastructure;
 
   constructor(private readonly api: DockerApi, private readonly config: DockerSandboxConfig,
     private readonly request: SandboxRequest | undefined, record?: SandboxRecoveryRecord) {
     if (record) this.current = record;
     else if (request) this.current = newRecoveryRecord(config, request);
     else throw new SandboxStateError('Docker resource ownership needs a request or verified recovery record.');
+    this.memberBridge = new DockerMemberBridge({ api, config,
+      record: () => this.current, retain: (current) => { this.current = current; },
+      returned: (role, id) => { this.returnedIds.set(role, id); },
+      creating: (role, actual) => { this.createEffects.set(role, actual); },
+      remove: (role) => this.deleteResourcePhysical(role), failed: (error) => this.memberFailed(error),
+    }, { closed: () => this.closed, assertOpen: (signal) => this.assertOpen(signal) });
+    this.infrastructure = new DockerInfrastructure({ api, config,
+      record: () => this.current, member: () => this.member, routeLease: () => this.routeLease, closed: () => this.closed,
+      assertOpen: (signal) => this.assertOpen(signal), assertAuthority: (signal) => this.assertAuthority(signal),
+      requirePresent: (role, signal) => this.requirePresent(role, signal), hasResource: (role) => this.hasResource(role),
+      createResource: (role, signal, create, validate) => this.createResource(role, signal, create, validate),
+      startContainer: (role, signal, ready, validate, beginReadiness) => this.startContainer(role, signal, ready, validate, beginReadiness),
+      failed: (error) => this.infrastructureFailed(error),
+      controlFailed: (role, error) => this.controlFailed(role, error),
+    });
   }
+
+  private get member() { return this.memberBridge.member; }
+  private get desktopObserver() { return this.infrastructure.desktopObserver; }
+  private get filesystemChannel() { return this.infrastructure.filesystemChannel; }
+  private get helperControls() { return this.infrastructure.helperControls; }
+  private get checkEgress() { return this.infrastructure.checkEgress; }
 
   get id() { return this.current.sandboxId; }
   get recoveryRecord(): SandboxRecoveryRecord { return this.current; }
@@ -84,7 +95,8 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
     if (this.startActual || !this.request) return Promise.reject(new SandboxStateError('Docker resource startup is once-only.'));
     this.checkpoint = options.checkpoint;
     this.onInfrastructureFailure = options.onInfrastructureFailure;
-    this.startActual = this.acquire(this.request.policy, options);
+    const policy = this.request.policy;
+    this.startActual = this.memberBridge.start(policy, options, () => this.acquire(policy, options));
     return this.startActual;
   }
 
@@ -109,12 +121,14 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
         await verifyEgressDeployment(this.api, this.config, this.routeLease.census, options.signal);
       }
     }
-    const desktopPreflight = desktopBinding ? await preflightDesktopRouteAuthority(desktopBinding, options.signal) : undefined;
+    const desktopPreflight = desktopBinding && !this.member ? await preflightDesktopRouteAuthority(desktopBinding, options.signal) : undefined;
     let desktopBridge: DesktopBridgeAuthority | undefined;
     this.assertOpen(options.signal);
     await this.publish({ ...this.current, phase: 'starting', authority: { kind: 'verified', backendIdentity } });
-    if (desktopBinding && desktopPreflight) {
-      const observer = await this.startDesktopObserver(options.signal);
+    if (desktopBinding && this.member) {
+      await this.infrastructure.startDesktopObserver(options.signal);
+    } else if (desktopBinding && desktopPreflight) {
+      const observer = await this.infrastructure.startDesktopObserver(options.signal);
       if (!this.desktopObserver) throw new SandboxStateError('Desktop route acquisition lost its owned observer control.');
       const acquisition = await captureDesktopRouteAcquisition({ api: this.api, binding: desktopBinding,
         observer: this.desktopObserver, hostPreflight: desktopPreflight, ownedObserverId: observer.id }, options.signal);
@@ -131,17 +145,22 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
         { body: { Name: resource.name, Driver: 'local', Labels: resourceLabels(this.current, 'storage') } });
       return { id: result.Name };
     });
-    if (policy.files.kind !== 'disabled') {
-      this.filesystem = await this.startFilesystem(storage.id, policy.files.kind, options.signal);
+    if (policy.files.kind !== 'disabled' && !this.member) {
+      this.filesystem = await this.infrastructure.startFilesystem(storage.id, policy.files.kind, options.signal);
     }
     const network = policy.network.kind !== 'isolated' ? await this.createResource('network', options.signal, async (resource) => {
       const result = await this.api.json('POST', `${DOCKER_API}/networks/create`, networkCreatedSchema, { body: {
         Name: resource.name, Driver: 'bridge', Internal: false, Attachable: false, Ingress: false,
         EnableIPv6: false, CheckDuplicate: true, Labels: resourceLabels(this.current, 'network'),
         ...(desktopBinding ? { Options: { 'com.docker.network.bridge.name': desktopBridgeName(this.current) } } : {}),
+        ...(this.member ? { IPAM: { Driver: 'default', Config: [{ Subnet: this.member.allocation.subnet,
+          Gateway: this.member.allocation.gateway }] } } : {}),
       } });
       return { id: result.Id, warning: Boolean(result.Warning) };
     }) : undefined;
+    if (policy.files.kind !== 'disabled' && this.member) {
+      this.filesystem = await this.infrastructure.startFilesystem(storage.id, policy.files.kind, options.signal);
+    }
     let restricted: Readonly<{ socketVolumeId: string; broker: ResourceInspection;
       placement: Extract<EgressHelperPlacement, { role: 'egress_broker' }> }> | undefined;
     if (policy.network.kind === 'restricted_https') {
@@ -152,18 +171,21 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
         this.ownedNoneMembers(), options.signal);
         this.routeLease = desktopBridge;
       }
-      if (!egress || !network || !this.routeLease) throw new SandboxStateError('Restricted acquisition lacks its admitted topology.');
-      await this.routeLease.assertCurrent(options.signal);
+      if (!egress || !network || !this.routeLease && !this.member) throw new SandboxStateError('Restricted acquisition lacks its admitted topology.');
+      if (this.member) await this.member.assertCurrent(options.signal);
+      else await this.routeLease?.assertCurrent(options.signal);
       const socketVolume = await this.createResource('egress_socket', options.signal, async (resource) => {
         const result = await this.api.json('POST', `${DOCKER_API}/volumes/create`, volumeCreatedSchema,
           { body: { Name: resource.name, Driver: 'local', Labels: resourceLabels(this.current, 'egress_socket') } });
         return { id: result.Name };
       });
+      const census = this.member ? this.member.census : this.routeLease?.census;
+      if (!census) throw new SandboxStateError('Restricted acquisition lost its original route census.');
       const placement: Extract<EgressHelperPlacement, { role: 'egress_broker' }> = { role: 'egress_broker', networkId: network.id, configuration: {
         protocol: EGRESS_PROTOCOL, role: 'broker', destinations: policy.network.destinations,
-        excludedCidrs: this.routeLease.census.excludedCidrs, leaseTimeoutMs: egress.control.leaseTimeoutMs,
+        excludedCidrs: census.excludedCidrs, leaseTimeoutMs: egress.control.leaseTimeoutMs,
       } };
-      const broker = await this.startHelper(socketVolume.id, placement, options.signal);
+      const broker = await this.infrastructure.startHelper(socketVolume.id, placement, options.signal);
       restricted = { socketVolumeId: socketVolume.id, broker, placement };
     }
     const platform = `linux/${dockerProfile(this.config.profile).workloadImageArchitecture}`;
@@ -185,15 +207,17 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
     }, this.hasResource('filesystem'));
     this.assertOpen(options.signal);
     await this.assertAuthority(options.signal);
-    await this.api.request('POST', `${DOCKER_API}/containers/${compute.id}/start`, { signal: options.signal });
+    const running = await this.startContainer('compute', options.signal, undefined, (inspection) => {
+      if (!inspection.container) throw new SandboxStateError('Docker workload disappeared during startup.');
+      verifyContainer(inspection.container, this.config, policy, 'compute', storage.id, network?.id, true, this.hasResource('filesystem'));
+    });
     this.assertOpen(options.signal);
-    const running = await inspectResource(this.api, this.config, this.current, this.resource('compute'), compute.id, options.signal);
     if (!running?.container) throw new SandboxStateError('Docker workload disappeared during startup.');
     verifyContainer(running.container, this.config, policy, 'compute', storage.id, network?.id, true, this.hasResource('filesystem'));
     if (policy.network.kind === 'restricted_https') {
       const egress = this.config.egress;
       if (!egress || !restricted || !network) throw new SandboxStateError('Restricted acquisition lacks its owned helpers.');
-      if (desktopBinding) {
+      if (desktopBinding && !this.member) {
         if (!desktopBridge) {
           throw new SandboxStateError('Desktop readiness requires its original unsealed bridge acquisition.');
         }
@@ -203,11 +227,11 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
       const relayPlacement: Extract<EgressHelperPlacement, { role: 'egress_relay' }> = { role: 'egress_relay', computeId: compute.id, configuration: {
         protocol: EGRESS_PROTOCOL, role: 'relay', leaseTimeoutMs: egress.control.leaseTimeoutMs,
       } };
-      await this.startHelper(restricted.socketVolumeId, relayPlacement, options.signal);
-      this.installEgressHealth(policy, storage.id, restricted.socketVolumeId, network.id, restricted.broker.id, restricted.placement, relayPlacement);
+      await this.infrastructure.startHelper(restricted.socketVolumeId, relayPlacement, options.signal);
+      this.infrastructure.installEgressHealth(policy, storage.id, restricted.socketVolumeId, network.id, restricted.broker.id, restricted.placement, relayPlacement);
       await this.checkEgress?.(options.signal);
       this.assertOpen(options.signal);
-      this.scheduleHealth();
+      this.infrastructure.scheduleHealth();
     }
     await this.publish({ ...this.current, phase: 'running' });
     this.assertOpen(options.signal);
@@ -216,7 +240,7 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
         temporaryStorage: policy.temporaryStorage, network: policy.network,
         files: policy.files,
         nonRoot: true as const, readOnlyRoot: true as const, workspaceDiskQuota: Object.freeze({ kind: 'not_requested' as const }) }),
-      files: this.filesystem?.files,
+      files: this.filesystem ? this.memberBridge.files(this.filesystem.files) : undefined,
       workspace: parseSandboxGuestPath('/workspace/work'),
       openSpill: (operation?: OperationOptions) => createSandboxSpillStore({ directory: this.config.spillDirectory, signal: operation?.signal }),
       importTree: (entries: AsyncIterable<SandboxInputTreeEntry>, operation: SandboxDriverTransferOptions) => this.importTree(entries, operation),
@@ -225,6 +249,7 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
         if (this.process) throw new SandboxStateError('Docker admits only one process reservation.');
         this.process = new DockerProcessOwner(this.api, this.config, compute.id, spec, policy, async (signal) => {
           this.assertOpen(signal);
+          await this.memberBridge.enterPrimary();
           await this.assertAuthority(signal);
           await this.requirePresent('compute', signal);
           await this.checkEgress?.(signal);
@@ -243,7 +268,7 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
     const compute = await this.requirePresent('compute', options.signal);
     await this.checkEgress?.(options.signal);
     this.assertOpen(options.signal);
-    return importWorkspace(this.api, compute.id, entries, this.config.user, options, this.hasResource('filesystem'));
+    return this.memberBridge.write(() => importWorkspace(this.api, compute.id, entries, this.config.user, options, this.hasResource('filesystem')));
   }
 
   private ownedNoneMembers(): DesktopOwnedNoneMembers {
@@ -271,168 +296,23 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
       address: endpoint.IPAddress, prefixLength: endpoint.IPPrefixLen, gateway: endpoint.Gateway }, members: this.ownedNoneMembers() };
   }
 
-  private async startDesktopObserver(signal?: AbortSignal): Promise<ResourceInspection> {
-    const identity = desktopObserverIdentity(this.config);
-    const observer = await this.createResource('route_observer', signal, async (resource) => {
-      const created = await this.api.json('POST', `${DOCKER_API}/containers/create?name=${encodeURIComponent(resource.name)}&platform=linux%2Farm64`,
-        containerCreatedSchema, { body: desktopObserverContainerBody(this.config, this.current) });
-      return { id: created.Id, warning: Boolean(created.Warnings?.length) };
-    }, (inspection) => {
-      if (!inspection.container) throw new SandboxStateError('Docker did not inspect the acquired Desktop observer.');
-      verifyDesktopObserverContainer(inspection.container, this.config, false);
-    });
-    this.assertOpen(signal);
-    const attachment = await this.api.upgrade(`${DOCKER_API}/containers/${observer.id}/attach?stream=true&stdin=true&stdout=true&stderr=true`, undefined, signal);
-    const control = createDesktopVmObserverClient({ attachment, configuration: desktopObserverConfiguration(identity),
-      onFailure: (error) => this.infrastructureFailed(error) });
-    this.desktopObserver = control;
-    try {
-      this.assertOpen(signal);
-      await this.assertAuthority(signal);
-      await this.api.request('POST', `${DOCKER_API}/containers/${observer.id}/start`, { signal });
-      await control.ready;
-      this.assertOpen(signal);
-      const running = await this.requirePresent('route_observer', signal);
-      if (!running.container) throw new SandboxStateError('Desktop observer disappeared before readiness.');
-      verifyDesktopObserverContainer(running.container, this.config, true);
-      return running;
-    } catch (cause) {
-      try { await control.close(); }
-      catch (cleanup) { throw new AggregateError([cause, cleanup], 'Desktop observer startup and control cleanup failed.'); }
-      throw cause;
-    }
-  }
-
-  private async startHelper(socketVolumeId: string, placement: EgressHelperPlacement, signal?: AbortSignal): Promise<ResourceInspection> {
-    const egress = this.config.egress;
-    if (!egress) throw new SandboxStateError('Helper startup requires admitted egress configuration.');
-    const platform = `linux/${dockerProfile(this.config.profile).helperImageArchitecture}`;
-    const helper = await this.createResource(placement.role, signal, async (resource) => {
-      const created = await this.api.json('POST', `${DOCKER_API}/containers/create?name=${encodeURIComponent(resource.name)}&platform=${encodeURIComponent(platform)}`,
-        containerCreatedSchema, { body: helperContainerBody(this.config, this.current, socketVolumeId, placement) });
-      return { id: created.Id, warning: Boolean(created.Warnings?.length) };
-    }, (inspection) => {
-      if (!inspection.container) throw new SandboxStateError('Docker did not inspect its acquired egress helper.');
-      verifyHelperContainer(inspection.container, this.config, socketVolumeId, placement, false);
-    });
-    this.assertOpen(signal);
-    const attachment = await this.api.upgrade(`${DOCKER_API}/containers/${helper.id}/attach?stream=true&stdin=true&stdout=true&stderr=true`, undefined, signal);
-    const control = createEgressHelperController({ attachment, role: placement.configuration.role,
-      heartbeatMs: egress.control.heartbeatMs, leaseTimeoutMs: egress.control.leaseTimeoutMs,
-      onFailure: (error) => this.infrastructureFailed(error) });
-    this.helperControls.set(placement.role, control);
-    try {
-      this.assertOpen(signal);
-      await this.assertAuthority(signal);
-      await this.api.request('POST', `${DOCKER_API}/containers/${helper.id}/start`, { signal });
-      await control.ready;
-      this.assertOpen(signal);
-      const running = await this.requirePresent(placement.role, signal);
-      if (!running.container) throw new SandboxStateError('Docker helper disappeared before readiness.');
-      verifyHelperContainer(running.container, this.config, socketVolumeId, placement, true);
-      return running;
-    } catch (cause) {
-      // A stop can race the attach handoff after its initial controls census.
-      // Join this newly received handle before allowing startup to settle.
-      try { await control.close(); }
-      catch (cleanup) { throw new AggregateError([cause, cleanup], 'Egress helper startup and control cleanup failed.'); }
-      throw cause;
-    }
-  }
-
-  private async startFilesystem(storageId: string, access: FilesystemAccess, signal?: AbortSignal): Promise<DockerFilesystem> {
-    const filesystem = this.config.filesystem;
-    if (!filesystem) throw new SandboxStateError('Filesystem startup requires its explicit prepared image.');
-    const platform = `linux/${dockerProfile(this.config.profile).helperImageArchitecture}`;
-    const helper = await this.createResource('filesystem', signal, async (resource) => {
-      const created = await this.api.json('POST', `${DOCKER_API}/containers/create?name=${encodeURIComponent(resource.name)}&platform=${encodeURIComponent(platform)}`,
-        containerCreatedSchema, { body: filesystemContainerBody(this.config, this.current, storageId, access) });
-      return { id: created.Id, warning: Boolean(created.Warnings?.length) };
-    }, (inspection) => {
-      if (!inspection.container) throw new SandboxStateError('Docker did not inspect the acquired filesystem helper.');
-      verifyFilesystemContainer(inspection.container, this.config, storageId, access, false);
-    });
-    this.assertOpen(signal);
-    const attachment = await this.api.upgrade(`${DOCKER_API}/containers/${helper.id}/attach?stream=true&stdin=true&stdout=true&stderr=true`, undefined, signal);
-    const channel = new FilesystemChannel(attachment, filesystem, (error) => this.infrastructureFailed(error));
-    this.filesystemChannel = channel;
-    const verify = async (signal?: AbortSignal) => {
-      this.assertOpen(signal);
-      await this.assertAuthority(signal);
-      const current = await this.requirePresent('filesystem', signal);
-      if (!current.container) throw new SandboxStateError('Filesystem helper disappeared before admission.');
-      verifyFilesystemContainer(current.container, this.config, storageId, access, true);
-      this.assertOpen(signal);
-    };
-    try {
-      this.assertOpen(signal);
-      await this.assertAuthority(signal);
-      await this.api.request('POST', `${DOCKER_API}/containers/${helper.id}/start`, { signal });
-      await channel.ready;
-      await verify(signal);
-      return new DockerFilesystem(channel, access, verify);
-    } catch (cause) {
-      try { await channel.close(); }
-      catch (cleanup) { throw new AggregateError([cause, cleanup], 'Filesystem startup and control cleanup failed.'); }
-      throw cause;
-    }
-  }
-
-  private installEgressHealth(policy: SandboxPolicy, storageId: string, socketVolumeId: string, networkId: string,
-    brokerId: string, broker: Extract<EgressHelperPlacement, { role: 'egress_broker' }>,
-    relay: Extract<EgressHelperPlacement, { role: 'egress_relay' }>): void {
-    const lease = this.routeLease;
-    if (!lease) throw new SandboxStateError('Restricted readiness requires its original route lease.');
-    const check = async (signal?: AbortSignal) => {
-      this.assertOpen(signal);
-      await lease.assertCurrent(signal);
-      await this.assertAuthority(signal);
-      if (this.config.profile === 'linux-x64') await verifyEgressDeployment(this.api, this.config, lease.census, signal);
-      else {
-        const observer = await this.requirePresent('route_observer', signal);
-        if (!observer.container) throw new SandboxStateError('Restricted Desktop observer is absent.');
-        verifyDesktopObserverContainer(observer.container, this.config, true);
-      }
-      const compute = await this.requirePresent('compute', signal);
-      if (!compute.container) throw new SandboxStateError('Restricted workload is absent.');
-      verifyContainer(compute.container, this.config, policy, 'compute', storageId, networkId, true, this.hasResource('filesystem'));
-      for (const placement of [broker, relay]) {
-        const helper = await this.requirePresent(placement.role, signal);
-        if (!helper.container) throw new SandboxStateError('Restricted helper is absent.');
-        verifyHelperContainer(helper.container, this.config, socketVolumeId, placement, true);
-      }
-      await this.requirePresent('egress_socket', signal);
-      await this.requirePresent('network', signal);
-      await verifyNetworkMembership(this.api, networkId, [brokerId], signal);
-      this.assertOpen(signal);
-    };
-    this.checkEgress = (signal) => {
-      const actual = this.healthActual.then(() => check(signal)).catch((cause: unknown) => {
-        if (!this.closed && !signal?.aborted) this.infrastructureFailed(cause instanceof SandboxOperationError ? cause
-          : new SandboxOperationError('driver_failure', 'Restricted sandbox authority or infrastructure failed.', { cause }));
-        throw cause;
-      });
-      this.healthActual = actual.catch(() => {});
-      return actual;
-    };
-  }
-
-  private scheduleHealth(): void {
-    const check = this.checkEgress;
-    const egress = this.config.egress;
-    if (this.closed || !check || !egress) return;
-    this.healthTimer = setTimeout(() => {
-      this.healthTimer = undefined;
-      void check(this.healthController.signal).catch(() => {}).then(() => this.scheduleHealth());
-    }, egress.routeAuthority.pollIntervalMs);
-    this.healthTimer.unref();
-  }
-
   private infrastructureFailed(error: SandboxOperationError): void {
+    this.member?.infrastructureFailed(error);
+    this.memberFailed(error);
+  }
+
+  private controlFailed(role: DesktopCoordinatorControlledRole, error: SandboxOperationError): void {
+    if (this.member) this.member.controlFailed(role, error);
+    else if (!this.closed) this.memberFailed(error);
+  }
+
+  private memberFailed(error: SandboxOperationError): void {
+    this.infrastructure.stopRenewal();
     if (this.closed) return;
     this.closed = true;
+    this.member?.closeAdmission();
     this.process?.closeAdmission();
-    this.filesystemChannel?.closeAdmission();
+    this.infrastructure.closeFilesAdmission();
     this.onInfrastructureFailure?.(error);
     void this.stop().catch(() => {});
   }
@@ -450,11 +330,15 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
     const accessor = await this.requirePresent('export', options.signal);
     if (!accessor.container) throw new SandboxStateError('Workspace export requires the exact archive accessor.');
     verifyContainer(accessor.container, this.config, policy, 'export', storageId, networkId, false, this.hasResource('filesystem'));
-    return exportWorkspace(this.api, accessor.id, selection, consume, options, this.hasResource('filesystem'));
+    return this.memberBridge.export(() => exportWorkspace(this.api, accessor.id, selection, consume, options, this.hasResource('filesystem')));
   }
 
   private async createResource(role: ResourceRole, signal: AbortSignal | undefined,
     create: (resource: SandboxRecoveryResource) => Promise<{ id: string; warning?: boolean }>, validate?: (inspection: ResourceInspection) => void): Promise<ResourceInspection> {
+    if (this.member) return this.member.create(role, signal, { dispatch: create, validate,
+      input: { role, configurationDigest: this.current.configurationDigest, policyDigest: this.current.policyDigest,
+        resources: this.current.resources.map(({ role: resourceRole, name, identity }) => ({ role: resourceRole, name, identity })),
+        allocation: this.member.allocation } });
     this.assertOpen(signal);
     await this.assertAuthority(signal);
     await this.updateIdentity(role, { kind: 'creating' });
@@ -475,19 +359,34 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
     return inspection;
   }
 
+  private async startContainer(role: DesktopCoordinatorStartedRole, signal: AbortSignal | undefined,
+    ready: Promise<void> | undefined, validate: (inspection: ResourceInspection) => void,
+    beginReadiness?: () => void): Promise<ResourceInspection> {
+    if (this.member) return this.member.start(role, signal, { ready, validate, beginReadiness });
+    const resource = this.resource(role);
+    if (resource.identity.kind !== 'identified') throw new SandboxStateError('Docker startup requires its original identified resource.');
+    beginReadiness?.();
+    await this.api.request('POST', `${DOCKER_API}/containers/${resource.identity.id}/start`, { signal });
+    await ready;
+    this.assertOpen(signal);
+    const running = await this.requirePresent(role, signal);
+    validate(running);
+    return running;
+  }
+
   stop(): Promise<void> {
     this.closed = true;
+    this.member?.closeAdmission();
     this.process?.closeAdmission();
-    this.filesystemChannel?.closeAdmission();
+    this.infrastructure.closeFilesAdmission();
     this.stopActual ??= this.cleanupCompute().catch((error: unknown) => { this.stopActual = undefined; throw error; });
     return this.stopActual;
   }
 
   private async cleanupCompute(): Promise<void> {
+    if (this.config.coordinator) return this.cleanupCoordinatedCompute();
     this.cleanupPhase('stopping');
-    clearTimeout(this.healthTimer);
-    this.healthTimer = undefined;
-    this.healthController.abort(new SandboxOperationError('cancelled', 'Sandbox infrastructure is stopping.'));
+    this.infrastructure.stopHealth();
     const controls = Promise.allSettled([
       ...[...this.helperControls.values()].map((control) => control.close()),
       ...(this.filesystemChannel ? [this.filesystemChannel.close()] : []),
@@ -514,10 +413,58 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
       try { await this.process?.computeStopped(); } catch (error) { failures.push(error); }
     }
     for (const result of await controls) if (result.status === 'rejected') failures.push(result.reason);
-    await this.healthActual;
+    await this.infrastructure.healthSettled;
     if (failures.length) throw new AggregateError(failures, 'Sandbox infrastructure cleanup retains unresolved ownership.');
     this.cleanupPhase('stopped');
     await this.checkpointTail;
+  }
+
+  private async cleanupCoordinatedCompute(): Promise<void> {
+    await this.memberBridge.settleEnrollment();
+    const member = this.member;
+    if (!member) return;
+    const failures: unknown[] = [];
+    try {
+      await member.beginStop();
+      if (this.current.authority.kind === 'unverified') {
+        const backendIdentity = await verifyDaemon(this.api, this.config);
+        this.current = parseSandboxRecoveryRecord({ ...this.current, authority: { kind: 'verified', backendIdentity } });
+      }
+    } catch (error) { failures.push(error); }
+    this.cleanupPhase('stopping');
+    this.infrastructure.stopHealth();
+    const remove = async (role: ResourceRole) => {
+      if (!this.hasResource(role)) return;
+      try { await this.deleteResource(role); } catch (error) { failures.push(error); }
+    };
+    await remove('compute');
+    for (const role of ['egress_relay', 'egress_broker', 'filesystem'] as const) {
+      const control = role === 'filesystem' ? this.filesystemChannel : this.helperControls.get(role);
+      if (control) {
+        try { await this.infrastructure.closeControl(role, () => control.close()); } catch (error) { failures.push(error); }
+      }
+      await remove(role);
+    }
+    // Every known resource receives a cleanup attempt before an unknown late create is joined.
+    await Promise.allSettled([...this.createEffects.values()]);
+    for (const role of ['compute', 'egress_relay', 'egress_broker', 'filesystem'] as const) {
+      if (!this.absent.has(role)) await remove(role);
+    }
+    if (this.absent.has('compute') || !this.createEffects.has('compute')) {
+      try { await this.process?.computeStopped(); } catch (error) { failures.push(error); }
+    }
+    await this.startActual?.catch(() => {});
+    failures.push(...await this.memberBridge.joinProducers());
+    if (this.desktopObserver) {
+      try { await this.infrastructure.closeControl('route_observer', () => this.desktopObserver?.close() ?? Promise.resolve()); }
+      catch (error) { failures.push(error); }
+    }
+    await remove('route_observer');
+    await this.infrastructure.healthSettled;
+    if (failures.length) throw new AggregateError(failures, 'Coordinated sandbox cleanup retains original resource or callback ownership.');
+    this.cleanupPhase('stopped');
+    await this.checkpointTail;
+    await member.stopped(this.current);
   }
 
   destroy(): Promise<void> {
@@ -530,6 +477,7 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
     const failures: unknown[] = [];
     try { await this.stop(); } catch (error) { failures.push(error); }
     this.cleanupPhase('destroying');
+    if (this.member) failures.push(...await this.memberBridge.joinExports());
     for (const role of ['export', 'storage', 'egress_socket', 'network'] satisfies ResourceRole[]) {
       if (!this.current.resources.some((resource) => resource.role === role)) continue;
       try { await this.deleteResource(role); } catch (error) { failures.push(error); }
@@ -540,6 +488,7 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
     }
     this.cleanupPhase('destroyed');
     await this.checkpointTail;
+    await this.member?.retire(this.current);
   }
 
   async resolveResource(role: ResourceRole, signal?: AbortSignal): Promise<ResourceInspection | undefined> {
@@ -567,16 +516,20 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
 
   private async deleteResource(role: ResourceRole): Promise<void> {
     if (this.absent.has(role) || this.resource(role).identity.kind === 'planned') return;
+    if (this.member) {
+      await this.member.delete(role);
+      this.absent.add(role);
+      return;
+    }
+    return this.deleteResourcePhysical(role);
+  }
+
+  private async deleteResourcePhysical(role: ResourceRole): Promise<void> {
+    if (this.absent.has(role) || this.resource(role).identity.kind === 'planned') return;
     await this.assertAuthority();
     const inspection = await this.resolveResource(role);
     if (!inspection) { this.absent.add(role); return; }
-    const id = encodeURIComponent(inspection.id);
-    const kind = resourceKind(role);
-    const path = kind === 'container' ? `${DOCKER_API}/containers/${id}?force=true&v=false`
-      : kind === 'volume' ? `${DOCKER_API}/volumes/${id}` : `${DOCKER_API}/networks/${id}`;
-    await this.api.request('DELETE', path, { statuses: [204, 404] });
-    const remaining = await this.resolveResource(role);
-    if (remaining) throw new SandboxStateError('Docker acknowledged removal but the exact resource remains present.');
+    await removeInspectedDockerResource(this.api, role, inspection, () => this.resolveResource(role));
     this.absent.add(role);
   }
 
@@ -610,12 +563,13 @@ export class DockerResourceOwner implements SandboxDriverReservation, SandboxCle
   }
 
   private submitCheckpoint(record: SandboxRecoveryRecord): Promise<void> {
-    const writing = this.checkpoint?.(record) ?? Promise.resolve();
+    const writing = this.member ? this.member.checkpoint(record) : this.checkpoint?.(record) ?? Promise.resolve();
     this.checkpointTail = Promise.allSettled([this.checkpointTail, writing]).then(() => {});
     return writing;
   }
 
   private async assertAuthority(signal?: AbortSignal): Promise<void> {
+    if (this.member && !this.closed) await this.member.assertCurrent(signal);
     if (this.current.authority.kind !== 'verified' || await verifyDaemon(this.api, this.config, signal) !== this.current.authority.backendIdentity) {
       throw new SandboxStateError('Docker resource operations cannot act on a different or unverified daemon.');
     }

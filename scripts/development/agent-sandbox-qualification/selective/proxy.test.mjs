@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import http from 'node:http';
 import { createConnection } from 'node:net';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createTraceProxy } from './proxy/index.mjs';
@@ -21,7 +21,7 @@ async function setup(t, handle, options = {}) {
   const proxy = await createTraceProxy({ socketPath: join(directory, 'proxy.sock'), upstreamEndpoint: `unix://${upstreamPath}`,
     tracePath: join(directory, 'trace.jsonl'), ...options });
   t.after(async () => { await proxy.close(); server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); await rm(directory, { recursive: true }); });
-  return { proxy, directory };
+  return { proxy, directory, server };
 }
 
 function request(endpoint, method, path) {
@@ -29,6 +29,258 @@ function request(endpoint, method, path) {
   const response = new Promise((resolve, reject) => { req.once('response', resolve); req.once('error', reject); });
   return { req, response };
 }
+
+test('opt-in admission waits for original body and terminal evidence before dispatching the next sequential content-length request', { timeout: 5000 }, async (t) => {
+  const bodyEntered = Promise.withResolvers(), bodyRelease = Promise.withResolvers();
+  const terminalEntered = Promise.withResolvers(), terminalRelease = Promise.withResolvers(), nextEntered = Promise.withResolvers();
+  const forwarded = [];
+  const upload = Buffer.from('exact queued request bytes\n'.repeat(4096)); let receivedUpload;
+  const { proxy } = await setup(t, async (incoming, response) => {
+    forwarded.push(incoming.url); const bytes = Buffer.from(incoming.url);
+    const chunks = []; for await (const chunk of incoming) chunks.push(chunk);
+    if (incoming.url === '/second') receivedUpload = Buffer.concat(chunks);
+    response.writeHead(200, { 'content-length': bytes.length }); response.end(bytes);
+  }, { maxConnections: 4, maxActiveRequests: 1, maxPendingRequests: 2,
+    observeRequest({ target }) { if (target === '/second') nextEntered.resolve(); },
+    observeResponseBody({ target }) { return { body() {}, async complete() {
+      if (target === '/first') { bodyEntered.resolve(); await bodyRelease.promise; }
+    } }; },
+    async observeRequestSettled(receipt) {
+      if (JSON.parse(receipt.bytes).target === '/first') { terminalEntered.resolve(); await terminalRelease.promise; }
+    },
+  });
+  const consume = async (path) => {
+    const pending = request(proxy.endpoint, path === '/second' ? 'PUT' : 'GET', path);
+    if (path === '/second') pending.req.setHeader('content-length', upload.length);
+    pending.req.end(path === '/second' ? upload : undefined); const response = await pending.response;
+    assert.equal(response.headers['content-length'], String(Buffer.byteLength(path)));
+    const chunks = []; for await (const bytes of response) chunks.push(bytes);
+    assert.equal(Buffer.concat(chunks).toString(), path);
+  };
+  let second;
+  try {
+    await consume('/first'); await bodyEntered.promise;
+    second = consume('/second'); void second.catch(() => {});
+    await Promise.race([nextEntered.promise, second]);
+    assert.deepEqual(forwarded, ['/first']);
+    bodyRelease.resolve(); await terminalEntered.promise;
+    assert.deepEqual(forwarded, ['/first']);
+    assert.equal(proxy.capacity().requests.current, 1); assert.equal(proxy.capacity().pendingRequests.current, 1);
+    terminalRelease.resolve(); await second; await proxy.idle();
+    assert.deepEqual(forwarded, ['/first', '/second']);
+    assert.deepEqual(receivedUpload, upload);
+    assert.equal(proxy.capacity().requests.rejected, 0); assert.equal(proxy.capacity().pendingRequests.promoted, 1);
+  } finally { bodyRelease.resolve(); terminalRelease.resolve(); await Promise.allSettled([second]); }
+});
+
+test('queued cancellation retains its bounded slot through terminal evidence and never dispatches or retries the cancelled request', { timeout: 5000 }, async (t) => {
+  const bodyEntered = Promise.withResolvers(), bodyRelease = Promise.withResolvers(), queued = Promise.withResolvers();
+  const cancelled = Promise.withResolvers(), terminalRelease = Promise.withResolvers(), terminalReturned = Promise.withResolvers();
+  const forwarded = [];
+  const { proxy, directory } = await setup(t, (incoming, response) => {
+    forwarded.push(incoming.url); response.writeHead(200, { 'content-length': incoming.url.length }); response.end(incoming.url);
+  }, { maxConnections: 6, maxActiveRequests: 1, maxPendingRequests: 1,
+    observeRequest({ target }) { if (target === '/cancelled') queued.resolve(); },
+    observeResponseBody({ target }) { return { body() {}, async complete() {
+      if (target === '/active') { bodyEntered.resolve(); await bodyRelease.promise; }
+    } }; },
+    async observeRequestSettled(receipt) {
+      const record = JSON.parse(receipt.bytes);
+      if (record.target === '/cancelled') { cancelled.resolve(record); await terminalRelease.promise; terminalReturned.resolve(); }
+    },
+  });
+  const consume = async (pending) => { const chunks = []; for await (const bytes of await pending.response) chunks.push(bytes); return Buffer.concat(chunks).toString(); };
+  try {
+    const first = request(proxy.endpoint, 'GET', '/active'); first.req.end(); assert.equal(await consume(first), '/active'); await bodyEntered.promise;
+    const second = request(proxy.endpoint, 'GET', '/cancelled'); void second.response.catch(() => {}); second.req.end(); await queued.promise;
+    second.req.destroy(); await assert.rejects(second.response);
+    const record = await cancelled.promise;
+    assert.deepEqual(record.terminal, { kind: 'http_not_forwarded', upstreamAcquisition: 'not_entered', downstreamResponseClosed: true, reason: 'downstream_closed' });
+    assert.equal(record.status, null); assert.equal(record.uploadedBytes, 0); assert.equal(record.upstreamBodyBytes, 0);
+    assert.equal(record.waiting.releasedAt, undefined);
+    assert.equal(proxy.capacity().pendingRequests.current, 1); assert.equal(proxy.capacity().pendingRequests.retiring, 1);
+    const excess = request(proxy.endpoint, 'GET', '/queue-overflow'); excess.req.end();
+    await assert.rejects(excess.response, (error) => ['ECONNRESET', 'EPIPE'].includes(error.code));
+    assert.deepEqual(forwarded, ['/active']);
+    terminalRelease.resolve(); await terminalReturned.promise; await new Promise(setImmediate);
+    assert.equal(proxy.capacity().pendingRequests.current, 0);
+    const next = request(proxy.endpoint, 'GET', '/after-cancellation'); next.req.end();
+    assert.equal(proxy.capacity().requests.current, 1);
+    bodyRelease.resolve(); assert.equal(await consume(next), '/after-cancellation'); await proxy.idle();
+    assert.deepEqual(forwarded, ['/active', '/after-cancellation']);
+    assert.equal(proxy.capacity().pendingRequests.highWater, 1); assert.equal(proxy.capacity().pendingRequests.cancelled, 1);
+    assert.equal(proxy.capacity().requests.rejected, 1);
+    const records = (await readFile(join(directory, 'trace.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.equal(records.filter(({ target, kind }) => target === '/cancelled' && kind !== 'admission_rejected').length, 1);
+  } finally { bodyRelease.resolve(); terminalRelease.resolve(); }
+});
+
+test('proxy close joins active evidence and queued pre-dispatch retirement without acquiring upstream for the queued request', { timeout: 5000 }, async (t) => {
+  const bodyEntered = Promise.withResolvers(), bodyRelease = Promise.withResolvers(), queued = Promise.withResolvers();
+  const terminalEntered = Promise.withResolvers(), terminalRelease = Promise.withResolvers();
+  let bodyReturned = false, terminalReturned = false;
+  const forwarded = [];
+  const { proxy } = await setup(t, (incoming, response) => {
+    forwarded.push(incoming.url); response.writeHead(200, { 'content-length': 4 }); response.end('body');
+  }, { maxConnections: 4, maxActiveRequests: 1, maxPendingRequests: 1,
+    observeRequest({ target }) { if (target === '/queued') queued.resolve(); },
+    observeResponseBody() { return { body() {}, async complete() { bodyEntered.resolve(); await bodyRelease.promise; bodyReturned = true; } }; },
+    async observeRequestSettled(receipt) {
+      const record = JSON.parse(receipt.bytes);
+      if (record.target === '/queued') { terminalEntered.resolve(record); await terminalRelease.promise; terminalReturned = true; }
+    },
+  });
+  let closing, timer;
+  try {
+    const first = request(proxy.endpoint, 'GET', '/active'); first.req.end();
+    const response = await first.response; response.resume(); await once(response, 'end'); await bodyEntered.promise;
+    const second = request(proxy.endpoint, 'GET', '/queued'); void second.response.catch(() => {}); second.req.end(); await queued.promise;
+    closing = proxy.close(); const repeated = proxy.close();
+    await assert.rejects(second.response);
+    const terminal = await terminalEntered.promise;
+    assert.deepEqual(terminal.terminal, { kind: 'http_not_forwarded', upstreamAcquisition: 'not_entered', downstreamResponseClosed: true, reason: 'proxy_closing' });
+    assert.equal(await Promise.race([closing.then(() => 'closed'), new Promise((resolve) => { timer = setTimeout(() => resolve('owned'), 100); })]), 'owned');
+    assert.equal(bodyReturned, false); assert.equal(terminalReturned, false);
+    bodyRelease.resolve(); terminalRelease.resolve(); await Promise.all([closing, repeated]);
+    assert.equal(bodyReturned, true); assert.equal(terminalReturned, true); assert.deepEqual(forwarded, ['/active']);
+    assert.equal(proxy.capacity().requests.current, 0); assert.equal(proxy.capacity().pendingRequests.current, 0);
+    assert.equal(proxy.capacity().pendingRequests.retiring, 0); assert.equal(proxy.capacity().connections.current, 0);
+  } finally { clearTimeout(timer); bodyRelease.resolve(); terminalRelease.resolve(); await closing; }
+});
+
+test('a queued exec upgrade preserves fragmented control bytes, initial binary head and later duplex input', { timeout: 5000 }, async (t) => {
+  const bodyEntered = Promise.withResolvers(), bodyRelease = Promise.withResolvers(), queued = Promise.withResolvers();
+  const payload = Buffer.from('{"Detach":false,"Tty":false}'), input = Buffer.from([0, 255, 17, 3]);
+  const frame = Buffer.from([1, 0, 0, 0, 0, 0, 0, 2, 65, 66]);
+  let control, upgrades = 0, clientSocket;
+  const { proxy, server } = await setup(t, (_request, response) => { response.writeHead(200, { 'content-length': 4 }); response.end('body'); }, {
+    maxConnections: 4, maxActiveRequests: 1, maxPendingRequests: 1,
+    observeRequest({ target }) { if (target === '/v1.52/exec/queued/start') queued.resolve(); },
+    observeResponseBody() { return { body() {}, async complete() { bodyEntered.resolve(); await bodyRelease.promise; } }; },
+  });
+  server.on('upgrade', (_request, socket, head) => {
+    upgrades++; socket.on('error', () => {}); socket.once('end', () => socket.destroy());
+    let bytes = Buffer.from(head);
+    const accept = (chunk) => {
+      bytes = Buffer.concat([bytes, chunk]); if (bytes.length < payload.length) return;
+      control = bytes; socket.removeListener('data', accept);
+      socket.write('HTTP/1.1 101 UPGRADED\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n'); socket.write(frame);
+      socket.once('data', (received) => socket.end(received));
+    };
+    socket.on('data', accept); accept(Buffer.alloc(0));
+  });
+  const client = http.request({ socketPath: proxy.endpoint.slice(7), method: 'POST', path: '/v1.52/exec/queued/start', agent: false,
+    headers: { connection: 'Upgrade', upgrade: 'tcp', 'content-length': payload.length } });
+  try {
+    const first = request(proxy.endpoint, 'GET', '/active'); first.req.end();
+    const response = await first.response; response.resume(); await once(response, 'end'); await bodyEntered.promise;
+    const opening = once(client, 'upgrade'); client.write(payload.subarray(0, 3));
+    await Promise.race([queued.promise, opening]); assert.equal(upgrades, 0);
+    client.end(payload.subarray(3)); bodyRelease.resolve();
+    const [, socket, head] = await opening; clientSocket = socket;
+    const chunks = [head]; socket.on('data', (bytes) => chunks.push(bytes));
+    const ended = once(socket, 'end'); socket.write(input); await ended; socket.destroy();
+    await proxy.idle();
+    assert.deepEqual(control, payload); assert.deepEqual(Buffer.concat(chunks), Buffer.concat([frame, input]));
+    assert.equal(upgrades, 1); assert.equal(proxy.capacity().pendingRequests.promoted, 1);
+  } finally { bodyRelease.resolve(); client.destroy(); clientSocket?.destroy(); }
+});
+
+test('invalid proxy capacities fail before acquiring trace files or a listener', async (t) => {
+  const directory = await mkdtemp('/var/tmp/sandbox-proxy-capacity-');
+  t.after(() => rm(directory, { recursive: true }));
+  for (const [name, invalid, message] of [
+    ['maxConnections', [0, 65, 1.5, Infinity], /capacity must be an integer from one through sixty-four/u],
+    ['maxActiveRequests', [0, 65, 1.5, Infinity], /capacity must be an integer from one through sixty-four/u],
+    ['maxPendingRequests', [-1, 65, 1.5, Infinity], /capacity must be an integer from zero through sixty-four/u],
+  ]) for (const value of invalid) {
+    await assert.rejects(createTraceProxy({ socketPath: join(directory, 'proxy.sock'), upstreamEndpoint: `unix://${join(directory, 'upstream.sock')}`,
+      tracePath: join(directory, 'trace.jsonl'), [name]: value }), message);
+  }
+  assert.deepEqual(await readdir(directory), []);
+});
+
+for (const configured of [false, true]) test(`trace proxy ${configured ? 'explicit concurrency budget admits the paired workflow above sixteen' : 'default retains sixteen connections'} and records saturation before request parsing`, { timeout: 10_000 }, async (t) => {
+  const limit = configured ? 32 : 16;
+  const downstream = [], upstream = [], responses = [], received = [];
+  const { proxy, directory, server } = await setup(t, (_request, response) => {
+    responses.push(response); response.writeHead(200); response.write('entered');
+  }, configured ? { maxConnections: 32, maxActiveRequests: 32 } : {});
+  t.after(() => { for (const socket of [...downstream, ...upstream]) socket.destroy(); });
+  server.on('upgrade', (_request, socket) => {
+    upstream.push(socket); socket.on('error', () => {});
+    socket.once('end', () => socket.destroy());
+    socket.write('HTTP/1.1 101 UPGRADED\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n');
+    socket.on('data', (bytes) => socket.write(bytes));
+  });
+  // Two members retain four helper controls and one primary each, plus two marker controls.
+  for (let index = 0; index < 12; index += 1) {
+    const client = http.request({ socketPath: proxy.endpoint.slice(7), method: 'POST', path: `/v1.52/containers/retained-${index}/attach?stream=true`,
+      headers: { connection: 'Upgrade', upgrade: 'tcp' }, agent: false });
+    const opening = once(client, 'upgrade'); client.end();
+    const [, socket] = await opening; downstream.push(socket); socket.on('error', () => {});
+  }
+  for (let index = 12; index < limit; index += 1) {
+    const pending = request(proxy.endpoint, 'GET', `/v1.52/containers/entered-${index}/json`); pending.req.end();
+    const response = await pending.response; downstream.push(response.socket);
+    received.push((async () => {
+      const chunks = []; for await (const chunk of response) chunks.push(chunk);
+      assert.equal(Buffer.concat(chunks).toString(), 'enteredexact response');
+    })());
+  }
+  const excess = request(proxy.endpoint, 'GET', '/v1.52/containers/never-forwarded/json'); excess.req.end();
+  await assert.rejects(excess.response, (error) => ['ECONNRESET', 'EPIPE'].includes(error.code));
+  assert.equal(upstream.length, 12); assert.equal(responses.length, limit - 12);
+  const message = Buffer.from('original retained control\n');
+  const echoed = once(downstream[0], 'data'); downstream[0].write(message);
+  assert.deepEqual((await echoed)[0], message, 'Saturation must preserve an already-admitted control stream.');
+  for (const response of responses) response.end('exact response');
+  for (const socket of downstream.slice(0, 12)) socket.destroy();
+  await Promise.all(received);
+  await proxy.idle();
+  await proxy.close();
+  assert.deepEqual(proxy.capacity(), {
+    limits: { connections: limit, activeRequests: limit, pendingRequests: 0 },
+    connections: { accepted: limit, rejected: 1, current: 0, highWater: limit },
+    requests: { accepted: limit, rejected: 0, current: 0, highWater: limit },
+    pendingRequests: { accepted: 0, promoted: 0, cancelled: 0, rejected: 0, current: 0, retiring: 0, highWater: 0 },
+  });
+  const trace = (await readFile(join(directory, 'trace.jsonl'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+  const rejected = trace.filter(({ kind }) => kind === 'admission_rejected');
+  assert.equal(rejected.length, 1); assert.equal(rejected[0].boundary, 'connection');
+  assert.equal(rejected[0].admission.connections.rejected, 1);
+  assert.equal(trace.filter(({ method }) => method === 'GET').length, limit - 12);
+  assert.equal(trace.findLast(({ method }) => method)?.admission.connections.rejected, 1);
+});
+
+test('the active-request ceiling rejects a parsed request independently of socket admission and releases its capacity', async (t) => {
+  let held;
+  const forwarded = [];
+  const { proxy, directory } = await setup(t, (incoming, response) => {
+    forwarded.push(incoming.url);
+    if (incoming.url.endsWith('/held')) { held = response; response.writeHead(200); response.write('entered'); }
+    else { response.writeHead(204); response.end(); }
+  }, { maxConnections: 3, maxActiveRequests: 1 });
+  const first = request(proxy.endpoint, 'GET', '/v1.52/held'); first.req.end();
+  const response = await first.response; response.resume();
+  const rejected = request(proxy.endpoint, 'GET', '/v1.52/denied'); rejected.req.end();
+  await assert.rejects(rejected.response, (error) => ['ECONNRESET', 'EPIPE'].includes(error.code));
+  held.end(); await once(response, 'end'); await proxy.idle();
+  const next = request(proxy.endpoint, 'GET', '/v1.52/after-release'); next.req.end();
+  const completed = await next.response; completed.resume(); await once(completed, 'end');
+  await proxy.idle(); await proxy.close();
+  assert.deepEqual(forwarded, ['/v1.52/held', '/v1.52/after-release']);
+  assert.deepEqual(proxy.capacity(), {
+    limits: { connections: 3, activeRequests: 1, pendingRequests: 0 },
+    connections: { accepted: 3, rejected: 0, current: 0, highWater: 2 },
+    requests: { accepted: 2, rejected: 1, current: 0, highWater: 1 },
+    pendingRequests: { accepted: 0, promoted: 0, cancelled: 0, rejected: 1, current: 0, retiring: 0, highWater: 0 },
+  });
+  const trace = (await readFile(join(directory, 'trace.jsonl'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+  const denied = trace.find(({ kind }) => kind === 'admission_rejected');
+  assert.equal(denied.boundary, 'request'); assert.equal(denied.target, '/v1.52/denied');
+  assert.equal(denied.admission.requests.rejected, 1); assert.equal(denied.admission.connections.rejected, 0);
+});
 
 test('trace proxy forwards chunked uploads and HEAD without changing archive bytes or inventing a HEAD body', async (t) => {
   const data = Buffer.alloc(64 * 1024, 37);
@@ -134,6 +386,53 @@ test('Docker attach upgrade preserves initial binary head and bidirectional stre
   assert.deepEqual(Buffer.concat(chunks), Buffer.concat([initial, input]));
 });
 
+test('an observed upgrade forwards its retained tail before relaying upstream EOF', { timeout: 10_000 }, async (t) => {
+  const directory = await mkdtemp('/var/tmp/sandbox-observed-tail-');
+  const upstreamPath = join(directory, 'upstream.sock'); const tracePath = join(directory, 'trace.jsonl');
+  const server = http.createServer(); const peers = new Set();
+  const initial = Buffer.from([1, 0, 0, 0, 0, 0, 0, 2, 65, 66]);
+  const stop = Buffer.from('{"kind":"stop","sequence":22}\n');
+  const tail = Buffer.from([1, 0, 0, 0, 0, 0, 0, 3, 67, 68, 10]);
+  // Native nn13r10s1: the route observer answers stop and exits, so its upstream EOF races the retained reply.
+  server.on('upgrade', (_request, peer) => {
+    peers.add(peer); peer.on('error', () => {});
+    peer.write('HTTP/1.1 101 UPGRADED\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n'); peer.write(initial);
+    let input = Buffer.alloc(0);
+    peer.on('data', (bytes) => { input = Buffer.concat([input, bytes]); if (input.equals(stop)) peer.end(tail); });
+  });
+  server.listen(upstreamPath); await once(server, 'listening');
+  let connection; let upstreamClosedBeforeForward = false; const forwarded = Promise.withResolvers();
+  const proxy = await createTraceProxy({ socketPath: join(directory, 'proxy.sock'), upstreamEndpoint: `unix://${upstreamPath}`, tracePath,
+    observeUpgrade(value) {
+      connection = value.connection;
+      return { async input() {}, async response(bytes, forward) {
+        if (!bytes.includes(67)) { await forward(bytes); return; }
+        const deadline = Date.now() + 2000;
+        while (!connection().upstream.destroyed && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 5));
+        upstreamClosedBeforeForward = connection().upstream.destroyed;
+        try { await forward(bytes); forwarded.resolve('forwarded'); }
+        catch (error) { forwarded.resolve(`${error.name}: ${error.cause?.message ?? error.message}`); throw error; }
+      } };
+    },
+  });
+  t.after(async () => { await proxy.close(); for (const peer of peers) peer.destroy(); await new Promise((resolve) => server.close(resolve)); await rm(directory, { recursive: true, force: true }); });
+  const client = http.request({ socketPath: proxy.endpoint.slice(7), method: 'POST', path: '/v1.52/containers/exact-owned/attach?stream=true',
+    headers: { connection: 'Upgrade', upgrade: 'tcp' }, agent: false });
+  const opening = once(client, 'upgrade'); client.end();
+  const [, socket, head] = await opening;
+  const chunks = [head]; socket.on('data', (bytes) => chunks.push(bytes)); socket.on('error', () => {});
+  const ended = once(socket, 'end'); const closed = once(socket, 'close');
+  socket.write(stop);
+  assert.equal(await forwarded.promise, 'forwarded');
+  await Promise.race([ended, closed]);
+  assert.equal(upstreamClosedBeforeForward, true);
+  assert.equal(socket.readableEnded, true, 'The original reader must receive EOF after its tail, not a destroyed tunnel.');
+  socket.destroy(); await proxy.idle();
+  assert.deepEqual(Buffer.concat(chunks), Buffer.concat([initial, tail]));
+  const records = (await readFile(tracePath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+  assert.equal(records.length, 1); assert.equal(records[0].status, 101); assert.equal(records[0].failure, null);
+});
+
 test('an observed duplex upgrade joins input released after its upstream peer closes', { timeout: 10_000 }, async (t) => {
   const directory = await mkdtemp('/var/tmp/sandbox-observed-retirement-');
   const upstreamPath = join(directory, 'upstream.sock'); const tracePath = join(directory, 'trace.jsonl');
@@ -196,6 +495,120 @@ test('an observed duplex upgrade joins input released after its upstream peer cl
   assert.equal(records.length, 1); assert.equal(records[0].status, 101);
   assert.equal(records[0].target, '/v1.52/containers/exact-owned/attach?stream=true');
   assert.equal(typeof records[0].finishedAt, 'string'); assert.equal(inputReturned, true);
+});
+
+async function upgradeFixture(t, prefix, onUpgrade, options = {}) {
+  const directory = await mkdtemp(`/var/tmp/${prefix}-`);
+  const upstreamPath = join(directory, 'upstream.sock'); const tracePath = join(directory, 'trace.jsonl');
+  const server = http.createServer(); const peers = new Set();
+  server.on('upgrade', (_request, peer) => {
+    peers.add(peer); peer.on('error', () => {});
+    peer.write('HTTP/1.1 101 UPGRADED\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n'); onUpgrade(peer);
+  });
+  server.listen(upstreamPath); await once(server, 'listening');
+  const proxy = await createTraceProxy({ socketPath: join(directory, 'proxy.sock'), upstreamEndpoint: `unix://${upstreamPath}`, tracePath, ...options });
+  t.after(async () => { await proxy.close(); for (const peer of peers) peer.destroy(); await new Promise((resolve) => server.close(resolve)); await rm(directory, { recursive: true, force: true }); });
+  const client = http.request({ socketPath: proxy.endpoint.slice(7), method: 'POST', path: '/v1.52/containers/exact-owned/attach?stream=true',
+    headers: { connection: 'Upgrade', upgrade: 'tcp' }, agent: false });
+  const opening = once(client, 'upgrade'); client.end();
+  const [, socket, head] = await opening; socket.on('error', () => {});
+  const records = async () => { await proxy.idle(); return (await readFile(tracePath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line)); };
+  return { socket, head, proxy, records };
+}
+
+test('an observed upgrade keeps its received tail when late input meets Docker full close', { timeout: 10_000 }, async (t) => {
+  const first = Buffer.alloc(1024, 1); const second = Buffer.alloc(1024, 2);
+  const late = Buffer.from('{"kind":"heartbeat"}\n');
+  const upstreamGone = Promise.withResolvers(); const lateObserved = Promise.withResolvers(); let connection;
+  // Review of the MS007 tail fix: Docker writes its last frames and closes both directions while the observer still holds a frame.
+  const { socket, head, records } = await upgradeFixture(t, 'sandbox-observed-late-input', (peer) => {
+    peer.write(first); setTimeout(() => peer.end(second, () => { peer.destroy(); upstreamGone.resolve(); }), 50);
+  }, { observeUpgrade: (value) => { connection = value.connection; return {
+    async input(bytes) { if (bytes.equals(late)) lateObserved.resolve(); },
+    async response(bytes, forward) {
+      if (bytes[0] === 1) { await lateObserved.promise; await new Promise((resolve) => setTimeout(resolve, 200)); }
+      await forward(bytes);
+    },
+  }; } });
+  const chunks = [head]; socket.on('data', (bytes) => chunks.push(bytes));
+  const ended = once(socket, 'end');
+  await upstreamGone.promise;
+  for (const deadline = Date.now() + 1000; !connection().upstream.readableEnded && Date.now() < deadline;) await new Promise((resolve) => setTimeout(resolve, 5));
+  socket.write(late);
+  await ended; socket.destroy();
+  assert.deepEqual(Buffer.concat(chunks), Buffer.concat([first, second]));
+  const [record] = await records();
+  assert.equal(record.failure, null); assert.equal(record.droppedInputBytes, late.length);
+});
+
+test('an unobserved upgrade flushes its whole stream to a slow reader after upstream EOF', { timeout: 20_000 }, async (t) => {
+  const body = Buffer.alloc(4 * 1024 * 1024); for (let index = 0; index < body.length; index += 1) body[index] = index % 251;
+  const { socket, head, records } = await upgradeFixture(t, 'sandbox-unobserved-slow-reader', (peer) => { peer.end(body); });
+  const chunks = [head];
+  socket.on('data', (bytes) => { chunks.push(bytes); socket.pause(); setTimeout(() => socket.resume(), 1); });
+  await once(socket, 'end'); socket.destroy();
+  assert.equal(Buffer.concat(chunks).length, body.length);
+  assert(Buffer.concat(chunks).equals(body));
+  const [record] = await records();
+  assert.equal(record.failure, null);
+});
+
+test('an unobserved upgrade whose client closes during backpressure is cancelled, not failed', { timeout: 10_000 }, async (t) => {
+  const { socket, records } = await upgradeFixture(t, 'sandbox-unobserved-backpressure-close', (peer) => { peer.write(Buffer.alloc(4 * 1024 * 1024, 3)); });
+  socket.pause();
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  socket.destroy();
+  const [record] = await records();
+  assert.equal(record.failure, null);
+});
+
+test('an unobserved upgrade drains late input after Docker full close until its half-open client closes', { timeout: 10_000 }, async (t) => {
+  const body = Buffer.from('exited\n'); const late = Buffer.alloc(64 * 1024, 7);
+  const { socket, head, records } = await upgradeFixture(t, 'sandbox-unobserved-late-input', (peer) => { peer.end(body, () => peer.destroy()); });
+  socket.allowHalfOpen = true;
+  const chunks = [head]; socket.on('data', (bytes) => chunks.push(bytes));
+  const closed = once(socket, 'close');
+  await once(socket, 'end');
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  socket.end(late);
+  await closed;
+  assert.deepEqual(Buffer.concat(chunks), body);
+  const [record] = await records();
+  assert.equal(record.failure, null); assert.equal(record.droppedInputBytes, late.length);
+});
+
+test('an unobserved upgrade keeps its tail for a slow reader when late input meets Docker full close', { timeout: 10_000 }, async (t) => {
+  // Review of the r15 relay: late input written against Docker's full close failed while the slow reader's tail was still
+  // unread upstream, and the client lost that tail without a recorded failure.
+  const body = Buffer.alloc(512 * 1024); for (let index = 0; index < body.length; index += 1) body[index] = index % 251;
+  const late = Buffer.alloc(1024, 7); const upstreamGone = Promise.withResolvers();
+  const { socket, head, records } = await upgradeFixture(t, 'sandbox-unobserved-slow-late-input', (peer) => {
+    peer.end(body, () => { peer.destroy(); upstreamGone.resolve(); });
+  });
+  const chunks = [head];
+  socket.on('data', (bytes) => { chunks.push(bytes); socket.pause(); setTimeout(() => socket.resume(), 20); });
+  const ended = once(socket, 'end');
+  await upstreamGone.promise; await new Promise((resolve) => setTimeout(resolve, 50));
+  socket.write(late);
+  await ended; socket.destroy();
+  assert(Buffer.concat(chunks).equals(body));
+  const [record] = await records();
+  assert.equal(record.failure, null); assert.equal(record.droppedInputBytes, late.length);
+});
+
+test('an observed upgrade records an input observer failure after its response completed', { timeout: 10_000 }, async (t) => {
+  const responded = Promise.withResolvers();
+  const { socket, records } = await upgradeFixture(t, 'sandbox-observed-input-failure', (peer) => { peer.end(); }, {
+    observeUpgrade: () => ({
+      async input() { await responded.promise; throw new Error('Observed attach input exceeded its fixture bound.'); },
+      async response(bytes, forward) { await forward(bytes); },
+    }),
+  });
+  socket.on('data', () => {}); const closed = once(socket, 'close');
+  socket.write(Buffer.from('{"kind":"stop"}\n')); socket.once('end', () => responded.resolve());
+  await closed;
+  const [record] = await records();
+  assert.deepEqual(record.failure, { name: 'Error', message: 'Observed attach input exceeded its fixture bound.' });
 });
 
 test('Docker exec-start upgrade forwards its fragmented declared JSON body before waiting for upgrade acknowledgement', async (t) => {

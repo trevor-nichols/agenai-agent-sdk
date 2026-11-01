@@ -6,6 +6,8 @@ import { liveScenarioBudget } from './live/budget.mjs';
 import { inspectHostRoots } from './preserve/host-roots.mjs';
 import { networkScenarioBudget } from './network/budget.mjs';
 import { combinedScenarioBudget } from './combined/budget.mjs';
+import { concurrencyScenarioBudget } from './concurrency/budget.mjs';
+import { admitConcurrencyPreparation } from './concurrency/admission.mjs';
 
 export async function admitPlatformRun(options) {
   assert(['core', 'datasets', 'observer', 'grok-initialize', ...advancedRows].includes(options.row), 'Unknown qualification row.');
@@ -18,6 +20,9 @@ export async function admitPlatformRun(options) {
     const capabilities = await acquireJsonInput(options.capabilitiesManifestPath, 128 * 1024);
     const manifest = parseCapabilityManifest(capabilities.value, { row: options.row, platform: selected.manifest, platformInput: selected.input,
       consumer: options.consumer, output: options.output });
+    if (options.row === 'desktop-concurrency') return Object.freeze({ ...selected,
+      capabilities: Object.freeze({ manifest, input: capabilities.input, utf8: capabilities.utf8,
+        scenarioBudget: concurrencyScenarioBudget(manifest), preparation: await admitConcurrencyPreparation(manifest, selected.manifest) }) });
     if (options.row === 'live-files') return Object.freeze({ ...selected,
       capabilities: Object.freeze({ manifest, input: capabilities.input, utf8: capabilities.utf8,
         scenarioBudget: liveScenarioBudget(manifest) }) });

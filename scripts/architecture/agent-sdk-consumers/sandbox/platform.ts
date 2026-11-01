@@ -27,6 +27,8 @@ globalThis.fetch = async () => forbidden();
 syncBuiltinESMExports();
 const { createDockerSandboxBackend } = await import("@agen-ai/sandbox-docker");
 const { createDockerDesktopRouteAuthority } = await import("@agen-ai/sandbox-docker/node");
+const { proveInstalledCoordinator } = await import("./coordinator.js");
+const { proveInstalledConcurrentExample } = await import("./concurrency.js");
 await import("./examples/sandbox/combined/index.js");
 
 const profiles: readonly DockerSandboxProfile[] = ["linux-x64", "desktop-apple-virtualization-native-arm64", "desktop-apple-virtualization-rosetta-amd64"];
@@ -77,6 +79,8 @@ for (const profile of profiles) {
 }
 let desktopAuthorities = 0;
 let desktopRestrictedReservations = 0;
+const coordinators = [];
+const concurrentExamples = [];
 for (const profile of ["desktop-apple-virtualization-native-arm64", "desktop-apple-virtualization-rosetta-amd64"] as const) {
   const routeAuthority = createDockerDesktopRouteAuthority({ kind: "local_docker_desktop", profile,
     stability: "caller_owned_quiescence", interception: "caller_owned_no_transparent_or_per_app_interception",
@@ -91,8 +95,12 @@ for (const profile of ["desktop-apple-virtualization-native-arm64", "desktop-app
       imageDigest: `sha256:${"4".repeat(64)}`, sourceDigest: `sha256:${"5".repeat(64)}`,
       executable: "/usr/local/bin/agenai-sandbox-desktop-route", user: { uid: 1000, gid: 1000 },
       resources: { cpus: 0.25, memoryBytes: 64 * 1024 ** 2, pids: 16 }, temporaryBytes: 1024 ** 2,
-      control: { heartbeatMs: 100, leaseTimeoutMs: 60_000 } },
-    pollIntervalMs: 100, commandTimeoutMs: 1000, maxOutputBytes: 1024 * 1024 });
+      control: { heartbeatMs: 1000, leaseTimeoutMs: 60_000 } },
+    pollIntervalMs: 1000, commandTimeoutMs: 5000, maxOutputBytes: 1024 * 1024 });
+  const coordinatorOptions = { routeAuthority, helper: {
+    protocol: "agenai.desktop-coordinator.v1" as const, executable: { path: `${operationRoot}/unopened-coordinator`, sha256: "7".repeat(64) },
+    sourceDigest: `sha256:${"8".repeat(64)}`,
+  } };
   const options = { endpoint: environment.AGENAI_SANDBOX_TEST_ENGINE, profile, imageDigest: `sha256:${"1".repeat(64)}`,
     namespace: "installed-desktop-authority", spillDirectory: operationRoot, user: { uid: 1000, gid: 1000 },
     egress: { imageDigest: `sha256:${"6".repeat(64)}`, protocol: "agenai.sandbox.egress-connect.v1" as const,
@@ -100,6 +108,9 @@ for (const profile of ["desktop-apple-virtualization-native-arm64", "desktop-app
       broker: { resources: { cpus: 0.25, memoryBytes: 64 * 1024 ** 2, pids: 16 }, temporaryBytes: 1024 ** 2 },
       relay: { resources: { cpus: 0.25, memoryBytes: 64 * 1024 ** 2, pids: 16 }, temporaryBytes: 1024 ** 2 } } };
   const backend = createDockerSandboxBackend(options);
+  coordinators.push({ profile, ...await proveInstalledCoordinator(coordinatorOptions, options) });
+  concurrentExamples.push({ profile, ...await proveInstalledConcurrentExample(coordinatorOptions,
+    { ...options, filesystem: { ...filesystem, user: options.user } }) });
   assert.deepEqual(backend.reserve(isolatedSandboxRequest(), { kind: "in_process" }).state, { kind: "reserved" });
   const restricted = createDockerSandboxBackend({ ...options, filesystem: { ...filesystem, user: options.user } }).reserve(parseSandboxRequest({
     policy: { ...isolatedSandboxRequest().policy, files: { kind: "read_write" },
@@ -115,6 +126,9 @@ for (const profile of ["desktop-apple-virtualization-native-arm64", "desktop-app
       egress: { ...options.egress, routeAuthority: replacement } }]), SandboxValidationError);
   }
   assert.throws(() => createDockerSandboxBackend({ ...options, endpoint: `${options.endpoint}.other` }), SandboxValidationError);
+  const otherProfile = profile === "desktop-apple-virtualization-native-arm64"
+    ? "desktop-apple-virtualization-rosetta-amd64" : "desktop-apple-virtualization-native-arm64";
+  assert.throws(() => createDockerSandboxBackend({ ...options, profile: otherProfile }), SandboxValidationError);
   desktopAuthorities += 1;
 }
 const defaults = await sandboxExampleConfiguration(environment);
@@ -145,4 +159,5 @@ process.stdout.write(`${JSON.stringify({ proof: "packed-sandbox-platform-configu
   authorityClonesRejected: true, wrongControllerRejected: true, engineRequests, operationRootsCreated: 0,
   filesystemConstructors: profiles.length, filesystemGrantsReserved, unconfiguredFilesystemGrantsRejected,
   preservingTransfers, combinedExampleImport: "inert",
+  coordinators, concurrentExamples,
   nativeMacQualification: "pending" })}\n`);

@@ -1,13 +1,14 @@
+import { nativeControllerReady } from '../../native-controller.mjs';
+import { cleanupDiagnostic, finishRunCleanup, finishSuiteCleanup } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { Engine } from '../../../engine.mjs';
 import { acquireJsonInput, physicalPath } from '../input.mjs';
 import { liveScenarioBudget } from '../live/budget.mjs';
 import { census, failure, json, jsonWriter } from '../live/evidence.mjs';
-import { settleOwnerCleanup } from '../live/owner-cleanup.mjs';
+import { originalOwnerCleanup, settleOwnerCleanup } from '../live/owner-cleanup.mjs';
 import { closeSentinels } from '../live/sentinel.mjs';
 import { admissionCases } from './admission.mjs';
 import { acquireHostRoots, assertHostRootCurrent, cleanupCaseHost, cleanupHostRoots, verifyHostRoot } from './host-roots.mjs';
@@ -39,6 +40,7 @@ for (const [index, root] of config.hostRoots.entries()) {
 const cancellation = new AbortController();
 const interrupt = () => cancellation.abort(new Error('Installed preserving qualification interrupted.'));
 process.on('SIGTERM', interrupt); process.on('SIGINT', interrupt);
+await nativeControllerReady();
 await mkdir(config.output, { mode: 0o700 });
 const report = { format: 'agenai.sandbox-platform-preserve.v1', status: 'running', profile: config.profile,
   imageDigest: config.imageDigest, guestNodeVersion: config.guestNodeVersion, filesystem: config.capabilities.filesystem,
@@ -55,64 +57,20 @@ const saveReport = () => { assert(Buffer.byteLength(json(report)) <= 1024 ** 2);
 const engine = new Engine(config.endpoint.slice(7), '1.52', { requestMs: config.capabilities.limits.requestMs, outputBytes: 4 * 1024 ** 2 });
 const context = { config, engine, signal: cancellation.signal, hostRoots: [] };
 
-async function retryDirectory(run, retained) {
-  if (retained.errorEvidence.complete) return;
-  const deadline = performance.now() + config.capabilities.limits.cleanupMs; let lastFailure;
-  for (let attempt = 1; attempt <= 8 && performance.now() < deadline; attempt++) {
-    const observation = { attempt, startedAt: new Date().toISOString(), status: 'entered' };
-    retained.errorEvidence.attempts.push(observation); await run.save(); let timer;
-    try {
-      if (performance.now() >= deadline) throw new Error('Original directory cleanup observation budget expired before retry entry.');
-      await Promise.race([retained.owner.retryCleanup(), new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Original directory cleanup remains owned after its captured observation budget.')),
-          Math.max(1, deadline - performance.now()));
-      })]);
-      observation.status = 'fulfilled'; retained.errorEvidence.complete = true;
-    } catch (error) { lastFailure = error; observation.status = 'rejected'; observation.failure = failure(error); }
-    finally { clearTimeout(timer); observation.finishedAt = new Date().toISOString(); await run.save(); }
-    if (retained.errorEvidence.complete) return;
-    if (performance.now() < deadline) await delay(Math.min(100, deadline - performance.now()));
-  }
-  throw new Error('The exact original directory cleanup owner remains retained.', { cause: lastFailure });
-}
-
 async function cleanup(run) {
-  for (const before of [...run.beforeCleanup].reverse()) {
-    try { await before(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  for (const retained of run.localCleanupOwners) {
-    try { await retryDirectory(run, retained); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  let sentinelsClosed = true;
-  try { await closeSentinels(run, context); } catch (error) { sentinelsClosed = false; run.evidence.cleanupErrors.push(failure(error)); }
-  for (const entry of [...run.owners].reverse()) {
-    try {
-      await run.settleCleanup(entry, sentinelsClosed ? 'destroy' : 'stop');
-      assert(sentinelsClosed, 'Workspace destruction remains owned until the independent volume fixture retires.');
-      assert.equal(entry.owner.state.kind, 'destroyed');
-      const ownerEvidence = run.evidence.owners.find(({ namespace }) => namespace === entry.namespace);
-      ownerEvidence.finalRecord = entry.owner.recoveryRecord;
-      run.evidence.census.push(...await census(engine, entry.owner.recoveryRecord, 'case-final-absence', true));
-    } catch (error) { run.evidence.cleanupErrors.push({ namespace: entry.namespace, ...failure(error) }); }
-  }
-  for (const session of run.sessions) {
-    try { run.evidence.observations.push({ kind: 'sole-preserving-guest-reader-joined', result: await session.join() }); }
-    catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  for (const proxy of [...run.proxies].reverse()) {
-    try { await proxy.close(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  for (const after of run.afterCleanup) {
-    try { await after(); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  try { if (run.hostRoot) await verifyHostRoot(run.hostRoot); }
-  catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  if (run.evidence.cleanupErrors.length === 0) {
-    try { await cleanupCaseHost(run); } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  run.evidence.cleanupComplete = run.evidence.cleanupErrors.length === 0;
-  if (!run.evidence.cleanupComplete) run.evidence.status = 'failed';
-  await run.save();
+  await finishRunCleanup(run, { timeoutMs: config.capabilities.limits.cleanupMs,
+    readerKind: 'sole-preserving-guest-reader-joined', census: (entry) => census(engine, entry.owner.recoveryRecord, 'case-final-absence', true),
+    async beforeOwners(cleanup) {
+      for (const [index, retained] of run.localCleanupOwners.entries()) {
+        await cleanup.step(`directory-${index}`, () => retained.owner.retryCleanup(), { retryRejected: true });
+        retained.errorEvidence.complete = true;
+      }
+      await cleanup.step('sentinels', () => closeSentinels(run, context),
+        { retryRejected: true, complete: () => run.fixtures.every(({ removed }) => removed) });
+    }, async after(cleanup) {
+      if (run.hostRoot) await cleanup.step('host-root-proof', () => verifyHostRoot(run.hostRoot), { proof: true });
+      await cleanup.step('case-host', () => cleanupCaseHost(run), { retryRejected: true, complete: () => run.evidence.host?.removed });
+    } });
 }
 
 try {
@@ -138,7 +96,7 @@ try {
     context.signal = AbortSignal.any([cancellation.signal, deadline.signal]);
     const timer = setTimeout(() => {
       timedOut = true; deadline.abort(new Error('Preserving scenario deadline.'));
-      for (const entry of run.owners) void entry.owner.stop().catch(() => {});
+      for (const entry of run.owners) void originalOwnerCleanup(entry.owner, 'stop').catch(() => {});
     }, config.capabilities.limits.scenarioMs);
     try { await action(run); assert.equal(timedOut, false); evidence.status = 'passed'; }
     catch (error) { retainDirectoryCleanup(run, error); evidence.status = 'failed'; evidence.failure = failure(error); }
@@ -148,18 +106,23 @@ try {
       Object.assign(summary, { status: evidence.status, cleanupComplete: evidence.cleanupComplete, variant: evidence.variant,
         bytes: bytes.length, sha256: sha(bytes) }); await saveReport();
     }
-    process.stdout.write(`${JSON.stringify({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete })}\n`);
-    if (!evidence.cleanupComplete) break;
+    cleanupDiagnostic({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete });
+    if (evidence.status !== 'passed' || !evidence.cleanupComplete) break;
   }
 } catch (error) { report.failure = failure(error); }
 finally {
-  process.removeListener('SIGTERM', interrupt); process.removeListener('SIGINT', interrupt);
-  report.hostCleanup = await cleanupHostRoots(report, saveReport, report.cases.every(({ cleanupComplete }) => cleanupComplete));
+  await finishSuiteCleanup(report, { timeoutMs: config.capabilities.limits.cleanupMs, save: saveReport,
+    async operation(cleanup) {
+      await cleanup.step('host-roots', async () => {
+        report.hostCleanup = await cleanupHostRoots(report, saveReport, report.cases.every(({ cleanupComplete }) => cleanupComplete));
+        assert(report.hostCleanup.complete);
+      }, { retryRejected: true, complete: () => report.hostRoots.every(({ created, removed }) => !created || removed) });
+    } });
   report.matrix = Object.fromEntries(Object.entries(report.requirements).map(([row, names]) => [row, {
     status: names.length > 0 && names.every((name) => report.cases.some((entry) => entry.name === name && entry.status === 'passed' && entry.cleanupComplete)) ? 'passed' : 'failed', cases: names,
   }]));
   report.status = report.selectedCases?.length === report.cases.length && report.cases.every(({ status, cleanupComplete }) => status === 'passed' && cleanupComplete)
-    && report.hostCleanup.complete && !report.failure ? 'passed' : 'failed';
+    && report.hostCleanup.complete && !report.cleanupFailures.length && !report.failure ? 'passed' : 'failed';
   report.finishedAt = new Date().toISOString(); await saveReport();
 }
 if (report.status !== 'passed') process.exitCode = 1;

@@ -26,6 +26,9 @@ export function ownProcessStreams(raw: SandboxProcessStreams, limits: SandboxStr
   if (Object.is(raw.stdout, raw.stderr) || Object.is(raw.stdin, raw.stdout) || Object.is(raw.stdin, raw.stderr)) {
     throw new SandboxOperationError('stream_failure', 'Sandbox standard streams must remain separate.');
   }
+  // close() destroys backend outputs with its reason after their pumps may have detached at EOF.
+  raw.stdout.on('error', () => {});
+  raw.stderr.on('error', () => {});
   let outputBytes = 0n;
   let closed = false;
   let failure: Error | undefined;
@@ -63,7 +66,8 @@ export function ownProcessStreams(raw: SandboxProcessStreams, limits: SandboxStr
       }
       if (!closed) target.finish();
     } catch (error) {
-      if (!closed) fail(error instanceof Error ? error : new SandboxOperationError('stream_failure', 'Sandbox output failed.', { cause: error }));
+      if (!closed) fail(error instanceof SandboxOperationError ? error
+        : new SandboxOperationError('stream_failure', 'Sandbox backend output closed before EOF.', { cause: error }));
     }
   };
   const pumps = Promise.all([pump(raw.stdout, stdout), pump(raw.stderr, stderr)]).then(() => undefined);

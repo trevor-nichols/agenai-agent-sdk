@@ -7,6 +7,20 @@ import type { ZodType } from 'zod/v4';
 import { DockerEngine, DockerEngineTransportError } from '../engine/client.js';
 import type { DockerEngineStreamOptions, DockerEngineStreamResponse, DockerEngineStreamResult } from '../engine/contracts.js';
 
+export class DockerResponseByteBudget {
+  #remainingBytes: number;
+
+  constructor(maximumBytes: number) {
+    if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0) throw new TypeError('Docker response byte budget must be a nonnegative safe integer.');
+    this.#remainingBytes = maximumBytes;
+  }
+
+  consume(byteLength: number): void {
+    this.#remainingBytes -= byteLength;
+    if (this.#remainingBytes < 0) throw new SandboxOperationError('output_limit', 'Docker JSON responses exceed their cumulative byte bound.');
+  }
+}
+
 export class DockerApi {
   constructor(readonly engine: DockerEngine, readonly timeoutMs: number) {}
 
@@ -29,9 +43,10 @@ export class DockerApi {
   }
 
   async json<Value>(method: 'GET' | 'POST' | 'DELETE', path: string, schema: ZodType<Value>,
-    options: { body?: unknown; signal?: AbortSignal; statuses?: readonly number[] } = {}): Promise<Value> {
+    options: { body?: unknown; signal?: AbortSignal; statuses?: readonly number[]; responseBudget?: DockerResponseByteBudget } = {}): Promise<Value> {
     const body = options.body === undefined ? undefined : Buffer.from(JSON.stringify(options.body), 'utf8');
     const response = await this.request(method, path, { ...options, body, maxResponseBytes: 1024 * 1024, contentType: 'application/json' });
+    options.responseBudget?.consume(response.body.byteLength);
     let value: unknown;
     try { value = JSON.parse(Buffer.from(response.body).toString('utf8')); }
     catch (cause) { throw new SandboxOperationError('driver_failure', 'Docker returned invalid JSON.', { cause }); }

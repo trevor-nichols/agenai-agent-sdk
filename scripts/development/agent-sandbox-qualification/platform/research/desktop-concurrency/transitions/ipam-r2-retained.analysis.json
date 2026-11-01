@@ -1,0 +1,817 @@
+{
+  "format": "agenai.desktop-concurrency-ipam-analysis.v1",
+  "input": "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/ipam-r2",
+  "reportSha256": "f7598b67c21d3aa197eb073e66a43700d988025acdf8c26b5aa6386cea9f89a7",
+  "status": "failed",
+  "failure": {
+    "name": "SandboxOperationError",
+    "message": "Owned native route exceeds its exact IPAM/link-local projection."
+  },
+  "snapshotsVerified": 11,
+  "scope": "Original raw VM documents decoded and original normalized Engine/host snapshots revalidated by current source. No native observations or raw inputs modified. A failed native attempt remains failed.",
+  "snapshots": [
+    {
+      "phase": "observer-only",
+      "raw": {
+        "file": "0022-vm-raw.json",
+        "sha256": "0c5f0c15a79a1bc90ce30d69ab47d30e7300fd2f08535ef67eb500cb166076df"
+      },
+      "parsed": {
+        "file": "0032-parsed.json",
+        "sha256": "57380697e19a2aa906841afd84aecdbb73f1be5db5410579a3494c4469b8a072"
+      },
+      "members": []
+    },
+    {
+      "phase": "a-empty",
+      "raw": {
+        "file": "0058-vm-raw.json",
+        "sha256": "5684c2de649baa37e3b41d30dc69d6540064f999fba6a9a6a82b9f3fb83f365b"
+      },
+      "parsed": {
+        "file": "0069-parsed.json",
+        "sha256": "fe391a4699ad7057d8ac22a80070add5abef125baa5979495abbde120bcee557"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": false,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 4099,
+            "operationalState": 2,
+            "carrier": 0,
+            "tsoMaxSize": 65536,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "a-endpoint-0",
+      "raw": {
+        "file": "0083-vm-raw.json",
+        "sha256": "64a2bc60a95534c9c7e104ec60f431013bc58590e1faf8a1e66248ba1cf07b11"
+      },
+      "parsed": {
+        "file": "0094-parsed.json",
+        "sha256": "d9aea361172677049ebf6b430414876d6a1322b761544e377bfb0fc16038b9c4"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": true,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 192,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "a-endpoint-1",
+      "raw": {
+        "file": "0105-vm-raw.json",
+        "sha256": "c894187064c5f5733862aaef9215ea4a279807cbacd733f67b1a677423c2e8d7"
+      },
+      "parsed": {
+        "file": "0116-parsed.json",
+        "sha256": "b5581e95a2098830f006f375f502cf5e16baa6c94f15078b801dec171b2aec13"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": true,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 192,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "a-endpoint-2",
+      "raw": {
+        "file": "0127-vm-raw.json",
+        "sha256": "c507fc1cf65f3855e520df9817e015544fb569dc09dee5e0c14a8c24bc6202aa"
+      },
+      "parsed": {
+        "file": "0138-parsed.json",
+        "sha256": "ae8fe8abd7b7301fca3fc9a36dd06542299f07abf7a29ecad1bc70471d4f9c64"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": true,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 192,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "a-endpoint-3",
+      "raw": {
+        "file": "0149-vm-raw.json",
+        "sha256": "6ec1e0dcdf8f30efbac85766f168a249d13499616f3d67bbccadbbc126556f24"
+      },
+      "parsed": {
+        "file": "0160-parsed.json",
+        "sha256": "33978e90dab89ec65b09cdaa5f26fac4293a09c50ee4b25ab0989368d5a5a94e"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": true,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 192,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "a-endpoint-4",
+      "raw": {
+        "file": "0171-vm-raw.json",
+        "sha256": "551c49855f1cb09f00feb03e68fc78af70522c0b57f8c8faa7c1f97e54437d72"
+      },
+      "parsed": {
+        "file": "0182-parsed.json",
+        "sha256": "a746d8b0e5f64be3db21e2967cc3c48f654de2838bf27886fb1d7951137e7601"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": true,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "a-retained-empty",
+      "raw": {
+        "file": "0194-vm-raw.json",
+        "sha256": "1a9af2ad25077635707c6b521c64bdd8bad638e2712e46f92b6e9db98fe0690c"
+      },
+      "parsed": {
+        "file": "0205-parsed.json",
+        "sha256": "a4b1fe04fad6d741aa1064fb3011d6014a2781bebd88860f9db1ad17366f8d3a"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": false,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": {
+            "kind": "settling",
+            "fingerprint": "410fca53604b730a40c1898d60991699f8db1a6fa433d06c0fd9bff20001a344"
+          },
+          "researchRetainedError": null,
+          "device": {
+            "flags": 4163,
+            "operationalState": 6,
+            "carrier": 0,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "b-empty",
+      "raw": {
+        "file": "0234-vm-raw.json",
+        "sha256": "9d74bebfac1f2ebb23758fcf6c39ab7649b3a7c9ff7864bded6b6ae37bb05495"
+      },
+      "parsed": {
+        "file": "0246-parsed.json",
+        "sha256": "e16a2dd779983c2c66a15167c188cbb1ba2f3c71fff1a6bc0a90d74f4ed8184b"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": false,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": {
+            "kind": "settling",
+            "fingerprint": "410fca53604b730a40c1898d60991699f8db1a6fa433d06c0fd9bff20001a344"
+          },
+          "researchRetainedError": null,
+          "device": {
+            "flags": 4163,
+            "operationalState": 6,
+            "carrier": 0,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        },
+        {
+          "role": "b",
+          "networkId": "91a55d89da06cf235ef7fb20bc1047c47317636a80850cb002ac5a733277da86",
+          "subnet": "10.240.0.16/28",
+          "index": 37,
+          "name": "ai2e499f0095b",
+          "endpoint": false,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 4099,
+            "operationalState": 2,
+            "carrier": 0,
+            "tsoMaxSize": 65536,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.17",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.31",
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "b-endpoint-0",
+      "raw": {
+        "file": "0261-vm-raw.json",
+        "sha256": "9ed6f515fea5f367e5c6d81c4d77767017816724c0a2f7768213ea62fcf2ecb8"
+      },
+      "parsed": {
+        "file": "0273-parsed.json",
+        "sha256": "014670918fe8de11d5b2b9d8f02f4ba8e110f019e9babff3a18d1fa3933c815e"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": false,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": {
+            "kind": "settling",
+            "fingerprint": "410fca53604b730a40c1898d60991699f8db1a6fa433d06c0fd9bff20001a344"
+          },
+          "researchRetainedError": null,
+          "device": {
+            "flags": 4163,
+            "operationalState": 6,
+            "carrier": 0,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        },
+        {
+          "role": "b",
+          "networkId": "91a55d89da06cf235ef7fb20bc1047c47317636a80850cb002ac5a733277da86",
+          "subnet": "10.240.0.16/28",
+          "index": 37,
+          "name": "ai2e499f0095b",
+          "endpoint": true,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.17",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.31",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:491:71ff:febe:89eb",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 192,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "phase": "b-endpoint-1",
+      "raw": {
+        "file": "0285-vm-raw.json",
+        "sha256": "c5071e45e6703d4586368f23929bca3cc8c52abb050db2ebb5677bc26938fe65"
+      },
+      "parsed": {
+        "file": "0297-parsed.json",
+        "sha256": "147cc759020c0555794ea1fede1a3669329fd46c1eae92362222840814a7b2cb"
+      },
+      "members": [
+        {
+          "role": "a",
+          "networkId": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+          "subnet": "10.240.0.0/28",
+          "index": 34,
+          "name": "ai2e499f0095a",
+          "endpoint": false,
+          "error": "Owned native route exceeds its exact IPAM/link-local projection.",
+          "rejectedRoutes": [
+            {
+              "family": 6,
+              "destination": "fe80:0:0:0:0:0:0:0",
+              "prefix": 64,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 34,
+              "gateways": [],
+              "nextHops": [],
+              "table": 254,
+              "protocol": 2,
+              "scope": 0,
+              "type": 1,
+              "flags": 16,
+              "preferredSource": null,
+              "priority": 256,
+              "attributes": [
+                "1:0:fe800000000000000000000000000000",
+                "4:0:22000000",
+                "6:0:00010000",
+                "15:0:fe000000",
+                "20:0:00"
+              ]
+            },
+            {
+              "family": 6,
+              "destination": "ff00:0:0:0:0:0:0:0",
+              "prefix": 8,
+              "source": null,
+              "sourcePrefix": 0,
+              "interfaceIndex": 34,
+              "gateways": [],
+              "nextHops": [],
+              "table": 255,
+              "protocol": 2,
+              "scope": 0,
+              "type": 5,
+              "flags": 16,
+              "preferredSource": null,
+              "priority": 256,
+              "attributes": [
+                "1:0:ff000000000000000000000000000000",
+                "4:0:22000000",
+                "6:0:00010000",
+                "15:0:ff000000",
+                "20:0:00"
+              ]
+            }
+          ],
+          "researchRetained": {
+            "kind": "settled",
+            "fingerprint": "9ccd08e13a56b27e2dcc9713cdb991ae1b88111681fe76a911741a0c9e6a4fbb"
+          },
+          "researchRetainedError": null,
+          "device": {
+            "flags": 4099,
+            "operationalState": 2,
+            "carrier": 0,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.1",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.15",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:d495:54ff:fe09:d411",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 128,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        },
+        {
+          "role": "b",
+          "networkId": "91a55d89da06cf235ef7fb20bc1047c47317636a80850cb002ac5a733277da86",
+          "subnet": "10.240.0.16/28",
+          "index": 37,
+          "name": "ai2e499f0095b",
+          "endpoint": true,
+          "error": null,
+          "rejectedRoutes": [],
+          "researchRetained": null,
+          "researchRetainedError": null,
+          "device": {
+            "flags": 69699,
+            "operationalState": 6,
+            "carrier": 1,
+            "tsoMaxSize": 524280,
+            "addresses": [
+              {
+                "family": 4,
+                "address": "10.240.0.17",
+                "prefix": 28,
+                "scope": 0,
+                "flags": 128,
+                "peer": null,
+                "broadcast": "10.240.0.31",
+                "anycast": null
+              },
+              {
+                "family": 6,
+                "address": "fe80:0:0:0:491:71ff:febe:89eb",
+                "prefix": 64,
+                "scope": 253,
+                "flags": 192,
+                "peer": null,
+                "broadcast": null,
+                "anycast": null
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "pool": {
+    "candidate": "10.240.0.0/24",
+    "supplementalHostRanges": [
+      "100.64.0.0/10",
+      "104.154.230.142/32",
+      "104.16.184.241/32",
+      "104.16.185.241/32",
+      "104.18.30.50/32",
+      "104.18.31.50/32",
+      "104.21.88.9/32",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "172.191.134.155/32",
+      "172.67.149.227/32",
+      "192.168.1.0/24",
+      "20.14.23.55/32",
+      "209.237.208.194/32",
+      "224.0.0.0/4",
+      "255.255.255.255/32",
+      "32.197.113.29/32",
+      "34.133.159.212/32",
+      "40.38.176.247/32",
+      "40.38.57.47/32",
+      "40.39.70.111/32",
+      "54.145.67.205/32",
+      "98.85.23.198/32"
+    ],
+    "conflicts": [],
+    "hostNonoverlapAtTheseSamples": true,
+    "temporalScope": "This separate IPAM attempt, not a missing host observation from frozen reproduction r3."
+  },
+  "finalExactAbsence": {
+    "reference": {
+      "path": "/Volumes/AGENAI/Qualification/sdk-concurrency/EP-20261029-001/ms001/ipam-r2/0311-final-exact-absence.json",
+      "bytes": 2000,
+      "sha256": "386faca00eead632770506c0633e90ad9079fb7b6dd572007fef22eef37b7027"
+    },
+    "observations": [
+      {
+        "kind": "container",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-observer",
+        "reference": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-observer",
+        "status": 404
+      },
+      {
+        "kind": "container",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-observer",
+        "reference": "868436d77d2aa7a624c027b48147c17d71d0836f8bbaf780ff7e18ba4ed5a99b",
+        "status": 404
+      },
+      {
+        "kind": "network",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-a",
+        "reference": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-a",
+        "status": 404
+      },
+      {
+        "kind": "network",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-a",
+        "reference": "b650e19a89efd3fd0735d65b0c7a66d2250d0d92b7a0d95c2ef4b2e145e79fa1",
+        "status": 404
+      },
+      {
+        "kind": "container",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-endpoint-a",
+        "reference": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-endpoint-a",
+        "status": 404
+      },
+      {
+        "kind": "container",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-endpoint-a",
+        "reference": "5d3dde9e49befe61bd4d9ee583924f039c1e56607b794157645533ae88f3c9a1",
+        "status": 404
+      },
+      {
+        "kind": "network",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-b",
+        "reference": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-b",
+        "status": 404
+      },
+      {
+        "kind": "network",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-b",
+        "reference": "91a55d89da06cf235ef7fb20bc1047c47317636a80850cb002ac5a733277da86",
+        "status": 404
+      },
+      {
+        "kind": "container",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-endpoint-b",
+        "reference": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-endpoint-b",
+        "status": 404
+      },
+      {
+        "kind": "container",
+        "name": "sdkc-ipam-2e499f00-9553-44e9-860e-16b6aaeb2c72-endpoint-b",
+        "reference": "8e6cb02c3d0a3f3cabc100971ccd772e55a332e82c9eaf65bc76d6eec5c78a8e",
+        "status": 404
+      }
+    ]
+  }
+}

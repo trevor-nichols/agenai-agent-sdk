@@ -1,3 +1,5 @@
+import { nativeControllerReady } from '../../native-controller.mjs';
+import { cleanupDiagnostic, finishRunCleanup, finishSuiteCleanup } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { lstat, mkdir, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -5,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Engine } from '../../../engine.mjs';
 import { acquireJsonInput, physicalPath } from '../input.mjs';
 import { appendObservation, failure, json, jsonWriter } from '../live/evidence.mjs';
-import { settleOwnerCleanup } from '../live/owner-cleanup.mjs';
+import { originalOwnerCleanup, settleOwnerCleanup } from '../live/owner-cleanup.mjs';
 import { createFixtures, sha } from '../network/fixtures.mjs';
 import { census } from '../network/resources.mjs';
 import { acquireHostRoots, assertHostRootCurrent, cleanupCaseHost, cleanupHostRoots, verifyHostRoot } from '../preserve/host-roots.mjs';
@@ -38,6 +40,7 @@ await loadExample(config);
 const cancellation = new AbortController(), runs = [];
 const interrupt = () => cancellation.abort(new Error('Installed combined qualification interrupted.'));
 process.on('SIGTERM', interrupt); process.on('SIGINT', interrupt);
+await nativeControllerReady();
 await mkdir(config.output, { mode: 0o700 });
 const report = { format: 'agenai.sandbox-platform-combined.v1', status: 'running', profile: config.profile,
   imageDigest: config.imageDigest, guestNodeVersion: config.guestNodeVersion, sourceIdentity: config.sourceIdentity,
@@ -70,29 +73,17 @@ const context = { config, engine, signal: cancellation.signal, hostRoots: [],
   } };
 
 async function cleanup(run) {
-  for (const retained of run.localCleanupOwners) {
-    try { await retained.retryCleanup(); await run.observe({ kind: 'original-public-workflow-cleanup-retried', owner: retained.owner.recoveryRecord }); }
-    catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  }
-  for (const entry of [...run.owners].reverse()) if (entry.owner) {
-    try {
-      await run.settleCleanup(entry, 'destroy'); assert.equal(entry.owner.state.kind, 'destroyed');
-      run.evidence.owners.find(({ namespace }) => namespace === entry.namespace).finalRecord = entry.owner.recoveryRecord;
-      run.evidence.census.push(...await census(engine, entry.owner.recoveryRecord, 'combined-final-exact-absence', true));
-    } catch (error) { run.evidence.cleanupErrors.push({ namespace: entry.namespace, ...failure(error) }); }
-  }
-  for (const session of run.sessions) try { await run.observe({ kind: 'sole-isolated-sibling-reader-joined', result: await session.join() }); }
-  catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  for (const proxy of [...run.proxies].reverse()) try { await proxy.close(); }
-  catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  for (const action of run.afterCleanup) try { await action(); }
-  catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  if (run.hostRoot) try { await verifyHostRoot(run.hostRoot); }
-  catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  if (!run.evidence.cleanupErrors.length) try { await cleanupCaseHost(run); }
-  catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-  run.evidence.cleanupComplete = run.evidence.cleanupErrors.length === 0;
-  if (!run.evidence.cleanupComplete) run.evidence.status = 'failed'; await run.save();
+  await finishRunCleanup(run, { timeoutMs: config.capabilities.limits.cleanupMs,
+    readerKind: 'sole-isolated-sibling-reader-joined', census: (entry) => census(engine, entry.owner.recoveryRecord, 'combined-final-exact-absence', true),
+    async beforeOwners(cleanup) {
+      for (const [index, retained] of run.localCleanupOwners.entries()) {
+        await cleanup.step(`public-workflow-${index}`, () => retained.retryCleanup(), { retryRejected: true });
+        await cleanup.step(`public-workflow-report-${index}`, () => run.observe({ kind: 'original-public-workflow-cleanup-retried', owner: retained.owner.recoveryRecord }), { proof: true });
+      }
+    }, async after(cleanup) {
+      if (run.hostRoot) await cleanup.step('host-root-proof', () => verifyHostRoot(run.hostRoot), { proof: true });
+      await cleanup.step('case-host', () => cleanupCaseHost(run), { retryRejected: true, complete: () => run.evidence.host?.removed });
+    } });
 }
 
 try {
@@ -121,7 +112,7 @@ try {
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true; deadline.abort(new Error('Captured combined scenario deadline.'));
-      for (const entry of run.owners) if (entry.owner) void entry.owner.stop().catch(() => {});
+      for (const entry of run.owners) if (entry.owner) void originalOwnerCleanup(entry.owner, 'stop').catch(() => {});
     }, config.capabilities.limits.scenarioMs);
     try { await action(run); assert.equal(timedOut, false); evidence.status = 'passed'; }
     catch (error) { evidence.status = 'failed'; evidence.failure = failure(error); }
@@ -132,18 +123,21 @@ try {
         originalReservations: run.owners.filter(({ owner }) => owner).length + Number(evidence.childOwner?.originalReservationConfirmed ?? false) });
       await saveReport();
     }
-    process.stdout.write(JSON.stringify({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete }) + '\n');
+    cleanupDiagnostic({ event: 'case_completed', name, status: evidence.status, cleanupComplete: evidence.cleanupComplete });
     if (evidence.status !== 'passed' || !evidence.cleanupComplete) break;
   }
 } catch (error) { report.failure = failure(error); }
 finally {
-  process.removeListener('SIGTERM', interrupt); process.removeListener('SIGINT', interrupt);
-  let closed = true;
-  try { await context.assertNoActiveOwners(); } catch (error) { closed = false; report.cleanupFailures.push(failure(error)); }
-  try { if (context.fixtures) await context.fixtures.close({ releaseNetworks: closed }); }
-  catch (error) { report.cleanupFailures.push(failure(error)); }
+  await finishSuiteCleanup(report, { timeoutMs: config.capabilities.limits.cleanupMs, save: saveReport,
+    async operation(cleanup) {
+      await cleanup.step('all-original-owners', () => context.assertNoActiveOwners(), { retryRejected: true });
+      if (context.fixtures) await cleanup.step('row-fixtures', () => context.fixtures.close({ releaseNetworks: true }),
+        { retryRejected: true, complete: () => context.fixtures.record.closed });
+      await cleanup.step('host-roots', async () => {
+        report.hostCleanup = await cleanupHostRoots(report, saveReport, true); assert(report.hostCleanup.complete);
+      }, { retryRejected: true, complete: () => report.hostRoots.every(({ created, removed }) => !created || removed) });
+    } });
   report.fixtures = context.fixtures?.record ?? null;
-  report.hostCleanup = await cleanupHostRoots(report, saveReport, closed && report.cases.every(({ cleanupComplete }) => cleanupComplete));
   report.matrix = Object.fromEntries(Object.entries(report.requirements).map(([requirement, names]) => [requirement, {
     status: names.every((name) => report.cases.some((entry) => entry.name === name && entry.status === 'passed' && entry.cleanupComplete)) ? 'passed' : 'failed', cases: names,
   }]));

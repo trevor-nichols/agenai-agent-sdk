@@ -11,6 +11,7 @@ import { parseArgs } from 'node:util';
 const defaultSourceImage = 'sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c';
 const datasetSubpath = 'agenai-qualification-dataset';
 const datasetBytes = Buffer.from('AgenAI immutable dataset fixture v1\nExact bytes shared across private workspaces.\n');
+const maxArchiveBytes = 2 * 1024 ** 3;
 const { values } = parseArgs({ options: { engine: { type: 'string' }, output: { type: 'string' }, 'source-image': { type: 'string' }, architecture: { type: 'string', default: 'amd64' }, help: { type: 'boolean' } } });
 if (values.help) {
   console.log('Usage: node scripts/development/agent-sandbox-qualification/prepare-fixture.mjs --engine unix:///absolute/docker.sock --output /new/owned/directory [--source-image sha256:<64 lowercase hex>] [--architecture amd64|arm64]');
@@ -38,7 +39,7 @@ async function prepare(options) {
   const tag = `agenai-sandbox-fixture:${operationId}`;
   const reportPath = path.join(output, 'preparation.json');
   const report = {
-    operationId, sourceImage, architecture, endpoint, plannedContainerName: name, imageTag: tag,
+    operationId, sourceImage, architecture, endpoint, plannedContainerName: name, imageTag: tag, maxArchiveBytes,
     container: null, image: null, containerAcquisition: 'planned', imageAcquisition: 'planned',
     primaryFailure: null, cleanupFailure: null, evidenceFailures: [],
   };
@@ -101,8 +102,9 @@ async function prepare(options) {
     await record();
     docker(['container', 'export', '--output', archive, report.container], 120_000);
     const sourceArchiveBytes = (await stat(archive)).size;
-    if (sourceArchiveBytes <= 0 || sourceArchiveBytes > 1024 * 1024 * 1024) throw new Error('Fixture filesystem archive exceeds its preparation bound.');
-    const members = execFileSync('tar', ['-tf', archive], { encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
+    report.sourceArchiveBytes = sourceArchiveBytes;
+    if (sourceArchiveBytes <= 0 || sourceArchiveBytes > maxArchiveBytes) throw new Error('Fixture filesystem archive exceeds its preparation bound.');
+    const members = execFileSync('tar', ['-tf', archive], { encoding: 'utf8', timeout: 30_000, maxBuffer: 16 * 1024 * 1024 });
     if (members.split('\n').some((member) => member.replace(/^\.\//u, '').split('/')[0] === datasetSubpath)) {
       throw new Error('Fixture source already contains the reserved qualification dataset path.');
     }
@@ -116,7 +118,7 @@ async function prepare(options) {
     await chmod(path.join(datasetDirectory, 'manifest.txt'), 0o666);
     execFileSync('tar', ['-rf', archive, '-C', datasetStaging, datasetSubpath], { timeout: 30_000, maxBuffer: 1024 * 1024 });
     const bytes = (await stat(archive)).size;
-    if (bytes > 1024 * 1024 * 1024) throw new Error('Fixture archive with dataset exceeds its preparation bound.');
+    if (bytes > maxArchiveBytes) throw new Error('Fixture archive with dataset exceeds its preparation bound.');
     report.datasetFixture = { subpath: datasetSubpath, path: 'manifest.txt', byteLength: datasetBytes.length,
       sha256: createHash('sha256').update(datasetBytes).digest('hex') };
     report.imageAcquisition = 'uncertain';

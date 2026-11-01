@@ -10,7 +10,9 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { createDockerDesktopRouteAuthority } from '../src/node/desktopRouteAuthority.js';
+import { parseDesktopHostObservation } from '../src/network/desktop/observation/host.js';
 import { captureDockerRouteAuthority } from '../src/network/routeAuthority.js';
+import { DockerResponseByteBudget } from '../src/resources/api.js';
 import { desktopRouteAuthorityOptions } from './fixtures/desktopRouteAuthority.js';
 import { desktopHostDocument } from './fixtures/desktopObservation.js';
 import { preparedNodeEnvironment } from './fixtures/preparedNode.js';
@@ -82,4 +84,80 @@ test('overflowing host output is rejected only after the actual producer has joi
     const pid = Number(await readFile(owned.log, 'utf8'));
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
   } finally { await owned.close(); }
+});
+
+test('host raw budget spans actual stdout and diagnostics across joined observations before JSON parsing', { timeout: 10_000 }, async () => {
+  const valid = JSON.stringify(desktopHostDocument());
+  const invalid = 'é'.repeat(Buffer.byteLength(valid));
+  const diagnostic = 'diagnostic';
+  const budget = new DockerResponseByteBudget(Buffer.byteLength(valid) + Buffer.byteLength(invalid) + Buffer.byteLength(diagnostic) - 1);
+  const owned = await fixture((log) => `const fs=require('node:fs');const repeated=fs.existsSync(${JSON.stringify(log)});fs.writeFileSync(${JSON.stringify(log)},String(process.pid));process.stdout.write(repeated?${JSON.stringify(invalid)}:${JSON.stringify(valid)});if(repeated)process.stderr.write(${JSON.stringify(diagnostic)});`);
+  try {
+    const binding = owned.bind();
+    const first = await binding.observeHost(undefined, budget);
+    assert.equal(first.proxySafe, true);
+    assert(first.excludedCidrs.includes('11.55.1.0/24'));
+    await assert.rejects(binding.observeHost(undefined, budget), {
+      name: 'SandboxOperationError', code: 'output_limit', message: 'Docker JSON responses exceed their cumulative byte bound.',
+    });
+    const pid = Number(await readFile(owned.log, 'utf8'));
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  } finally { await owned.close(); }
+});
+
+function linkLocalHost(addresses: Readonly<Record<'awdl0' | 'llw0', readonly Readonly<{ address: string; flags: number }>[]>>) {
+  const document = desktopHostDocument();
+  const v6 = (address: string, flags: number, scopeId: number) => ({ family: 6, address, netmask: 'ffff:ffff:ffff:ffff::', scopeId, flags,
+    peer: null, broadcast: null });
+  return { ...document, interfaces: [...document.interfaces, { index: 1, name: 'lo0', flags: 0x8049, addresses: [v6('fe80::1', 0x100, 1)] },
+    { index: 14, name: 'awdl0', flags: 0x8863, addresses: addresses.awdl0.map(({ address, flags }) => v6(address, flags, 14)) },
+    { index: 15, name: 'llw0', flags: 0x8863, addresses: addresses.llw0.map(({ address, flags }) => v6(address, flags, 15)) }] };
+}
+
+test('Darwin link-local address rotation and its duplicate-address-detection states leave host authority unchanged', () => {
+  const original = { address: 'fe80::1c2b:3cff:fe4d:5e6f', flags: 0x100 };
+  const rotated = { address: 'fe80::a0b1:c2ff:fed3:e4f5', flags: 0x100 };
+  const baseline = parseDesktopHostObservation(linkLocalHost({ awdl0: [original], llw0: [original] }));
+  for (const addresses of [
+    { awdl0: [rotated], llw0: [rotated] },
+    { awdl0: [{ ...rotated, flags: 0x102 }], llw0: [{ ...rotated, flags: 0x102 }] },
+    { awdl0: [original, rotated], llw0: [rotated] },
+    { awdl0: [], llw0: [] },
+  ]) {
+    const observed = parseDesktopHostObservation(linkLocalHost(addresses));
+    assert.equal(observed.fingerprint, baseline.fingerprint);
+    assert.deepEqual(observed.excludedCidrs, baseline.excludedCidrs);
+  }
+});
+
+test('a wall-clock step that moves Darwin kern.boottime leaves host authority unchanged', () => {
+  const document = desktopHostDocument();
+  const baseline = parseDesktopHostObservation(document);
+  // Native rn02r15s1 host monitor: one clock step moved kern.boottime from .473377 to .388480 within the same second.
+  for (const boot of [{ ...document.host.boot, microseconds: (document.host.boot.microseconds + 915103) % 1_000_000 },
+    { seconds: document.host.boot.seconds - 1, microseconds: 999999 }]) {
+    const stepped = parseDesktopHostObservation({ ...document, host: { ...document.host, boot } });
+    assert.equal(stepped.fingerprint, baseline.fingerprint);
+    assert.deepEqual(stepped.snapshot.host.boot, boot);
+  }
+});
+
+test('host route, address, interface and proxy authority changes still change the fingerprint', () => {
+  const linkLocal = [{ address: 'fe80::1c2b:3cff:fe4d:5e6f', flags: 0x100 }];
+  const document = linkLocalHost({ awdl0: linkLocal, llw0: linkLocal });
+  const baseline = parseDesktopHostObservation(document).fingerprint;
+  const en0 = document.interfaces[0]!;
+  const changed = [
+    { ...document, interfaces: [{ ...en0, addresses: [{ ...en0.addresses[0]!, address: '11.56.1.22', broadcast: { address: '11.56.1.255', scopeId: 0 } }] },
+      ...document.interfaces.slice(1)] },
+    { ...document, interfaces: [{ ...en0, addresses: [...en0.addresses, { family: 6, address: '2001:db8:5::22', netmask: 'ffff:ffff:ffff:ffff::',
+      scopeId: 0, flags: 0, peer: null, broadcast: null }] }, ...document.interfaces.slice(1)] },
+    { ...document, interfaces: [...document.interfaces, { index: 26, name: 'utun4', flags: 0x8051, addresses: [] }] },
+    { ...document, interfaces: document.interfaces.map((device) => device.name === 'awdl0' ? { ...device, flags: 0x8822 } : device) },
+    { ...document, routes: [{ ...document.routes[0]!, gateway: { kind: 'ip', family: 4, address: '11.55.1.2', scopeId: 0 } }] },
+    { ...document, proxy: { ...document.proxy, scopes: 2 } },
+    { ...document, host: { ...document.host, osBuild: '25F81' } },
+    { ...document, host: { ...document.host, kernel: '25.6.0' } },
+  ];
+  for (const value of changed) assert.notEqual(parseDesktopHostObservation(value).fingerprint, baseline);
 });

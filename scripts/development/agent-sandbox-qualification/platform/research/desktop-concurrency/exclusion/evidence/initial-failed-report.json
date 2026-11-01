@@ -1,0 +1,33 @@
+{
+  "researchOnly": true,
+  "attempt": "/private/tmp/agenai-ms001-exclusion-4ToF2v",
+  "date": "2026-10-29T22:30:17.409Z",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v24.15.0",
+  "actualEngineIdSupplied": "7ea1aaea-951c-4129-a920-8f003143c27b",
+  "dockerCalls": 0,
+  "productionNamespaceTouched": false,
+  "rows": [
+    {
+      "name": "same Engine excludes separate copied modules and helper binaries",
+      "result": "pass",
+      "engineId": "7ea1aaea-951c-4129-a920-8f003143c27b",
+      "generation": "70a811af-d2b7-47d3-b754-dfbc5a2a5552",
+      "kernelClaimReleased": true,
+      "dirtyBarrierRetained": true,
+      "note": "Engine ID is supplied; aliases/profile names are metadata here, not physical Engine proof."
+    },
+    {
+      "name": "parent SIGKILL releases helper through pipe EOF; independent child holds no writer",
+      "result": "pass",
+      "helperPid": 43746,
+      "unrelatedChildSurvived": true
+    },
+    {
+      "name": "close-on-exec prevents inherited lock from surviving helper close",
+      "result": "fail",
+      "error": "Error: bounded_wait_expired\n    at until (file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run.mjs:30:9)\n    at async file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run.mjs:103:5\n    at async row (file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run.mjs:43:26)\n    at async file:///Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run.mjs:98:3"
+    }
+  ]
+}

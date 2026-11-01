@@ -19,7 +19,7 @@ import { frame } from './process.js';
 type DesktopProfile = 'desktop-apple-virtualization-native-arm64' | 'desktop-apple-virtualization-rosetta-amd64';
 
 export async function desktopResourcesFixture(profile: DesktopProfile, handleRequest?: FixtureOptions['handleRequest'],
-  faults: Pick<FixtureOptions, 'loseContainerReplyForRole'> = {},
+  faults: Pick<FixtureOptions, 'loseContainerReplyForRole' | 'beforeContainerReply'> = {},
   observeVm: (options: Parameters<typeof desktopVmDocument>[0]) => ReturnType<typeof desktopVmDocument> = desktopVmDocument,
   observeNetwork: (inspection: ReturnType<typeof networkInspection>) => unknown = (inspection) => inspection) {
   const descriptor = desktopRouteAuthorityOptions(profile);
@@ -28,6 +28,7 @@ export async function desktopResourcesFixture(profile: DesktopProfile, handleReq
   const commands: Array<{ id: string; kind: string }> = [];
   const hostId = 'f'.repeat(63) + '1';
   const noneId = 'f'.repeat(63) + '2';
+  const builtinEndpointId = (containerId: string, networkId: string) => createHash('sha256').update(`${containerId}:${networkId}`).digest('hex');
   const observerImage = { Id: descriptor.vmObserver.imageDigest, Os: 'linux', Architecture: 'arm64', Config: {
     User: '1000:1000', WorkingDir: '/', Volumes: null,
     Entrypoint: ['/usr/local/bin/node', '--input-type=module', '--eval',
@@ -59,7 +60,7 @@ export async function desktopResourcesFixture(profile: DesktopProfile, handleReq
       IPAM: { Driver: 'default', Config: null, Options: null }, Options: {}, Labels: {} },
       Object.fromEntries([...fixture.containers.values()].filter((container) => container.State.Running
         && container.HostConfig.NetworkMode === name).map((container) => [container.Id,
-        { Name: container.Name.slice(1), EndpointID: '', MacAddress: '', IPv4Address: '', IPv6Address: '' }])), false);
+        { Name: container.Name.slice(1), EndpointID: builtinEndpointId(container.Id, id), MacAddress: '', IPv4Address: '', IPv6Address: '' }])), false);
     if (input.path === '/v1.52/networks') return json([{ Id: hostId }, { Id: noneId }, ...[...fixture.networks.keys()].map((Id) => ({ Id }))]);
     if (input.path === `/v1.52/networks/${hostId}`) return json(observeNetwork(builtin(hostId, 'host', 'host')));
     if (input.path === `/v1.52/networks/${noneId}`) return json(observeNetwork(builtin(noneId, 'none', 'null')));
@@ -77,6 +78,15 @@ export async function desktopResourcesFixture(profile: DesktopProfile, handleReq
     }
     const containerId = input.path.match(/^\/v1\.52\/containers\/([a-f0-9]{64})\/(?:start|json)$/u)?.[1];
     const container = containerId && fixture.containers.get(containerId);
+    if (container && input.method === 'GET' && input.path.endsWith('/json')) {
+      for (const [name, attachment] of Object.entries(container.NetworkSettings.Networks)) {
+        if (name === 'host' || name === 'none') {
+          const networkId = name === 'host' ? hostId : noneId;
+          attachment.NetworkID = container.State.Status === 'created' ? '' : networkId;
+          attachment.EndpointID = container.State.Running ? builtinEndpointId(container.Id, networkId) : '';
+        }
+      }
+    }
     if (container && input.method === 'POST' && input.path.endsWith('/start')) {
       const socket = sockets.get(container.Id);
       const role = container.Config.Labels && typeof container.Config.Labels === 'object'
@@ -124,7 +134,10 @@ export async function desktopResourcesFixture(profile: DesktopProfile, handleReq
         const protocol = Reflect.get(message, 'protocol'); const sequence = Reflect.get(message, 'sequence');
         commands.push({ id, kind });
         if (kind === 'stop') {
-          if (container?.Name.endsWith('-route_observer')) send(socket, { protocol, kind: 'closed', reason: 'stop' });
+          if (container?.Name.endsWith('-route_observer')) {
+            container.State = { Running: false, Status: 'exited' };
+            send(socket, { protocol, kind: 'closed', reason: 'stop' });
+          }
           socket.end(); return;
         }
         if (kind === 'heartbeat') send(socket, { protocol, kind, sequence });

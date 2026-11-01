@@ -10,7 +10,7 @@ import type { SandboxRecoveryRecord } from '@agen-ai/sandbox';
 import { engineFixture, gate, imageDigest, sandboxRequest } from './fixtures/engine.js';
 import { createDockerLinuxRouteAuthority } from '../src/node/index.js';
 import { parseDockerConfig } from '../src/policy/config.js';
-import type { DockerSandboxEgressOptions } from '../src/policy/config.js';
+import type { DockerSandboxEgressOptions } from '../src/policy/options.js';
 import { verifyEgressDeployment, verifyEgressImage } from '../src/policy/preflight.js';
 import { DockerApi } from '../src/resources/api.js';
 import { DockerEngine } from '../src/engine/client.js';

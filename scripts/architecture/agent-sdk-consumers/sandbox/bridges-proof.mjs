@@ -4,9 +4,10 @@
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { copyFile, cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { packedOverridesSource } from "../dependency-baseline.mjs";
+import { copyPublicExampleSources } from "./example-sources.mjs";
 
 async function runCompiledTests({ root, directory, guard, run, selectedTests, ownedFixtureRoot }) {
   const available = (await readdir(path.join(root, directory))).filter((name) => name.endsWith(".test.js")).sort();
@@ -29,8 +30,9 @@ async function runCompiledTests({ root, directory, guard, run, selectedTests, ow
 
 async function exampleIdentities(root, entry, result = []) {
   for (const child of (await readdir(path.join(root, entry), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name, "en"))) {
+    if (child.name === "node_modules") continue;
     assert.ok(!child.isSymbolicLink(), "Example evidence requires ordinary source files");
-    if (child.name === "node_modules" || child.name === "dist") continue;
+    if (child.name === "dist") continue;
     const relative = path.join(entry, child.name);
     if (child.isDirectory()) await exampleIdentities(root, relative, result);
     else if (child.isFile()) result.push({ path: relative, sha256: createHash("sha256").update(await readFile(path.join(root, relative))).digest("hex") });
@@ -64,7 +66,7 @@ export async function runSandboxBridgeExamples({ repoRoot, consumerRoot, run }) 
   const root = path.join(consumerRoot, "claude-bridge-consumer");
   await mkdir(root);
   const example = path.join(consumerRoot, "examples/sandbox/claude");
-  await cp(example, root, { recursive: true });
+  await copyPublicExampleSources(example, root);
   const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const consumer = JSON.parse(await readFile(path.join(consumerRoot, "package.json"), "utf8"));
   const packages = Object.fromEntries(["@agen-ai/sandbox", "@agen-ai/validation"].map((name) => {

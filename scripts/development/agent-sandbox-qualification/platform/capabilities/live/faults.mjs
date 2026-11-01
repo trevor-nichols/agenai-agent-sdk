@@ -1,3 +1,4 @@
+import { cleanupProof } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -53,9 +54,9 @@ export function faultCases(context) {
     run.evidence.observations.push({ kind: 'unknown-public-settlement-is-fenced-without-native-replay', result,
       commandCounts: gate.commandCounts, paths, exportedSha256: sha(Buffer.concat(actual)),
       counterMeaning: 'The native publication witness establishes its byte count separately; the interrupted public observation reports bytes:null while actual driver work settles.' });
-    run.afterCleanup.push(async () => {
+    run.afterCleanup.push(cleanupProof(async () => {
       const entries = (await readFile(tracePath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
       assert.equal(entries.filter(({ fault }) => fault === 'withheld-native-filesystem-commit-ack').length, 1);
-    });
+    }));
   }]];
 }

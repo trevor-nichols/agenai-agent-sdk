@@ -1,3 +1,5 @@
+import { nativeControllerReady } from '../../native-controller.mjs';
+import { cleanupDiagnostic, finishChildCleanup, waitForInterruption } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -21,6 +23,10 @@ for (const name of ['@agen-ai/sandbox', '@agen-ai/sandbox-docker', '@agen-ai/san
   assert(fileURLToPath(import.meta.resolve(name)).startsWith(`${config.consumer}/node_modules/`));
 }
 assert(config.child.namespace.startsWith(config.namespacePrefix)); assert.match(config.child.challenge, /^[a-f0-9-]{36}$/u);
+const cancellation = new AbortController();
+const interrupt = () => cancellation.abort(new Error('Installed child qualification interrupted.'));
+process.on('SIGTERM', interrupt); process.on('SIGINT', interrupt);
+await nativeControllerReady();
 await mkdir(config.output, { recursive: true, mode: 0o700 });
 const result = { format: 'agenai.sandbox-platform-network-child.v1', status: 'running', mode: config.child.mode,
   pid: process.pid, challenge: config.child.challenge, startedAt: new Date().toISOString(), owners: [], observations: [],
@@ -52,7 +58,7 @@ try {
     result.cleanupKind = 'fresh-process-cleanup-only';
     result.finalCensus = await census(engine, original, 'fresh-original-checkpoint-final', true);
   } else {
-    const context = { config, engine, signal: undefined };
+    const context = { config, engine, signal: cancellation.signal };
     const opened = await ready(run, context, { namespace: config.child.namespace }); owner = opened.owner;
     result.positive = await positive(opened, context);
     const held = await opened.session.request({ kind: 'hold', ...config.capabilities.network.positive, key: 'controller' });
@@ -61,10 +67,10 @@ try {
     assert.equal(original.backendRevision, `engine-1.52-v6-${config.profile}`);
     await jsonWriter(config.child.originalPath)(original);
     result.originalRecord = original; await save();
-    process.stdout.write(JSON.stringify({ phase: 'ready', pid: process.pid, challenge: config.child.challenge,
-      originalPath: config.child.originalPath, resumeListenerInstalledAt: result.resumeListenerInstalledAt }) + '\n');
-    if (config.child.mode === 'crash') await new Promise(() => {});
-    await resumed.promise; assert.equal(result.continueCount, 1);
+    cleanupDiagnostic({ phase: 'ready', pid: process.pid, challenge: config.child.challenge,
+      originalPath: config.child.originalPath, resumeListenerInstalledAt: result.resumeListenerInstalledAt });
+    if (config.child.mode === 'crash') await waitForInterruption(cancellation.signal);
+    await Promise.race([resumed.promise, waitForInterruption(cancellation.signal)]); assert.equal(result.continueCount, 1);
     await until(() => owner.state.kind !== 'ready', config.capabilities.limits.startupMs,
       'Resumed original controller did not observe native authority loss.');
     assert.throws(() => opened.sandbox.reserveProcess({ executable: '/usr/local/bin/node', args: [], env: {}, cwd: opened.sandbox.workspace }), SandboxStateError);
@@ -75,14 +81,10 @@ try {
   assert.equal(result.finalRecord.phase, 'destroyed'); result.status = 'passed'; await save();
 } catch (error) {
   result.status = 'failed'; result.failure = failure(error);
-  if (owner) {
-    try { await settle(owner, 'destroy'); } catch (cleanup) { result.cleanupErrors.push(failure(cleanup)); }
-    result.finalRecord = owner.recoveryRecord;
-  }
-  await save(); process.exitCode = 1;
+  process.exitCode = 1;
 } finally {
-  for (const session of run.sessions) try { result.observations.push({ kind: 'sole-network-child-reader-joined', result: await session.join() }); }
-  catch (error) { result.cleanupErrors.push(failure(error)); result.status = 'failed'; process.exitCode = 1; }
+  await finishChildCleanup({ result, save, owners: [...run.owners.map(({ owner }) => owner).filter(Boolean), ...(owner ? [owner] : [])], sessions: run.sessions,
+    timeoutMs: config.capabilities.limits.cleanupMs });
   process.removeListener('SIGCONT', continued); result.finishedAt = new Date().toISOString(); await save();
 }
 process.stdout.write(JSON.stringify({ phase: 'complete', pid: process.pid, status: result.status }) + '\n');

@@ -1,0 +1,170 @@
+{
+  "researchOnly": true,
+  "attempt": "/private/tmp/agenai-ms001-exclusion-9tTyhZ",
+  "date": "2026-10-29T22:35:42.391Z",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v24.15.0",
+  "actualEngineIdSupplied": "7ea1aaea-951c-4129-a920-8f003143c27b",
+  "sourceDigestEncoding": "SHA-256 of raw file bytes",
+  "sources": {
+    "lock-holder.c": "7ba7d67ea8c5e52dff3ab5b2ddd2c0c4291fa718fb97d75970a1ac5449aba972",
+    "controller.mjs": "c25eb866e02c11dbced79ad31d83dae5092334592c4acc347542364dba3ba217",
+    "prepare.mjs": "735c91f257de674cac5df509d21587088b648758105289e97b15d7194db2ab05",
+    "worker.mjs": "982edd59b1ae9f0765e9aefdf82684c26ca67a92079f85cd02db5e0535207d03",
+    "run.mjs": "5c2da94590087b24fa0d8656343539c949a401caee6d7cf4b0f0be71e7b39fe0"
+  },
+  "command": [
+    "/Users/tan/.nvm/versions/node/v24.15.0/bin/node",
+    "/Volumes/AGENAI/Coding/Production/agenai/scripts/development/agent-sandbox-qualification/platform/research/desktop-concurrency/exclusion/run.mjs",
+    "7ea1aaea-951c-4129-a920-8f003143c27b"
+  ],
+  "system": "ProductName:\t\tmacOS\nProductVersion:\t\t26.5.1\nBuildVersion:\t\t25F80",
+  "compiler": "Apple clang version 17.0.0 (clang-1700.6.4.2)\nTarget: arm64-apple-darwin25.5.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+  "dockerCalls": 0,
+  "productionNamespaceTouched": false,
+  "rows": [
+    {
+      "name": "same Engine excludes separate copied modules and helper binaries",
+      "result": "pass",
+      "engineId": "7ea1aaea-951c-4129-a920-8f003143c27b",
+      "generation": "76f5b2bd-64bd-46b8-9f82-469568365d80",
+      "kernelClaimReleased": true,
+      "dirtyBarrierRetained": true,
+      "note": "Engine ID is supplied; aliases/profile names are metadata here, not physical Engine proof."
+    },
+    {
+      "name": "native arm64 and installed-Rosetta x86_64 helper contend in both directions",
+      "result": "pass",
+      "nativeArchitecture": "arm64",
+      "translatedArchitecture": "x86_64",
+      "architectures": "/private/tmp/agenai-ms001-exclusion-9tTyhZ/lock-holder:        Mach-O 64-bit executable arm64\n/private/tmp/agenai-ms001-exclusion-9tTyhZ/lock-holder-x86_64: Mach-O 64-bit executable x86_64",
+      "note": "Native kernel lock interoperability; public SDK controllers remain native arm64 for both workload profiles."
+    },
+    {
+      "name": "parent SIGKILL releases helper through pipe EOF; independent child holds no writer",
+      "result": "pass",
+      "helperPid": 46509,
+      "unrelatedChildSurvived": true
+    },
+    {
+      "name": "close-on-exec prevents inherited lock from surviving helper close",
+      "result": "pass",
+      "descendantAliveAfterReacquisition": true
+    },
+    {
+      "name": "helper failure closes further dispatch and retains dirty authority",
+      "result": "pass",
+      "effectDispatched": false
+    },
+    {
+      "name": "controller SIGKILL at generation retains original generation",
+      "result": "pass",
+      "generation": "a827b460-63a3-49cd-a67b-877371df6e74",
+      "canonicalMembers": 0,
+      "transition": null
+    },
+    {
+      "name": "controller SIGKILL at registered retains original generation",
+      "result": "pass",
+      "generation": "bea7c037-61ab-4b8d-8488-22e0977e0e84",
+      "canonicalMembers": 1,
+      "transition": null
+    },
+    {
+      "name": "controller SIGKILL at member_intent retains original generation",
+      "result": "pass",
+      "generation": "1eee1086-ef91-4c5b-af18-251821ad036e",
+      "canonicalMembers": 1,
+      "transition": null
+    },
+    {
+      "name": "controller SIGKILL at authorized retains original generation",
+      "result": "pass",
+      "generation": "723466c7-b84e-43ba-a995-09bbf5f5c602",
+      "canonicalMembers": 1,
+      "transition": "authorized"
+    },
+    {
+      "name": "controller SIGKILL at effect_entered retains original generation",
+      "result": "pass",
+      "generation": "4f151ae2-bc85-458f-9c72-c0ad4f25d9ef",
+      "canonicalMembers": 1,
+      "transition": "authorized"
+    },
+    {
+      "name": "controller SIGKILL at settled retains original generation",
+      "result": "pass",
+      "generation": "44ea3069-c135-4ebb-8c8f-f82aa0030241",
+      "canonicalMembers": 1,
+      "transition": null
+    },
+    {
+      "name": "late entered subprocess effect can settle after controller death and lock release",
+      "result": "pass",
+      "effectCompletedAfterLockReleased": true,
+      "scope": "real local subprocess filesystem effect; this is not a Docker late-request proof"
+    },
+    {
+      "name": "canonical shared journal I/O failure precedes member dispatch",
+      "result": "pass",
+      "actualFailure": "Darwin RLIMIT_FSIZE / EFBIG",
+      "partialBytes": 128,
+      "effectDispatched": false
+    },
+    {
+      "name": "member checkpoint failure fences shared acquisition before dispatch",
+      "result": "pass",
+      "actualFailure": "member persistence EISDIR",
+      "transitionAuthorized": false
+    },
+    {
+      "name": "returned identity survives failed durable acknowledgement in original memory",
+      "result": "pass",
+      "originalMemory": {
+        "id": "exact-effect-id-42",
+        "fingerprint": "exact-effect-fingerprint"
+      },
+      "freshOwner": "pending original intent; no invented acknowledgement"
+    },
+    {
+      "name": "no-follow rejects symbolic link journal and hard-link alias",
+      "result": "pass",
+      "symbolicTargetUntouched": true,
+      "hardlinkRefused": true
+    },
+    {
+      "name": "journal inode replacement fences holder and retains dirty replacement refusal",
+      "result": "pass",
+      "oldHolderFenced": true,
+      "replacementContainsDirtyRecord": true,
+      "limitation": "A same-user writer replacing the entire authority with forged clean data is outside cooperation scope."
+    },
+    {
+      "name": "v3 parser and immutable generation/profile/configuration binding preserve cleanup-only authority",
+      "result": "pass",
+      "neutralFormat": "agenai.sandbox-recovery.v3",
+      "originalIdentityUnchanged": true,
+      "nativeCleanup": "not exercised; this returns a research cleanup-only descriptor"
+    },
+    {
+      "name": "clean close requires empty obligations and allows a new generation",
+      "result": "pass",
+      "cleanupCondition": "zero member records and no pending transition",
+      "nextGenerationDistinct": true
+    },
+    {
+      "name": "bounded membership rejects the ninth member before journal mutation",
+      "result": "pass",
+      "bound": 8,
+      "ninthMemberRegistered": false
+    },
+    {
+      "name": "canonical root replacement and symbolic root are refused by the live holder",
+      "result": "pass",
+      "liveReplacementFenced": true,
+      "symbolicRootRefused": true,
+      "limitation": "A fresh process cannot identify wholesale same-user removal without an external trust anchor."
+    }
+  ]
+}

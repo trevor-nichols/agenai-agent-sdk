@@ -1,3 +1,4 @@
+import { cleanupProof, finishControllerCleanup, joinedCleanupChild } from '../cleanup/obligations.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -26,6 +27,7 @@ async function crash(run, context, cut) {
   const ownerDirectory = join(run.directory, 'child-owner');
   const scratchDirectory = join(run.hostDirectory, 'child-workspace');
   const reached = Promise.withResolvers(), release = Promise.withResolvers();
+  let intentionalCrash = false, lastRecovery;
   let wireCut = false, original, originalBytes, child, latestTrustedCheckpoint, complete = false, recovering = false;
   const wireWitness = async (witness) => {
     assert.equal(wireCut, false); wireCut = true;
@@ -68,31 +70,37 @@ async function crash(run, context, cut) {
   const path = join(run.directory, 'child-config.json'); await jsonWriter(path)(configuration);
   run.evidence.childOwner = { namespace, challenge: configuration.child.challenge, originalPath, ownerDirectory, scratchDirectory,
     quiescent: false, cleanupKind: null, originalReservationConfirmed: false };
-  await run.save();
   const recover = async (name, checkpoint = { path: originalPath, bytes: originalBytes, record: original,
     provenance: { kind: 'original-controller-durable-checkpoint' } }) => {
     recovering = true;
     const recoveryConfig = { ...configuration, child: { ...configuration.child, mode: 'cleanup',
       originalPath: checkpoint.path,
       resultPath: join(run.directory, `${name}-result.json`) } };
-    const recoveryPath = join(run.directory, `${name}.json`); await jsonWriter(recoveryPath)(recoveryConfig);
-    await run.observe({ kind: 'combined-fresh-process-recovery-entered', name,
-      originalSha256: sha(originalBytes), checkpoint: { path: checkpoint.path, sha256: sha(checkpoint.bytes),
-        phase: checkpoint.record.phase, provenance: checkpoint.provenance }, namespace });
-    const controller = startController({ script: childScript, configuration: recoveryPath, cwd: context.config.consumer,
-      env: process.env, timeoutMs: context.config.capabilities.limits.cleanupMs * 3 + context.config.capabilities.limits.requestMs,
-      maxOutputBytes: context.config.capabilities.limits.maxOutputBytes, signal: context.signal,
-      onControl: (observation) => run.observe({ kind: 'combined-fresh-recovery-process-control', name, observation }) });
-    const exit = await controller.join(); const result = JSON.parse(await readFile(recoveryConfig.child.resultPath, 'utf8'));
+    lastRecovery = { name, checkpoint };
+    const recoveryPath = join(run.directory, `${name}.json`);
+    const exit = await joinedCleanupChild(run, name, async () => {
+      await jsonWriter(recoveryPath)(recoveryConfig);
+      await run.observe({ kind: 'combined-fresh-process-recovery-entered', name,
+        originalSha256: sha(originalBytes), checkpoint: { path: checkpoint.path, sha256: sha(checkpoint.bytes),
+          phase: checkpoint.record.phase, provenance: checkpoint.provenance }, namespace });
+      return { command: process.execPath, args: [childScript, 'start', recoveryPath], cwd: context.config.consumer, env: process.env,
+        timeoutMs: context.config.capabilities.limits.cleanupMs * 3 + context.config.capabilities.limits.requestMs,
+        maxOutputBytes: context.config.capabilities.limits.maxOutputBytes };
+    });
+    const result = JSON.parse(await readFile(recoveryConfig.child.resultPath, 'utf8'));
+    assert.equal(result.pid, exit.pid); assert.equal(result.challenge, configuration.child.challenge);
+    assert.equal(result.cleanupComplete, true); assert.equal(result.finalRecord.phase, 'destroyed');
+    run.evidence.census.push(...await census(context.engine, result.finalRecord, 'fresh-cleanup-exact-absence', true));
+    complete = true; run.evidence.childOwner.cleanupKind = 'fresh-process-cleanup-only';
     await run.observe({ kind: 'combined-fresh-process-recovery-settled', name, exit, result });
-    assert.equal(exit.code, 0); assert.equal(result.status, 'passed'); assert.equal(result.pid, controller.pid);
-    assert.equal(result.challenge, configuration.child.challenge);
+    assert.equal(exit.status, 0); assert.equal(result.status, 'passed');
     assert.equal(result.cleanupKind, 'fresh-process-cleanup-only');
     assert.deepEqual(await readFile(originalPath), originalBytes, 'Original trusted record bytes changed during recovery.');
     assert.deepEqual(await readFile(checkpoint.path), checkpoint.bytes, 'Selected trusted checkpoint bytes changed during recovery.');
     return result;
   };
   try {
+    await run.save();
     child = startController({ script: childScript, configuration: path, cwd: context.config.consumer, env: process.env,
       timeoutMs: context.config.capabilities.limits.scenarioMs, maxOutputBytes: context.config.capabilities.limits.maxOutputBytes,
       signal: context.signal, onControl: (observation) => run.observe({ kind: 'original-combined-child-process-control', observation }) });
@@ -110,6 +118,7 @@ async function crash(run, context, cut) {
     run.evidence.childOwner.originalReservationConfirmed = true;
     await run.observe({ kind: 'combined-original-controller-before-kill', cut, group: await child.snapshot(), original,
       originalSha256: sha(originalBytes), census: await census(context.engine, original, 'combined-crash-cut') });
+    intentionalCrash = true;
     const killed = await child.kill(); run.evidence.childOwner.quiescent = killed.groupQuiescent;
     assert.equal(killed.signal, 'SIGKILL'); await run.observe({ kind: 'combined-original-controller-killed-and-joined', killed });
     release.resolve(); await proxy.idle();
@@ -132,24 +141,28 @@ async function crash(run, context, cut) {
     await run.observe({ kind: 'combined-independent-original-record-exact-absence',
       census: await census(context.engine, original, 'combined-crash-final', true) });
   } finally {
-    if (child && !run.evidence.childOwner.quiescent) {
-      try { const killed = await child.kill(); run.evidence.childOwner.quiescent = killed.groupQuiescent; }
-      catch (error) { run.evidence.childOwner.quiescent = error.quiescent === true; await run.observe({ kind: 'failed-original-child-join', failure: failure(error) }); }
-    }
     release.resolve();
-    if (!complete && run.evidence.childOwner.quiescent) {
-      try {
-        if (!originalBytes) {
-          originalBytes = await readFile(join(ownerDirectory, 'recovery.json'));
-          original = parseSandboxRecoveryRecord(JSON.parse(originalBytes.toString('utf8')));
-          try { await writeFile(originalPath, originalBytes, { flag: 'wx', mode: 0o600 }); }
-          catch (error) { if (error.code !== 'EEXIST') throw error; }
+    await finishControllerCleanup(run, context.config.capabilities.limits.cleanupMs, async (cleanup) => {
+      if (!child) { complete = true; run.evidence.childOwner.quiescent = true; run.evidence.childOwner.cleanupKind = 'not-entered'; }
+      if (child && !run.evidence.childOwner.quiescent) await cleanup.step('original-controller', async () => {
+        try { const exit = await child.finish(); run.evidence.childOwner.quiescent = exit.groupQuiescent; }
+        catch (error) { run.evidence.childOwner.quiescent = error.quiescent === true; throw error; }
+      }, { retryRejected: true, complete: () => run.evidence.childOwner.quiescent });
+      if (!complete && !intentionalCrash) await cleanup.step('original-controller-result', async () => {
+        const result = JSON.parse(await readFile(configuration.child.resultPath, 'utf8'));
+        assert.equal(result.pid, child.pid); assert.equal(result.challenge, configuration.child.challenge); assert.equal(result.cleanupComplete, true);
+        if (result.finalRecord) {
+          assert.equal(result.finalRecord.phase, 'destroyed');
+          run.evidence.census.push(...await census(context.engine, result.finalRecord, 'failed-original-child-exact-absence', true));
         }
-        await proxy.idle(); await recover('failed-case-latest-trusted-cleanup', latestTrustedCheckpoint);
-        run.evidence.childOwner.cleanupKind = 'failed-case-fresh-process-cleanup-only';
-      } catch (error) { run.evidence.cleanupErrors.push(failure(error)); }
-    }
-    if (recovering) run.afterCleanup.push(async () => {
+        complete = true; run.evidence.childOwner.cleanupKind = 'failed-original-controller-cleanup';
+      }, { retryRejected: true });
+      if (!complete) await cleanup.step('original-record-cleanup', async () => {
+        assert(originalBytes && original, 'Only the exact durable original cut may authorize fresh recovery.');
+        await proxy.idle(); await recover(lastRecovery?.name ?? 'failed-case-latest-trusted-cleanup', lastRecovery?.checkpoint ?? latestTrustedCheckpoint);
+      }, { retryRejected: true, complete: () => complete });
+    });
+    if (recovering) run.afterCleanup.push(cleanupProof(async () => {
       const bytes = await readFile(proxy.tracePath); assert(bytes.length <= 8 * 1024 ** 2);
       const events = bytes.toString('utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
       const recoveryEntered = run.evidence.observations.find(({ kind }) => kind === 'combined-fresh-process-recovery-entered')?.observedAt;
@@ -158,7 +171,7 @@ async function crash(run, context, cut) {
       assert.deepEqual(replayed, [], 'Fresh cleanup replayed creation, start, import or process dispatch.');
       await run.observe({ kind: 'combined-recovery-no-replay-trace', bytes: bytes.length, sha256: sha(bytes),
         recoveryEntered, replayed, originalSha256: originalBytes ? sha(originalBytes) : null });
-    });
+    }));
   }
 }
 
@@ -187,14 +200,14 @@ export function faultCases(context) {
         retainedState: entry.owner.state, record: entry.owner.recoveryRecord });
       await run.settleCleanup(entry, 'destroy'); await run.settleCleanup(entry, 'destroy');
       assert.equal(entry.owner.state.kind, 'destroyed');
-      run.afterCleanup.push(async () => {
+      run.afterCleanup.push(cleanupProof(async () => {
         const bytes = await readFile(proxy.tracePath); const events = bytes.toString('utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
         assert.equal(events.filter(({ fault }) => fault === 'drop-response').length, 1);
         const lost = events.find(({ fault }) => fault === 'drop-response');
         assert.deepEqual(events.filter((event) => event.startedAt > lost.startedAt && replay(event)), []);
         await run.observe({ kind: 'combined-same-cleanup-owner-retry-no-replay', traceSha256: sha(bytes),
           traceBytes: bytes.length, namespace: entry.namespace, finalRecord: entry.owner.recoveryRecord });
-      });
+      }));
     }],
   ];
 }

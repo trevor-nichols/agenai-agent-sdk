@@ -4,7 +4,7 @@
 
 import { SandboxOperationError, SandboxStateError } from '@agen-ai/sandbox';
 import type { DockerEngineAttachment } from '../../engine/client.js';
-import type { DockerSandboxFilesystemOptions } from '../../policy/config.js';
+import type { DockerSandboxFilesystemOptions } from '../../policy/options.js';
 import { DockerFrameDecoder } from '../../process/framing.js';
 import { decodeFilesystemReply, encodeFilesystemRequest, filesystemReplyLength } from './protocol.js';
 import type { FilesystemReply, FilesystemRequest } from './protocol.js';
@@ -17,7 +17,11 @@ export class FilesystemChannel {
   private heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
   private heartbeatActual: Promise<void> = Promise.resolve();
   private closing = false;
+  private renewing = true;
+  private accepting = true;
   private failure: SandboxOperationError | undefined;
+  private readinessStarted = false;
+  private enteredReady = false;
   private readonly header = Buffer.alloc(8);
   private headerBytes = 0;
   private payload: Buffer | undefined;
@@ -26,22 +30,35 @@ export class FilesystemChannel {
 
   constructor(private readonly attachment: DockerEngineAttachment, private readonly configuration: DockerSandboxFilesystemOptions,
     private readonly onFailure: (error: SandboxOperationError) => void) {
-    const initial = this.receive();
+    const initial = this.receive(false);
     this.ready = initial.then((reply) => {
       if (reply.kind !== 'ready' || reply.protocol !== configuration.protocol || reply.layout !== configuration.layout
         || reply.uid !== configuration.user.uid || reply.gid !== configuration.user.gid) {
         throw new SandboxOperationError('driver_failure', 'Filesystem readiness does not attest its exact selected layout and user.');
       }
-      this.scheduleHeartbeat();
+      clearTimeout(this.timer);
+      this.enteredReady = true;
+      if (this.readinessStarted) this.scheduleHeartbeat();
     }).catch((cause: unknown) => { this.fail(cause); throw cause; });
     void this.ready.catch(() => {});
     const pumping = this.pump().catch((cause: unknown) => this.fail(cause));
     this.settled = Promise.all([pumping, attachment.closed.catch((cause: unknown) => this.fail(cause))]).then(() => undefined);
   }
 
+  beginReadiness(): void {
+    if (this.failure) throw this.failure;
+    if (this.closing) throw new SandboxOperationError('cancelled', 'Filesystem control is closing.');
+    if (this.readinessStarted) return;
+    this.readinessStarted = true;
+    if (this.enteredReady) this.scheduleHeartbeat();
+    else this.armDeadline();
+  }
+
   async request(request: FilesystemRequest, signal: AbortSignal): Promise<FilesystemReply> {
+    if (!this.accepting) throw new SandboxStateError('Filesystem operation admission is closed.');
     await this.ready;
     await this.heartbeatActual;
+    if (!this.accepting) throw new SandboxStateError('Filesystem operation admission is closed.');
     signal.throwIfAborted();
     const abort = () => this.fail(new SandboxOperationError('cancelled', 'Filesystem operation was cancelled.', { cause: signal.reason }));
     signal.addEventListener('abort', abort, { once: true });
@@ -52,6 +69,7 @@ export class FilesystemChannel {
   }
 
   closeAdmission(): void {
+    this.closeRequests();
     if (this.closing) return;
     this.closing = true;
     clearTimeout(this.timer);
@@ -61,6 +79,9 @@ export class FilesystemChannel {
     this.attachment.stream.destroy();
   }
 
+  closeRequests(): void { this.accepting = false; }
+  stopRenewal(): void { this.renewing = false; this.closeRequests(); clearTimeout(this.heartbeatTimer); }
+
   async close(): Promise<void> {
     this.closeAdmission();
     await this.settled;
@@ -69,15 +90,19 @@ export class FilesystemChannel {
 
   interrupt(cause: unknown): void { this.fail(cause); }
 
-  private receive(): Promise<FilesystemReply> {
+  private receive(timed = true): Promise<FilesystemReply> {
     if (this.failure) return Promise.reject(this.failure);
     if (this.closing) return Promise.reject(new SandboxOperationError('cancelled', 'Filesystem control is closed.'));
     if (this.pending) throw new SandboxStateError('Filesystem control admits exactly one request/reply pair.');
     this.pending = Promise.withResolvers<FilesystemReply>();
+    if (timed) this.armDeadline();
+    return this.pending.promise;
+  }
+
+  private armDeadline(): void {
     this.timer = setTimeout(() => this.fail(new SandboxOperationError('deadline_exceeded', 'Filesystem helper response lease expired.')),
       this.configuration.control.leaseTimeoutMs);
     this.timer.unref();
-    return this.pending.promise;
   }
 
   private exchange(request: FilesystemRequest): Promise<FilesystemReply> {
@@ -89,9 +114,9 @@ export class FilesystemChannel {
   }
 
   private scheduleHeartbeat(): void {
-    if (this.closing || this.failure) return;
+    if (!this.renewing || this.closing || this.failure) return;
     this.heartbeatTimer = setTimeout(() => {
-      if (this.closing || this.failure) return;
+      if (!this.renewing || this.closing || this.failure) return;
       if (this.pending) { this.scheduleHeartbeat(); return; }
       this.heartbeatActual = this.exchange({ operation: 'heartbeat' }).then((reply) => {
         if (reply.kind !== 'heartbeat') throw new SandboxOperationError('driver_failure', 'Filesystem helper returned an invalid heartbeat.');

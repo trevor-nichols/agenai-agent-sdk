@@ -1,6 +1,22 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { failure } from './evidence.mjs';
 
+const operations = new WeakMap();
+
+export function originalOwnerCleanup(owner, operation) {
+  let owned = operations.get(owner);
+  if (!owned) { owned = new Map(); operations.set(owner, owned); }
+  let task = owned.get(operation);
+  if (!task || task.state === 'rejected') {
+    task = { state: 'entered' }; owned.set(operation, task);
+    task.actual = Promise.resolve().then(() => owner[operation]()).then((value) => {
+      task.state = 'fulfilled'; return value;
+    }, (error) => { task.state = 'rejected'; throw error; });
+    void task.actual.catch(() => {});
+  }
+  return task.actual;
+}
+
 export async function settleOwnerCleanup(owner, operation, { cleanupMs, observe }) {
   const deadline = performance.now() + cleanupMs;
   let lastFailure;
@@ -14,7 +30,7 @@ export async function settleOwnerCleanup(owner, operation, { cleanupMs, observe 
     try {
       const remainingMs = deadline - performance.now();
       if (remainingMs <= 0) throw new Error('Captured cleanup observation budget expired before the next observation.');
-      await Promise.race([owner[operation](), new Promise((_, reject) => {
+      await Promise.race([originalOwnerCleanup(owner, operation), new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('Captured cleanup observation budget expired; the original owner retains its actual task.')), remainingMs);
       })]);
       terminal = observation('fulfilled');

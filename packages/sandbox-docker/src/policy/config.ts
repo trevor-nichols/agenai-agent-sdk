@@ -5,50 +5,23 @@
 import { z } from 'zod/v4';
 import { normalizeZodValidationError } from '@agen-ai/validation/zod';
 import { SandboxValidationError } from '@agen-ai/sandbox';
-import type { SandboxResources } from '@agen-ai/sandbox';
 import { parseSandboxSpillDirectory } from '@agen-ai/sandbox/node';
 import { DOCKER_SANDBOX_PROFILES } from './profiles.js';
-import type { DockerSandboxProfile } from './profiles.js';
-import type { DockerSandboxDataset } from '../datasets/types.js';
+import type { DockerDesktopSandboxProfile, DockerSandboxProfile } from './profiles.js';
+import { desktopSharedAuthorityDigest } from './coordination.js';
 import { datasetsSchema, MAX_DATASET_ATTACHMENTS, normalizeDatasets } from '../datasets/configuration.js';
 import { captureDockerRouteAuthority } from '../network/routeAuthority.js';
-import type { DockerRouteAuthority, DockerRouteAuthorityBinding, DockerRouteAuthorityIdentity } from '../network/routeAuthority.js';
-
-export interface DockerSandboxEgressOptions {
-  readonly imageDigest: string;
-  readonly protocol: 'agenai.sandbox.egress-connect.v1';
-  readonly user: Readonly<{ uid: number; gid: number }>;
-  readonly broker: Readonly<{ resources: SandboxResources; temporaryBytes: number }>;
-  readonly relay: Readonly<{ resources: SandboxResources; temporaryBytes: number }>;
-  readonly routeAuthority: DockerRouteAuthority;
-  readonly control: Readonly<{ heartbeatMs: number; leaseTimeoutMs: number }>;
-}
+import type {
+  DockerDesktopRouteAuthorityBinding, DockerRouteAuthorityBinding, DockerRouteAuthorityIdentity,
+} from '../network/routeAuthority.js';
+import { captureDesktopCoordinatorAuthority } from '../network/desktop/coordinator/binding.js';
+import type { DesktopCoordinatorBinding } from '../network/desktop/coordinator/binding.js';
+import { DESKTOP_COORDINATOR_POLICY } from '../network/desktop/coordinator/policy.js';
+import type { DockerSandboxBackendOptions, DockerSandboxEgressOptions } from './options.js';
+import type { DockerSandboxDataset } from '../datasets/types.js';
 
 export interface DockerSandboxEgressConfig extends Omit<DockerSandboxEgressOptions, 'routeAuthority'> {
   readonly routeAuthority: DockerRouteAuthorityIdentity;
-}
-
-export interface DockerSandboxFilesystemOptions {
-  readonly imageDigest: string;
-  readonly protocol: 'agenai.sandbox.filesystem.v1';
-  readonly executable: '/usr/local/bin/agenai-sandbox-files';
-  readonly layout: 'agenai.sandbox.workspace.v1';
-  readonly user: Readonly<{ uid: number; gid: number }>;
-  readonly resources: SandboxResources;
-  readonly temporaryBytes: number;
-  readonly control: Readonly<{ heartbeatMs: number; leaseTimeoutMs: number }>;
-}
-
-export interface DockerSandboxBackendOptions {
-  readonly profile?: DockerSandboxProfile;
-  readonly endpoint: string;
-  readonly namespace: string;
-  readonly imageDigest: string;
-  readonly spillDirectory: string;
-  readonly user: Readonly<{ uid: number; gid: number }>;
-  readonly datasets?: readonly DockerSandboxDataset[];
-  readonly egress?: DockerSandboxEgressOptions;
-  readonly filesystem?: DockerSandboxFilesystemOptions;
 }
 
 interface DockerSandboxBaseConfig extends Omit<DockerSandboxBackendOptions, 'egress'> {
@@ -57,10 +30,21 @@ interface DockerSandboxBaseConfig extends Omit<DockerSandboxBackendOptions, 'egr
 }
 
 /** Captured host authority is correlated with, but separate from, inert configuration identity. */
-export type DockerSandboxConfig = DockerSandboxBaseConfig & (
+type DockerLegacySandboxConfig = DockerSandboxBaseConfig & (
   | Readonly<{ egress: undefined; egressAuthority: undefined }>
   | Readonly<{ egress: DockerSandboxEgressConfig; egressAuthority: DockerRouteAuthorityBinding }>
-);
+) & Readonly<{ coordination?: undefined; coordinator?: undefined }>;
+
+type DockerCoordinatedConfig = Omit<DockerSandboxBaseConfig, 'profile'> & Readonly<{
+  profile: DockerDesktopSandboxProfile;
+  egress: DockerSandboxEgressConfig & Readonly<{ routeAuthority: DockerDesktopRouteAuthorityBinding['identity'] }>;
+  egressAuthority: DockerDesktopRouteAuthorityBinding;
+  coordination: DesktopCoordinatorBinding['identity'];
+}>;
+
+export type DockerCoordinatedSandboxConfig = DockerCoordinatedConfig & Readonly<{ coordinator: DesktopCoordinatorBinding }>;
+export type DockerCoordinatedCleanupConfig = DockerCoordinatedConfig & Readonly<{ coordinator?: undefined }>;
+export type DockerSandboxConfig = DockerLegacySandboxConfig | DockerCoordinatedSandboxConfig | DockerCoordinatedCleanupConfig;
 
 const userSchema = z.strictObject({ uid: z.number().int().min(1).max(262_143), gid: z.number().int().min(1).max(262_143) });
 const imageDigestSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/u);
@@ -105,11 +89,15 @@ function configurationSchema(identity?: DockerRouteAuthorityIdentity) { return z
   }); }
 
 function plainData(value: unknown, captureAuthority: (value: unknown) => DockerRouteAuthorityIdentity,
-  path: readonly string[] = [], budget = { nodes: 1024 }): unknown {
+  path: readonly string[] = [], budget = { nodes: 1024 }, captureCoordinator?: (value: unknown) => void): unknown {
   if (--budget.nodes < 0 || path.length > 8) {
     throw new SandboxValidationError([{ code: 'invalid_input', path: [], message: 'Docker configuration exceeds its bounded data graph' }]);
   }
   if (path.length === 2 && path[0] === 'egress' && path[1] === 'routeAuthority') return captureAuthority(value);
+  if (path.length === 1 && path[0] === 'coordinator' && captureCoordinator !== undefined) {
+    captureCoordinator(value);
+    return undefined;
+  }
   if (value === null || typeof value !== 'object') return value;
   if (Array.isArray(value)) {
     const maximum = path.length === 1 && path[0] === 'datasets' ? MAX_DATASET_ATTACHMENTS : 128;
@@ -123,7 +111,7 @@ function plainData(value: unknown, captureAuthority: (value: unknown) => DockerR
       if (!entry || !('value' in entry) || !entry.enumerable) {
         throw new SandboxValidationError([{ code: 'invalid_input', path: [], message: 'Docker dataset entries must be enumerable data properties' }]);
       }
-      result.push(plainData(entry.value, captureAuthority, [...path, String(index)], budget));
+      result.push(plainData(entry.value, captureAuthority, [...path, String(index)], budget, captureCoordinator));
     }
     return result;
   }
@@ -136,17 +124,21 @@ function plainData(value: unknown, captureAuthority: (value: unknown) => DockerR
     if (typeof key !== 'string' || key === '__proto__' || property === undefined || !('value' in property) || !property.enumerable) {
       throw new SandboxValidationError([{ code: 'invalid_input', path: [], message: 'Docker configuration cannot contain accessors, symbols or hidden fields' }]);
     }
-    result[key] = plainData(property.value, captureAuthority, [...path, key], budget);
+    result[key] = plainData(property.value, captureAuthority, [...path, key], budget, captureCoordinator);
   }
   return result;
 }
 
-export function parseDockerConfig(input: unknown): DockerSandboxConfig {
+export function parseDockerConfig(input: unknown): DockerLegacySandboxConfig {
   let egressAuthority: DockerRouteAuthorityBinding | undefined;
   const captured = plainData(input, (authority) => {
     egressAuthority = captureDockerRouteAuthority(authority);
     return egressAuthority.identity;
   });
+  return parseCapturedDockerConfig(captured, egressAuthority);
+}
+
+function parseCapturedDockerConfig(captured: unknown, egressAuthority: DockerRouteAuthorityBinding | undefined): DockerLegacySandboxConfig {
   const configSchema = configurationSchema(egressAuthority?.identity);
   const result = configSchema.safeParse(captured);
   if (!result.success) throw new SandboxValidationError(normalizeZodValidationError(configSchema, result.error, captured));
@@ -164,6 +156,52 @@ export function parseDockerConfig(input: unknown): DockerSandboxConfig {
       relay: Object.freeze({ ...egress.relay, resources: Object.freeze(egress.relay.resources) }), control: Object.freeze(egress.control) }),
     egressAuthority,
   });
+}
+
+export function parseCoordinatedDockerConfig(input: unknown): DockerCoordinatedSandboxConfig {
+  let egressAuthority: DockerRouteAuthorityBinding | undefined;
+  let coordinator: DesktopCoordinatorBinding | undefined;
+  const captured = plainData(input, (authority) => {
+    egressAuthority = captureDockerRouteAuthority(authority);
+    return egressAuthority.identity;
+  }, [], { nodes: 1024 }, (authority) => {
+    coordinator = captureDesktopCoordinatorAuthority(authority);
+  });
+  if (coordinator === undefined || captured === null || typeof captured !== 'object' || !('coordinator' in captured)) {
+    throw new SandboxValidationError([{ code: 'invalid_input', path: ['coordinator'],
+      message: 'Coordinated Desktop configuration requires an original active coordinator capability' }]);
+  }
+  const { coordinator: _coordinator, ...memberConfiguration } = captured;
+  const config = parseCapturedDockerConfig(memberConfiguration, egressAuthority);
+  return Object.freeze({ ...bindCoordinatedConfig(config, coordinator), coordinator });
+}
+
+export function parseCoordinatedDockerCleanupConfig(input: unknown,
+  binding: Pick<DesktopCoordinatorBinding, 'endpoint' | 'configurationDigest' | 'identity'>): DockerCoordinatedCleanupConfig {
+  return bindCoordinatedConfig(parseDockerConfig(input), binding);
+}
+
+function bindCoordinatedConfig(config: DockerLegacySandboxConfig,
+  coordinator: Pick<DesktopCoordinatorBinding, 'endpoint' | 'configurationDigest' | 'identity'>): DockerCoordinatedCleanupConfig {
+  if (config.profile === 'linux-x64' || config.egress === undefined || config.egressAuthority?.kind !== 'local_docker_desktop') {
+    throw new SandboxValidationError([{ code: 'invalid_input', path: ['profile'],
+      message: 'Coordinated Docker configuration requires an explicit Desktop profile and prepared Desktop restricted egress' }]);
+  }
+  if (config.endpoint !== coordinator.endpoint
+    || desktopSharedAuthorityDigest(config.egressAuthority.identity) !== coordinator.configurationDigest) {
+    throw new SandboxValidationError([{ code: 'invalid_input', path: ['coordinator'],
+      message: 'Member route authority must match the original coordinator endpoint and shared Desktop preparation' }]);
+  }
+  const controls = [config.egress.control, ...(config.filesystem === undefined ? [] : [config.filesystem.control])];
+  if (controls.some((control) => control.heartbeatMs !== DESKTOP_COORDINATOR_POLICY.heartbeatMs
+    || control.leaseTimeoutMs !== DESKTOP_COORDINATOR_POLICY.leaseTimeoutMs)) {
+    throw new SandboxValidationError([{ code: 'invalid_input', path: ['egress', 'control'],
+      message: 'Coordinated Desktop members require the fixed helper control timing composition' }]);
+  }
+  const coordination = Object.freeze({ ...coordinator.identity, generation: Object.freeze({ ...coordinator.identity.generation }) });
+  return Object.freeze({ ...config, profile: config.profile, egressAuthority: config.egressAuthority,
+    egress: Object.freeze({ ...config.egress, routeAuthority: config.egressAuthority.identity }),
+    coordination });
 }
 
 export const DOCKER_BACKEND_ID = 'agenai-docker';

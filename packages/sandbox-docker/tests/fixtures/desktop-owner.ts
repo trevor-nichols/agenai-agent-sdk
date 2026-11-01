@@ -226,7 +226,8 @@ test('sealed host drift fences an import before its source enters and whole-owne
   const owner = fixture.backend().reserve(restrictedRequest(), { kind: 'in_process' });
   try {
     const sandbox = await owner.start();
-    const changed = desktopHostDocument(); changed.host.boot.seconds += 1;
+    const original = desktopHostDocument();
+    const changed = { ...original, interfaces: [...original.interfaces, { index: 26, name: 'utun4', flags: 0x8051, addresses: [] }] };
     await writeFile(fixture.hostDocumentPath, JSON.stringify(changed));
     const uploaded = fixture.uploadedArchives.length;
     let sourceEntered = false;
