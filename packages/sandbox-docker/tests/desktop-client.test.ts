@@ -292,7 +292,7 @@ test('Desktop renewal fencing suppresses a queued heartbeat and the real helper 
     output.write(frame, callback);
   } });
   const helper = runDesktopVmObserverControl({ input, output: helperOutput, configuration });
-  void helper.then(() => { output.end(); outbound.end(); }, () => { output.destroy(); outbound.destroy(); });
+  void helper.then(() => { output.end(); transport.end(); }, () => { output.destroy(); transport.destroy(); });
   try {
     await client.ready;
     client.stopRenewal();
