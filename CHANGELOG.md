@@ -5,10 +5,11 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
-## 0.4.8 - Unreleased
+## 0.4.8 - 2026-11-01
 
-An opt-in Docker Desktop coordinator for concurrent restricted sandboxes, with matching coordinated
-package versions. Agent Protocol V13 and recovery v3 are unchanged; existing Desktop v6 and Linux v5
+All ten published packages are coordinated at `0.4.8`; npm `beta` and `latest` select this release.
+The opt-in Docker Desktop coordinator supports concurrent restricted sandboxes. See the
+[v0.4.8 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.8). Agent Protocol V13 and recovery v3 are unchanged; existing Desktop v6 and Linux v5
 owners keep their behavior. Read [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md).
 
 - Add `createDockerDesktopCoordinator`, `prepareDockerDesktopCoordinatorHelper` and
@@ -43,7 +44,7 @@ owners keep their behavior. Read [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md).
 
 ## 0.4.7 - 2026-10-29
 
-All ten published packages are coordinated at `0.4.7`; npm `beta` and `latest` select this release.
+At publication, all ten packages were coordinated at `0.4.7`, with npm `beta` and `latest` selecting that release.
 Complete API-key and existing-login Docker recipes are available for all five native harnesses.
 See the [v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7). Protocol V13 and recovery v3 remain unchanged; read
 [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md).

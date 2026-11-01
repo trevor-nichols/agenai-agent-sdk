@@ -1,9 +1,10 @@
 # Upgrading to 0.4.8
 
-`0.4.8` is an unpublished coordinated ten-package candidate; npm `latest` and `beta` remain
-`0.4.7`. Agent Protocol V13 and recovery v3 are unchanged. Existing callers of
+`0.4.8` is the published coordinated ten-package release; npm `latest` and `beta` select it.
+Agent Protocol V13 and recovery v3 are unchanged. Existing callers of
 `createDockerSandboxBackend` keep their behavior and recovery identities. Keep every SDK package
-at `0.4.8` together when testing the candidate.
+at `0.4.8` together and use the matching built `v0.4.8` checkout for examples and helper preparation.
+See the [v0.4.8 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.8).
 
 ## Concurrent restricted Desktop members
 
