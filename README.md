@@ -2,18 +2,20 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-Current source prepares an **unpublished coordinated 0.4.11 candidate** with bounded CONNECT
-User-Agent compatibility. The recorded installed native-arm64 Desktop/Grok 1.0.70 tuple passed
-remote catalog refresh with Grok 4.7 advertised, and the native Linux standalone and packed-consumer
-checks pass. Read the [candidate upgrade guide](UPGRADING-TO-0.4.11.md) for exact scope and helper
-rebuilding. Updating host packages does not rebuild an existing helper image.
+The published coordinated **0.4.11 release** corrects bounded CONNECT User-Agent compatibility.
+npm `latest` and `beta` select `0.4.11` for all ten packages. Read the
+[v0.4.11 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.11) and
+[upgrade guide](UPGRADING-TO-0.4.11.md) for exact scope and explicit helper rebuilding.
+The recorded native-arm64 Desktop/Grok 1.0.70 tuple passed no-Task remote catalog refresh with
+Grok 4.7 advertised. Updating host packages does not rebuild an existing helper image or qualify
+model execution. Agent Protocol V13, recovery v3 and backend identities are unchanged.
+The retained example handoff preserves its original candidate observations; this README, the
+upgrade guide and registry tags describe completed publication.
 
-The published coordinated **0.4.10 release** provides explicit cleanup-only recovery for uncertain
-Docker Desktop container creates. npm `latest` and `beta` select `0.4.10` for all ten packages.
-Read the [v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10),
-[upgrade guide](UPGRADING-TO-0.4.10.md) and [operator runbook](examples/sandbox/recovery/README.md).
-The original authority, caller-owned lifecycle, helper succession and exact native-arm64 profile
-remain mandatory. Agent Protocol V13, neutral recovery v3 and existing backend identities are unchanged.
+The preceding **0.4.10 release** introduced explicit cleanup-only recovery for uncertain Docker
+Desktop container creates. Its [release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10),
+[upgrade guide](UPGRADING-TO-0.4.10.md) and [operator runbook](examples/sandbox/recovery/README.md)
+retain the original authority, caller-owned lifecycle, helper succession and exact native profile.
 
 > The preceding **ten-package 0.4.9 release** introduced original-owner cleanup retry after entered
 > Docker Desktop coordinator failures. Its [release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9),
@@ -70,8 +72,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten current source packages are coordinated at `0.4.11`; the published family
-remains `0.4.10`.
+schema assets. All ten published packages and current source are coordinated at `0.4.11`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -135,21 +136,22 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published `0.4.10` runtime:
+Install the published `0.4.11` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.10
+pnpm add @agen-ai/agent-runtime@0.4.11
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.10 @agen-ai/agent-protocol@0.4.10
+pnpm add @agen-ai/validation@0.4.11 @agen-ai/agent-protocol@0.4.11
 ```
 
 Keep every SDK package at the same coordinated version, including optional packages. Use the
-published `v0.4.10` checkout for published-release examples. Read
+published `v0.4.11` checkout for published-release examples. Read
+[UPGRADING-TO-0.4.11.md](UPGRADING-TO-0.4.11.md) for CONNECT compatibility and helper rebuilding,
 [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) for administrative recovery,
 [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the cleanup patch,
 [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for Desktop coordination and typed stream closure,

@@ -5,7 +5,7 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
-## 0.4.11 - Unreleased
+## 0.4.11 - 2026-11-03
 
 - Retain exact tagged workflow archives before native catalog admission. A reviewed packaging-only
   receipt can admit those same bytes through guarded recovery; original native evidence and all
@@ -19,13 +19,12 @@ and a local Docker backend, for ten coordinated packages.
 - Require exact retained native evidence before publication, including artifact recovery. An
   explicit repack receipt permits inert documentation and dependency-map ordering changes only
   after reconstructing the original payload commitments; conditional export order is preserved.
-- Pass native Linux standalone and packed-consumer checks. All ten packages remain an unpublished
-  candidate; existing helper images require the explicit [rebuild/upgrade steps](UPGRADING-TO-0.4.11.md).
+- Pass native Linux standalone and packed-consumer checks. All ten packages are published at
+  `0.4.11` under npm `beta` and `latest`; existing helper images require the explicit [rebuild/upgrade steps](UPGRADING-TO-0.4.11.md).
 
 ## 0.4.10 - 2026-11-02
 
-All ten published packages are coordinated at `0.4.10`; npm `beta` and `latest`
-select this release. See the [v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10).
+At publication, all ten packages were coordinated at `0.4.10` under npm `beta` and `latest`. See the [v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10).
 Read [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the
 [operator runbook](examples/sandbox/recovery/README.md). Agent Protocol V13, neutral sandbox
 recovery v3 and existing backend identities are unchanged.
