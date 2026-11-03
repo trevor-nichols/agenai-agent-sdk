@@ -92,7 +92,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.4.10");
+assert.equal(rootManifest.version, "0.4.11");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
@@ -151,6 +151,14 @@ const sandboxDockerInspection = releaseWorkflow.indexOf("Inspect Docker sandbox 
 const sandboxDockerPublish = releaseWorkflow.indexOf("Publish Docker sandbox");
 const releaseSetVerification = releaseWorkflow.indexOf("Verify complete release artifact set");
 assert.ok(releaseSetVerification >= 0 && releaseSetVerification < validationInspection);
+const nativeCatalogVerification = releaseWorkflow.indexOf("Verify reviewed native catalog qualification");
+const archiveRetention = releaseWorkflow.indexOf("Retain exact pre-publication artifacts");
+assert.ok(releaseSetVerification < archiveRetention
+  && archiveRetention < nativeCatalogVerification
+  && nativeCatalogVerification < validationInspection);
+const nativeCatalogStep = parseYaml(releaseWorkflow).jobs.publish.steps.find(({ name }) => name === "Verify reviewed native catalog qualification");
+assert.equal(nativeCatalogStep.if, undefined, "Native catalog qualification must also gate original-artifact recovery.");
+assert.equal(nativeCatalogStep.run.trim(), 'node scripts/release/verify-native-catalog.mjs --release-ref "$RELEASE_REF" --release-directory release');
 assert.match(releaseWorkflow, /node scripts\/release\/verify-release-set\.mjs --release-ref "\$RELEASE_REF"/u);
 assert.match(releaseWorkflow, /--release-ref "\$RELEASE_REF" --release-directory release/u);
 assert.ok(validationInspection >= 0 && validationInspection < validationPublish);
@@ -175,6 +183,9 @@ assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 1
 assert.match(releaseWorkflow, /git diff --exit-code/u);
 assert.match(releaseWorkflow, /scripts\/architecture\/agent-sdk-consumers/u);
 assert.match(releaseWorkflow, /scripts\/development\/agent-sandbox-qualification/u);
+assert.match(releaseWorkflow, /scripts\/release\/verify-native-catalog\.mjs \\/u);
+assert.match(releaseWorkflow, /scripts\/release\/native-catalog \\/u);
+assert.match(releaseWorkflow, /qualification\/native-catalog \\/u);
 assert.equal(releaseWorkflow.match(/npm publish \.\/release\//gu)?.length, 10);
 assert.match(releaseWorkflow, /packages\/agent-orchestration/u);
 assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/agent-orchestration pack/u);

@@ -81,3 +81,62 @@ test("publication workflow fails a rejected batch after joining every entered ve
   assert.equal(events.filter((event) => event.kind === "start").length, 3);
   assert.equal(events.filter((event) => event.kind === "end").length, 3);
 });
+
+test("normal and original-artifact recovery retain exact archives before native admission and require admission before publication", () => {
+  const gate = workflow.match(/      - name: Verify reviewed native catalog qualification\n([\s\S]*?)(?=\n      - name:)/u);
+  assert(gate, "A common native catalog gate is required.");
+  assert.doesNotMatch(gate[1], /^        if:/mu, "Original-artifact recovery must not skip native evidence admission.");
+  assert.match(gate[1], /node scripts\/release\/verify-native-catalog\.mjs\s+--release-ref "\$RELEASE_REF" --release-directory release/u);
+  const position = workflow.indexOf(gate[0]);
+  assert(workflow.indexOf("Verify complete release artifact set") < position);
+  const retention = workflow.indexOf("Retain exact pre-publication artifacts");
+  assert(workflow.indexOf("Verify complete release artifact set") < retention);
+  assert(retention < position);
+  assert(position < workflow.indexOf("Inspect validation publication"));
+  const recoveryGuard = workflow.match(/git diff --exit-code[\s\S]*?\n              examples/u)?.[0];
+  assert(recoveryGuard, "Guarded recovery must retain source applicability checks.");
+  for (const guarded of ["scripts/release/verify-native-catalog.mjs", "scripts/release/native-catalog", "qualification/native-catalog"]) {
+    assert(recoveryGuard.includes(`              ${guarded} \\`), `Recovery does not fence ${guarded}.`);
+  }
+});
+
+test("guarded recovery permits only the selected version's reviewed repack receipt", async (t) => {
+  const command = workflow.match(/git diff --exit-code[\s\S]*?\n              examples/u)?.[0];
+  assert(command, "Guarded recovery must compare the immutable source.");
+  const root = await mkdtemp(path.join(os.tmpdir(), "agenai-repack-guard-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const git = (...args) => execFileAsync("git", args, { cwd: root });
+  const commit = async () => {
+    await git("add", ".");
+    await git("-c", "user.name=Release fixture", "-c", "user.email=release@example.invalid",
+      "-c", "core.hooksPath=/dev/null", "commit", "--no-gpg-sign", "-m", "fixture");
+  };
+  const paths = [
+    "qualification/native-catalog/0.4.11-repack.json",
+    "qualification/native-catalog/0.4.11.json",
+    "qualification/native-catalog/configuration-0.4.11.json",
+    "qualification/native-catalog/0.4.12-repack.json",
+    "qualification/native-catalog/nested/0.4.11-repack.json",
+    "packages/sandbox-docker/runtime.js",
+    "scripts/release/verify-native-catalog.mjs",
+    "examples/catalog.ts",
+  ];
+  await git("init", "--quiet");
+  for (const file of paths) {
+    await mkdir(path.dirname(path.join(root, file)), { recursive: true });
+    await writeFile(path.join(root, file), "original\n");
+  }
+  await commit();
+  const releaseCommit = (await git("rev-parse", "HEAD")).stdout.trim();
+  for (const [index, file] of paths.entries()) {
+    await t.test(file, async () => {
+      await git("reset", "--hard", releaseCommit);
+      await writeFile(path.join(root, file), "reviewed change\n");
+      await commit();
+      const execution = () => execFileAsync("bash", ["-c", command], { cwd: root,
+        env: { ...process.env, release_commit: releaseCommit, root_version: "0.4.11" } });
+      if (index === 0) await execution();
+      else await assert.rejects(execution, { code: 1 });
+    });
+  }
+});

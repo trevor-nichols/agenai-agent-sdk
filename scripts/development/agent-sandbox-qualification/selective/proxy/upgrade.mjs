@@ -126,7 +126,7 @@ export async function forwardUpgrade({ request, socket, head, socketPath, record
     });
     if (input.remainingHead.length) { await observeInput(input.remainingHead); peer.write(input.remainingHead); }
     const observingInput = pipeline(socket, async function* (source) {
-      for await (const chunk of source) { await observeInput(chunk); yield chunk; }
+      for await (const chunk of source.iterator({ destroyOnReturn: false })) { await observeInput(chunk); yield chunk; }
     }, upstreamInput, { signal: activeSignal });
     void observingInput.catch(() => { socket.destroy(); peer.destroy(); });
     // A client that closes while its write waits for drain has cancelled the upgrade, as one that closes while idle has.

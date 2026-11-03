@@ -2,6 +2,12 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
+Current source prepares an **unpublished coordinated 0.4.11 candidate** with bounded CONNECT
+User-Agent compatibility. The recorded installed native-arm64 Desktop/Grok 1.0.70 tuple passed
+remote catalog refresh with Grok 4.7 advertised, and the native Linux standalone and packed-consumer
+checks pass. Read the [candidate upgrade guide](UPGRADING-TO-0.4.11.md) for exact scope and helper
+rebuilding. Updating host packages does not rebuild an existing helper image.
+
 The published coordinated **0.4.10 release** provides explicit cleanup-only recovery for uncertain
 Docker Desktop container creates. npm `latest` and `beta` select `0.4.10` for all ten packages.
 Read the [v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10),
@@ -64,7 +70,8 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages and current source are coordinated at `0.4.10`.
+schema assets. All ten current source packages are coordinated at `0.4.11`; the published family
+remains `0.4.10`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -743,7 +750,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching `v0.4.10` checkout:
+run from the built matching candidate checkout, or `v0.4.10` when using published packages:
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \

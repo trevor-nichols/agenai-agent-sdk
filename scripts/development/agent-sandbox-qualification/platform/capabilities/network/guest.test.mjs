@@ -84,3 +84,36 @@ test('guest reports an IPv6 UDP submission without waiting for a reply and joins
   const observed = await bounded(received.promise, 'No real UDP datagram was observed.');
   assert.equal(observed.bytes.toString(), probe); assert.equal(observed.address, '::1');
 });
+
+test('guest transports exact bounded CONNECT bytes, uses Node default-port Host and applies custom headers before TLS', { timeout: 12_000 }, async (t) => {
+  const peers = new Set(); const headers = [];
+  const server = createServer((peer) => {
+    peers.add(peer); peer.on('error', () => {}); peer.once('close', () => peers.delete(peer));
+    let bytes = Buffer.alloc(0);
+    peer.on('data', (chunk) => {
+      bytes = Buffer.concat([bytes, chunk]); assert(bytes.length <= 16 * 1024);
+      if (bytes.indexOf('\r\n\r\n') < 0) return;
+      const wire = bytes.toString('ascii'); headers.push(wire);
+      const status = wire.includes('DeniedClient') ? 403 : bytes.length > 8192 ? 431 : 200;
+      peer.end(`HTTP/1.1 ${status} Qualification\r\nConnection: close\r\n\r\n`);
+    });
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(3128, '127.0.0.1', resolve); });
+  t.after(async () => { for (const peer of peers) peer.destroy(); if (server.listening) await new Promise((resolve) => server.close(resolve)); });
+  const request = await guest(t);
+  const node = await request({ kind: 'node-connect', hostname: 'fixture.example', port: 443, userAgent: 'ExampleClient/2.3 (system; +https://client.example)' });
+  assert.deepEqual(node.result, { status: 200, closed: true }); assert.equal(node.ok, true);
+  assert.match(headers[0], /^CONNECT fixture\.example:443 HTTP\/1\.1\r\n/u);
+  assert.match(headers[0], /\r\nhost: fixture\.example\r\n/u);
+  assert.match(headers[0], /\r\nuser-agent: ExampleClient\/2\.3 \(system; \+https:\/\/client\.example\)\r\n/u);
+  const proxyHeader = 'CONNECT fixture.example:443 HTTP/1.1\r\nHost: fixture.example:443\r\nUser-Agent: DeniedClient/1\r\n\r\n';
+  const tls = await request({ kind: 'tls', hostname: 'fixture.example', port: 443, path: '/', proxyHeader });
+  assert.equal(tls.ok, false); assert.equal(tls.error.name, 'AssertionError'); assert.equal(headers[1], proxyHeader);
+  const prefix = 'CONNECT fixture.example:443 HTTP/1.1\r\nHost: fixture.example:443\r\nUser-Agent: ';
+  const value = 'a'.repeat(8192 - Buffer.byteLength(prefix + '\r\n\r\n'));
+  const wire = prefix + value + '\r\n\r\n';
+  assert.equal((await request({ kind: 'proxy', header: wire })).result.status, 200);
+  assert.equal((await request({ kind: 'proxy', header: prefix + value + 'a\r\n\r\n' })).result.status, 431);
+  assert.equal(headers[2], wire); assert.equal(Buffer.byteLength(headers[2]), 8192); assert.equal(Buffer.byteLength(headers[3]), 8193);
+  assert.equal(headers.length, 4);
+});

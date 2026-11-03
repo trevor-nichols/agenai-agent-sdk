@@ -516,6 +516,29 @@ async function upgradeFixture(t, prefix, onUpgrade, options = {}) {
   return { socket, head, proxy, records };
 }
 
+test('an upgraded stdin half-close preserves delayed output until upstream EOF', { timeout: 10_000 }, async (t) => {
+  const initial = Buffer.from('initial output\n'), tail = Buffer.from('output after stdin EOF\n');
+  const input = Buffer.from('complete stdin\n'), inputEnded = Promise.withResolvers();
+  let received = Buffer.alloc(0), tailTimer;
+  t.after(() => clearTimeout(tailTimer));
+  const { socket, head, records } = await upgradeFixture(t, 'sandbox-input-half-close', (peer) => {
+    peer.write(initial);
+    peer.on('data', (bytes) => { received = Buffer.concat([received, bytes]); });
+    peer.once('end', () => {
+      inputEnded.resolve();
+      tailTimer = setTimeout(() => peer.end(tail), 50);
+    });
+  });
+  const chunks = [head]; socket.on('data', (bytes) => chunks.push(bytes));
+  const ended = once(socket, 'end');
+  socket.end(input);
+  await Promise.all([inputEnded.promise, ended]);
+  assert.deepEqual(received, input);
+  assert.deepEqual(Buffer.concat(chunks), Buffer.concat([initial, tail]));
+  const [record] = await records();
+  assert.equal(record.failure, null);
+});
+
 test('an observed upgrade keeps its received tail when late input meets Docker full close', { timeout: 10_000 }, async (t) => {
   const first = Buffer.alloc(1024, 1); const second = Buffer.alloc(1024, 2);
   const late = Buffer.from('{"kind":"heartbeat"}\n');

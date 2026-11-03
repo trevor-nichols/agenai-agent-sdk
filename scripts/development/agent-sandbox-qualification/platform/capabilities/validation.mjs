@@ -24,10 +24,10 @@ export function endpoint(value) {
   physicalPath(value.slice(7));
 }
 
-export function user(value) {
+export function user(value, identities = [1000]) {
   keys(value, ['uid', 'gid']);
-  assert.equal(value.uid, 1000, 'Qualification user must be 1000:1000.');
-  assert.equal(value.gid, 1000, 'Qualification user must be 1000:1000.');
+  assert(identities.includes(value.uid) && value.gid === value.uid,
+    `Qualification user must be ${identities.map((identity) => `${identity}:${identity}`).join(' or ')}.`);
 }
 
 export function resources(value) {

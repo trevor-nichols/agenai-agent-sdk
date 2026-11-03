@@ -1,0 +1,463 @@
+{
+  "format": "agenai.native-catalog.v1",
+  "version": "0.4.11",
+  "provenance": {
+    "kind": "native",
+    "runId": "20261103-catalog-r3",
+    "observedAt": "2026-11-03T16:22:04.335Z",
+    "sourceRevision": "36a48b6311b886cb2718563ae63ccba8bfc308c7",
+    "reportSha256": "96cd5c6363972b5bf9123712230eedef65760b6f20064be27245753feff7e9e1"
+  },
+  "tuple": {
+    "profile": "desktop-apple-virtualization-native-arm64",
+    "controller": {
+      "os": "darwin",
+      "architecture": "arm64",
+      "node": "24.18.0",
+      "macos": "26.5.1"
+    },
+    "daemon": {
+      "desktop": "4.54.0",
+      "build": 212467,
+      "engine": "29.1.2",
+      "api": "1.52",
+      "kernel": "6.12.54-linuxkit",
+      "architecture": "arm64"
+    },
+    "workloadImage": "sha256:d37b995fa50e42c916e155122879403df1660ec72c94c4cc27c1f18e2c3b6d23",
+    "native": {
+      "executable": "/usr/local/bin/grok",
+      "version": "1.0.70",
+      "bytes": 166639048,
+      "sha256": "3aa36883574b263088e5addffe241f55430e8daaee1a0c4934b02180007a9761"
+    },
+    "bootstrap": {
+      "executable": "/usr/local/bin/agenai-credential-bootstrap",
+      "bytes": 880544,
+      "sha256": "a6bfacfc40a62c0eb18155f5669c24195e9bb285781bb7f90603ae596753aed1"
+    },
+    "helper": {
+      "image": "sha256:1065017c9cd33efd9e6dd7cb55f4970984fba7ff32eedc26f064e93b85d7749f",
+      "baseImage": "docker.io/library/node@sha256:4ff2a3b4ac84d69e1f1a7f49d683e9675babea1828bdeeec1af0c6b7690ed0a4",
+      "protocol": "agenai.sandbox.egress-connect.v1",
+      "user": {
+        "uid": 65534,
+        "gid": 65534
+      },
+      "sourceDigest": "sha256:734b16f0b2932a432e54c43d69f16fcabb210eaa533df44eedf601886ad24cc5"
+    }
+  },
+  "bindings": {
+    "archives": [
+      {
+        "name": "@agen-ai/validation",
+        "bytes": 6210,
+        "sha256": "a8e66ee304f9867586c6834f2fd9070ee00a57fc30ebc9a9b589e0b5e97d968d"
+      },
+      {
+        "name": "@agen-ai/agent-protocol",
+        "bytes": 227249,
+        "sha256": "dabef11208e72f67658d5513dffa4c39dd3a7acc0dea93056d3f3db463aabc1e"
+      },
+      {
+        "name": "@agen-ai/agent-runtime",
+        "bytes": 121337,
+        "sha256": "baa455fd904e42528dd5364d39e8e588f4c4a5b7ac0dcfb200e93674b0cadd58"
+      },
+      {
+        "name": "@agen-ai/agent-orchestration",
+        "bytes": 83211,
+        "sha256": "b85d264b3cc84990d152823bdb21c6d8bf5f650a0909e9cf0e8ff8f4051ea617"
+      },
+      {
+        "name": "@agen-ai/acp-transport",
+        "bytes": 106530,
+        "sha256": "ae9894f9d247f5717eabd64bd6d356ff3e30fa00faca860d91d7ca6cf50d6d4c"
+      },
+      {
+        "name": "@agen-ai/provider-acp",
+        "bytes": 102537,
+        "sha256": "10b4e9aa511cb3fcce096276a7a76ecaff4dfc5cbac70c55926a655dea9ec807"
+      },
+      {
+        "name": "@agen-ai/acp-registry",
+        "bytes": 77793,
+        "sha256": "95bf3a9d85011066a8039fd3b506300a903ee3c9779c800cedee3ddfd1637088"
+      },
+      {
+        "name": "@agen-ai/agent-history",
+        "bytes": 104761,
+        "sha256": "a1ee3d86f7c363cddc76c60db0634a9cc6bfd9d0a0fd6ce3486892c479d1e008"
+      },
+      {
+        "name": "@agen-ai/sandbox",
+        "bytes": 80237,
+        "sha256": "03e5d5cdee01e3c91589f8eed885e2a223cca2fb35fc688eee175cc01b635b7f"
+      },
+      {
+        "name": "@agen-ai/sandbox-docker",
+        "bytes": 332920,
+        "sha256": "5dd942ef9a91ef3bdfcef1acefd57ce3a9d1a223c6ccb4d60feb47e80caa1b63"
+      }
+    ],
+    "payloads": [
+      {
+        "name": "@agen-ai/validation",
+        "files": 5,
+        "bytes": 17970,
+        "sha256": "c95c65ed895424d03887e73614f20336bfd1bcb7ad94dbe47b86a7934218a956"
+      },
+      {
+        "name": "@agen-ai/agent-protocol",
+        "files": 249,
+        "bytes": 2503114,
+        "sha256": "dbe4eafee82cfb12f214c504d101ed99002d53c55e9398488d8f4126ddb66b52"
+      },
+      {
+        "name": "@agen-ai/agent-runtime",
+        "files": 133,
+        "bytes": 509513,
+        "sha256": "313b3bea12047d0a2a0a82a7e21a60a20e57ef7bd8a06fa3220496d3e66f89fa"
+      },
+      {
+        "name": "@agen-ai/agent-orchestration",
+        "files": 143,
+        "bytes": 318477,
+        "sha256": "7d4a0eb0468ae7a18b68f8f727b83248c300b0a73345a240caae295e49a3c8ba"
+      },
+      {
+        "name": "@agen-ai/acp-transport",
+        "files": 45,
+        "bytes": 811081,
+        "sha256": "e1abcb4a3300ed5f77952f71bcf16c423ce13a9ec94079f3a93d74eeacf54383"
+      },
+      {
+        "name": "@agen-ai/provider-acp",
+        "files": 135,
+        "bytes": 330702,
+        "sha256": "7fa05ea3f777053b087cb33f77c16f8b1f009cdf4df5fb31839d315ad4f5c982"
+      },
+      {
+        "name": "@agen-ai/acp-registry",
+        "files": 115,
+        "bytes": 289187,
+        "sha256": "b808634de5e5e4db27314230bac52d82178d22a3421cb0557bfd2db6f89369b3"
+      },
+      {
+        "name": "@agen-ai/agent-history",
+        "files": 211,
+        "bytes": 437489,
+        "sha256": "6c2a2147b226de8c873d28ded2618cd9bd032b7c47ca0e4c3617681e01897eb6"
+      },
+      {
+        "name": "@agen-ai/sandbox",
+        "files": 147,
+        "bytes": 289825,
+        "sha256": "7501ac7e580ff4d435a7256796c3e8bf94cb014c051874620d71eb363f76281b"
+      },
+      {
+        "name": "@agen-ai/sandbox-docker",
+        "files": 323,
+        "bytes": 1541718,
+        "sha256": "097e335644eed3abd518900ca6dac232d435cfee18f3cbd744f5cda14603bc2d"
+      }
+    ],
+    "harness": {
+      "files": 213,
+      "bytes": 2040744,
+      "sha256": "ffe16137bdeda0f96069abb237bd2d9cd778b11448ef3dc0fd067ee19b030ef2"
+    },
+    "configuration": {
+      "bytes": 7879,
+      "sha256": "bfbbfaf672dcd22e067c863bd196a09104127abf2ecdee09196bb1e6ed657670"
+    },
+    "helper": {
+      "files": [
+        {
+          "path": "helpers/broker.js",
+          "sha256": "06563ddc9bef8d7a0acdc45b2a113d4e8698c92a18e8ecb9c9d3fd2af065a5fd"
+        },
+        {
+          "path": "helpers/connection.js",
+          "sha256": "146e766a2ccfe297fa8454c71c68edc4890125d42765a02c10272b286342de74"
+        },
+        {
+          "path": "helpers/control.js",
+          "sha256": "ea9f69b5f508f54d40e34fd84616cb93c6a24758357fc0ac2d4f13ddf9a7ace7"
+        },
+        {
+          "path": "helpers/entry.js",
+          "sha256": "768d22601d3cd0a15e39c1035427e3c9cf07447bb9279ec47c80c4863d8263a1"
+        },
+        {
+          "path": "helpers/protocol.js",
+          "sha256": "e6c3b6337b9dee23b2b2e9ff5e045785aa0ceb05ef306419cd781e045a1e785f"
+        },
+        {
+          "path": "helpers/relay.js",
+          "sha256": "17b31eb4326ec11755cf5a482c4917b688ecb310373d7afa09a8b12f5fbdf91d"
+        },
+        {
+          "path": "helpers/socketDirectory.js",
+          "sha256": "88fc3f640c2a2bd8014e2535e24623fe9ad18490c4fd89f59262553cddbb0086"
+        },
+        {
+          "path": "network/address.js",
+          "sha256": "2e8242ecdc38e5f27f8235903bc5763d1d2cd23496c7ed3c17c4ae6b3b2ee10e"
+        },
+        {
+          "path": "network/policy.js",
+          "sha256": "54af3f5a9ce70995b36b6780d7faec2066460486bb8ead371cc3c9589fbf3fea"
+        }
+      ],
+      "sourceDigest": "sha256:734b16f0b2932a432e54c43d69f16fcabb210eaa533df44eedf601886ad24cc5"
+    }
+  },
+  "guestResult": {
+    "format": "agenai.native-catalog-guest.v1",
+    "observation": "native",
+    "status": "passed",
+    "runtime": {
+      "node": "v24.18.0",
+      "platform": "linux",
+      "architecture": "arm64",
+      "uid": 65534,
+      "gid": 65534
+    },
+    "transport": {
+      "status": "initialized",
+      "protocolVersion": 1
+    },
+    "refresh": {
+      "status": "confirmed",
+      "endpoint": "https://cli-chat-proxy.grok.com/v1/models",
+      "events": [
+        {
+          "sequence": 1,
+          "kind": "http_fetch_started",
+          "count": null
+        },
+        {
+          "sequence": 2,
+          "kind": "http_fetch_completed",
+          "count": 4
+        },
+        {
+          "sequence": 3,
+          "kind": "prefetch_completed",
+          "count": 4
+        },
+        {
+          "sequence": 4,
+          "kind": "catalog_requested",
+          "count": null
+        },
+        {
+          "sequence": 5,
+          "kind": "catalog_observed",
+          "count": null
+        }
+      ]
+    },
+    "authentication": {
+      "status": "acknowledged",
+      "method": "cached_token",
+      "cachedTokenAdvertised": true,
+      "cachedTokenRequested": true,
+      "acknowledged": true
+    },
+    "catalog": {
+      "currentModelId": "grok-4.7",
+      "availableModels": [
+        {
+          "modelId": "grok-4.7",
+          "name": "Grok 4.7",
+          "_meta": {
+            "totalContextTokens": 256000,
+            "agentType": "grok-build-plan",
+            "supportsReasoningEffort": true,
+            "reasoningEffort": "high",
+            "reasoningEfforts": [
+              {
+                "id": "xhigh",
+                "value": "xhigh",
+                "default": false,
+                "label": "Extra High",
+                "description": "Maximum reasoning for the hardest tasks."
+              },
+              {
+                "id": "high",
+                "value": "high",
+                "default": true,
+                "label": "High",
+                "description": "Thorough reasoning and quality. Recommended."
+              },
+              {
+                "id": "medium",
+                "value": "medium",
+                "default": false,
+                "label": "Medium",
+                "description": "Strong quality with a faster turnaround."
+              },
+              {
+                "id": "low",
+                "value": "low",
+                "default": false,
+                "label": "Low",
+                "description": "Fastest responses. Best for simple tasks."
+              }
+            ]
+          }
+        },
+        {
+          "modelId": "grok-4.7-build-fast",
+          "name": "Grok 4.7 Fast",
+          "_meta": {
+            "totalContextTokens": 256000,
+            "agentType": "grok-build-plan",
+            "supportsReasoningEffort": true,
+            "reasoningEffort": "high",
+            "reasoningEfforts": [
+              {
+                "id": "xhigh",
+                "value": "xhigh",
+                "default": false,
+                "label": "Extra High",
+                "description": "Maximum reasoning for the hardest tasks."
+              },
+              {
+                "id": "high",
+                "value": "high",
+                "default": true,
+                "label": "High",
+                "description": "Thorough reasoning and quality. Recommended."
+              },
+              {
+                "id": "medium",
+                "value": "medium",
+                "default": false,
+                "label": "Medium",
+                "description": "Strong quality with a faster turnaround."
+              },
+              {
+                "id": "low",
+                "value": "low",
+                "default": false,
+                "label": "Low",
+                "description": "Fastest responses. Best for simple tasks."
+              }
+            ]
+          }
+        },
+        {
+          "modelId": "grok-4.6",
+          "name": "Grok 4.6",
+          "_meta": {
+            "totalContextTokens": 256000,
+            "agentType": "grok-build-plan",
+            "supportsReasoningEffort": true,
+            "reasoningEffort": "high",
+            "reasoningEfforts": [
+              {
+                "id": "xhigh",
+                "value": "xhigh",
+                "default": false,
+                "label": "Extra High",
+                "description": "Highest effort and reasoning level"
+              },
+              {
+                "id": "high",
+                "value": "high",
+                "default": true,
+                "label": "High",
+                "description": "Higher implementation quality with extensive reasoning"
+              },
+              {
+                "id": "medium",
+                "value": "medium",
+                "default": false,
+                "label": "Medium",
+                "description": "Balanced effort with standard implementation and testing"
+              },
+              {
+                "id": "low",
+                "value": "low",
+                "default": false,
+                "label": "Low",
+                "description": "Quick, fast implementations"
+              }
+            ]
+          }
+        },
+        {
+          "modelId": "grok-4.5",
+          "name": "Grok 4.5",
+          "_meta": {
+            "totalContextTokens": 256000,
+            "agentType": "grok-build-plan",
+            "supportsReasoningEffort": true,
+            "reasoningEffort": "high",
+            "reasoningEfforts": [
+              {
+                "id": "high",
+                "value": "high",
+                "default": true,
+                "label": "High",
+                "description": "Highest implementation quality with extensive reasoning"
+              },
+              {
+                "id": "medium",
+                "value": "medium",
+                "default": false,
+                "label": "Medium",
+                "description": "Balanced effort with standard implementation and testing"
+              },
+              {
+                "id": "low",
+                "value": "low",
+                "default": false,
+                "label": "Low",
+                "description": "Quick, fast implementations"
+              }
+            ]
+          }
+        }
+      ],
+      "grok47Advertised": true
+    },
+    "requests": [
+      "initialize",
+      "authenticate",
+      "_x.ai/auth/info",
+      "_x.ai/models/list"
+    ],
+    "modelTasks": 0,
+    "termination": {
+      "code": 0,
+      "signal": null,
+      "forced": false
+    },
+    "cleanup": {
+      "nativeJoined": true,
+      "stdoutJoined": true,
+      "stderrJoined": true
+    },
+    "failure": null
+  },
+  "host": {
+    "freshProfile": true,
+    "accessOnly": true,
+    "loginOrRefresh": false,
+    "modelTasks": 0,
+    "cleanup": {
+      "originalOwner": true,
+      "nativeJoined": true,
+      "readerJoined": true,
+      "observersJoined": true,
+      "sandboxDestroyed": true,
+      "independentAbsence": true,
+      "resourceCount": 8,
+      "absentCount": 8
+    }
+  }
+}
