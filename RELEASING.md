@@ -1,12 +1,12 @@
 # Releasing
 
-The three core packages and seven optional packages form published coordinated `0.4.9`.
-npm `beta` and `latest` select `0.4.9` for all ten names; see the
-[v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9).
-Current source prepares the unpublished coordinated `0.4.10` candidate. Read
+The three core packages and seven optional packages form published coordinated `0.4.10`.
+npm `beta` and `latest` select `0.4.10` for all ten names; see the
+[v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10).
+Current source matches this explicit administrative recovery release. Read
 [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the [recovery runbook](examples/sandbox/recovery/README.md).
 Agent Protocol V13, neutral recovery v3 and existing backend identities remain unchanged.
-The additive administrative controller uses separately named temporary envelopes and a separately
+The administrative controller uses separately named temporary envelopes and a separately
 prepared observer; retain exact original helpers and all prior evidence when adopting it.
 Future separately authorized releases publish the complete set in dependency order:
 
@@ -27,7 +27,8 @@ The coordinated `0.4.8` release retains Agent Protocol V13 and recovery v3 from 
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the current cleanup patch,
+[UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) for the current administrative recovery release,
+[UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for original-owner cleanup retry,
 [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for coordinator adoption,
 [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md) for the preceding authentication-parity release,
 [UPGRADING-TO-0.4.6.md](UPGRADING-TO-0.4.6.md) for the preceding credential-reuse release,

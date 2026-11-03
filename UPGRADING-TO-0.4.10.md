@@ -1,10 +1,11 @@
-# Preparing for 0.4.10
+# Upgrading to 0.4.10
 
-`0.4.10` is an unpublished coordinated ten-package candidate. Published npm `latest` and `beta`
-remain `0.4.9`. Use a reviewed source export or its identified local archives for this candidate;
-do not replace a published archive or infer publication from these instructions.
+The coordinated ten-package `0.4.10` release is published under npm `latest` and `beta`.
+Original archives, manifests, provenance, installed consumers, helper preparation, signatures and
+stable tags passed verification. Upgrade the complete package family together; retain original
+qualification identities and never replace an immutable published archive.
 
-The candidate adds explicit administrative recovery for a coordinated native-arm64 Desktop
+The release adds explicit administrative recovery for a coordinated native-arm64 Desktop
 container create whose dispatch entered but whose outcome remained unknown. Ordinary cleanup
 continues to preserve uncertainty when no authoritative settlement exists. The new controller
 grants cleanup only and never restarts Docker itself or replays the create.
@@ -33,7 +34,7 @@ separate-process confirmation. Its local `0.4.9` development archive is distinct
 to those qualified runtime/native bytes. Documentation and version changes do not broaden the
 native platform evidence.
 
-Publication requires the separate release workflow and authorization. Consumer adoption then
+Publication completed through the verified release workflow. Consumer adoption then
 selects the published or explicitly approved local candidate, preserves the original failure
 evidence, verifies the retained incident's clean result and reruns its remaining application
 gates. No consumer source or dependency migration is performed by this preparation.

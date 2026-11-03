@@ -5,9 +5,10 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
-## 0.4.10 - Unreleased
+## 0.4.10 - 2026-11-02
 
-Current source prepares all ten packages at `0.4.10`; npm `beta` and `latest` remain `0.4.9`.
+All ten published packages and current source are coordinated at `0.4.10`; npm `beta` and `latest`
+select this release. See the [v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10).
 Read [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the
 [operator runbook](examples/sandbox/recovery/README.md). Agent Protocol V13, neutral sandbox
 recovery v3 and existing backend identities are unchanged.
@@ -26,8 +27,7 @@ recovery v3 and existing backend identities are unchanged.
 
 ## 0.4.9 - 2026-11-01
 
-Release `0.4.9` published all ten coordinated packages; npm `beta` and `latest`
-select this cleanup patch. See the [v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9).
+At publication, release `0.4.9` coordinated all ten packages under npm `beta` and `latest`. See the [v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9).
 Agent Protocol V13, recovery v3, journal format, native helpers and backend identities are unchanged.
 Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md).
 
