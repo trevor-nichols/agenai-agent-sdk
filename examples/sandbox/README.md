@@ -1,7 +1,7 @@
 # Explicit sandbox workflows
 
-Current example source targets the matching unpublished **0.4.10 candidate**. Use its reviewed
-source/local archives together; published npm 0.4.9 users retain the matching `v0.4.9` examples.
+Current example source targets the matching unpublished **0.4.11 candidate**. Use its reviewed
+source/local archives together; published npm 0.4.10 users retain the matching `v0.4.10` examples.
 The [administrative recovery runbook](recovery/README.md) covers the exact native-arm64
 uncertain-create recovery composition and caller-owned graceful lifecycle.
 The [concurrency workflow](concurrency/README.md) runs two coordinated Desktop members and a
@@ -9,7 +9,7 @@ replacement under one coordinator.
 The existing peer/directory/dataset workflows below remain explicit baseline compositions.
 Their historical 0.4.4 native reports do not certify changed candidate bytes. Recovery now uses
 v3 with Linux `engine-1.52-v5-linux-x64`, Desktop `engine-1.52-v6-*` and coordinated Desktop
-`engine-1.52-v7-*` revisions; read the [candidate upgrade guide](../../UPGRADING-TO-0.4.10.md) and the [0.4.5 recovery migration guide](../../UPGRADING-TO-0.4.5.md) before changing controllers.
+`engine-1.52-v7-*` revisions; read the [0.4.10 administrative recovery guide](../../UPGRADING-TO-0.4.10.md) and the [0.4.5 recovery migration guide](../../UPGRADING-TO-0.4.5.md) before changing controllers.
 
 The [recorded Mac baseline](HANDOFF.md#recorded-mac-baseline-2026-10-26) covers the exact
 unpublished `packed-r2` candidate on M3/macOS 26.5.1, Node 24.18.0 and Docker Desktop 4.54.0 /

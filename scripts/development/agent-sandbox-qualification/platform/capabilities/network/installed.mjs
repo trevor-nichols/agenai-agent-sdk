@@ -92,9 +92,9 @@ export async function ready(run, context, options = {}) {
   return { ...reserved, sandbox, session, facts: facts.result };
 }
 
-export async function positive(opened, context) {
+export async function positive(opened, context, proxyHeader) {
   const expected = context.config.capabilities.network.positive;
-  const response = await opened.session.request({ kind: 'tls', ...expected });
+  const response = await opened.session.request({ kind: 'tls', ...expected, ...(proxyHeader === undefined ? {} : { proxyHeader }) });
   assert.equal(response.ok, true, JSON.stringify(response));
   assert.equal(response.result.authorized, true); assert.equal(response.result.status, expected.status);
   assert.equal(response.result.bodyBytes, expected.bodyBytes); assert.equal(response.result.bodySha256, expected.bodySha256);

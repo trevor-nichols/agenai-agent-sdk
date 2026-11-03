@@ -1,20 +1,6 @@
 import assert from 'node:assert/strict';
-
-export const networkCaseNames = Object.freeze([
-  'baseline-isolated-no-helper', 'baseline-outbound-marker-controls', 'verified-tls-exact-body',
-  'restricted-process-isolation', 'connect-unlisted-and-canonical-forms',
-  'host-and-special-host-reachable-denials', 'vm-gateway-reachable-denials',
-  'public-numbered-sibling-reachable-denials', 'allowed-dns-public-local-denied',
-  'direct-no-proxy-tcp-udp', 'ipv6-unsupported-no-bypass',
-  'broker-loss-active-tunnel', 'relay-loss-active-tunnel',
-  'broker-control-eof-active-tunnel', 'relay-control-eof-active-tunnel',
-  'route-observer-loss-active-tunnel', 'route-observer-control-eof-active-tunnel',
-  'host-observer-unavailable', 'authority-loss-during-resource-create',
-  'authority-loss-before-process-admission', 'observed-owned-route-addition',
-  'foreign-member-authority-fence', 'authority-loss-during-stop',
-  'paused-controller-native-lease', 'original-checkpoint-fresh-cleanup-only',
-  'withheld-native-control-acknowledgement',
-]);
+import { networkSelection } from './selection.mjs';
+export { networkCaseNames } from './selection.mjs';
 
 export function networkScenarioBudget(manifest) {
   const egress = manifest.network.egress.configuration;
@@ -31,9 +17,10 @@ export function networkScenarioBudget(manifest) {
   assert(nanoCpus <= 4_000_000_000 && memoryBytes <= 4 * 1024 ** 3,
     'Restricted scenarios exceed four CPUs or four GiB.');
   // Two baseline owners start one container each; all other owners can start four.
-  const maximumScopes = 2 + (networkCaseNames.length - 2) * 4 + 3;
-  assert.equal(maximumScopes, 101);
-  return Object.freeze({ nanoCpus, memoryBytes, maximumCases: networkCaseNames.length, maximumScopes,
+  const selection = networkSelection(manifest.network.selection);
+  const maximumScopes = selection.cases.reduce((total, name) => total
+    + (name === 'baseline-isolated-no-helper' || name === 'baseline-outbound-marker-controls' ? 1 : 4), 3);
+  return Object.freeze({ nanoCpus, memoryBytes, maximumCases: selection.cases.length, maximumScopes,
     maximumConcurrentOwners: 1, maximumConcurrentFixtures: 3, observerCapacity: 128,
     roles: Object.freeze(roles.map(Object.freeze)) });
 }

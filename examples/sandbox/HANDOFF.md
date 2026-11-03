@@ -1,10 +1,62 @@
 # SDK sandbox platform and consumer handoff
 
-The published coordinated release is **0.4.9**, with Agent Protocol **V13** unchanged.
-Current source prepares an **unpublished coordinated 0.4.10** candidate with the administrative
-recovery API below. Use an exact governed source export and its ten locally packed archives.
+The published coordinated release is **0.4.10**, with Agent Protocol **V13** unchanged.
+Current source prepares an **unpublished coordinated 0.4.11** candidate with bounded CONNECT
+User-Agent admission. Its installed helper, native catalog discovery and native Linux standalone/
+packed checks pass for the exact retained inputs below. Use an exact governed source export and
+its ten reviewed archives; the [upgrade guide](../../UPGRADING-TO-0.4.11.md) explains helper rebuilding.
 Earlier candidate and platform records retain their original source and archive identities.
 Publication, Docker Desktop configuration and Battle Bots adoption remain separate actions.
+
+## CONNECT and native catalog candidate (2026-11-03)
+
+The old installed helper rejected the unchanged Grok 1.0.70 CONNECT request with HTTP 403 because
+it carried an ordinary `User-Agent`. The rebuilt candidate accepted that exact request with 200;
+all fourteen selected compatibility/TLS/denial/isolation cases passed with original-owner cleanup.
+This is a bounded header correction, with destination, Host, credentials and framing policy preserved.
+
+The subsequent accepted `20261103-catalog-r3` run positively observed the remote model HTTP fetch
+and usable prefetch before listing models. The existing account's access-only cached-token route
+was acknowledged and privately checked. It advertised `grok-4.7`, `grok-4.7-build-fast`, `grok-4.6`
+and `grok-4.5`; 4.7/Fast exposed 256,000 context tokens and low/medium/high/xhigh reasoning with
+high default. The native process exited normally with code zero. No session or model Task was created.
+All readers, observers and proxy joined; all eight owned resources were independently absent and
+four daemon scopes were empty. Borrowed images were preserved. Two earlier failed native attempts
+remain excluded, with their successful original-owner cleanup retained separately.
+
+| Qualified input | Exact identity |
+| --- | --- |
+| Controller | macOS 26.5.1, native arm64, Node 24.18.0 |
+| Docker | Desktop 4.54.0 build 212467, Engine 29.1.2/API 1.52, Linux 6.12.54-linuxkit, Apple Virtualization native arm64 |
+| Grok executable | 1.0.70, 166,639,048 bytes; SHA-256 `3aa36883574b263088e5addffe241f55430e8daaee1a0c4934b02180007a9761` |
+| Workload image | `sha256:d37b995fa50e42c916e155122879403df1660ec72c94c4cc27c1f18e2c3b6d23` |
+| Helper image | `sha256:1065017c9cd33efd9e6dd7cb55f4970984fba7ff32eedc26f064e93b85d7749f` |
+| Nine-file helper source | `sha256:734b16f0b2932a432e54c43d69f16fcabb210eaa533df44eedf601886ad24cc5` |
+| Original native-used Docker archive | SHA-256 `5dd942ef9a91ef3bdfcef1acefd57ce3a9d1a223c6ccb4d60feb47e80caa1b63` |
+| Original native evidence | SHA-256 `610346f13558337f21b15b70c95f5ebe522b5b2ae6ef9e8e092d6b7292036bc1` |
+
+The complete [native record](../../qualification/native-catalog/0.4.11.json) retains all ten original
+archive/payload identities, native/bootstrap/helper bindings and cleanup. Its
+[configuration](../../qualification/native-catalog/configuration-0.4.11.json) SHA-256 is
+`bfbbfaf672dcd22e067c863bd196a09104127abf2ecdee09196bb1e6ed657670`.
+The [final repack receipt](../../qualification/native-catalog/0.4.11-repack.json) separately identifies
+the checked final archives and preserves the original commitments. Final documentation and inert
+dependency-map ordering are compared explicitly; no earlier archive is relabelled as the final pack.
+
+The full standalone `pnpm check` and separate sandbox-platform packed profile passed on native
+Linux x86_64/Node 24.18.0/pnpm 11.7.0 with Python 3.14.4, uv 0.11.28 and Bubblewrap 0.11.1.
+The Docker unit census is 460 passes and 29 explicit platform skips, with zero failures/cancellations.
+The full packed consumer exercised real native history readers against synthetic stores, without
+credentials or model calls. These checks are package/behavior proof, not a Linux Docker-network
+campaign or another authenticated catalog observation. Earlier Mac emulation failures remain
+historical and are not counted as native Linux passes.
+
+The consumer must separately adopt matching packages, explicitly rebuild/select its helper, and
+run fresh no-Task discovery through its actual account and infrastructure. Require confirmed remote
+refresh, Grok 4.7 advertised and complete cleanup. An absent/unproven 4.7 leaves Battle Bots blocked;
+never substitute 4.6/4.5. Catalog proof does not qualify Grok 1.0.70 Task execution, billing, other
+accounts or deployment; the existing task recipe remains pinned to 1.0.62. Publication must also
+admit its actual newly packed artifacts under [the release gate](../../RELEASING.md#native-catalog-admission).
 
 ## Administrative uncertain-create recovery (2026-11-02)
 

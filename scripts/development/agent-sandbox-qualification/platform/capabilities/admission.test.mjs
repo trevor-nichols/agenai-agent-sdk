@@ -133,6 +133,48 @@ test('network fixture DNS admission requires an explicit canonical name and usab
   await assert.rejects(lstat(context.options.output), { code: 'ENOENT' });
 });
 
+test('restricted HTTPS admits explicit compatibility and old-helper budgets with recorded non-root identities before effects', async (t) => {
+  for (const profile of profiles.slice(1)) {
+    const context = await fixture(t, profile);
+    for (const [selection, cases, scopes] of [['connect-compatibility', 14, 53], ['legacy-connect-baseline', 1, 7]]) {
+      const expected = capabilityManifest('restricted-https', context.baselineSha, context.platform);
+      expected.network.selection = selection;
+      for (const user of [expected.workload.user, expected.network.egress.configuration.user, expected.network.routeAuthority.vmObserver.user]) {
+        user.uid = 65534; user.gid = 65534;
+      }
+      await context.write(expected);
+      const selected = await admitPlatformRun({ ...context.options, row: 'restricted-https' });
+      assert.deepEqual(selected.capabilities.manifest, expected);
+      assert.equal(selected.capabilities.scenarioBudget.maximumCases, cases);
+      assert.equal(selected.capabilities.scenarioBudget.maximumScopes, scopes);
+      await assert.rejects(lstat(context.options.output), { code: 'ENOENT' });
+    }
+  }
+});
+
+test('network selection has no implicit effect on other rows and restricted identities remain closed', async (t) => {
+  const context = await fixture(t, profiles[1]);
+  const expected = capabilityManifest('restricted-https', context.baselineSha, context.platform);
+  for (const selection of ['automatic', null, ['connect-compatibility']]) {
+    await context.write({ ...expected, network: { ...expected.network, selection } });
+    await assert.rejects(admitPlatformRun({ ...context.options, row: 'restricted-https' }), /Unknown restricted HTTPS selection/u);
+  }
+  for (const location of ['workload', 'egress', 'observer']) for (const identity of [{ uid: 0, gid: 0 }, { uid: 1001, gid: 1001 }, { uid: 65534, gid: 1000 }]) {
+    const invalid = structuredClone(expected);
+    if (location === 'workload') invalid.workload.user = identity;
+    else if (location === 'egress') invalid.network.egress.configuration.user = identity;
+    else invalid.network.routeAuthority.vmObserver.user = identity;
+    await context.write(invalid);
+    await assert.rejects(admitPlatformRun({ ...context.options, row: 'restricted-https' }), /1000:1000 or 65534:65534/u);
+  }
+  const combined = capabilityManifest('combined', context.baselineSha, context.platform);
+  combined.network.selection = 'full'; await context.write(combined);
+  await assert.rejects(admitPlatformRun(context.options), /Unknown or missing capability manifest field/u);
+  delete combined.network.selection; combined.workload.user = { uid: 65534, gid: 65534 }; await context.write(combined);
+  await assert.rejects(admitPlatformRun(context.options), /1000:1000/u);
+  await assert.rejects(lstat(context.options.output), { code: 'ENOENT' });
+});
+
 test('files and preserving rows reject inputs that fit one workspace but exceed simultaneous scenario ownership', async (t) => {
   const context = await fixture(t);
   for (const row of ['live-files', 'preserve-internal']) {

@@ -3,7 +3,11 @@
 The three core packages and seven optional packages form published coordinated `0.4.10`.
 npm `beta` and `latest` select `0.4.10` for all ten names; see the
 [v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10).
-Current source matches this explicit administrative recovery release. Read
+Current source prepares the **unpublished coordinated 0.4.11 candidate** with bounded CONNECT
+User-Agent admission. Its retained installed-helper and native catalog qualification passed;
+publication still requires applicability to the actual release archives. See the
+[candidate upgrade guide](UPGRADING-TO-0.4.11.md); the version bump alone transfers no evidence.
+The published administrative recovery release remains `0.4.10`. Read
 [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the [recovery runbook](examples/sandbox/recovery/README.md).
 Agent Protocol V13, neutral recovery v3 and existing backend identities remain unchanged.
 The administrative controller uses separately named temporary envelopes and a separately
@@ -88,10 +92,56 @@ Retain the inspected source revision, complete ten-package archive set, package 
 check results for release review. The workflow checks the archive inventory and retains the exact
 ten tarballs with the source lockfile in a GitHub Actions artifact before its first publication,
 rejecting missing, duplicate, foreign or mixed-version artifacts. Packing the same source twice can
-order `package.json` dependency keys differently, so compare repacked manifests as parsed JSON and
-identify qualified archives by their retained hashes, not by a repack. Package checks and
+order `package.json` dependency keys differently. Compare only dependency-map ordering under the
+explicit native-catalog repack contract below; conditional export order remains significant. Identify
+qualified archives by their retained hashes, not by a repack. Package checks and
 synthetic ACP examples establish source behavior; they do not establish native agent, account,
 inference, installed-host or fleet qualification. Deployment remains a separate operation.
+
+## Native catalog admission
+
+Before any registry publication inspection, package upload or promotion, normal releases and guarded original-artifact
+recovery run the same Node/Python verifier, without accounts or installed workspace dependencies:
+
+```sh
+node scripts/release/verify-native-catalog.mjs \
+  --release-ref refs/tags/v0.4.11 --release-directory /absolute/retained-release-set
+```
+
+It reads the fixed [native evidence](qualification/native-catalog/0.4.11.json) and
+[configuration](qualification/native-catalog/configuration-0.4.11.json), requires native confirmed
+remote refresh and complete cleanup, and checks the exact helper, harness and relevant package
+payloads. Scripted, fallback-only, failed, unproven or stale evidence cannot admit publication.
+The [qualification handoff](examples/sandbox/HANDOFF.md#connect-and-native-catalog-candidate-2026-11-03)
+states the actual platform/account/model scope; ordinary CI does not recreate it.
+
+When final archive hashes differ, the fixed [repack receipt](qualification/native-catalog/0.4.11-repack.json)
+must identify both the unchanged original archive list and the exact final list, the original evidence
+SHA-256, final payload commitments and `purpose: nonbehavioral_packaging`. Only top-level README/LICENSE
+changes and dependency-map key ordering can be accepted. For each changed payload, `qualifiedManifests`
+retains its exact original `package.json` bytes. The verifier requires identical dependency values,
+preserves all other manifest fields and ordering, and substitutes only that manifest's census entry
+to reconstruct the original full payload commitment. It never sorts conditional exports or rewrites
+the original native evidence. Changed runtime, native assets, file modes, helper or harness requires
+affected qualification, not a new receipt claiming equivalence.
+
+The committed receipt qualifies the retained candidate set. It does **not** preapprove a future
+Actions pack. The release workflow packs fresh, admits the complete ten-archive inventory and
+retains those exact archives before native catalog admission. If the reviewed archive hashes differ,
+it stops before any registry inspection or package upload; artifact retention itself grants no
+publication authority.
+
+For a separately authorized release, independently inspect the original tagged artifact and establish
+the permitted payload comparison before reviewing and committing its exact replacement repack receipt.
+Guarded main recovery permits only the selected version's `qualification/native-catalog/VERSION-repack.json`
+receipt to differ from the immutable tag. The original native evidence/configuration, verifier, helper,
+harness, package-producing inputs and executable examples remain fenced. Resume with the original
+`original_artifact_id` and explicit release tag; restoration checks its original run/SHA/metadata and
+the mandatory native gate checks the reviewed receipt against those restored bytes. Recovery never
+repacks or replaces accepted uploads. Keep the preceding receipt and failed attempt as historical
+evidence. Do not describe local candidate validation as an end-to-end publication run.
+
+## Publication sequence
 
 Publication uploads remain sequential in dependency order after complete source/archive admission
 and original artifact retention. After all uploads, exact registry publication checks run in batches

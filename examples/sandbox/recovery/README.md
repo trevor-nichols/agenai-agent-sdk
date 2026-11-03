@@ -1,6 +1,6 @@
 # Administrative Desktop uncertain-create recovery
 
-This runbook describes the unpublished public `/node` recovery API. Published `0.4.9` does not expose it. MS004 qualified one exact installed candidate. Current source prepares an unpublished coordinated `0.4.10` candidate; publication remains separate. The [public qualification record](../HANDOFF.md#administrative-uncertain-create-recovery-2026-11-02) records its archive, observer, original cleanup and fresh-process confirmation. A later package must establish its applicability to those qualified runtime and native bytes before using that evidence.
+This runbook describes the public `/node` recovery API introduced in published `0.4.10`; published `0.4.9` does not expose it. The administrative recovery campaign qualified one exact installed development candidate. Current source prepares an unpublished coordinated `0.4.11` candidate; publication remains separate. The [public qualification record](../HANDOFF.md#administrative-uncertain-create-recovery-2026-11-02) records the original archive, observer, cleanup and fresh-process confirmation. A later package must establish its applicability to those qualified runtime and native bytes before using that evidence.
 
 The operation grants cleanup of one original coordinated generation. It cannot resume sandbox execution. Importing the API and constructing a controller are inert; `open()` acquires authority. The SDK never runs Docker Desktop stop/start, resets the Engine or builds its helper implicitly.
 

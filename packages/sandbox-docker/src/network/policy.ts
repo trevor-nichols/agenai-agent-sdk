@@ -67,12 +67,19 @@ export function parseConnect(header: string, destinations: readonly HttpsDestina
   if (endpoint.port > 65535 || !destinations.some((allowed) => allowed.hostname === endpoint.hostname && allowed.port === endpoint.port)) throw new TypeError('CONNECT destination is not admitted.');
   const fields = new Set<string>();
   for (const line of lines) {
-    const field = /^(Host|Connection|Proxy-Connection): ([\x20-\x7e]+)$/iu.exec(line);
-    if (!field || fields.has(field[1].toLowerCase())) throw new TypeError('Unexpected CONNECT header.');
-    fields.add(field[1].toLowerCase());
-    // Node's fetch (undici) takes Host from URL.host, which omits the default HTTPS port; the request line alone selects the destination.
-    const host = field[2] === `${endpoint.hostname}:${endpoint.port}` || (endpoint.port === 443 && field[2] === endpoint.hostname);
-    if (field[1].toLowerCase() === 'host' ? !host : !/^(close|keep-alive)$/iu.test(field[2])) throw new TypeError('Invalid CONNECT header value.');
+    const field = /^(Host|Connection|Proxy-Connection|User-Agent): ([\x20-\x7e]+)$/iu.exec(line);
+    if (!field) throw new TypeError('Unexpected CONNECT header.');
+    const name = field[1].toLowerCase();
+    const value = field[2];
+    if (fields.has(name)) throw new TypeError('Unexpected CONNECT header.');
+    fields.add(name);
+    if (name === 'host') {
+      // Node's fetch (undici) takes Host from URL.host, which omits the default HTTPS port; the request line alone selects the destination.
+      const host = value === `${endpoint.hostname}:${endpoint.port}` || (endpoint.port === 443 && value === endpoint.hostname);
+      if (!host) throw new TypeError('Invalid CONNECT header value.');
+    } else if (name === 'user-agent') {
+      if (!/[\x21-\x7e]/u.test(value)) throw new TypeError('Invalid CONNECT header value.');
+    } else if (!/^(close|keep-alive)$/iu.test(value)) throw new TypeError('Invalid CONNECT header value.');
   }
   if (!fields.has('host')) throw new TypeError('CONNECT requires an exact Host header.');
   return endpoint;

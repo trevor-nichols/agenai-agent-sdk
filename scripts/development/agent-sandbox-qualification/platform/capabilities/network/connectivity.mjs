@@ -95,7 +95,9 @@ export function connectivityCases(context) {
       for (const role of ['egress_broker', 'egress_relay', 'route_observer']) {
         const resource = identified(opened.owner.recoveryRecord, role);
         const actual = (await context.engine.request('GET', `/containers/${resource.identity.id}/json`)).data;
-        assert.equal(actual.Config.User, '1000:1000'); assert.equal(actual.HostConfig.Privileged, false);
+        const user = role === 'route_observer' ? context.config.capabilities.network.routeAuthority.vmObserver.user
+          : context.config.capabilities.network.egress.configuration.user;
+        assert.equal(actual.Config.User, `${user.uid}:${user.gid}`); assert.equal(actual.HostConfig.Privileged, false);
         assert.deepEqual(actual.HostConfig.CapDrop, ['ALL']); assert.equal(actual.HostConfig.PidMode, '');
         if (role === 'route_observer') { assert.equal(actual.HostConfig.NetworkMode, 'host'); assert.equal(actual.Mounts.length, 0); }
         else assert.equal(actual.Mounts.length, 1);

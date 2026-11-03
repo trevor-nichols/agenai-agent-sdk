@@ -6,7 +6,7 @@ function executable(value) {
   keys(value, ['path', 'sha256']); physicalPath(value.path); sha256(value.sha256);
 }
 
-export function routeAuthority(value, platform) {
+export function routeAuthority(value, platform, users = [1000]) {
   if (platform.profile === 'linux-x64') {
     keys(value, ['kind', 'stability', 'ipExecutable', 'pollIntervalMs', 'commandTimeoutMs', 'maxOutputBytes']);
     assert.equal(value.kind, 'local_linux_same_host', 'Linux profile requires Linux route authority.');
@@ -50,7 +50,7 @@ export function routeAuthority(value, platform) {
   assert.equal(value.vmObserver.observationProtocol, 'agenai.desktop-vm-network.v1');
   assert.equal(value.vmObserver.executable, '/usr/local/bin/agenai-sandbox-desktop-route');
   imageDigest(value.vmObserver.imageDigest); imageDigest(value.vmObserver.sourceDigest);
-  user(value.vmObserver.user); resources(value.vmObserver.resources); temporaryBytes(value.vmObserver.temporaryBytes);
+  user(value.vmObserver.user, users); resources(value.vmObserver.resources); temporaryBytes(value.vmObserver.temporaryBytes);
   integer(value.pollIntervalMs, 25, 60_000, 'pollIntervalMs');
   integer(value.commandTimeoutMs, 1, 30_000, 'commandTimeoutMs');
   integer(value.maxOutputBytes, 1024, 4 * 1024 ** 2, 'maxOutputBytes');

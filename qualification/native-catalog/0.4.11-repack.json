@@ -1,0 +1,189 @@
+{
+  "format": "agenai.native-catalog-repack.v1",
+  "evidenceSha256": "610346f13558337f21b15b70c95f5ebe522b5b2ae6ef9e8e092d6b7292036bc1",
+  "purpose": "nonbehavioral_packaging",
+  "qualifiedArchives": [
+    {
+      "name": "@agen-ai/validation",
+      "bytes": 6210,
+      "sha256": "a8e66ee304f9867586c6834f2fd9070ee00a57fc30ebc9a9b589e0b5e97d968d"
+    },
+    {
+      "name": "@agen-ai/agent-protocol",
+      "bytes": 227249,
+      "sha256": "dabef11208e72f67658d5513dffa4c39dd3a7acc0dea93056d3f3db463aabc1e"
+    },
+    {
+      "name": "@agen-ai/agent-runtime",
+      "bytes": 121337,
+      "sha256": "baa455fd904e42528dd5364d39e8e588f4c4a5b7ac0dcfb200e93674b0cadd58"
+    },
+    {
+      "name": "@agen-ai/agent-orchestration",
+      "bytes": 83211,
+      "sha256": "b85d264b3cc84990d152823bdb21c6d8bf5f650a0909e9cf0e8ff8f4051ea617"
+    },
+    {
+      "name": "@agen-ai/acp-transport",
+      "bytes": 106530,
+      "sha256": "ae9894f9d247f5717eabd64bd6d356ff3e30fa00faca860d91d7ca6cf50d6d4c"
+    },
+    {
+      "name": "@agen-ai/provider-acp",
+      "bytes": 102537,
+      "sha256": "10b4e9aa511cb3fcce096276a7a76ecaff4dfc5cbac70c55926a655dea9ec807"
+    },
+    {
+      "name": "@agen-ai/acp-registry",
+      "bytes": 77793,
+      "sha256": "95bf3a9d85011066a8039fd3b506300a903ee3c9779c800cedee3ddfd1637088"
+    },
+    {
+      "name": "@agen-ai/agent-history",
+      "bytes": 104761,
+      "sha256": "a1ee3d86f7c363cddc76c60db0634a9cc6bfd9d0a0fd6ce3486892c479d1e008"
+    },
+    {
+      "name": "@agen-ai/sandbox",
+      "bytes": 80237,
+      "sha256": "03e5d5cdee01e3c91589f8eed885e2a223cca2fb35fc688eee175cc01b635b7f"
+    },
+    {
+      "name": "@agen-ai/sandbox-docker",
+      "bytes": 332920,
+      "sha256": "5dd942ef9a91ef3bdfcef1acefd57ce3a9d1a223c6ccb4d60feb47e80caa1b63"
+    }
+  ],
+  "releaseArchives": [
+    {
+      "name": "@agen-ai/validation",
+      "bytes": 6210,
+      "sha256": "7e78b93375d85649b729b8ed02c3235248adc8490a746c0a96193877825b3801"
+    },
+    {
+      "name": "@agen-ai/agent-protocol",
+      "bytes": 227249,
+      "sha256": "0bd2cae6d7d99b23f0361f4ebc13846ed6f19ad9ad788b149c35fa922edaee43"
+    },
+    {
+      "name": "@agen-ai/agent-runtime",
+      "bytes": 121337,
+      "sha256": "a880c2411c76f2f8948c3663ddfd805d0d2ef0b7e75c7b9f2fc39bf0a3dada97"
+    },
+    {
+      "name": "@agen-ai/agent-orchestration",
+      "bytes": 83211,
+      "sha256": "f46f58f5d67832bca778ac01b6f84b9e07c78e0405d68ea063f090e462e61901"
+    },
+    {
+      "name": "@agen-ai/acp-transport",
+      "bytes": 106530,
+      "sha256": "d42b967a11c0e1a177f737d3a474d2dc8ec4c4b72b2e1611fa04aed2324542fb"
+    },
+    {
+      "name": "@agen-ai/provider-acp",
+      "bytes": 102536,
+      "sha256": "68fb40653cec69cbaf134ca432efcb54273a58a12a08859d205e9c2f54f0198f"
+    },
+    {
+      "name": "@agen-ai/acp-registry",
+      "bytes": 77793,
+      "sha256": "8fe08a18bddc20d2e9661235c6ab6aeda58f4e0748991f04484cd9960ef03a53"
+    },
+    {
+      "name": "@agen-ai/agent-history",
+      "bytes": 104761,
+      "sha256": "ca15c7994a80cf3182d31c15e01ab7901647bef2d4ae8a0e21f22fdb98cd5ccf"
+    },
+    {
+      "name": "@agen-ai/sandbox",
+      "bytes": 80235,
+      "sha256": "c32ee8d8e6832d3160bc4a347ca94174b33783b6612207adf115f28a43adcabe"
+    },
+    {
+      "name": "@agen-ai/sandbox-docker",
+      "bytes": 333014,
+      "sha256": "7c6c675183fa09186df58615da79e71630c03d1850d6b5ca76523f861200b8e9"
+    }
+  ],
+  "payloads": [
+    {
+      "name": "@agen-ai/validation",
+      "files": 5,
+      "bytes": 17970,
+      "sha256": "c95c65ed895424d03887e73614f20336bfd1bcb7ad94dbe47b86a7934218a956"
+    },
+    {
+      "name": "@agen-ai/agent-protocol",
+      "files": 249,
+      "bytes": 2503114,
+      "sha256": "dbe4eafee82cfb12f214c504d101ed99002d53c55e9398488d8f4126ddb66b52"
+    },
+    {
+      "name": "@agen-ai/agent-runtime",
+      "files": 133,
+      "bytes": 509513,
+      "sha256": "313b3bea12047d0a2a0a82a7e21a60a20e57ef7bd8a06fa3220496d3e66f89fa"
+    },
+    {
+      "name": "@agen-ai/agent-orchestration",
+      "files": 143,
+      "bytes": 318477,
+      "sha256": "346f116b8cd5f1e6e6da5f8611b2924983f85ded865c6fde3acb51b2a9f4cf4f"
+    },
+    {
+      "name": "@agen-ai/acp-transport",
+      "files": 45,
+      "bytes": 811081,
+      "sha256": "e1abcb4a3300ed5f77952f71bcf16c423ce13a9ec94079f3a93d74eeacf54383"
+    },
+    {
+      "name": "@agen-ai/provider-acp",
+      "files": 135,
+      "bytes": 330702,
+      "sha256": "271692bf5889e87b5063a7791163563c6c8b3137c1c8ac48fb1dd463ff826d03"
+    },
+    {
+      "name": "@agen-ai/acp-registry",
+      "files": 115,
+      "bytes": 289187,
+      "sha256": "b808634de5e5e4db27314230bac52d82178d22a3421cb0557bfd2db6f89369b3"
+    },
+    {
+      "name": "@agen-ai/agent-history",
+      "files": 211,
+      "bytes": 437489,
+      "sha256": "6c2a2147b226de8c873d28ded2618cd9bd032b7c47ca0e4c3617681e01897eb6"
+    },
+    {
+      "name": "@agen-ai/sandbox",
+      "files": 147,
+      "bytes": 289825,
+      "sha256": "3a7b206c5f1ffc17c5ed219067cec00dd77b7abdefb481e4e05f2f9dabe9646b"
+    },
+    {
+      "name": "@agen-ai/sandbox-docker",
+      "files": 323,
+      "bytes": 1541718,
+      "sha256": "d1d1be6f52e8a7366dfae39e2a0e585a1a4a4dcd4578f4483085061cb0879966"
+    }
+  ],
+  "qualifiedManifests": [
+    {
+      "name": "@agen-ai/agent-orchestration",
+      "manifest": "{\n  \"name\": \"@agen-ai/agent-orchestration\",\n  \"version\": \"0.4.11\",\n  \"private\": false,\n  \"description\": \"Optional policy-governed managed delegation for the AgenAI coding-agent runtime.\",\n  \"type\": \"module\",\n  \"sideEffects\": false,\n  \"license\": \"MIT\",\n  \"main\": \"./dist/index.js\",\n  \"module\": \"./dist/index.js\",\n  \"types\": \"./dist/index.d.ts\",\n  \"files\": [\n    \"dist/**/*.js\",\n    \"dist/**/*.d.ts\",\n    \"README.md\",\n    \"LICENSE\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    },\n    \"./store-adapter\": {\n      \"types\": \"./dist/store-adapter/index.d.ts\",\n      \"import\": \"./dist/store-adapter/index.js\"\n    },\n    \"./mcp\": {\n      \"types\": \"./dist/mcp/index.d.ts\",\n      \"import\": \"./dist/mcp/index.js\"\n    },\n    \"./package.json\": \"./package.json\"\n  },\n  \"dependencies\": {\n    \"zod\": \"4.4.3\",\n    \"@modelcontextprotocol/sdk\": \"1.29.0\",\n    \"@agen-ai/agent-protocol\": \"^0.4.11\",\n    \"@agen-ai/agent-runtime\": \"^0.4.11\",\n    \"@agen-ai/validation\": \"^0.4.11\"\n  },\n  \"devDependencies\": {\n    \"tsup\": \"^8.5.0\"\n  },\n  \"engines\": {\n    \"node\": \">=22.0.0\"\n  },\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/trevor-nichols/agenai-agent-sdk.git\",\n    \"directory\": \"packages/agent-orchestration\"\n  },\n  \"homepage\": \"https://github.com/trevor-nichols/agenai-agent-sdk#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/trevor-nichols/agenai-agent-sdk/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"provenance\": true\n  },\n  \"scripts\": {\n    \"build\": \"pnpm run clean && pnpm run build:runtime && pnpm run build:types\",\n    \"build:runtime\": \"tsup\",\n    \"build:types\": \"tsc --project tsconfig.json --emitDeclarationOnly --outDir dist\",\n    \"typecheck\": \"tsc --noEmit && tsc --project tsconfig.test.json --noEmit\",\n    \"test\": \"node --import tsx --test tests/*.test.ts\",\n    \"clean\": \"rimraf dist *.tsbuildinfo\"\n  }\n}"
+    },
+    {
+      "name": "@agen-ai/provider-acp",
+      "manifest": "{\n  \"name\": \"@agen-ai/provider-acp\",\n  \"version\": \"0.4.11\",\n  \"private\": false,\n  \"description\": \"Optional Agent Client Protocol provider for the AgenAI coding-agent runtime.\",\n  \"type\": \"module\",\n  \"sideEffects\": false,\n  \"license\": \"MIT\",\n  \"main\": \"./dist/index.js\",\n  \"module\": \"./dist/index.js\",\n  \"types\": \"./dist/index.d.ts\",\n  \"files\": [\n    \"dist/**/*.js\",\n    \"dist/**/*.d.ts\",\n    \"README.md\",\n    \"LICENSE\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    },\n    \"./node\": {\n      \"types\": \"./dist/node/index.d.ts\",\n      \"import\": \"./dist/node/index.js\"\n    },\n    \"./package.json\": \"./package.json\"\n  },\n  \"dependencies\": {\n    \"@agen-ai/agent-protocol\": \"^0.4.11\",\n    \"@agen-ai/acp-transport\": \"^0.4.11\",\n    \"@agen-ai/agent-runtime\": \"^0.4.11\"\n  },\n  \"devDependencies\": {\n    \"tsup\": \"^8.5.0\"\n  },\n  \"engines\": {\n    \"node\": \">=22.0.0\"\n  },\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/trevor-nichols/agenai-agent-sdk.git\",\n    \"directory\": \"packages/provider-acp\"\n  },\n  \"homepage\": \"https://github.com/trevor-nichols/agenai-agent-sdk#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/trevor-nichols/agenai-agent-sdk/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"provenance\": true\n  },\n  \"scripts\": {\n    \"build\": \"pnpm run clean && pnpm run build:runtime && pnpm run build:types\",\n    \"build:runtime\": \"tsup\",\n    \"build:types\": \"tsc --project tsconfig.json --emitDeclarationOnly --outDir dist\",\n    \"typecheck\": \"tsc --noEmit && tsc --project tsconfig.test.json --noEmit\",\n    \"test\": \"node --import tsx --test tests/*.test.ts\",\n    \"clean\": \"rimraf dist *.tsbuildinfo\"\n  }\n}"
+    },
+    {
+      "name": "@agen-ai/sandbox",
+      "manifest": "{\n  \"name\": \"@agen-ai/sandbox\",\n  \"version\": \"0.4.11\",\n  \"private\": false,\n  \"description\": \"Bounded provider-neutral sandbox ownership, processes, files and recovery contracts.\",\n  \"type\": \"module\",\n  \"sideEffects\": false,\n  \"license\": \"MIT\",\n  \"main\": \"./dist/index.js\",\n  \"module\": \"./dist/index.js\",\n  \"types\": \"./dist/index.d.ts\",\n  \"files\": [\n    \"dist/**/*.js\",\n    \"dist/**/*.d.ts\",\n    \"native/credentials/bootstrap.c\",\n    \"native/credentials/protocol.h\",\n    \"README.md\",\n    \"LICENSE\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    },\n    \"./backend\": {\n      \"types\": \"./dist/backend/index.d.ts\",\n      \"import\": \"./dist/backend/index.js\"\n    },\n    \"./acp\": {\n      \"types\": \"./dist/acp/index.d.ts\",\n      \"import\": \"./dist/acp/index.js\"\n    },\n    \"./node\": {\n      \"types\": \"./dist/node/index.d.ts\",\n      \"import\": \"./dist/node/index.js\"\n    },\n    \"./package.json\": \"./package.json\"\n  },\n  \"dependencies\": {\n    \"zod\": \"4.4.3\",\n    \"@agen-ai/validation\": \"^0.4.11\"\n  },\n  \"devDependencies\": {\n    \"tsup\": \"^8.5.0\",\n    \"@agen-ai/agent-protocol\": \"^0.4.11\",\n    \"@agen-ai/provider-acp\": \"^0.4.11\",\n    \"@agen-ai/agent-runtime\": \"^0.4.11\"\n  },\n  \"peerDependencies\": {\n    \"@agen-ai/provider-acp\": \"^0.4.11\"\n  },\n  \"peerDependenciesMeta\": {\n    \"@agen-ai/provider-acp\": {\n      \"optional\": true\n    }\n  },\n  \"engines\": {\n    \"node\": \">=22.0.0\"\n  },\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/trevor-nichols/agenai-agent-sdk.git\",\n    \"directory\": \"packages/sandbox\"\n  },\n  \"homepage\": \"https://github.com/trevor-nichols/agenai-agent-sdk#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/trevor-nichols/agenai-agent-sdk/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"provenance\": true\n  },\n  \"scripts\": {\n    \"build\": \"pnpm run clean && pnpm run build:runtime && pnpm run build:types\",\n    \"build:runtime\": \"tsup\",\n    \"build:types\": \"tsc --project tsconfig.json --emitDeclarationOnly --outDir dist\",\n    \"typecheck\": \"tsc --noEmit && tsc --project tsconfig.test.json --noEmit\",\n    \"test\": \"node --import tsx --test tests/*.test.ts\",\n    \"clean\": \"rimraf dist *.tsbuildinfo\"\n  }\n}"
+    },
+    {
+      "name": "@agen-ai/sandbox-docker",
+      "manifest": "{\n  \"name\": \"@agen-ai/sandbox-docker\",\n  \"version\": \"0.4.11\",\n  \"private\": false,\n  \"description\": \"Explicit local Docker Engine resources, policy enforcement and recovery for AgenAI sandboxes.\",\n  \"type\": \"module\",\n  \"sideEffects\": false,\n  \"license\": \"MIT\",\n  \"main\": \"./dist/index.js\",\n  \"module\": \"./dist/index.js\",\n  \"types\": \"./dist/index.d.ts\",\n  \"files\": [\n    \"dist/**/*.js\",\n    \"dist/**/*.d.ts\",\n    \"README.md\",\n    \"LICENSE\",\n    \"native/filesystem/helper.c\",\n    \"native/filesystem/protocol.h\",\n    \"native/filesystem/operations.c\",\n    \"native/filesystem/filesystem.h\",\n    \"native/filesystem/transport.c\",\n    \"native/desktop/host/observer.c\",\n    \"native/desktop/host/observer.h\",\n    \"native/desktop/vm/observer.c\",\n    \"native/desktop/coordinator/coordinator.h\",\n    \"native/desktop/coordinator/main.c\",\n    \"native/desktop/coordinator/authority.c\",\n    \"native/desktop/coordinator/storage.c\",\n    \"native/desktop/recovery/recovery.h\",\n    \"native/desktop/recovery/main.c\",\n    \"native/desktop/recovery/wire.c\",\n    \"native/desktop/recovery/profile.h\",\n    \"native/desktop/recovery/code.c\",\n    \"native/desktop/recovery/processes.c\",\n    \"native/desktop/recovery/endpoint.c\",\n    \"native/desktop/recovery/files.c\",\n    \"native/desktop/recovery/evidence.c\",\n    \"native/desktop/recovery/observation.c\"\n  ],\n  \"exports\": {\n    \".\": {\n      \"types\": \"./dist/index.d.ts\",\n      \"import\": \"./dist/index.js\"\n    },\n    \"./node\": {\n      \"types\": \"./dist/node/index.d.ts\",\n      \"import\": \"./dist/node/index.js\"\n    },\n    \"./package.json\": \"./package.json\"\n  },\n  \"dependencies\": {\n    \"zod\": \"4.4.3\",\n    \"@agen-ai/sandbox\": \"^0.4.11\",\n    \"@agen-ai/validation\": \"^0.4.11\"\n  },\n  \"devDependencies\": {\n    \"tar-stream\": \"3.2.2\",\n    \"tsup\": \"^8.5.0\",\n    \"@agen-ai/agent-runtime\": \"^0.4.11\",\n    \"@agen-ai/agent-protocol\": \"^0.4.11\",\n    \"@agen-ai/provider-acp\": \"^0.4.11\"\n  },\n  \"engines\": {\n    \"node\": \">=22.0.0\"\n  },\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"git+https://github.com/trevor-nichols/agenai-agent-sdk.git\",\n    \"directory\": \"packages/sandbox-docker\"\n  },\n  \"homepage\": \"https://github.com/trevor-nichols/agenai-agent-sdk#readme\",\n  \"bugs\": {\n    \"url\": \"https://github.com/trevor-nichols/agenai-agent-sdk/issues\"\n  },\n  \"publishConfig\": {\n    \"access\": \"public\",\n    \"provenance\": true\n  },\n  \"scripts\": {\n    \"build\": \"pnpm run clean && pnpm run build:runtime && pnpm run build:types\",\n    \"build:runtime\": \"tsup\",\n    \"build:types\": \"tsc --project tsconfig.json --emitDeclarationOnly --outDir dist\",\n    \"typecheck\": \"tsc --noEmit && tsc --project tsconfig.test.json --noEmit\",\n    \"test\": \"node --import tsx --test tests/*.test.ts\",\n    \"test:integration\": \"node --import tsx --test tests/integration/*.test.ts\",\n    \"clean\": \"rimraf dist *.tsbuildinfo\"\n  }\n}"
+    }
+  ]
+}

@@ -5,9 +5,26 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.11 - Unreleased
+
+- Retain exact tagged workflow archives before native catalog admission. A reviewed packaging-only
+  receipt can admit those same bytes through guarded recovery; original native evidence and all
+  executable inputs remain fixed, and registry publication still requires the complete native gate.
+
+- Accept one bounded printable CONNECT User-Agent as inert metadata, independent of provider or
+  version, while preserving destination, Host, duplicate, credential and framing restrictions.
+- Qualify the installed native-arm64 Desktop helper and Grok 1.0.70 no-Task remote catalog
+  refresh, observing Grok 4.7 and Grok 4.7 Build Fast with complete cleanup. This does not broaden
+  the separate pinned 1.0.62 task-execution recipe.
+- Require exact retained native evidence before publication, including artifact recovery. An
+  explicit repack receipt permits inert documentation and dependency-map ordering changes only
+  after reconstructing the original payload commitments; conditional export order is preserved.
+- Pass native Linux standalone and packed-consumer checks. All ten packages remain an unpublished
+  candidate; existing helper images require the explicit [rebuild/upgrade steps](UPGRADING-TO-0.4.11.md).
+
 ## 0.4.10 - 2026-11-02
 
-All ten published packages and current source are coordinated at `0.4.10`; npm `beta` and `latest`
+All ten published packages are coordinated at `0.4.10`; npm `beta` and `latest`
 select this release. See the [v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10).
 Read [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the
 [operator runbook](examples/sandbox/recovery/README.md). Agent Protocol V13, neutral sandbox

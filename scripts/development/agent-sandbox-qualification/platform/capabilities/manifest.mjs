@@ -5,8 +5,11 @@ import { routeAuthority } from './authority.mjs';
 import { captureData, physicalPath } from './input.mjs';
 import { boundedText, control, endpoint, imageDigest, integer, keys, resources, sha256, temporaryBytes, user } from './validation.mjs';
 import { parseConcurrencyManifest } from './concurrency/manifest.mjs';
+import { networkSelection } from './network/selection.mjs';
 
 export const advancedRows = Object.freeze(['live-files', 'preserve-internal', 'restricted-https', 'combined', 'desktop-concurrency']);
+// The recorded consumer prepares its workload and borrowed network helpers as nobody.
+const restrictedHttpsUsers = Object.freeze([1000, 65534]);
 
 // Admission reserves the independent diagnostic and both simultaneous marker fixtures.
 const diagnosticBudget = Object.freeze({ nanoCpus: 1_000_000_000, memoryBytes: 256 * 1024 ** 2 });
@@ -71,13 +74,16 @@ function fixtureNetwork(value) {
   assert(host !== 0 && !value.hostAddress.startsWith('127.'), 'Host marker requires a non-loopback, non-unspecified IPv4 address.');
 }
 
-export function network(value, platform, limits) {
-  keys(value, ['egress', 'routeAuthority', 'positive', 'fixtures']);
+export function network(value, platform, limits, restricted = false) {
+  keys(value, ['egress', 'routeAuthority', 'positive', 'fixtures',
+    ...(restricted && Object.hasOwn(value, 'selection') ? ['selection'] : [])]);
+  if (restricted) networkSelection(value.selection);
+  const users = restricted ? restrictedHttpsUsers : [1000];
   keys(value.egress, ['sourceDigest', 'configuration']); imageDigest(value.egress.sourceDigest);
   const config = value.egress.configuration;
   keys(config, ['imageDigest', 'protocol', 'user', 'broker', 'relay', 'control']);
-  imageDigest(config.imageDigest); assert.equal(config.protocol, 'agenai.sandbox.egress-connect.v1'); user(config.user);
-  helperBudget(config.broker); helperBudget(config.relay); routeAuthority(value.routeAuthority, platform);
+  imageDigest(config.imageDigest); assert.equal(config.protocol, 'agenai.sandbox.egress-connect.v1'); user(config.user, users);
+  helperBudget(config.broker); helperBudget(config.relay); routeAuthority(value.routeAuthority, platform, users);
   control(config.control, Math.max(limits.requestMs, value.routeAuthority.commandTimeoutMs));
   const positive = value.positive;
   keys(positive, ['hostname', 'port', 'path', 'status', 'bodyBytes', 'bodySha256']);
@@ -118,7 +124,7 @@ export function parseCapabilityManifest(input, { row, platform, platformInput, c
   assert.equal(value.row, row, 'Capability row differs from the selected CLI row.');
   endpoint(platform.engine);
   if (platform.desktop !== null) assert.equal(platform.desktop.rosetta, true, 'Advanced Desktop qualification requires explicit Rosetta enablement.');
-  keys(value.workload, ['user', 'resources', 'temporaryBytes']); user(value.workload.user);
+  keys(value.workload, ['user', 'resources', 'temporaryBytes']); user(value.workload.user, row === 'restricted-https' ? restrictedHttpsUsers : [1000]);
   resources(value.workload.resources); temporaryBytes(value.workload.temporaryBytes);
   keys(value.limits, ['startupMs', 'requestMs', 'cleanupMs', 'scenarioMs', 'maxOutputBytes']);
   for (const [field, minimum, maximum] of [['startupMs', 1000, 60_000], ['requestMs', 1000, 30_000],
@@ -129,7 +135,7 @@ export function parseCapabilityManifest(input, { row, platform, platformInput, c
     'Scenario budget must exceed startup plus request plus cleanup.');
   if (sections.includes('filesystem')) filesystem(value.filesystem, value.limits);
   if (sections.includes('transfers')) transfers(value.transfers, value.profile, { consumer, output });
-  if (sections.includes('network')) network(value.network, platform, value.limits);
+  if (sections.includes('network')) network(value.network, platform, value.limits, row === 'restricted-https');
   aggregateBudget(value);
   return value;
 }

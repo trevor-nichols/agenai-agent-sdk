@@ -78,11 +78,26 @@ async function proxy(wire) {
   assert.match(header, /^HTTP\/1\.1 [0-9]{3} /u);
   return { socket, header, status: Number(header.slice(9, 12)) };
 }
+async function nodeConnect(command) {
+  const request = http.request({ host: '127.0.0.1', port: 3128, method: 'CONNECT',
+    path: `${command.hostname}:${command.port}`, agent: false,
+    headers: { host: command.hostname, 'user-agent': command.userAgent } });
+  request.setTimeout(timeoutMs, () => request.destroy(new Error('Node CONNECT deadline.')));
+  return new Promise((resolve, reject) => {
+    request.once('error', reject);
+    request.once('connect', (response, socket, head) => {
+      track(socket);
+      void closeTcp(socket).then(() => { assert.equal(head.length, 0); return { status: response.statusCode, closed: true }; }).then(resolve, reject);
+    });
+    request.end();
+  });
+}
 async function secure(command) {
   let socket;
   if (command.direct) socket = await connect(command.hostname, command.port);
   else {
-    const tunnel = await proxy(`CONNECT ${command.hostname}:${command.port} HTTP/1.1\r\nHost: ${command.hostname}:${command.port}\r\n\r\n`);
+    const tunnel = await proxy(command.proxyHeader ?? `CONNECT ${command.hostname}:${command.port} HTTP/1.1\r\nHost: ${command.hostname}:${command.port}\r\n\r\n`);
+    if (tunnel.status !== 200) await closeTcp(tunnel.socket);
     assert.equal(tunnel.status, 200); socket = tunnel.socket;
   }
   const stream = track(tls.connect({ socket, servername: command.hostname, rejectUnauthorized: true }));
@@ -93,6 +108,7 @@ async function secure(command) {
   return stream;
 }
 async function perform(command) {
+  if (command.kind === 'node-connect') return nodeConnect(command);
   if (command.kind === 'tcp-connect') return tcpAdmission(command);
   if (command.kind === 'udp-send') return udpSubmission(command);
   if (command.kind === 'facts') {
@@ -105,7 +121,7 @@ async function perform(command) {
       networkNamespace: await readlink('/proc/self/ns/net'), pidNamespace: await readlink('/proc/self/ns/pid') };
   }
   if (command.kind === 'proxy') {
-    const result = await proxy(command.header); result.socket.destroy(); return { status: result.status, header: result.header };
+    const result = await proxy(command.header); await closeTcp(result.socket); return { status: result.status, header: result.header };
   }
   if (command.kind === 'tcp') {
     const socket = await connect(command.host, command.port); const chunks = []; let bytes = 0;

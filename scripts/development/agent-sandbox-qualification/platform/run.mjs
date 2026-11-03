@@ -54,11 +54,11 @@ const networkSources = [
   'selective/proxy/upgrade.mjs', 'selective/proxy/trace.mjs', 'capabilities/desktop/fixtures.mjs',
   'capabilities/desktop/guest.mjs', 'capabilities/production/session.mjs', 'platform/capabilities/input.mjs',
   ...['evidence', 'owner-cleanup', 'controller-process'].map((name) => `platform/capabilities/live/${name}.mjs`),
-  ...['budget', 'resources', 'installed', 'guest', 'fixtures', 'connectivity', 'faults', 'controller-child', 'controller']
+  ...['budget', 'selection', 'resources', 'installed', 'guest', 'fixtures', 'connectivity', 'compatibility', 'faults', 'controller-child', 'controller']
     .map((name) => `platform/capabilities/network/${name}.mjs`),
 ];
 const combinedSources = [...new Set([
-  ...networkSources.filter((name) => !/\/network\/(?:budget|guest|connectivity|faults|controller-child|controller)\.mjs$/u.test(name)),
+  ...networkSources.filter((name) => !/\/network\/(?:budget|selection|guest|connectivity|compatibility|faults|controller-child|controller)\.mjs$/u.test(name)),
   'capabilities/live/publicationGate.mjs',
   'capabilities/live/guest.mjs', 'platform/capabilities/live/installed.mjs',
   'platform/capabilities/preserve/host-roots.mjs',
@@ -314,7 +314,7 @@ async function run(options) {
         fixtureOwner, namespacePrefix, sourceIdentity: report.controller.sources, scenarioBudget: selected.capabilities.scenarioBudget, endpointProjection }), { flag: 'wx', mode: 0o600 });
       await checkpoint();
       await execute('installed-restricted-https', process.execPath, [join(report.controller.directory, 'platform/capabilities/network/controller.mjs'), configurationPath],
-        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * 26, { nativeController: true });
+        env, options.consumer, selected.capabilities.manifest.limits.scenarioMs * selected.capabilities.scenarioBudget.maximumCases, { nativeController: true });
       report.network = JSON.parse((await boundedFile(join(options.output, 'network/network-report.json'), 1024 ** 2)).toString('utf8'));
       assert.equal(report.network.status, 'passed'); assert.equal(report.network.fixtures.closed, true);
     } else if (options.row === 'combined') {

@@ -8,8 +8,10 @@ import { Engine } from '../../../engine.mjs';
 import { acquireJsonInput, physicalPath } from '../input.mjs';
 import { appendObservation, failure, json, jsonWriter } from '../live/evidence.mjs';
 import { originalOwnerCleanup, settleOwnerCleanup } from '../live/owner-cleanup.mjs';
-import { networkCaseNames, networkScenarioBudget } from './budget.mjs';
+import { networkScenarioBudget } from './budget.mjs';
+import { compatibilityCaseNames, networkCaseNames, networkSelection, publicNetworkCaseNames } from './selection.mjs';
 import { connectivityCases } from './connectivity.mjs';
+import { compatibilityCases } from './compatibility.mjs';
 import { faultCases } from './faults.mjs';
 import { createFixtures, sha } from './fixtures.mjs';
 import { census } from './resources.mjs';
@@ -22,6 +24,7 @@ assert.equal(config.format, 'agenai.sandbox-platform-network-controller.v1');
 assert.equal(config.capabilities.row, 'restricted-https'); assert.equal(config.profile, config.capabilities.profile);
 assert(config.profile.startsWith('desktop-apple-virtualization-'));
 assert.deepEqual(networkScenarioBudget(config.capabilities), config.scenarioBudget);
+const selection = networkSelection(config.capabilities.network.selection);
 physicalPath(config.consumer); physicalPath(config.output);
 assert.equal(await realpath(config.consumer), config.consumer); assert.equal(process.cwd(), config.consumer);
 assert(fileURLToPath(import.meta.url).startsWith(`${config.consumer}/qualification/`));
@@ -39,15 +42,25 @@ const report = { format: 'agenai.sandbox-platform-network.v1', status: 'running'
   imageDigest: config.imageDigest, guestNodeVersion: config.guestNodeVersion, sourceIdentity: config.sourceIdentity,
   startedAt: new Date().toISOString(), scenarioBudget: config.scenarioBudget, namespacePrefix: config.namespacePrefix,
   fixtureOwner: config.fixtureOwner, endpointProjection: config.endpointProjection, capturedAuthority: config.capabilities.network.routeAuthority,
-  cases: [], selectedCases: [], requirements: {},
-  scope: { transport: 'IPv4 with client TLS verification; IPv6 connectivity unsupported.',
+  cases: [], selectedCases: [], omittedCases: selection.omittedCases, selection: selection.kind,
+  unexercisedRequirements: selection.unexercisedRequirements, requirements: {},
+  scope: { transport: selection.kind === 'legacy-connect-baseline'
+    ? 'Exact captured CONNECT rejection only; TLS, connectivity and isolation unexercised.'
+    : 'IPv4 with client TLS verification; IPv6 connectivity unsupported.',
+    selection: { kind: selection.kind, capturedConnectStatus: selection.capturedConnectStatus,
+      proof: selection.kind === 'legacy-connect-baseline' ? 'Only exact captured-wire old-helper rejection; TLS/connectivity/isolation unexercised.'
+        : selection.kind === 'connect-compatibility' ? 'CONNECT compatibility and retained connectivity/isolation; fault and recovery campaign omitted.' : 'Original full restricted HTTPS campaign.' },
     stability: 'Caller-owned host/VM/Engine/proxy/executable quiescence; sequential observations do not prove continuous safety.',
-    deterministic: ['controlled DNS aliases/rebinding/mixed answers', 'numeric peer pinning', 'redirect-target second CONNECT', 'healthy bidirectional tunnel backpressure'],
+    deterministic: selection.kind === 'full'
+      ? ['controlled DNS aliases/rebinding/mixed answers', 'numeric peer pinning', 'redirect-target second CONNECT', 'healthy bidirectional tunnel backpressure']
+      : selection.kind === 'connect-compatibility' ? ['exact captured CONNECT bytes', 'bounded inert metadata and closed header admission', 'complete-header byte boundary'] : [],
     nativeHttp302: false, nativeBulkBackpressure: false,
-    positiveTlsDns: 'Each new connection resolves and pins a currently admitted numeric peer; no frozen address equality across actors or time.',
+    positiveTlsDns: selection.kind === 'legacy-connect-baseline' ? 'Unexercised; the selected parser rejection precedes DNS and TLS.'
+      : 'Each new connection resolves and pins a currently admitted numeric peer; no frozen address equality across actors or time.',
     fixtureDns: { hostname: config.capabilities.network.fixtures.publicHostname, address: config.capabilities.network.fixtures.publicAddress,
-      scope: 'Explicit fixture-only DNS dependency; no additional HTTP origin, custom DNS server or global DNS/hosts mutation.' },
-    specialGateway: { hostname: 'gateway.docker.internal', coverage: 'Observed DNS and unlisted CONNECT only.',
+      scope: selection.kind === 'legacy-connect-baseline' ? 'Unexercised; no fixture-DNS case selected.'
+        : 'Explicit fixture-only DNS dependency; no additional HTTP origin, custom DNS server or global DNS/hosts mutation.' },
+    specialGateway: { hostname: 'gateway.docker.internal', coverage: selection.kind === 'legacy-connect-baseline' ? 'unexercised' : 'Observed DNS and unlisted CONNECT only.',
       directTransport: 'unexercised', reachableServiceIsolation: 'unexercised' } }, cleanupFailures: [] };
 const writeReport = jsonWriter(join(config.output, 'network-report.json'));
 const saveReport = () => { assert(Buffer.byteLength(json(report)) <= 1024 ** 2); return writeReport(report); };
@@ -87,17 +100,13 @@ async function cleanup(run) {
 
 try {
   await saveReport(); context.fixtures = await createFixtures(context); await context.fixtures.startBase();
-  const all = [...connectivityCases(context), ...faultCases(context)];
-  assert.deepEqual(all.map(([name]) => name).sort(), [...networkCaseNames].sort());
-  const publicNames = networkCaseNames.slice(4, 11);
-  const cases = [...all.filter(([name]) => !publicNames.includes(name)), ...all.filter(([name]) => publicNames.includes(name))];
+  const all = [...connectivityCases(context), ...faultCases(context), ...compatibilityCases(context, selection)];
+  assert.deepEqual(all.map(([name]) => name).sort(), [...networkCaseNames, ...compatibilityCaseNames].sort());
+  const publicNames = publicNetworkCaseNames;
+  const selected = all.filter(([name]) => selection.cases.includes(name));
+  const cases = [...selected.filter(([name]) => !publicNames.includes(name)), ...selected.filter(([name]) => publicNames.includes(name))];
   report.selectedCases = cases.map(([name]) => name);
-  report.requirements = {
-    D11: ['verified-tls-exact-body', 'connect-unlisted-and-canonical-forms', 'direct-no-proxy-tcp-udp'],
-    D12: ['host-and-special-host-reachable-denials', 'vm-gateway-reachable-denials', 'public-numbered-sibling-reachable-denials', 'allowed-dns-public-local-denied'],
-    D13: ['connect-unlisted-and-canonical-forms', 'allowed-dns-public-local-denied', 'ipv6-unsupported-no-bypass'],
-    D14: faultCases(context).map(([name]) => name),
-  };
+  report.requirements = selection.requirements;
   await saveReport(); let publicReady = false;
   for (const [index, [name, action]] of cases.entries()) {
     cancellation.signal.throwIfAborted();
@@ -144,7 +153,7 @@ finally {
     coverage: 'native_component',
     status: names.every((name) => report.cases.some((entry) => entry.name === name && entry.status === 'passed' && entry.cleanupComplete)) ? 'passed' : 'failed', cases: names,
   }]));
-  report.status = report.cases.length === networkCaseNames.length && report.cases.every((entry) => entry.status === 'passed' && entry.cleanupComplete && entry.originalReservations === 1)
+  report.status = report.cases.length === selection.cases.length && report.cases.every((entry) => entry.status === 'passed' && entry.cleanupComplete && entry.originalReservations === 1)
     && report.fixtures?.closed && report.fixtures.controlFailures.length === 0 && !report.failure && report.cleanupFailures.length === 0 ? 'passed' : 'failed';
   report.finishedAt = new Date().toISOString(); await saveReport();
 }
