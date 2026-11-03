@@ -1,17 +1,15 @@
 # Releasing
 
-The three core packages and seven optional packages form published coordinated `0.4.10`.
-npm `beta` and `latest` select `0.4.10` for all ten names; see the
-[v0.4.10 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.10).
-Current source prepares the **unpublished coordinated 0.4.11 candidate** with bounded CONNECT
-User-Agent admission. Its retained installed-helper and native catalog qualification passed;
-publication still requires applicability to the actual release archives. See the
-[candidate upgrade guide](UPGRADING-TO-0.4.11.md); the version bump alone transfers no evidence.
-The published administrative recovery release remains `0.4.10`. Read
-[UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the [recovery runbook](examples/sandbox/recovery/README.md).
-Agent Protocol V13, neutral recovery v3 and existing backend identities remain unchanged.
-The administrative controller uses separately named temporary envelopes and a separately
-prepared observer; retain exact original helpers and all prior evidence when adopting it.
+The three core packages and seven optional packages form published coordinated `0.4.11`.
+npm `beta` and `latest` select `0.4.11` for all ten names; see the
+[v0.4.11 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.11).
+Current source matches this bounded CONNECT metadata correction. Original workflow archives,
+native applicability, registry consumers, offline helper preparation and stable tags passed verification.
+Read the [upgrade guide](UPGRADING-TO-0.4.11.md) for explicit helper rebuilding and exact native scope.
+The no-Task Grok 1.0.70 catalog campaign does not broaden the pinned 1.0.62 execution recipe.
+The release carries forward [0.4.10 administrative recovery](UPGRADING-TO-0.4.10.md) with its
+original authority, helper succession and caller-owned lifecycle. Agent Protocol V13, neutral
+recovery v3, ordinary coordinator v1 and backend identities remain unchanged.
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -31,7 +29,7 @@ The coordinated `0.4.8` release retains Agent Protocol V13 and recovery v3 from 
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) for the current administrative recovery release,
+[UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) for the preceding administrative recovery release,
 [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for original-owner cleanup retry,
 [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for coordinator adoption,
 [UPGRADING-TO-0.4.7.md](UPGRADING-TO-0.4.7.md) for the preceding authentication-parity release,
@@ -321,7 +319,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.10
+VERSION=0.4.11
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest

@@ -60,9 +60,10 @@ hosted CI success from its configured workflow; no hosted Docker result is recor
 original operation/cleanup failures and exact resource identities when changing lifecycle code.
 Recovery is cleanup-only, and uncertain command outcomes must never be replayed automatically.
 
-Current source prepares ten coordinated unpublished `0.4.11` packages with Agent Protocol V13,
-including history and both sandbox packages. The published family remains `0.4.10`; npm `beta` and
-`latest` select `0.4.10` for all ten names. Use matching candidate archives for current-source checks.
+Current source and the published family are ten coordinated `0.4.11` packages with Agent Protocol V13,
+including history and both sandbox packages. npm `beta` and `latest` select `0.4.11` for all ten names.
+Use the [0.4.11 upgrade guide](UPGRADING-TO-0.4.11.md) for CONNECT compatibility, explicit helper
+rebuilding and the exact no-Task native catalog qualification scope.
 The [0.4.10 upgrade guide](UPGRADING-TO-0.4.10.md) and [recovery runbook](examples/sandbox/recovery/README.md)
 explain the explicit cleanup-only controller and exact native qualification scope.
 Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the cleanup patch and [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for coordinator adoption and [UPGRADING-TO-0.4.5.md](UPGRADING-TO-0.4.5.md) for recovery migration,

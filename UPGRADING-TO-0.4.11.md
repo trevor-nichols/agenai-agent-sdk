@@ -1,16 +1,16 @@
-# Preparing an upgrade to 0.4.11
+# Upgrading to 0.4.11
 
-The coordinated ten-package `0.4.11` set is an **unpublished candidate**. Published `0.4.10`
-remains the release baseline. Use the exact reviewed local archives for candidate evaluation;
-do not assume a registry install selects this correction. Publication and application adoption
-are separate actions.
+The coordinated ten-package `0.4.11` release is published under npm `latest` and `beta`.
+Original archives, exact native applicability, provenance, registry consumers, installed files,
+offline helpers, signatures and stable tags passed verification. Install the coordinated family
+together. Application adoption and its actual helper/account checks remain separate actions.
 
 The correction accepts one bounded printable CONNECT `User-Agent` field as inert metadata.
 The exact destination and matching Host still determine admission. Duplicate, blank, credential,
 framing and unsupported fields remain rejected under the existing 8,192-byte header limit.
 Agent Protocol V13, sandbox recovery v3, backend identities and the egress helper protocol are unchanged.
 
-## Select the candidate and preserve existing owners
+## Select the release and preserve existing owners
 
 Retain the governed export's `.agenai-export.json`, its dependency lock and the complete coordinated
 archive set. The [native record](qualification/native-catalog/0.4.11.json) identifies the original
