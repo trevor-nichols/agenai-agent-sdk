@@ -3,8 +3,11 @@
 The three core packages and seven optional packages form published coordinated `0.4.9`.
 npm `beta` and `latest` select `0.4.9` for all ten names; see the
 [v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9).
-Current source matches this cleanup patch. Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md).
-Agent Protocol V13, recovery v3, journal format, native helpers and backend identities are unchanged.
+Current source prepares the unpublished coordinated `0.4.10` candidate. Read
+[UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the [recovery runbook](examples/sandbox/recovery/README.md).
+Agent Protocol V13, neutral recovery v3 and existing backend identities remain unchanged.
+The additive administrative controller uses separately named temporary envelopes and a separately
+prepared observer; retain exact original helpers and all prior evidence when adopting it.
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -267,7 +270,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.9
+VERSION=0.4.10
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest

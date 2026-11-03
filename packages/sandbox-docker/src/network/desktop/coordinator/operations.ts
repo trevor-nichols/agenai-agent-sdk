@@ -30,6 +30,15 @@ export function observeCoordinatorOperation<Value>(
   actual: Promise<Value>, operation: CoordinatorOperation, owner: DockerDesktopCoordinator,
   interrupt?: () => void,
 ): Promise<Value> {
+  return observeRetainedOperation(actual, operation, (by) => {
+    interrupt?.();
+    return new DockerDesktopCoordinatorError({ kind: 'interrupted', by, effect: 'owned' }, owner);
+  });
+}
+
+export function observeRetainedOperation<Value>(
+  actual: Promise<Value>, operation: CoordinatorOperation, interruptedError: (by: 'signal' | 'deadline') => Error,
+): Promise<Value> {
   return new Promise<Value>((resolve, reject) => {
     let settled = false;
     const finish = (complete: () => void) => {
@@ -40,8 +49,7 @@ export function observeCoordinatorOperation<Value>(
       complete();
     };
     const interrupted = (by: 'signal' | 'deadline') => finish(() => {
-      interrupt?.();
-      reject(new DockerDesktopCoordinatorError({ kind: 'interrupted', by, effect: 'owned' }, owner));
+      reject(interruptedError(by));
     });
     const cancelled = () => interrupted('signal');
     const timer = setTimeout(() => interrupted('deadline'), operation.timeoutMs);

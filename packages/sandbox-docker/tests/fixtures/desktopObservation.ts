@@ -53,7 +53,9 @@ export function ipv6Route(destination: Buffer, prefix: number, index: number,
     netlinkAttribute(20, Buffer.from([0])), ...(options.gateway ? [netlinkAttribute(5, options.gateway)] : []), ...(options.extra ?? [])]);
 }
 export function desktopVmDocument(options: { bridgeName?: string; broker?: boolean; kernel?: string; namespace?: string;
-  bridgeTsoMaxSize?: number; endpointTsoMaxSize?: number; externalTsoMaxSize?: number; returnedPeer?: number } = {}) {
+  bridgeTsoMaxSize?: number; endpointTsoMaxSize?: number; externalTsoMaxSize?: number; returnedPeer?: number;
+  bridgeIPv4?: Readonly<{ address: string; gateway: string; broadcast: string; prefix: number }> } = {}) {
+  const bridgeIPv4 = options.bridgeIPv4 ?? { address: '172.30.42.0', gateway: '172.30.42.1', broadcast: '172.30.42.255', prefix: 24 };
   const links = [link(7, 'eth0', 0x11043, [netlinkAttribute(59, netlinkInteger(options.externalTsoMaxSize ?? 65536))])];
   const addresses: Buffer[] = [];
   const routes = [route('0.0.0.0', 0, 7, { scope: 0, gateway: '192.168.65.1' })];
@@ -68,11 +70,11 @@ export function desktopVmDocument(options: { bridgeName?: string; broker?: boole
       netlinkAttribute(16, Buffer.from([options.broker ? 6 : 2])), netlinkAttribute(33, Buffer.from([carrier ? 1 : 0])),
       netlinkAttribute(18, netlinkAttribute(1, Buffer.from('bridge\0'))),
     ]));
-    const header = Buffer.from([2, 24, 0x80, 0, 9, 0, 0, 0]);
-    addresses.push(netlinkRecord(20, header, [netlinkAttribute(1, ipv4('172.30.42.1')), netlinkAttribute(4, ipv4('172.30.42.255'))]));
-    routes.push(route('172.30.42.0', 24, 9, { flags: options.broker ? 0 : 16, preferred: '172.30.42.1' }),
-      route('172.30.42.1', 32, 9, { table: 255, scope: 254, type: 2, preferred: '172.30.42.1' }),
-      route('172.30.42.255', 32, 9, { table: 255, type: 3, flags: options.broker ? 0 : 16, preferred: '172.30.42.1' }));
+    const header = Buffer.from([2, bridgeIPv4.prefix, 0x80, 0, 9, 0, 0, 0]);
+    addresses.push(netlinkRecord(20, header, [netlinkAttribute(1, ipv4(bridgeIPv4.gateway)), netlinkAttribute(4, ipv4(bridgeIPv4.broadcast))]));
+    routes.push(route(bridgeIPv4.address, bridgeIPv4.prefix, 9, { flags: options.broker ? 0 : 16, preferred: bridgeIPv4.gateway }),
+      route(bridgeIPv4.gateway, 32, 9, { table: 255, scope: 254, type: 2, preferred: bridgeIPv4.gateway }),
+      route(bridgeIPv4.broadcast, 32, 9, { table: 255, type: 3, flags: options.broker ? 0 : 16, preferred: bridgeIPv4.gateway }));
     // Native teardown-capture-r1: both veth ends share MTU, XDP and IPv6 configuration; the bridge counts promiscuity and
     // allmulti on its port only.
     const vethEnd = (counts: number, ipv6Flags: number) => [netlinkAttribute(4, netlinkInteger(1500)),

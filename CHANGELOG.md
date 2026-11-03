@@ -5,9 +5,28 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.10 - Unreleased
+
+Current source prepares all ten packages at `0.4.10`; npm `beta` and `latest` remain `0.4.9`.
+Read [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) and the
+[operator runbook](examples/sandbox/recovery/README.md). Agent Protocol V13, neutral sandbox
+recovery v3 and existing backend identities are unchanged.
+
+- Add explicit cleanup-only administrative recovery for an unresolved entered container create
+  on the fixed stock native-arm64 Docker Desktop profile. The caller owns graceful stop/start;
+  native producer termination, fresh boot, healthy restoration and exact transport/store evidence
+  must precede absence settlement. No create replay or automatic Docker lifecycle is introduced.
+- Preserve original canonical authority and immutable evidence through separately named recovery
+  envelopes, bounded helper succession and final clean handback. Interrupted operations retain
+  their original owner; a clean terminal result can be verified from a fresh process.
+- Correct stock shutdown-helper observation, bounded log rotation and component-local restoration
+  classification. Console bytes remain covered without imposing init-log framing.
+- Qualify actual original recovery and independent clean confirmation on the recorded tuple,
+  preserving seven earlier failures. Publication and downstream adoption remain separate.
+
 ## 0.4.9 - 2026-11-01
 
-All ten published packages and current source are coordinated at `0.4.9`; npm `beta` and `latest`
+Release `0.4.9` published all ten coordinated packages; npm `beta` and `latest`
 select this cleanup patch. See the [v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9).
 Agent Protocol V13, recovery v3, journal format, native helpers and backend identities are unchanged.
 Read [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md).
