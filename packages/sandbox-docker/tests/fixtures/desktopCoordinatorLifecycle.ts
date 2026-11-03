@@ -16,9 +16,10 @@ function quote(value: string): string { return `'${value.replaceAll("'", "'\\''"
 
 /** Caller-prepared protocol peer and real Unix HTTP/host-observer boundaries; no native namespace. */
 export async function desktopCoordinatorLifecycleFixture(scenario: Scenario = 'normal',
-  faults: Pick<FixtureOptions, 'beforeContainerReply' | 'handleRequest'> = {}) {
+  faults: Pick<FixtureOptions, 'beforeContainerReply' | 'handleRequest'> = {},
+  observations?: Readonly<{ vm?: Parameters<typeof desktopResourcesFixture>[3]; network?: Parameters<typeof desktopResourcesFixture>[4] }>) {
   const { handleRequest, ...replies } = faults;
-  const fixture = await desktopResourcesFixture('desktop-apple-virtualization-native-arm64', handleRequest, replies);
+  const fixture = await desktopResourcesFixture('desktop-apple-virtualization-native-arm64', handleRequest, replies, observations?.vm, observations?.network);
   await fixture.enableObservation();
   fixture.descriptor.pollIntervalMs = 1_000;
   fixture.descriptor.commandTimeoutMs = 5_000;

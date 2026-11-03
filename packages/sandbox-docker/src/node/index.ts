@@ -23,3 +23,13 @@ export { prepareDockerDesktopCoordinatorHelper } from './prepareDesktopCoordinat
 export type {
   DockerDesktopCoordinatorPreparation, DockerDesktopCoordinatorPreparationOptions,
 } from './prepareDesktopCoordinator.js';
+export { createDockerDesktopRecoveryController } from './desktopRecovery/controller.js';
+export { DockerDesktopRecoveryError } from './desktopRecovery/contracts.js';
+export type {
+  DockerDesktopRecoveryController, DockerDesktopRecoveryControllerOptions, DockerDesktopRecoveryHelper,
+  DockerDesktopRecoveryState, DockerDesktopRecoveryFailure,
+} from './desktopRecovery/contracts.js';
+export { prepareDockerDesktopRecoveryHelper } from './desktopRecovery/preparation.js';
+export type {
+  DockerDesktopRecoveryPreparation, DockerDesktopRecoveryPreparationOptions,
+} from './desktopRecovery/preparation.js';

@@ -1,6 +1,6 @@
 {
   "name": "@agen-ai/sandbox-docker",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "private": false,
   "description": "Explicit local Docker Engine resources, policy enforcement and recovery for AgenAI sandboxes.",
   "type": "module",
@@ -15,7 +15,11 @@
     "native/filesystem/filesystem.h", "native/filesystem/transport.c",
     "native/desktop/host/observer.c", "native/desktop/host/observer.h", "native/desktop/vm/observer.c",
     "native/desktop/coordinator/coordinator.h", "native/desktop/coordinator/main.c",
-    "native/desktop/coordinator/authority.c", "native/desktop/coordinator/storage.c"
+    "native/desktop/coordinator/authority.c", "native/desktop/coordinator/storage.c",
+    "native/desktop/recovery/recovery.h", "native/desktop/recovery/main.c", "native/desktop/recovery/wire.c",
+    "native/desktop/recovery/profile.h", "native/desktop/recovery/code.c", "native/desktop/recovery/processes.c",
+    "native/desktop/recovery/endpoint.c", "native/desktop/recovery/files.c", "native/desktop/recovery/evidence.c",
+    "native/desktop/recovery/observation.c"
   ],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },

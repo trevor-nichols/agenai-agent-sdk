@@ -1,15 +1,70 @@
 # SDK sandbox platform and consumer handoff
 
-The published coordinated release is **0.4.8**, with Agent Protocol **V13** unchanged.
-Current source adds the unreleased cleanup correction below. Use an exact governed source export
-and its ten locally packed archives. Earlier candidate and platform records retain their original
-source and archive identities. Publication, Docker Desktop configuration and Battle Bots changes
-remain separate actions.
+The published coordinated release is **0.4.9**, with Agent Protocol **V13** unchanged.
+Current source prepares an **unpublished coordinated 0.4.10** candidate with the administrative
+recovery API below. Use an exact governed source export and its ten locally packed archives.
+Earlier candidate and platform records retain their original source and archive identities.
+Publication, Docker Desktop configuration and Battle Bots adoption remain separate actions.
+
+## Administrative uncertain-create recovery (2026-11-02)
+
+The installed public `/node` controller completed the retained original uncertain-create incident
+on attempt 8. A separate process reopened the completed generation and independently confirmed
+cleanup without another lifecycle. Follow the [operator runbook](recovery/README.md) and
+[0.4.10 upgrade guide](../../UPGRADING-TO-0.4.10.md); published 0.4.9 does not contain this API.
+Recovery grants cleanup of the original generation, never resumed sandbox execution.
+
+The qualified composition is M3/macOS 26.5.1 / Node 24.18.0 / native arm64 Apple Virtualization,
+stock Docker Desktop 4.54.0 build 212467 / Engine 29.1.2 (`de45c2a`) / API 1.52 /
+Linux 6.12.54-linuxkit. It requires the original persistent Engine/store, exact pinned installation,
+caller quiescence and stock-forwarder/no-independent-durable-sender assumptions. Version strings
+alone do not admit another installation. Rosetta administrative recovery and Docker upgrades are
+outside this qualification.
+
+| Qualified artifact | SHA-256 |
+| --- | --- |
+| Local Mac r8 sandbox-docker archive | `9669c87edf5423d47c15c8f2b479116858734dde9144a1327475289095856264` |
+| Installed restoration classifier | `39d7ad6f7f989b0fbf4b53e4c93f6ee80020015245cfe94725a798ab11bb09b9` |
+| Recovery helper source manifest | `308724c76940ccfaa66796b80d9cd9e83c159e7153115dd9d4b61145a5038d5b` |
+| Recovery helper executable | `ed95417ce92dc48e2b2d5761fcb8c9f6d06268e269a5124a20b20d410416f91e` |
+| Native profile | `91bb41f130a1dcd30261f82d84b98f8d91bd9e4600f35c91064b97d37c4ab535` |
+
+That archive retained development version 0.4.9 and is distinct from published 0.4.9. A new 0.4.10
+candidate must retain its own committed export revision, archive hashes and verified runtime/native
+mapping to these qualified bytes. A version bump alone does not transfer qualification.
+
+The actual original run joined nine armed producer lifetimes and classified eight complete FINISH
+spans with all ten required restoration events. The SDK accepted the immutable barrier, reconciled
+the original member and joined stop, destroy, settle and close. Two owned volumes and one owned
+network were removed. All thirteen unique exact-name/known-ID GETs returned 404 in the original
+process and independently in the fresh process. Four stopped application containers and unrelated
+volumes, networks and images were preserved, with only the ordinary default-bridge ID replacement
+normalized. Both runs joined successfully.
+
+The original canonical journal returned to clean generation 303, sequence 91580, with frame SHA-256
+`c989365e1e9a262d3ceaf75501d2fe3e4fb3950ed3175ff776b08f5c7bee2eb9`.
+The v3 terminal archive preserves all seven failed attempts, original preparation and exact issuer
+cutoffs 2 and 4. No reset, prune, copied authority, manual journal translation or command replay was
+used. Keep every original checkpoint, helper and SDK receipt; a clean result does not rewrite history.
+
+Supporting validation passed 226 Desktop tests and nine affected Linux restoration tests, both
+with zero skips, plus all ten package builds and installed platform-consumer proof. Linux and Mac
+r8 runtime, declaration and native asset bytes match. Twenty-four captured startup prefixes and a
+nineteen-span component replay supplied diagnostic coverage; they are separate from the actual
+original run and grant no recovery authority. The final 99-file success evidence index is
+`9c77b850cb1b0f1bc092542a466b54e94bc0dcd01cc5cbb43154689cd94ab111`.
+The existing-Mac campaign did not execute the earlier exhaustive native fault matrix.
+
+For Battle Bots, preserve the retained incident records and this completion result. After a
+separately authorized publication/adoption, pin all ten coordinated package versions, prepare any
+new helper at a new immutable path, and run its interrupted-cleanup adoption gate plus remaining
+MS009 cases against the exact adopted archives. The original incident is already clean; its handoff
+does not authorize replaying recovery or treating downstream application gates as passed.
 
 ## Original-owner cleanup correction (2026-11-01, unreleased)
 
 Published `0.4.8` has an original-owner retry defect after an entered coordinated delete rejects.
-Current source corrects that path and the equivalent control-close rejection. It fences the group
+Published `0.4.9` corrects that path and the equivalent control-close rejection. It fences the group
 before releasing the physical slot, retains the original receipt and uses existing exact-resource
 reconciliation on retry. Join each member's original stop attempt, then retry through its original
 owner; a peer stop can retain its own failure while the first member's effect remains pending.
@@ -27,8 +82,9 @@ using the original prepared helpers. The tested sandbox-docker candidate archive
 `memberEffects.js` SHA-256 is `fb3556f94a1c2c50adb01e327dfd1505bcf5b555a1ccae670c26e3a1d5cace07`.
 The archive keeps 0.4.8 only as a local candidate version and is distinct from published 0.4.8.
 The final documentation follows that pack; runtime bytes are unchanged. This is focused cleanup
-evidence, not renewed Rosetta, Linux, full-platform or consumer-adoption qualification. Publish a
-new patch release and rerun the consumer's interrupted-cleanup gate against those final bytes.
+evidence, not renewed Rosetta, Linux, full-platform or consumer-adoption qualification. The correction
+was subsequently published in 0.4.9; the heading and local archive identity above retain their original
+candidate context. Consumer adoption still requires its interrupted-cleanup gate against the adopted bytes.
 
 ## Select one reviewable candidate
 

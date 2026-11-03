@@ -166,7 +166,7 @@ export class DesktopCleanupLedger {
     if (ledger.create.kind === 'not_entered' || ledger.create.kind === 'settled' && ledger.create.outcome === 'not_dispatched') return true;
     const supplied = record.resources.find((entry) => entry.role === role);
     const reference = returnedResourceReference(this.member, role) ?? (supplied?.identity.kind === 'identified' ? supplied.identity.id : undefined);
-    if (reference === undefined) return false;
+    if (reference === undefined) return this.journal.settleCreatingAbsence?.({ memberId: this.memberId, role, record }) ?? false;
     const continuation = this.continuation(record, role);
     const identity = continuation.resources.find((entry) => entry.role === role)?.identity;
     const presence = (): RoleLedger['presence'] => ({ kind: 'absent', reference,

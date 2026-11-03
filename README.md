@@ -2,6 +2,11 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
+Current source prepares the unpublished coordinated **0.4.10 candidate**, including explicit
+cleanup-only recovery for uncertain Docker Desktop container creates. The [upgrade guide](UPGRADING-TO-0.4.10.md)
+and [operator runbook](examples/sandbox/recovery/README.md) retain the exact supported tuple and
+caller-owned lifecycle. Published npm packages remain `0.4.9`.
+
 > The coordinated **ten-package 0.4.9 cleanup patch** is published under npm `latest` and `beta`. It preserves original-owner cleanup retry after entered Docker Desktop coordinator failures. Agent Protocol **V13**, sandbox recovery **v3**, journal format, native helpers and backend identities are unchanged. Read the [v0.4.9 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.9) and [upgrade guide](UPGRADING-TO-0.4.9.md). The [original cleanup record](examples/sandbox/HANDOFF.md#original-owner-cleanup-correction-2026-11-01-unreleased) retains its development-archive identity and qualification limits.
 > The preceding **ten-package 0.4.7 release** completed the authentication-parity update. It introduced explicit API-key and existing-login sandbox recipes for Claude, Grok, OpenCode, Cursor and Codex. Agent Protocol **V13** and sandbox recovery **v3** are unchanged.
 > See the [v0.4.7 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.7), [upgrade guide](UPGRADING-TO-0.4.7.md) and [authentication parity record](examples/sandbox/HANDOFF.md#authentication-parity-native-campaigns-2026-10-28). Original Linux/native-arm64 Desktop campaigns retain their development archive identities and finite access-only/refresh limits.
@@ -54,7 +59,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages and current source are coordinated at `0.4.9`.
+schema assets. All ten source packages prepare coordinated `0.4.10`; the published family remains `0.4.9`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 

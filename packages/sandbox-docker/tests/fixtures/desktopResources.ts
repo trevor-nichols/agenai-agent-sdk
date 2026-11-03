@@ -91,7 +91,7 @@ export async function desktopResourcesFixture(profile: DesktopProfile, handleReq
       const socket = sockets.get(container.Id);
       const role = container.Config.Labels && typeof container.Config.Labels === 'object'
         ? Reflect.get(container.Config.Labels, 'ai.agen.sandbox.role') : undefined;
-      if (role === 'egress_broker') container.NetworkSettings.Networks = { owned: { NetworkID: String(container.HostConfig.NetworkMode),
+      if (role === 'egress_broker') container.NetworkSettings.Networks = { [String(container.HostConfig.NetworkMode)]: { NetworkID: String(container.HostConfig.NetworkMode),
         EndpointID: 'b'.repeat(64), MacAddress: desktopBridgeFixture.brokerMacAddress, IPAddress: desktopBridgeFixture.brokerAddress,
         IPPrefixLen: desktopBridgeFixture.prefix, Gateway: desktopBridgeFixture.gateway } };
       if (socket) setImmediate(() => {
