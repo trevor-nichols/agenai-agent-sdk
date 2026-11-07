@@ -1,8 +1,8 @@
 # SDK sandbox platform and consumer handoff
 
-The published coordinated release is **0.4.11**, with Agent Protocol **V13** unchanged.
-Current source prepares an **unpublished coordinated 0.4.12** Docker Desktop coordinator patch; its
-[upgrade guide](../../UPGRADING-TO-0.4.12.md) records its Resource Saver qualification. The 0.4.11
+The published coordinated release is **0.4.12**, a Docker Desktop coordinator patch with Agent
+Protocol **V13** unchanged; its [upgrade guide](../../UPGRADING-TO-0.4.12.md) records its Resource
+Saver qualification. The 0.4.11
 section below records the bounded CONNECT User-Agent admission, its installed helper, native catalog
 discovery and native Linux standalone/packed checks for the exact retained inputs; the
 [0.4.11 upgrade guide](../../UPGRADING-TO-0.4.11.md) explains helper rebuilding.

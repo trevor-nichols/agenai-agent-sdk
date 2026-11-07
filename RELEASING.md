@@ -1,11 +1,10 @@
 # Releasing
 
-The three core packages and seven optional packages form published coordinated `0.4.11`.
-npm `beta` and `latest` select `0.4.11` for all ten names; see the
-[v0.4.11 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.11).
-Current source prepares coordinated `0.4.12`, a Docker Desktop coordinator patch that lets
-Resource Saver stay on and keeps container ownership across an Engine restart; read the
-[upgrade guide](UPGRADING-TO-0.4.12.md). It carries forward
+The three core packages and seven optional packages form published coordinated `0.4.12`.
+npm `beta` and `latest` select `0.4.12` for all ten names; see the
+[v0.4.12 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.12).
+It is a Docker Desktop coordinator patch that lets Resource Saver stay on and keeps container
+ownership across an Engine restart; read the [upgrade guide](UPGRADING-TO-0.4.12.md). It carries forward
 [0.4.10 administrative recovery](UPGRADING-TO-0.4.10.md) unchanged. Agent Protocol V13, neutral
 recovery v3, ordinary coordinator v1, backend identities and helper sources remain unchanged.
 Future separately authorized releases publish the complete set in dependency order:
