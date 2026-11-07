@@ -10,28 +10,32 @@ import { absolute, Evidence, failure } from '../coordinator/evidence.mjs';
 import { originalFile } from '../coordinator-recovery/common.mjs';
 import { assertOriginals } from './original.mjs';
 import { coldSourceClosure } from './source-closure.mjs';
-import { assertNeverStarted } from './cold-history.mjs';
+import { assertOriginalHistory } from './cold-history.mjs';
 import { captureBackendLogs } from './backend-log.mjs';
 import { backendEvents, assertCachedPrecondition, assertColdOutcome } from './cold-proof.mjs';
 import { joinOriginalChild } from './child.mjs';
+import { coldScenario, parseScenario } from '../coordinator/configuration.mjs';
 
 const containers = (values) => values.map(({ Id, Names, ImageID, State, Labels }) => ({ Id, Names, ImageID, State, Labels })).sort((a, b) => a.Id.localeCompare(b.Id));
 const volumes = (value) => (value.Volumes ?? []).map(({ Name, Driver, Labels, Options, Scope }) => ({ Name, Driver, Labels, Options, Scope })).sort((a, b) => a.Name.localeCompare(b.Name));
 
-export async function runColdNegative(inputPath) {
+export async function runColdAdmission(inputPath) {
   const inputFile = await originalFile(absolute(inputPath), 1024 ** 2), input = inputFile.value;
   assert.deepEqual(Object.keys(input).sort(), ['consumer', 'output', 'controllerInput', 'backendSocket', 'backendLogs', 'expectedCandidate'].sort());
   assert.equal(process.platform, 'darwin'); assert.equal(process.arch, 'arm64'); assert.equal(process.versions.node, '24.18.0');
   const controllerInput = await originalFile(input.controllerInput, 1024 ** 2), config = controllerInput.value;
-  assert.equal(config.consumer, input.consumer); assert.equal(config.scenario, undefined); assert.equal(config.vmPreparation, undefined);
+  const scenario = parseScenario(config.scenario);
+  assert(coldScenario(scenario), 'The cold wrapper runs only scenarios that begin from Desktop’s own VM state.');
+  if (scenario.backendLogs) assert.deepEqual(scenario.backendLogs, input.backendLogs);
+  assert.equal(config.consumer, input.consumer); assert.equal(config.vmPreparation, undefined);
   assert.equal(config.platform.profile, 'desktop-apple-virtualization-native-arm64');
   assert.deepEqual(await installedIdentity(input.consumer), input.expectedCandidate);
   await admitOutput(input.output, input.consumer);
   const evidence = new Evidence(input.output); await evidence.initialize(inputFile.bytes);
-  const report = { format: 'agenai.desktop-coordinator-cold-negative.v1', status: 'running', startedAt: Date.now(),
-    pid: process.pid, input: inputFile.identity, controllerInput: controllerInput.identity, sources: [], observations: [],
+  const report = { format: 'agenai.desktop-coordinator-cold-admission.v1', status: 'running', startedAt: Date.now(),
+    pid: process.pid, input: inputFile.identity, controllerInput: controllerInput.identity, scenario: scenario.kind, sources: [], observations: [],
     child: null, outcome: null, primaryFailure: null, originalCleanupComplete: false,
-    scope: 'Actual cold cached Desktop preconditions, one original installed controller, exact external topology fence before primary dispatch and original cleanup. No settings change or rebaseline.' };
+    scope: 'Actual cold cached Desktop preconditions, one original installed controller that passes its selected scenario on the first attempt from a live member baseline, SDK-create wake, default-bridge replacement and original cleanup. No settings change, VM preparation or retry.' };
   const save = () => writeFile(join(input.output, 'record.json'), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   const engine = new Engine(config.platform.engine.slice(7), '1.52', { requestMs: 15_000, outputBytes: 4 * 1024 ** 2 });
   const backendSettings = async () => {
@@ -95,10 +99,10 @@ export async function runColdNegative(inputPath) {
     assertCachedPrecondition({ settings: settings.value, first, second, events: finalEvents,
       startedAt: report.startedAt, finishedAt: report.child.startedAt });
     const workflowEvents = (await readFile(join(config.output, 'events.jsonl'), 'utf8')).trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
-    report.outcome = assertColdOutcome({ report: original.value, before: report.before, after: report.after,
+    report.outcome = assertColdOutcome({ scenario, report: original.value, before: report.before, after: report.after,
       events: finalEvents, workflowEvents, child: report.child, sourceInputSha256: controllerInput.identity.sha256 });
     const history = (await readFile(join(input.output, 'original-http-history.jsonl'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
-    report.containerProcessScope = await assertNeverStarted(original.value, history);
+    report.history = assertOriginalHistory(history);
     assert.deepEqual(original.value.candidate, input.expectedCandidate);
     report.status = 'passed';
   } catch (error) { report.status = 'failed'; report.primaryFailure = failure(error); }
@@ -114,6 +118,6 @@ export async function runColdNegative(inputPath) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  try { assert.equal(process.argv.length, 3, 'Usage: node coordinator-negatives/cold.mjs /absolute/input.json'); await runColdNegative(process.argv[2]); }
+  try { assert.equal(process.argv.length, 3, 'Usage: node coordinator-negatives/cold.mjs /absolute/input.json'); await runColdAdmission(process.argv[2]); }
   catch (error) { process.stderr.write(`${JSON.stringify({ status: 'failed', failure: failure(error) })}\n`); process.exitCode = 1; }
 }

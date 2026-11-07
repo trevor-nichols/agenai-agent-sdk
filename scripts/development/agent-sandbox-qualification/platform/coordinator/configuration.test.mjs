@@ -1,6 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseScenario } from './configuration.mjs';
+import { coldScenario, parseScenario, scenarioFamily } from './configuration.mjs';
+
+test('Resource Saver rows are cold MS003 scenarios and only the idle rows name the backend logs they wait on', () => {
+  const logs = ['/Users/operator/Library/Containers/com.docker.docker/Data/log/host/com.docker.backend.log'];
+  for (const kind of ['single', 'joint', 'foreign-network']) {
+    const scenario = parseScenario({ kind });
+    assert.equal(coldScenario(scenario), true); assert.equal(scenarioFamily(scenario), 'ms003');
+    assert.throws(() => parseScenario({ kind, backendLogs: logs }));
+  }
+  for (const kind of ['idle-reentry', 'engine-restart']) {
+    assert.deepEqual(parseScenario({ kind, backendLogs: logs }).backendLogs, logs);
+    for (const backendLogs of [undefined, [], ['relative.log'], Array(5).fill(logs[0])]) assert.throws(() => parseScenario({ kind, backendLogs }));
+  }
+  assert.equal(coldScenario(parseScenario(undefined)), true); assert.equal(scenarioFamily(parseScenario(undefined)), 'ms004');
+  const lifecycle = parseScenario({ kind: 'lifecycle', removalOrder: ['a', 'b'], reentry: true });
+  assert.equal(coldScenario(lifecycle), false); assert.equal(scenarioFamily(lifecycle), 'ms005');
+});
 
 test('exploratory inputs admit only the omitted legacy row and explicit bounded lifecycle/handoff variants', () => {
   assert.equal(parseScenario(undefined).kind, 'ms004');

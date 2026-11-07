@@ -3,8 +3,7 @@ import { lstat, readFile, realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Engine } from '../../engine.mjs';
-import { installed } from '../research/desktop-concurrency/native/installed.mjs';
-import { admitOutput, installedIdentity, within } from '../../scalability/identity.mjs';
+import { admitOutput, importInstalled, installedIdentity, within } from '../../scalability/identity.mjs';
 import { absolute, encode, Evidence, failure, observe, sha } from '../coordinator/evidence.mjs';
 import { compareEngineInventory, compareMemberInventory, engineInventory, exactAbsence, freezeSources,
   loadOriginal, memberConfiguration, originalFile } from './common.mjs';
@@ -137,7 +136,7 @@ async function main(path, child) {
     input: inputFile.identity, originalInput: original.originalInput.identity, retainedReport: original.retained.identity,
     originalCheckpoint: original.checkpoint.identity, generation: original.generation, sources: [], calls: [],
     candidate: null, packages: [], finalOwnerState: null, primaryFailure: null, cleanupFailures: [],
-    scope: 'MS004 standalone original-generation cleanup prerequisite. Public cleanup-only API, bounded Node HTTP GET/DELETE trace, exact original name/ID absence; no full MS007/crash qualification or arbitrary raw-socket trace claim.' };
+    scope: 'Standalone original-generation cleanup of one retained MS004 or MS003 member. Public cleanup-only API, bounded Node HTTP GET/DELETE trace, exact original name/ID absence; no full MS007/crash qualification or arbitrary raw-socket trace claim.' };
   const context = { input, inputFile, original, evidence, report, child, owner: null, opened: null, cleanup: null,
     operations: [], cleaned: false, closed: false, settled: null, suppliedSettled: null, interrupted: false };
   const interrupted = () => { context.interrupted = true; context.owner?.closeAdmission(); };
@@ -162,9 +161,9 @@ async function main(path, child) {
     const socket = await lstat(socketPath, { bigint: true }); assert(socket.isSocket());
     assert.equal(String(socket.dev), original.report.socket.device); assert.equal(String(socket.ino), original.report.socket.inode);
     trace = installCleanupTrace({ socketPath, path: join(input.output, 'engine-http-trace.jsonl'), records, consume: (bytes) => evidence.count(bytes) });
-    const sdk = await installed(input.consumer, '@agen-ai/sandbox');
-    const docker = await installed(input.consumer, '@agen-ai/sandbox-docker');
-    const node = await installed(input.consumer, '@agen-ai/sandbox-docker', './node');
+    const sdk = await importInstalled(input.consumer, '@agen-ai/sandbox');
+    const docker = await importInstalled(input.consumer, '@agen-ai/sandbox-docker');
+    const node = await importInstalled(input.consumer, '@agen-ai/sandbox-docker', './node');
     report.packages = [sdk.identity, docker.identity, node.identity];
     context.externalRecord = sdk.api.parseSandboxRecoveryRecord(JSON.parse(original.checkpoint.bytes.toString('utf8')));
     assert.deepEqual(context.externalRecord, original.checkpoint.value, 'Original external checkpoint evidence must parse without rewriting.');
@@ -181,7 +180,8 @@ async function main(path, child) {
     } else { await reconcileOriginal(context); report.reconcilePerformed = true; }
     await finishOriginal(context);
     report.absence = await exactAbsence(context.engine, records.concat(context.cleanup ? [context.cleanup.recoveryRecord] : []));
-    report.after = await engineInventory(context.engine); compareEngineInventory(report.before, report.after, original.record);
+    report.after = await engineInventory(context.engine);
+    report.defaultBridgeReplacement = compareEngineInventory(report.before, report.after, original.record, { coldVm: original.coldVm });
     if (!child) {
       assert.equal(context.interrupted, false, 'Interrupted cleanup qualification cannot start another process.');
       const childInput = { ...input, output: join(input.output, 'fresh-process'), settledRecord: context.settled.path,

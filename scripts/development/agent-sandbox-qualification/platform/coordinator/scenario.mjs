@@ -3,6 +3,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { cleanupMember, continuity, networkProof, reserveMember, startMember, stopAndExport } from './member.mjs';
 import { observe } from './evidence.mjs';
 import { runControlLoss } from './control-loss.mjs';
+import { resourceSaverScenario } from './configuration.mjs';
+import { runResourceSaver } from './resource-saver.mjs';
 
 async function stagedMembers(context) {
   const a = await reserveMember(context, 'a', 'github.com');
@@ -33,6 +35,7 @@ async function survivor(context, entry, phase, previous) {
 }
 
 export async function runScenario(context) {
+  if (resourceSaverScenario(context.scenario)) { await runResourceSaver(context); return; }
   const [a, b] = await stagedMembers(context);
   const selected = context.scenario;
   if (selected.kind === 'control-loss') { await runControlLoss(context, a, b); return; }

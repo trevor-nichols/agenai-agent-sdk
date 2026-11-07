@@ -7,7 +7,7 @@ import { Engine } from '../../engine.mjs';
 import { absolute, Evidence, failure, sha } from './evidence.mjs';
 import { originalFile } from '../coordinator-recovery/common.mjs';
 import { profiles } from '../configuration.mjs';
-import { parseScenario } from './configuration.mjs';
+import { coldScenario, parseScenario } from './configuration.mjs';
 
 const purpose = 'Explicit caller-owned networkless VM preparation before coordinated baseline capture. Existing pinned image only; no pull, mount, credential, SDK call, automatic retry or external-baseline replacement.';
 
@@ -104,7 +104,7 @@ async function main(inputPath, output) {
   assert.deepEqual(Object.keys(input).sort(), ['consumer', 'output', 'platform', 'capabilities', 'deploymentObservation', 'helper',
     ...(input.scenario === undefined ? [] : ['scenario']), ...(input.vmPreparation === undefined ? [] : ['vmPreparation'])].sort());
   const scenario = parseScenario(input.scenario);
-  if (scenario.kind === 'ms004') assert.equal(input.vmPreparation, undefined); else absolute(input.vmPreparation);
+  if (coldScenario(scenario)) assert.equal(input.vmPreparation, undefined); else absolute(input.vmPreparation);
   desktopProfile(input.platform.profile);
   assert.equal(process.platform, 'darwin'); assert.equal(process.arch, 'arm64');
   assert.equal(process.versions.node, input.platform.expected.controller.nodeVersion);

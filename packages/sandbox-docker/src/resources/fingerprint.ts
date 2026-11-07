@@ -20,13 +20,22 @@ const HOST_POLICY_FIELDS = [
   'RestartPolicy', 'AutoRemove', 'Runtime', 'Init', 'StorageOpt', 'Ulimits',
 ] as const;
 
-function selected(value: Readonly<Record<string, unknown>>, keys: readonly string[]): Readonly<Record<string, unknown>> {
+// An Engine restart reloads a container's unset DNS lists as [] where creation reported null.
+const DNS_LIST_FIELDS = ['Dns', 'DnsOptions', 'DnsSearch'] as const;
+
+function selected(value: Readonly<Record<string, unknown>>, keys: readonly string[]): Record<string, unknown> {
   return Object.fromEntries(keys.map((key) => [key, value[key]]));
+}
+
+function hostPolicy(hostConfig: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+  const policy = selected(hostConfig, HOST_POLICY_FIELDS);
+  for (const key of DNS_LIST_FIELDS) if (Array.isArray(policy[key]) && policy[key].length === 0) policy[key] = null;
+  return policy;
 }
 
 export function containerFingerprint(container: ContainerInspection): string {
   return digest({ Id: container.Id, Name: container.Name, Image: container.Image,
-    Config: selected(container.Config, CONFIGURATION_FIELDS), HostConfig: selected(container.HostConfig, HOST_POLICY_FIELDS),
+    Config: selected(container.Config, CONFIGURATION_FIELDS), HostConfig: hostPolicy(container.HostConfig),
     // Moby clears an unsupported false OOM switch to null when starting on cgroup v2.
     OomKillDisabled: container.HostConfig.OomKillDisable === true,
     Mounts: [...container.Mounts].sort((left, right) => left.Destination < right.Destination ? -1 : left.Destination > right.Destination ? 1 : 0)

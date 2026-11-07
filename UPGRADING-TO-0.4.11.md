@@ -13,8 +13,8 @@ Agent Protocol V13, sandbox recovery v3, backend identities and the egress helpe
 ## Select the release and preserve existing owners
 
 Retain the governed export's `.agenai-export.json`, its dependency lock and the complete coordinated
-archive set. The [native record](qualification/native-catalog/0.4.11.json) identifies the original
-archives used by the native campaign; the [reviewed repack](qualification/native-catalog/0.4.11-repack.json)
+archive set. The [native record](https://github.com/trevor-nichols/agenai-agent-sdk/blob/v0.4.11/qualification/native-catalog/0.4.11.json) identifies the original
+archives used by the native campaign; the [reviewed repack](https://github.com/trevor-nichols/agenai-agent-sdk/blob/v0.4.11/qualification/native-catalog/0.4.11-repack.json)
 identifies the final checked archives and any exact qualified manifest bytes used for comparison.
 Those are different archive identities. A version string alone does not establish applicability.
 
@@ -67,5 +67,5 @@ describes the recorded composition. The consumer's later model Task campaign rem
 The native Linux standalone `pnpm check` and separate installed sandbox-platform profile passed.
 They cover package assembly, executable examples, units and packed native-history fixtures; they
 do not constitute a second authenticated catalog campaign or a new Linux Docker network campaign.
-Use [RELEASING.md](RELEASING.md#native-catalog-admission) for final archive admission. A fresh pack
-with different hashes must receive its own reviewed comparison before publication.
+The 0.4.11 publication admitted its archives through the [native catalog gate](https://github.com/trevor-nichols/agenai-agent-sdk/blob/v0.4.11/RELEASING.md#native-catalog-admission),
+which 0.4.12 removed.

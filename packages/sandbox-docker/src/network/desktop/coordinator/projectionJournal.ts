@@ -1,10 +1,20 @@
 import { observationFingerprint } from '../observation/engine.js';
 import type { DesktopEngineNetworkCensus } from '../observation/engine.js';
-import type { DesktopMemberProjection, DesktopMemberGraphReceipt } from './projection.js';
+import type { DesktopHostAuthorityObservation } from '../observation/host.js';
+import type { DesktopVmObservation } from '../observation/vm.js';
+import type { DesktopExternalProjection, DesktopMemberProjection, DesktopMemberGraphReceipt } from './projection.js';
 import { projectionDigest } from './journal/schema.js';
-import type { MemberProjection } from './journal/schema.js';
+import type { AuthorityBasis, MemberProjection } from './journal/schema.js';
 
 const digest = (value: unknown) => `sha256:${observationFingerprint(value)}`;
+
+export function desktopFullBasis(input: Readonly<{ atSequence: number; exclusionDigest: string; host: DesktopHostAuthorityObservation;
+  engine: DesktopEngineNetworkCensus; vm: DesktopVmObservation; external: DesktopExternalProjection;
+  projections: readonly DesktopMemberProjection[] }>): Extract<AuthorityBasis, { kind: 'full' }> {
+  return Object.freeze({ kind: 'full', atSequence: input.atSequence, exclusionDigest: input.exclusionDigest,
+    hostDigest: `sha256:${input.host.fingerprint}`, engineDigest: digest(input.engine), vmDigest: `sha256:${input.vm.fingerprint}`,
+    externalEngineDigest: digest(input.external.engine), externalVmDigest: digest(input.external.vm), projectionDigest: digest(input.projections) });
+}
 
 export function desktopJournalProjection(member: DesktopMemberProjection, graph: DesktopMemberGraphReceipt | undefined,
   engine: DesktopEngineNetworkCensus, stopped: boolean, brokerCreated: boolean, started: boolean): MemberProjection {

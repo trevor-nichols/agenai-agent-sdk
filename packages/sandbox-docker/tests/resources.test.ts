@@ -354,6 +354,21 @@ test('a fresh cleanup owner advances an original creating network record with th
   } finally { await fixture.close(); }
 });
 
+test('an Engine restart reloading unset DNS lists as empty preserves exact cleanup of a stopped sandbox', async () => {
+  for (const [dns, destroyed] of [[[], true], [['192.0.2.53'], false]] as const) {
+    const fixture = await engineFixture({ profile: networkFixtureProfile });
+    try {
+      const sandbox = await fixture.backend.reserve(sandboxRequest(), { kind: 'in_process' }).start();
+      await sandbox.stop();
+      assert.notEqual(fixture.containers.size, 0);
+      for (const container of fixture.containers.values()) Object.assign(container.HostConfig, { Dns: dns, DnsOptions: [], DnsSearch: [] });
+      if (destroyed) await sandbox.destroy();
+      else await assert.rejects(sandbox.destroy(), SandboxCleanupError);
+      assert.equal(fixture.containers.size === 0, destroyed);
+    } finally { await fixture.close(); }
+  }
+});
+
 test('daemon normalization of its unsupported OOM default preserves startup and exact cleanup ownership', async () => {
   const fixture = await engineFixture({ normalizeUnsupportedOomOnStart: true });
   try {

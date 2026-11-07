@@ -85,6 +85,10 @@ export async function installEngineCapture({ socketPath, evidence }) {
   http.get = function capturedGet(...args) { return instrument(Reflect.apply(originalGet, this, args), args[0]); };
   syncBuiltinESMExports();
   return {
+    completedSince(target, after) {
+      return record.entries.filter((entry) => entry.complete && entry.status === 200 && target.test(entry.target)
+        && Date.parse(entry.finishedAt) > after).length;
+    },
     async close() {
       if (closed) return;
       closed = true;

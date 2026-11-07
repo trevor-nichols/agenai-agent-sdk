@@ -2,6 +2,10 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
+Current source prepares coordinated **0.4.12**, a Docker Desktop coordinator patch: Resource Saver
+can stay on, and stopped sandboxes stay removable after an Engine restart. Read the
+[0.4.12 upgrade guide](UPGRADING-TO-0.4.12.md). No helper source changes.
+
 The published coordinated **0.4.11 release** corrects bounded CONNECT User-Agent compatibility.
 npm `latest` and `beta` select `0.4.11` for all ten packages. Read the
 [v0.4.11 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.11) and
@@ -72,7 +76,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages and current source are coordinated at `0.4.11`.
+schema assets. All ten published packages are coordinated at `0.4.11`; current source is `0.4.12`.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -151,6 +155,7 @@ pnpm add @agen-ai/validation@0.4.11 @agen-ai/agent-protocol@0.4.11
 
 Keep every SDK package at the same coordinated version, including optional packages. Use the
 published `v0.4.11` checkout for published-release examples. Read
+[UPGRADING-TO-0.4.12.md](UPGRADING-TO-0.4.12.md) for the Desktop coordinator patch,
 [UPGRADING-TO-0.4.11.md](UPGRADING-TO-0.4.11.md) for CONNECT compatibility and helper rebuilding,
 [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) for administrative recovery,
 [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for the cleanup patch,

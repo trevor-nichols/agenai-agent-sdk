@@ -1,10 +1,11 @@
 # SDK sandbox platform and consumer handoff
 
-The published coordinated release is **0.4.10**, with Agent Protocol **V13** unchanged.
-Current source prepares an **unpublished coordinated 0.4.11** candidate with bounded CONNECT
-User-Agent admission. Its installed helper, native catalog discovery and native Linux standalone/
-packed checks pass for the exact retained inputs below. Use an exact governed source export and
-its ten reviewed archives; the [upgrade guide](../../UPGRADING-TO-0.4.11.md) explains helper rebuilding.
+The published coordinated release is **0.4.11**, with Agent Protocol **V13** unchanged.
+Current source prepares an **unpublished coordinated 0.4.12** Docker Desktop coordinator patch; its
+[upgrade guide](../../UPGRADING-TO-0.4.12.md) records its Resource Saver qualification. The 0.4.11
+section below records the bounded CONNECT User-Agent admission, its installed helper, native catalog
+discovery and native Linux standalone/packed checks for the exact retained inputs; the
+[0.4.11 upgrade guide](../../UPGRADING-TO-0.4.11.md) explains helper rebuilding.
 Earlier candidate and platform records retain their original source and archive identities.
 Publication, Docker Desktop configuration and Battle Bots adoption remain separate actions.
 
@@ -35,11 +36,11 @@ remain excluded, with their successful original-owner cleanup retained separatel
 | Original native-used Docker archive | SHA-256 `5dd942ef9a91ef3bdfcef1acefd57ce3a9d1a223c6ccb4d60feb47e80caa1b63` |
 | Original native evidence | SHA-256 `610346f13558337f21b15b70c95f5ebe522b5b2ae6ef9e8e092d6b7292036bc1` |
 
-The complete [native record](../../qualification/native-catalog/0.4.11.json) retains all ten original
+The complete [native record](https://github.com/trevor-nichols/agenai-agent-sdk/blob/v0.4.11/qualification/native-catalog/0.4.11.json) retains all ten original
 archive/payload identities, native/bootstrap/helper bindings and cleanup. Its
-[configuration](../../qualification/native-catalog/configuration-0.4.11.json) SHA-256 is
+[configuration](https://github.com/trevor-nichols/agenai-agent-sdk/blob/v0.4.11/qualification/native-catalog/configuration-0.4.11.json) SHA-256 is
 `bfbbfaf672dcd22e067c863bd196a09104127abf2ecdee09196bb1e6ed657670`.
-The [final repack receipt](../../qualification/native-catalog/0.4.11-repack.json) separately identifies
+The [final repack receipt](https://github.com/trevor-nichols/agenai-agent-sdk/blob/v0.4.11/qualification/native-catalog/0.4.11-repack.json) separately identifies
 the checked final archives and preserves the original commitments. Final documentation and inert
 dependency-map ordering are compared explicitly; no earlier archive is relabelled as the final pack.
 
@@ -55,8 +56,7 @@ The consumer must separately adopt matching packages, explicitly rebuild/select 
 run fresh no-Task discovery through its actual account and infrastructure. Require confirmed remote
 refresh, Grok 4.7 advertised and complete cleanup. An absent/unproven 4.7 leaves Battle Bots blocked;
 never substitute 4.6/4.5. Catalog proof does not qualify Grok 1.0.70 Task execution, billing, other
-accounts or deployment; the existing task recipe remains pinned to 1.0.62. Publication must also
-admit its actual newly packed artifacts under [the release gate](../../RELEASING.md#native-catalog-admission).
+accounts or deployment; the existing task recipe remains pinned to 1.0.62.
 
 ## Administrative uncertain-create recovery (2026-11-02)
 

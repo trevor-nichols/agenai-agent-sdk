@@ -140,7 +140,7 @@ export async function engineFixture(options: FixtureOptions = {}) {
           Destination: mount.Target, RW: mount.ReadOnly !== true, Driver: mount.Type === 'image' ? '' : 'local',
           Propagation: mount.Type === 'image' ? 'rprivate' : '' };
       });
-      const actualHostConfig = structuredClone(parsed.HostConfig);
+      const actualHostConfig: Record<string, unknown> = { Dns: null, DnsOptions: null, DnsSearch: null, ...structuredClone(parsed.HostConfig) };
       if (options.normalizeUnsupportedOomOnStart) actualHostConfig.OomKillDisable = false;
       if (options.ignoreMemory) actualHostConfig.Memory = 0;
       const { HostConfig: _host, ...configuration } = parsed;

@@ -74,9 +74,10 @@ export class Evidence {
     const paths = ['controller.mjs', 'member.mjs', 'session.mjs', 'guest.mjs', 'guest-network.mjs', 'evidence.mjs', 'engine-capture.mjs',
       'scenario.mjs', 'configuration.mjs', 'effect-fault.mjs', 'control-loss.mjs', 'handoff.mjs', 'cut.mjs',
       '../coordinator-recovery/common.mjs', '../coordinator-recovery/canonical.mjs',
-      '../research/desktop-concurrency/native/installed.mjs', '../../engine.mjs', '../capabilities/network/resources.mjs',
+      '../../engine.mjs', '../capabilities/network/resources.mjs',
       '../../scalability/identity.mjs', '../../scalability/configuration.mjs',
-      '../../scalability/manifests.mjs', '../../native/configuration.mjs'];
+      '../../scalability/manifests.mjs', '../../native/configuration.mjs', 'census.mjs',
+      'resource-saver.mjs', 'desktop-idle.mjs', '../coordinator-negatives/backend-log.mjs', '../coordinator-negatives/cold-proof.mjs'];
     const result = [];
     for (const [index, name] of paths.entries()) {
       const path = fileURLToPath(new URL(name, import.meta.url));

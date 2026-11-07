@@ -257,10 +257,13 @@ function eui64(mac: string): string {
   const host = Buffer.concat([bytes.subarray(0, 3), Buffer.from([0xff, 0xfe]), bytes.subarray(3)]);
   return addressString(addressNumber('fe80::', 6) | host.readBigUInt64BE(), 6);
 }
+/** Linux keeps an IPv6 address tentative (IFA_F_TENTATIVE) until duplicate address detection completes. */
+export function desktopAddressesSettled(devices: readonly DesktopVmInterface[]): boolean {
+  return devices.every((device) => device.addresses.every((entry) => entry.family !== 6 || (entry.flags & 0x40) === 0));
+}
 export function desktopOwnedLinkLocalSettled(devices: readonly DesktopVmInterface[]): boolean {
   const bridge = devices[0];
   if (!bridge?.macAddress) return false;
   const bridgeAddresses = bridge.addresses.filter((entry) => entry.family === 6);
-  return bridgeAddresses.length === 1 && bridgeAddresses[0].address === eui64(bridge.macAddress)
-    && devices.every((device) => device.addresses.every((entry) => entry.family !== 6 || (entry.flags & 0x40) === 0));
+  return bridgeAddresses.length === 1 && bridgeAddresses[0].address === eui64(bridge.macAddress) && desktopAddressesSettled(devices);
 }

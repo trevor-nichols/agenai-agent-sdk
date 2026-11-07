@@ -5,7 +5,7 @@ public sandbox SDK and an explicitly rebuilt restricted-HTTPS helper. It creates
 a disposable native process and profile using the caller's existing access-only
 account credentials. It never creates a session or model Task.
 
-The recorded candidate is unpublished `0.4.11`. Passing this command does not
+The recorded qualification used the `0.4.11` candidate. Passing this command does not
 publish packages, update an application, or qualify the pinned 1.0.62 execution
 recipe for a newer native version. Catalog refresh and Grok 4.7 availability are
 separate report fields.
@@ -75,10 +75,8 @@ cleanup-retry signal; preserve that process and its records until cleanup settle
 
 `catalog-report.json` records discovery, configured inputs and cleanup separately.
 `guest` contains the bounded native result; `configuration` is the approved
-projection without host paths or account identity. The publication verifier
-consumes a reviewed projection under `qualification/native-catalog/`, bound to
-exact archives, package payloads, helper/native identities and current harness
-bytes. The command does not generate or approve publication evidence itself.
+projection without host paths or account identity. The report is qualification
+evidence only; no release step consumes it.
 
 ## Hermetic checks
 

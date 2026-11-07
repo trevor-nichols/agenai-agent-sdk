@@ -4,25 +4,25 @@ import { lstat, readFile, realpath } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { release } from 'node:os';
 import { Engine } from '../../engine.mjs';
-import { installed } from '../research/desktop-concurrency/native/installed.mjs';
-import { admitOutput, installedIdentity } from '../../scalability/identity.mjs';
+import { admitOutput, importInstalled, installedIdentity } from '../../scalability/identity.mjs';
 import { absolute, Evidence, failure, observe, sha } from './evidence.mjs';
 import { installEngineCapture } from './engine-capture.mjs';
 import { cleanupMember } from './member.mjs';
 import { runScenario } from './scenario.mjs';
-import { parseScenario, scenarioScope } from './configuration.mjs';
+import { coldScenario, parseScenario, scenarioFamily, scenarioScope } from './configuration.mjs';
 import { originalFile } from '../coordinator-recovery/common.mjs';
 import { effectTarget, installLostAcknowledgement } from './effect-fault.mjs';
 import { handoff } from './handoff.mjs';
 import { installControlLoss } from './control-loss.mjs';
 import { suspendAtResponse } from './cut.mjs';
+import { assertNetworkCensusReturned, networkIds } from './census.mjs';
 
 function validate(input) {
   assert.deepEqual(Object.keys(input).sort(), ['consumer', 'output', 'platform', 'capabilities', 'deploymentObservation', 'helper',
     ...(input.scenario === undefined ? [] : ['scenario']), ...(input.vmPreparation === undefined ? [] : ['vmPreparation'])].sort());
   const scenario = parseScenario(input.scenario);
-  if (scenario.kind !== 'ms004') absolute(input.vmPreparation);
-  else assert.equal(input.vmPreparation, undefined);
+  if (coldScenario(scenario)) assert.equal(input.vmPreparation, undefined);
+  else absolute(input.vmPreparation);
   if (scenario.kind === 'handoff' || scenario.kind === 'lost-ack') absolute(scenario.canonicalPath);
   absolute(input.consumer); absolute(input.output);
   assert.equal(process.platform, 'darwin'); assert.equal(process.arch, 'arm64');
@@ -130,7 +130,8 @@ async function main(inputPath) {
   const input = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw)); const selectedScenario = validate(input);
   await admitOutput(input.output, input.consumer); assert.equal(await realpath(dirname(input.output)), dirname(input.output));
   const evidence = new Evidence(input.output); await evidence.initialize(raw);
-  const report = { format: selectedScenario.kind === 'ms004' ? 'agenai.desktop-coordinator-ms004-exploratory.v1' : 'agenai.desktop-coordinator-ms005-exploratory.v1', status: 'running',
+  const family = scenarioFamily(selectedScenario);
+  const report = { format: family === 'ms003' ? 'agenai.desktop-coordinator-resource-saver.v1' : `agenai.desktop-coordinator-${family}-exploratory.v1`, status: 'running',
     startedAt: new Date().toISOString(), input: { path: inputPath, bytes: raw.length, sha256: sha(raw) },
     scope: scenarioScope(selectedScenario),
     scenario: selectedScenario,
@@ -143,20 +144,20 @@ async function main(inputPath) {
   const scenario = AbortSignal.timeout(input.capabilities.limits.scenarioMs);
   const context = { input, evidence, report, signal: AbortSignal.any([cancellation.signal, scenario]), members: [],
     coordinator: null, coordinatorTasks: [], scenario: selectedScenario,
-    namespace: `ms00${selectedScenario.kind === 'ms004' ? '4' : '5'}-exploratory-${randomUUID().slice(0, 8)}`, guestSources: new Map() };
+    namespace: `${family}-${family === 'ms003' ? 'saver' : 'exploratory'}-${randomUUID().slice(0, 8)}`, guestSources: new Map() };
   context.handoff = (phase, receipt) => handoff(context, phase, receipt);
   try {
     report.sources = await evidence.freezeSources();
-    if (selectedScenario.kind !== 'ms004') await preparation(context);
+    if (!coldScenario(selectedScenario)) await preparation(context);
     context.engineCapture = await installEngineCapture({ socketPath: input.platform.engine.slice(7), evidence });
     for (const name of ['guest.mjs', 'guest-network.mjs']) {
       const source = report.sources.find((entry) => entry.original.endsWith(`/${name}`)); assert(source);
       const bytes = await readFile(source.path); assert.equal(sha(bytes), source.sha256); context.guestSources.set(name, bytes);
     }
     report.candidate = await installedIdentity(input.consumer);
-    const sdk = await installed(input.consumer, '@agen-ai/sandbox');
-    const docker = await installed(input.consumer, '@agen-ai/sandbox-docker');
-    const node = await installed(input.consumer, '@agen-ai/sandbox-docker', './node');
+    const sdk = await importInstalled(input.consumer, '@agen-ai/sandbox');
+    const docker = await importInstalled(input.consumer, '@agen-ai/sandbox-docker');
+    const node = await importInstalled(input.consumer, '@agen-ai/sandbox-docker', './node');
     Object.assign(context, { sdk: sdk.api, docker: docker.api, node: node.api });
     report.packages = [sdk.identity, docker.identity, node.identity];
     assert.equal(typeof docker.api.createCoordinatedDockerSandboxBackend, 'function');
@@ -178,10 +179,12 @@ async function main(inputPath) {
     const version = (await context.engine.request('GET', '/version')).data;
     const info = (await context.engine.request('GET', '/info')).data;
     assert.equal(info.ID, route.engine.id); assert.equal(version.Version, input.platform.expected.daemon.version);
-    assert.equal(version.ApiVersion, '1.52'); assert.equal(info.KernelVersion, input.platform.expected.daemon.kernelVersion);
+    assert.equal(version.ApiVersion, input.platform.expected.daemon.apiVersion);
+    assert(Number(version.MinAPIVersion.slice(2)) <= 52 && Number(version.ApiVersion.slice(2)) >= 52, 'The Engine must serve API 1.52.');
+    assert.equal(info.KernelVersion, input.platform.expected.daemon.kernelVersion);
     report.engine = { id: info.ID, kernel: info.KernelVersion, version: version.Version, apiVersion: version.ApiVersion };
-    const networkIds = async () => (await context.engine.request('GET', '/networks')).data.map(({ Id }) => Id).sort();
-    report.initialNetworks = await networkIds(); assert(report.initialNetworks.length <= 128);
+    context.initialNetworks = (await context.engine.request('GET', '/networks')).data;
+    report.initialNetworks = networkIds(context.initialNetworks); assert(report.initialNetworks.length <= 128);
     context.routeAuthority = node.api.createDockerDesktopRouteAuthority(route);
     context.coordinator = node.api.createDockerDesktopCoordinator({ routeAuthority: context.routeAuthority, helper: input.helper });
     report.coordinator.initial = context.coordinator.state;
@@ -218,8 +221,10 @@ async function main(inputPath) {
       assert.equal(sha(await readFile(inputPath)), report.input.sha256, 'Attempt input changed during execution.');
       if (context.engine) {
         const info = (await context.engine.request('GET', '/info')).data; assert.equal(info.ID, report.engine.id);
-        report.finalNetworks = (await context.engine.request('GET', '/networks')).data.map(({ Id }) => Id).sort();
-        assert.deepEqual(report.finalNetworks, report.initialNetworks, 'Original Engine network census did not return to its initial identities.');
+        const finalNetworks = (await context.engine.request('GET', '/networks')).data;
+        report.finalNetworks = networkIds(finalNetworks);
+        report.defaultBridgeReplacement = assertNetworkCensusReturned(context.initialNetworks ?? [], finalNetworks,
+          { coldStart: context.preparation === undefined });
       }
     } catch (error) { report.status = 'fail'; report.finalIdentityFailure = failure(error); }
     try {
