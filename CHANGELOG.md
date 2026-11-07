@@ -35,6 +35,8 @@ and a local Docker backend, for ten coordinated packages.
   requires a per-version native catalog record or repack receipt; it still admits and retains the
   complete archive set before upload and verifies each publication, its provenance and registry
   signatures. The 0.4.11 records remain at the `v0.4.11` tag.
+- All ten packages are published at `0.4.12` under npm `beta` and `latest`; see the
+  [v0.4.12 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.12).
 
 ## 0.4.11 - 2026-11-03
 
@@ -50,8 +52,8 @@ and a local Docker backend, for ten coordinated packages.
 - Require exact retained native evidence before publication, including artifact recovery. An
   explicit repack receipt permits inert documentation and dependency-map ordering changes only
   after reconstructing the original payload commitments; conditional export order is preserved.
-- Pass native Linux standalone and packed-consumer checks. All ten packages are published at
-  `0.4.11` under npm `beta` and `latest`; existing helper images require the explicit [rebuild/upgrade steps](UPGRADING-TO-0.4.11.md).
+- Pass native Linux standalone and packed-consumer checks. At publication, all ten packages were
+  coordinated at `0.4.11` under npm `beta` and `latest`; existing helper images require the explicit [rebuild/upgrade steps](UPGRADING-TO-0.4.11.md).
 
 ## 0.4.10 - 2026-11-02
 

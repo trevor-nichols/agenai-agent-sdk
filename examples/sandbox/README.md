@@ -1,7 +1,7 @@
 # Explicit sandbox workflows
 
-Current example source targets the matching unpublished **0.4.12 candidate**. Use its reviewed
-source/local archives together; published npm 0.4.11 users retain the matching `v0.4.11` examples.
+Current example source targets published **0.4.12**; npm `latest` users run the matching
+`v0.4.12` examples. Earlier published releases retain their own tagged examples.
 The [administrative recovery runbook](recovery/README.md) covers the exact native-arm64
 uncertain-create recovery composition and caller-owned graceful lifecycle.
 The [concurrency workflow](concurrency/README.md) runs two coordinated Desktop members and a
