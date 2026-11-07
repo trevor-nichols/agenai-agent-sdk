@@ -5,6 +5,37 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.12 - 2026-11-07
+
+- Take the Docker Desktop coordinator's external topology baseline from the first member observation
+  backed by a running route observer, instead of from `activate()`, so Resource Saver can stay on.
+  While any member is registered, later observations must match that baseline as strictly as before.
+  After the last member retires, the next member starts a new live baseline, and coordinator state
+  reports `awaiting_member_observer` until that member's observer runs.
+- Take that baseline only once the VM has settled: both VM reads of one observation agree and no IPv6
+  address is still tentative. A freshly booted Desktop VM finishes duplicate address detection on its
+  own interfaces a second or two after its Engine starts; member startup waits for it within the
+  30-second topology settlement bound instead of fencing on the first observation after the boot.
+- While it owns no member, the coordinator's health check verifies host authority and the Engine
+  identity seen at `activate()` without reading Engine networks, so foreign network changes during
+  an idle period no longer fence it. A new member's allocation still reads a full Engine census.
+- Report a replaced default bridge while members are registered, which proves an Engine restart, as
+  `authority_lost` from source `engine`. A restart that first stops a running member still fences
+  with that member's existing failure. A bridge deleted without an observer must be absent from the
+  next live VM observation.
+- Destroy a stopped sandbox whose Engine restarted while it was retained, including a Resource Saver
+  VM reboot. A restart reloads a container's unset DNS lists as `[]` where creation reported `null`,
+  which changed the container's ownership fingerprint and left its container and storage volume in
+  place. Container fingerprints now record an empty DNS list as unset, so a fingerprint 0.4.11
+  persisted still matches; any configured DNS server, option or search domain still changes it.
+- Agent Protocol V13, neutral sandbox recovery v3, the coordinator journal format, public types and
+  existing backend identities are unchanged. No helper source changed; see
+  [UPGRADING-TO-0.4.12.md](UPGRADING-TO-0.4.12.md).
+- Remove the native catalog publication gate added in 0.4.11. The release workflow no longer
+  requires a per-version native catalog record or repack receipt; it still admits and retains the
+  complete archive set before upload and verifies each publication, its provenance and registry
+  signatures. The 0.4.11 records remain at the `v0.4.11` tag.
+
 ## 0.4.11 - 2026-11-03
 
 - Retain exact tagged workflow archives before native catalog admission. A reviewed packaging-only

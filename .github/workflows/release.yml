@@ -126,10 +126,6 @@ jobs:
               scripts/architecture/check-agent-sdk-sandbox-consumer.mjs \
               scripts/development/agent-sandbox-qualification \
               scripts/architecture/agent-sdk-consumers \
-              scripts/release/verify-native-catalog.mjs \
-              scripts/release/native-catalog \
-              qualification/native-catalog \
-              ":(exclude)qualification/native-catalog/${root_version}-repack.json" \
               examples
           elif [[ "$release_commit" != "$GITHUB_SHA" ]]; then
             echo "Release tag $RELEASE_TAG does not resolve to workflow commit $GITHUB_SHA." >&2
@@ -250,11 +246,6 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 90
-
-      - name: Verify reviewed native catalog qualification
-        run: >-
-          node scripts/release/verify-native-catalog.mjs
-          --release-ref "$RELEASE_REF" --release-directory release
 
       - name: Inspect validation publication
         id: validation

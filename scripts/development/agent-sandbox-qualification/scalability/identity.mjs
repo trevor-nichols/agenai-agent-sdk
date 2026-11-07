@@ -4,14 +4,19 @@
 
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { copyFile, lstat, mkdir, readdir, realpath } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readdir, readFile, realpath } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { boundedFile } from '../native/configuration.mjs';
 import { physicalDirectory } from './configuration.mjs';
 import { hashFile } from './manifests.mjs';
 
+export const CANDIDATE_VERSION = '0.4.12';
+
 const names = ['validation', 'agent-protocol', 'agent-runtime', 'agent-orchestration', 'agent-history',
   'acp-transport', 'provider-acp', 'acp-registry', 'sandbox', 'sandbox-docker'];
+const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 export function within(root, target) {
   const local = relative(root, target);
@@ -30,7 +35,7 @@ export async function installedIdentity(consumer) {
     assert(within(modules, root), 'Installed package must stay within consumer node_modules.');
     const manifest = JSON.parse((await boundedFile(join(root, 'package.json'), 1024 ** 2)).toString('utf8'));
     assert.equal(manifest.name, `@agen-ai/${name}`);
-    assert.equal(manifest.version, '0.4.11');
+    assert.equal(manifest.version, CANDIDATE_VERSION);
     assert.equal(manifest.type, 'module');
     const digest = createHash('sha256');
     let files = 0;
@@ -55,6 +60,23 @@ export async function installedIdentity(consumer) {
     packages.push({ name: manifest.name, version: manifest.version, files, bytes, sha256: digest.digest('hex') });
   }
   return packages;
+}
+
+export async function importInstalled(consumer, name, subpath = '.', version = CANDIDATE_VERSION) {
+  assert.equal(await realpath(consumer), consumer);
+  const require = createRequire(join(consumer, 'package.json'));
+  const manifestPath = require.resolve(`${name}/package.json`);
+  assert(manifestPath.startsWith(`${consumer}/node_modules/`), 'Qualification must load a separately installed package.');
+  const manifestBytes = await readFile(manifestPath);
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  assert.equal(manifest.name, name);
+  assert.equal(manifest.version, version, `Installed ${name} must be version ${version}.`);
+  const entry = manifest.exports[subpath]?.import;
+  assert(typeof entry === 'string' && entry.startsWith('./'));
+  const entryPath = join(dirname(manifestPath), entry);
+  return { api: await import(pathToFileURL(entryPath).href),
+    identity: { name, version: manifest.version, subpath, manifestPath, manifestSha256: sha(manifestBytes),
+      entryPath, entrySha256: sha(await readFile(entryPath)) } };
 }
 
 export async function admitOutput(output, consumer) {

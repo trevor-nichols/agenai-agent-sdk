@@ -11,7 +11,7 @@ import { projectDesktopEngineExternal } from '../src/network/desktop/coordinator
 import type { DockerDesktopRouteAuthorityBinding } from '../src/network/routeAuthority.js';
 import { parseDesktopHostObservation } from '../src/network/desktop/observation/host.js';
 import { parseDesktopVmObservation } from '../src/network/desktop/observation/vm.js';
-import { readDesktopEngineNetworks } from '../src/network/desktop/observation/engine.js';
+import { readDesktopEngineIdentity, readDesktopEngineNetworks } from '../src/network/desktop/observation/engine.js';
 import { desktopHostDocument, desktopVmDocument, netlinkAttribute, netlinkRecord } from './fixtures/desktopObservation.js';
 import { desktopRouteAuthorityOptions } from './fixtures/desktopRouteAuthority.js';
 import { engineFixture, imageDigest, sandboxRequest } from './fixtures/engine.js';
@@ -47,7 +47,7 @@ test('observer bootstrap retains its original allocation and refuses a newly dec
   let record = source.record;
   const captureEngineBaseline = async () => ({ host, engine: await readDesktopEngineNetworks(api) });
   const manager = new DesktopCoordinatorTopologyOwner({ api, binding, initial: await captureEngineBaseline(),
-    async assertEndpoint() {}, captureEngineBaseline });
+    async assertEndpoint() {}, captureEngineBaseline, captureEngineAuthority: async () => ({ host, engine: await readDesktopEngineIdentity(api) }) });
   try {
     const allocation = await manager.selectAllocation();
     assert.deepEqual(allocation, { slot: 0, subnet: '10.240.0.0/28', gateway: '10.240.0.1' });

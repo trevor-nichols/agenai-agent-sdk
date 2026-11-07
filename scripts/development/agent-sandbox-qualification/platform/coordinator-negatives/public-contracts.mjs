@@ -3,8 +3,7 @@ import http from 'node:http';
 import { syncBuiltinESMExports } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { installed } from '../research/desktop-concurrency/native/installed.mjs';
-import { installedIdentity } from '../../scalability/identity.mjs';
+import { importInstalled, installedIdentity } from '../../scalability/identity.mjs';
 import { memberConfiguration, originalFile } from '../coordinator-recovery/common.mjs';
 import { absolute, Evidence, failure } from '../coordinator/evidence.mjs';
 import { memberNegatives } from './cases.mjs';
@@ -16,10 +15,10 @@ async function run(inputPath) {
   const template = await originalFile(absolute(input.template), 1024 ** 2);
   const evidence = new Evidence(absolute(input.output)); await evidence.initialize(selected.bytes);
   const candidate = await installedIdentity(absolute(input.consumer));
-  const sandbox = (await installed(input.consumer, '@agen-ai/sandbox')).api;
-  const backend = (await installed(input.consumer, '@agen-ai/sandbox', './backend')).api;
-  const docker = (await installed(input.consumer, '@agen-ai/sandbox-docker')).api;
-  const node = (await installed(input.consumer, '@agen-ai/sandbox-docker', './node')).api;
+  const sandbox = (await importInstalled(input.consumer, '@agen-ai/sandbox')).api;
+  const backend = (await importInstalled(input.consumer, '@agen-ai/sandbox', './backend')).api;
+  const docker = (await importInstalled(input.consumer, '@agen-ai/sandbox-docker')).api;
+  const node = (await importInstalled(input.consumer, '@agen-ai/sandbox-docker', './node')).api;
   const report = { status: 'running', scope: 'Source qualifier calls through actual installed public configuration and neutral reconciliation parsers. No Engine/native recovery result.',
     input: selected.identity, template: template.identity, candidate, cases: [], configurationParses: 0, neutralReconciliations: 0,
     transportAttempts: 0, negativeFailure: null, cleanupFailure: null, settledRecords: [], evidenceFailures: [] };

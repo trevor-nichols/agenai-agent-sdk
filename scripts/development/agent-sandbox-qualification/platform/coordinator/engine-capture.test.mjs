@@ -58,7 +58,11 @@ test('passive Engine capture preserves original bytes and caller-controlled flow
     call.once('error', reject); if (!get) call.end();
   });
   try {
+    const before = Date.now() - 1;
     for (const [index, target] of targets.entries()) assert.deepEqual(await request('GET', target, index === 0), original);
+    assert.equal(owned.capture.completedSince(/\/info$/u, before), 1);
+    assert.equal(owned.capture.completedSince(/\/networks\//u, before), 2);
+    assert.equal(owned.capture.completedSince(/\/info$/u, Date.now() + 1), 0);
     assert.deepEqual(await request('GET', '/version'), original);
     assert.deepEqual(await request('POST', '/v1.52/containers/create'), original);
     const summary = await owned.capture.close(); const index = await owned.index(summary);

@@ -3,8 +3,7 @@ import { lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Engine } from '../../engine.mjs';
-import { admitOutput, installedIdentity } from '../../scalability/identity.mjs';
-import { installed } from '../research/desktop-concurrency/native/installed.mjs';
+import { admitOutput, importInstalled, installedIdentity } from '../../scalability/identity.mjs';
 import { absolute, Evidence, failure } from '../coordinator/evidence.mjs';
 import { installEngineCapture } from '../coordinator/engine-capture.mjs';
 import { compareEngineInventory, engineInventory, exactAbsence, freezeSources, memberConfiguration, originalFile } from '../coordinator-recovery/common.mjs';
@@ -63,7 +62,7 @@ export async function runRecoveryNegatives(inputPath) {
     guard = installGuard({ socketPath, path: join(input.output, 'http-trace.jsonl'), records: original.observed,
       completedDeletes: [original.report.handoff.receipt.selected.target] });
     capture = await installEngineCapture({ socketPath, evidence });
-    const node = (await installed(input.consumer, '@agen-ai/sandbox-docker', './node')).api;
+    const node = (await importInstalled(input.consumer, '@agen-ai/sandbox-docker', './node')).api;
     nodeApi = node;
     const createOwner = () => node.createDockerDesktopCoordinator({ helper: original.config.helper,
       routeAuthority: node.createDockerDesktopRouteAuthority(original.config.capabilities.network.routeAuthority) });

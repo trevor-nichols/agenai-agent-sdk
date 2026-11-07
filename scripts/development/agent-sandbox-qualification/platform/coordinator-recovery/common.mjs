@@ -3,7 +3,10 @@ import { lstat, readFile, realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { absolute, sha } from '../coordinator/evidence.mjs';
+import { isDefaultBridge } from '../coordinator/census.mjs';
 import { parseCanonicalEnvelope } from './canonical.mjs';
+
+const RETAINED_ORIGINAL_FORMATS = Object.freeze(['agenai.desktop-coordinator-ms004-exploratory.v1', 'agenai.desktop-coordinator-resource-saver.v1']);
 
 export async function originalBytes(path, maximum) {
   absolute(path); assert.equal(await realpath(path), path, 'Original evidence must select a physical file.');
@@ -29,13 +32,14 @@ export async function loadOriginal(input) {
   const retained = await originalFile(input.retainedReport, 4 * 1024 ** 2);
   const checkpoint = await originalFile(input.checkpoint, 65_536);
   const config = originalInput.value; const report = retained.value; const record = checkpoint.value;
-  assert.equal(report.format, 'agenai.desktop-coordinator-ms004-exploratory.v1');
+  assert(RETAINED_ORIGINAL_FORMATS.includes(report.format), 'Original-generation cleanup accepts only an MS004 or MS003 Resource Saver report.');
   assert.equal(report.input.path, input.originalInput); assert.equal(report.input.sha256, originalInput.identity.sha256);
   assert.equal(report.input.bytes, originalInput.identity.bytes); assert.equal(dirname(input.retainedReport), config.output);
   assert.equal(report.status, 'retained_cleanup');
-  assert.equal(report.members.length, 1, 'This prerequisite qualifies the single original r1 member only.');
-  const member = report.members[0];
-  assert.equal(member.label, 'a'); assert.equal(member.namespace, record.namespace);
+  const member = report.members.find(({ label }) => label === 'a');
+  assert(member && report.members.every((entry) => entry === member || entry.finalState?.kind === 'destroyed'),
+    'This prerequisite qualifies one retained original member a; every other original member must already be destroyed.');
+  assert.equal(member.namespace, record.namespace);
   const stored = member.checkpoints.find((entry) => entry.path === input.checkpoint); assert(stored);
   assert.equal(stored.sha256, checkpoint.identity.sha256); assert.equal(stored.bytes, checkpoint.identity.bytes);
   assert.equal(record.operationId, member.originalRecord.operationId); assert.equal(record.sandboxId, member.originalRecord.sandboxId);
@@ -46,7 +50,8 @@ export async function loadOriginal(input) {
   assert.equal(process.platform, 'darwin'); assert.equal(process.arch, 'arm64');
   assert.equal(process.versions.node, config.platform.expected.controller.nodeVersion);
   assert.match(report.coordinator.generation, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u);
-  return { originalInput, retained, checkpoint, config, report, record, member, generation: report.coordinator.generation };
+  return { originalInput, retained, checkpoint, config, report, record, member, generation: report.coordinator.generation,
+    coldVm: config.vmPreparation === undefined };
 }
 
 export function compareMemberInventory(canonical, original) {
@@ -92,23 +97,29 @@ export async function engineInventory(engine) {
   const networks = (await engine.request('GET', '/networks')).data;
   assert(containers.length <= 4096 && volumes.length <= 4096 && networks.length <= 128);
   return { daemonId: info.ID, containers: containers.map(({ Id }) => Id).sort(), volumes: volumes.map(({ Name }) => Name).sort(),
-    networks: networks.map(({ Id }) => Id).sort() };
+    networks: networks.map(({ Id }) => Id).sort(), defaultBridge: networks.find(isDefaultBridge)?.Id ?? null };
 }
 
-export function compareEngineInventory(before, after, original) {
+/** Resource Saver may stop a VM that no preparation holds awake; cleanup's first effect then boots it, which recreates the default bridge. */
+export function compareEngineInventory(before, after, original, { coldVm = false } = {}) {
   assert.equal(after.daemonId, before.daemonId);
   const records = Array.isArray(original) ? original : [original];
+  const replacement = coldVm && before.defaultBridge && after.defaultBridge && before.defaultBridge !== after.defaultBridge
+    ? { before: before.defaultBridge, after: after.defaultBridge } : null;
   for (const [key, roles] of [['containers', ['compute', 'export', 'filesystem', 'route_observer', 'egress_broker', 'egress_relay']],
     ['volumes', ['storage', 'egress_socket']], ['networks', ['network']]]) {
     const owned = new Set(records.flatMap((record) => record.resources.filter((entry) => roles.includes(entry.role) && entry.identity.kind === 'identified').map((entry) => entry.identity.id)));
-    assert(after[key].every((id) => before[key].includes(id)), 'Cleanup introduced a new Engine resource identity.');
-    assert.deepEqual(after[key], before[key].filter((id) => !owned.has(id)), 'Cleanup changed an unrelated original Engine identity.');
+    const prior = before[key].filter((id) => key !== 'networks' || id !== replacement?.before);
+    const next = after[key].filter((id) => key !== 'networks' || id !== replacement?.after);
+    assert(next.every((id) => prior.includes(id)), 'Cleanup introduced a new Engine resource identity.');
+    assert.deepEqual(next, prior.filter((id) => !owned.has(id)), 'Cleanup changed an unrelated original Engine identity.');
   }
+  return replacement;
 }
 
 export async function freezeSources(evidence) {
-  const files = ['controller.mjs', 'common.mjs', 'canonical.mjs', 'trace.mjs', 'process.mjs', 'multi-controller.mjs', 'multi-input.mjs', '../coordinator/evidence.mjs', '../coordinator/engine-capture.mjs',
-    '../research/desktop-concurrency/native/installed.mjs', '../../engine.mjs', '../../scalability/identity.mjs',
+  const files = ['controller.mjs', 'common.mjs', 'canonical.mjs', 'trace.mjs', 'process.mjs', 'multi-controller.mjs', 'multi-input.mjs', '../coordinator/evidence.mjs', '../coordinator/engine-capture.mjs', '../coordinator/census.mjs',
+    '../../engine.mjs', '../../scalability/identity.mjs',
     '../../scalability/configuration.mjs', '../../scalability/manifests.mjs', '../../native/configuration.mjs'];
   const result = [];
   for (const [index, name] of files.entries()) {

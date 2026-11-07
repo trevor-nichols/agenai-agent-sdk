@@ -30,8 +30,8 @@ const networkSchema = z.object({ Id: id, Name: boundedText.min(1), Created: boun
   Options: stringMap, Labels: stringMap, Containers: z.record(z.string().regex(/^(?:ep-)?[a-f0-9]{64}$/u), endpointSchema), Status: networkStatusSchema.optional(),
 }).passthrough();
 export type DesktopEngineNetwork = z.infer<typeof networkSchema>;
-export interface DesktopEngineNetworkCensus {
-  readonly id: string; readonly hostname: string; readonly kernel: string;
+export interface DesktopEngineIdentity { readonly id: string; readonly hostname: string; readonly kernel: string }
+export interface DesktopEngineNetworkCensus extends DesktopEngineIdentity {
   readonly networks: readonly DesktopEngineNetwork[]; readonly excludedCidrs: readonly string[];
 }
 
@@ -45,9 +45,15 @@ export function observationFingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
 }
 
+export async function readDesktopEngineIdentity(api: DockerApi, signal?: AbortSignal,
+  responseBudget?: DockerResponseByteBudget): Promise<DesktopEngineIdentity> {
+  const info = await api.json('GET', '/info', z.object({ ID: z.string().min(1).max(256), Name: boundedText.min(1), KernelVersion: boundedText.min(1) }), { signal, responseBudget });
+  return { id: info.ID, hostname: info.Name, kernel: info.KernelVersion };
+}
+
 export async function readDesktopEngineNetworks(api: DockerApi, signal?: AbortSignal,
   responseBudget?: DockerResponseByteBudget): Promise<DesktopEngineNetworkCensus> {
-  const info = await api.json('GET', '/info', z.object({ ID: z.string().min(1).max(256), Name: boundedText.min(1), KernelVersion: boundedText.min(1) }), { signal, responseBudget });
+  const identity = await readDesktopEngineIdentity(api, signal, responseBudget);
   const list = async () => {
     const result = await api.json('GET', `${DOCKER_API}/networks`, z.array(z.object({ Id: id })).min(1).max(128), { signal, responseBudget });
     const ids = result.map((network) => network.Id).sort();
@@ -57,7 +63,6 @@ export async function readDesktopEngineNetworks(api: DockerApi, signal?: AbortSi
   const ids = await list();
   const networks: DesktopEngineNetwork[] = [];
   const exclusions: string[] = [];
-  const identity = { id: info.ID, hostname: info.Name, kernel: info.KernelVersion };
   const envelopeBytes = Buffer.byteLength(JSON.stringify({ ...identity, networks: [], excludedCidrs: [] }), 'utf8');
   let networkBytes = 0;
   let excludedCidrs = deniedCoverage(exclusions);

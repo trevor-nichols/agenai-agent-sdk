@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict';
 import { absolute } from './evidence.mjs';
 
+const RESOURCE_SAVER = Object.freeze(['single', 'joint', 'idle-reentry', 'foreign-network', 'engine-restart']);
+const IDLE = Object.freeze(['idle-reentry', 'engine-restart']);
+
+export const resourceSaverScenario = (scenario) => RESOURCE_SAVER.includes(scenario.kind);
+/** Scenarios that begin from Desktop's own VM state; the others require an explicit prepare-vm.mjs receipt. */
+export const coldScenario = (scenario) => scenario.kind === 'ms004' || resourceSaverScenario(scenario);
+export const scenarioFamily = (scenario) => resourceSaverScenario(scenario) ? 'ms003' : scenario.kind === 'ms004' ? 'ms004' : 'ms005';
+
 export function parseScenario(value) {
   if (value === undefined) return { kind: 'ms004' };
   assert(value && typeof value === 'object' && !Array.isArray(value));
-  if (value.kind === 'lifecycle') {
+  if (RESOURCE_SAVER.includes(value.kind)) {
+    assert.deepEqual(Object.keys(value).sort(), ['kind', ...(IDLE.includes(value.kind) ? ['backendLogs'] : [])].sort());
+    if (IDLE.includes(value.kind)) {
+      assert(Array.isArray(value.backendLogs) && value.backendLogs.length >= 1 && value.backendLogs.length <= 4);
+      for (const path of value.backendLogs) absolute(path);
+    }
+  } else if (value.kind === 'lifecycle') {
     assert.deepEqual(Object.keys(value).sort(), ['kind', 'removalOrder', 'reentry'].sort());
     assert.deepEqual([...value.removalOrder].sort(), ['a', 'b']); assert.equal(value.reentry, true);
   } else if (value.kind === 'control-loss') {
@@ -25,7 +39,26 @@ export function parseScenario(value) {
   return value;
 }
 
+const RESOURCE_SAVER_SCOPE = Object.freeze({
+  single: ['One original member admitted from a Resource Saver VM stopped before activation'],
+  joint: ['Two original members whose starts are both entered before either completes, from a stopped VM'],
+  'idle-reentry': ['One original member, destroyed; Desktop stops the VM with the coordinator still active',
+    'A harness-owned foreign network created and removed while no member is owned leaves the generation active',
+    'After a further VM stop, a new member in the same open coordinator succeeds'],
+  'foreign-network': ['A harness-owned foreign network created after the first member live observation',
+    'The group fences with External Desktop Engine topology changed. as its retained cause; exact owned cleanup follows'],
+  'engine-restart': ['One original member stopped and retained while Desktop stops the VM, restarting its Engine',
+    'The next admission wakes the VM; the group fences and the record names the check that fenced first'],
+});
+
 export function scenarioScope(scenario) {
+  if (resourceSaverScenario(scenario)) {
+    return { composition: 'One installed native-arm64 coordinator with original restricted members and no VM preparation.',
+      qualification: 'MS003 Resource Saver native qualification under the cold-admission wrapper.',
+      exercised: [...RESOURCE_SAVER_SCOPE[scenario.kind], 'Independent exact original name/ID absence and acknowledged canonical clean close'],
+      exclusions: ['Provider/model/account/credential use', 'Rosetta and mixed-workload profiles', 'Docker Desktop settings changes',
+        'Controller crash recovery'] };
+  }
   const common = ['Staged member addition during one original primary/stdout reader and live file producer',
     'Distinct immutable github.com and example.com CONNECT policies with fresh verified TLS and cross-host HTTP403',
     'Same-path live file identity isolation'];

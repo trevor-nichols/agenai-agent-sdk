@@ -10,8 +10,7 @@ import type { DesktopRouteCensus } from '../acquisition.js';
 import type { DesktopVmObserverClient } from '../client.js';
 import { captureDesktopCompleteObservation } from '../observation/complete.js';
 import type { DesktopCompleteObservation } from '../observation/complete.js';
-import { observationFingerprint } from '../observation/engine.js';
-import type { DesktopEngineNetworkCensus } from '../observation/engine.js';
+import type { DesktopEngineIdentity, DesktopEngineNetworkCensus } from '../observation/engine.js';
 import type { DesktopHostAuthorityObservation } from '../observation/host.js';
 import { requireSameAuthority } from '../topology.js';
 import { selectDesktopAllocation, requireDesktopAllocationAvailable, requireDesktopAllocationDenied } from './allocation.js';
@@ -19,8 +18,9 @@ import type { DesktopAllocation } from './allocation.js';
 import { captureDesktopActiveGraph, captureDesktopRetainedState, projectDesktopEngineExternal, projectDesktopExternal,
   validateDesktopProjectionCandidate } from './projection.js';
 import type { DesktopExternalProjection, DesktopMemberProjection, DesktopMemberGraphReceipt } from './projection.js';
+import { captureDesktopSettledBaseline, requireDesktopAuthority, requireDesktopBridgesRemoved, requireSameExternalEngine } from './liveBaseline.js';
 import { beginDesktopRemoval, observeDesktopMemberEffect, releaseDesktopMemberControls } from './topologyMember.js';
-import { desktopJournalProjection } from './projectionJournal.js';
+import { desktopFullBasis, desktopJournalProjection } from './projectionJournal.js';
 import type { DesktopCoordinatorControlledRole, DesktopCoordinatorEffectObservation } from './member.js';
 import { DESKTOP_COORDINATOR_POLICY } from './policy.js';
 import { coordinatorDigest } from './journal/schema.js';
@@ -49,20 +49,22 @@ export interface DesktopCoordinatorTopologyOptions {
   readonly initial: EngineObservation;
   assertEndpoint(signal: AbortSignal): Promise<void>;
   captureEngineBaseline(signal?: AbortSignal): Promise<EngineObservation>;
+  /** With no member registered the Engine network list may change freely, so only host and Engine authority are observed. */
+  captureEngineAuthority(signal?: AbortSignal): Promise<Readonly<{ host: DesktopHostAuthorityObservation; engine: DesktopEngineIdentity }>>;
 }
 
 export class DesktopCoordinatorTopologyOwner {
   private readonly members = new Map<string, Member>();
-  private readonly initialEngine: ReturnType<typeof projectDesktopEngineExternal>;
+  // Taken from the first settled observer-backed observation after the coordinator last owned no member.
   private external: DesktopExternalProjection | undefined;
   private latest: DesktopCompleteObservation | undefined;
   private lastEngine: EngineObservation;
   private receipts: readonly DesktopMemberGraphReceipt[] = [];
   private pending: Pending | undefined;
   private finalObserverClosing = false;
+  private readonly unconfirmedBridgeRemovals = new Set<string>();
 
   constructor(private readonly options: DesktopCoordinatorTopologyOptions) {
-    this.initialEngine = projectDesktopEngineExternal(options.initial.engine, []);
     this.lastEngine = options.initial;
   }
 
@@ -72,7 +74,7 @@ export class DesktopCoordinatorTopologyOwner {
 
   async selectAllocation(signal?: AbortSignal): Promise<DesktopAllocation> {
     signal?.throwIfAborted();
-    await this.assertCurrent();
+    await this.accept(await this.capture(), false);
     return selectDesktopAllocation({ host: this.lastEngine.host, engine: this.lastEngine.engine,
       ...(this.latest ? { vm: this.latest.vmAfter } : {}), occupiedSlots: this.projections().map((member) => member.allocation.slot),
       liveBrokerExclusions: this.exclusions() });
@@ -82,6 +84,7 @@ export class DesktopCoordinatorTopologyOwner {
     if (this.members.has(source.memberId) || this.members.size >= 4
       || [...this.members.values()].some((member) => member.projection.allocation.slot === allocation.slot)
       || source.record().operationId !== source.memberId) throw new SandboxStateError('Desktop topology member binding or capacity is invalid.');
+    if (this.members.size === 0) this.beginOwnershipPeriod();
     this.members.set(source.memberId, { source, inspections: new Map(), released: new Set(), observerClosing: false, stopped: false,
       projection: { memberId: source.memberId, allocation, observer: { kind: 'absent' },
         none: { compute: { kind: 'absent' }, filesystem: { kind: 'absent' } }, bridge: { kind: 'absent' } } });
@@ -121,7 +124,7 @@ export class DesktopCoordinatorTopologyOwner {
       this.finalObserverClosing = true;
     }
     this.pending = { memberId, role, action, projection };
-    return coordinatorDigest('agenai.desktop-coordinator.before.v1', JSON.stringify({ external: this.external ?? this.initialEngine,
+    return coordinatorDigest('agenai.desktop-coordinator.before.v1', JSON.stringify({ external: this.external ?? null,
       projections: this.projections(), memberId, role, action }));
   }
 
@@ -167,7 +170,10 @@ export class DesktopCoordinatorTopologyOwner {
       JSON.stringify({ memberId, role, action, inspectionDigest, projection })) });
   }
 
-  async assertCurrent(): Promise<void> { await this.accept(await this.capture(), false); }
+  async assertCurrent(): Promise<void> {
+    if (this.members.size === 0) requireDesktopAuthority(await this.options.captureEngineAuthority(), this.options.initial);
+    else await this.accept(await this.capture(), false);
+  }
 
   census(memberId: string): DesktopRouteCensus { this.member(memberId); return this.requireCensus(); }
 
@@ -188,12 +194,8 @@ export class DesktopCoordinatorTopologyOwner {
   }
 
   currentBasis(atSequence: number, exclusionDigest: string): Extract<AuthorityBasis, { kind: 'full' }> | undefined {
-    if (!this.external || !this.latest) return undefined;
-    return Object.freeze({ kind: 'full', atSequence, exclusionDigest,
-      hostDigest: `sha256:${this.lastEngine.host.fingerprint}`, engineDigest: `sha256:${observationFingerprint(this.lastEngine.engine)}`,
-      vmDigest: `sha256:${this.latest.vmAfter.fingerprint}`, externalEngineDigest: `sha256:${observationFingerprint(this.external.engine)}`,
-      externalVmDigest: `sha256:${observationFingerprint(this.external.vm)}`,
-      projectionDigest: `sha256:${observationFingerprint(this.projections())}` });
+    return this.external && this.latest ? desktopFullBasis({ atSequence, exclusionDigest, ...this.lastEngine, vm: this.latest.vmAfter,
+      external: this.external, projections: this.projections() }) : undefined;
   }
 
   private member(memberId: string): Member {
@@ -202,6 +204,10 @@ export class DesktopCoordinatorTopologyOwner {
     return member;
   }
 
+  /** Owning nothing in the VM, the coordinator may baseline again exactly as a fresh activation would. */
+  private beginOwnershipPeriod(): void {
+    this.external = undefined; this.latest = undefined; this.receipts = []; this.finalObserverClosing = false;
+  }
   private projections(): readonly DesktopMemberProjection[] { return [...this.members.values()].map((member) => member.projection); }
   private released(member: Member, projection: DesktopMemberProjection): DesktopMemberProjection {
     return releaseDesktopMemberControls(projection, member.released);
@@ -225,25 +231,28 @@ export class DesktopCoordinatorTopologyOwner {
     return this.latest.census;
   }
   private async capture(): Promise<EngineObservation & Readonly<{ complete?: DesktopCompleteObservation }>> {
-    const signal = AbortSignal.timeout(DESKTOP_COORDINATOR_POLICY.observationTimeoutMs);
     const observer = this.availableObserver();
     if (!observer) {
       if (this.external && !this.finalObserverClosing) throw new SandboxStateError('Desktop full authority lost every original observer.');
-      return this.options.captureEngineBaseline(signal);
+      return this.options.captureEngineBaseline(AbortSignal.timeout(DESKTOP_COORDINATOR_POLICY.observationTimeoutMs));
     }
-    const complete = await captureDesktopCompleteObservation({ api: this.options.api, binding: this.options.binding, observer,
-      expectedHost: this.options.initial.host, assertEndpoint: this.options.assertEndpoint }, signal);
-    return { host: complete.host, engine: complete.engine, complete };
+    const complete = async () => {
+      const observed = await captureDesktopCompleteObservation({ api: this.options.api, binding: this.options.binding, observer,
+        expectedHost: this.options.initial.host, assertEndpoint: this.options.assertEndpoint }, AbortSignal.timeout(DESKTOP_COORDINATOR_POLICY.observationTimeoutMs));
+      return { host: observed.host, engine: observed.engine, complete: observed };
+    };
+    return this.external ? complete() : captureDesktopSettledBaseline(complete);
   }
 
   private async accept(observed: EngineObservation & Readonly<{ complete?: DesktopCompleteObservation }>, effect: boolean,
     settling?: Member): Promise<boolean> {
-    requireSameAuthority(observed.host.fingerprint, this.options.initial.host.fingerprint, 'Desktop host authority differs from the original baseline.');
-    requireSameAuthority(observed.host.executableIdentity, this.options.initial.host.executableIdentity, 'Desktop host observer identity changed.');
+    requireDesktopAuthority(observed, this.options.initial);
     const engine = projectDesktopEngineExternal(observed.engine, this.projections());
-    requireSameAuthority(engine, this.initialEngine, 'External Desktop Engine topology changed.');
+    if (this.external && this.members.size > 0) requireSameExternalEngine(engine, this.external.engine);
     this.lastEngine = { host: observed.host, engine: observed.engine };
     if (!observed.complete) return true;
+    requireDesktopBridgesRemoved([observed.complete.vmBefore, observed.complete.vmAfter], this.unconfirmedBridgeRemovals);
+    this.unconfirmedBridgeRemovals.clear();
     if (!this.external) {
       const before = projectDesktopExternal({ engine: observed.engine, vm: observed.complete.vmBefore }, this.projections());
       const after = projectDesktopExternal({ engine: observed.engine, vm: observed.complete.vmAfter }, this.projections());
@@ -284,7 +293,10 @@ export class DesktopCoordinatorTopologyOwner {
           if (!observed.complete) throw new SandboxStateError('Desktop endpoint removal requires live VM authority.');
           member.projection = { ...member.projection, bridge: { kind: 'retained', owned: bridge.owned,
             state: captureDesktopRetainedState(bridge.transition, observed.complete.vmAfter) } };
-        } else if (bridge.kind === 'removing_bridge') member.projection = { ...member.projection, bridge: { kind: 'absent' } };
+        } else if (bridge.kind === 'removing_bridge') {
+          if (!observed.complete) this.unconfirmedBridgeRemovals.add(bridge.owned.receipt.bridgeName);
+          member.projection = { ...member.projection, bridge: { kind: 'absent' } };
+        }
         if (member.projection.bridge.kind === 'absent') this.receipts = this.receipts.map((entry) => entry.memberId === member.source.memberId
           ? Object.freeze({ memberId: entry.memberId, kind: 'absent', settled: true, graph: null }) : entry);
         return;

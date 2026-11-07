@@ -35,10 +35,11 @@ import { inspectDesktopCoordinatorEndpoint } from './desktopCoordinatorEndpoint.
 import type { DesktopCoordinatorEndpointBinding } from './desktopCoordinatorEndpoint.js';
 import { DesktopCoordinatorHolder, DesktopCoordinatorHolderError } from './desktopCoordinatorHolder.js';
 import type { DesktopCoordinatorHolderIdentity } from './desktopCoordinatorHolder.js';
-import { captureDesktopCoordinatorBaseline } from './desktopCoordinatorBaseline.js';
+import { captureDesktopCoordinatorBaseline, captureDesktopCoordinatorIdentity } from './desktopCoordinatorBaseline.js';
 import type { DesktopCoordinatorBaseline } from './desktopCoordinatorBaseline.js';
 import { DesktopCoordinatorMembers } from '../network/desktop/coordinator/members.js';
 import { DesktopCoordinatorTopologyOwner } from '../network/desktop/coordinator/topologyOwner.js';
+import { DesktopEngineRestartedError } from '../network/desktop/coordinator/liveBaseline.js';
 import type { DesktopCoordinatorMember, DesktopCoordinatorMemberOwner } from '../network/desktop/coordinator/member.js';
 import { createDesktopCoordinatorRecoveryMembers } from '../network/desktop/coordinator/recovery/members.js';
 import { captureDesktopCleanupInput, desktopCleanupIdentityConflict, parseDesktopCleanupExpected } from './desktopCoordinatorCleanup.js';
@@ -376,7 +377,8 @@ class DesktopCoordinator implements DockerDesktopCoordinator {
     };
     const topology = new DesktopCoordinatorTopologyOwner({ api: native.api, binding: this.configuration.route,
       initial: { host: baseline.host, engine: baseline.engine }, assertEndpoint,
-      captureEngineBaseline: () => captureDesktopCoordinatorBaseline(native.api, this.configuration.route, native.endpoint) });
+      captureEngineBaseline: () => captureDesktopCoordinatorBaseline(native.api, this.configuration.route, native.endpoint),
+      captureEngineAuthority: () => captureDesktopCoordinatorIdentity(native.api, this.configuration.route, native.endpoint) });
     this.topology = topology;
     this.members = new DesktopCoordinatorMembers({ ordering: this.sequence, topology, fenced: this.fenced.promise,
       snapshot: () => {
@@ -673,6 +675,9 @@ class DesktopCoordinator implements DockerDesktopCoordinator {
 
   private error(cause: unknown, fallback: DockerDesktopCoordinatorFailure): DockerDesktopCoordinatorError {
     if (cause instanceof DockerDesktopCoordinatorError) return cause;
+    if (cause instanceof DesktopEngineRestartedError) {
+      return new DockerDesktopCoordinatorError({ kind: 'authority_lost', source: 'engine' }, this.facade, { cause });
+    }
     if (cause instanceof DesktopCoordinatorHolderError) {
       const failure: DockerDesktopCoordinatorFailure = cause.reason === 'busy' ? { kind: 'busy' }
         : cause.reason === 'unpublished_temp' ? { kind: 'journal_invalid', reason: 'unpublished_temp' }
