@@ -21,6 +21,8 @@ and a local Docker backend, for ten coordinated packages.
   Engine and macOS account.` Match on `error.failure`, not on the message.
 - Agent Protocol V13, neutral sandbox recovery v3, public types, the coordinator journal format and
   existing backend identities are unchanged; see [UPGRADING-TO-0.4.13.md](UPGRADING-TO-0.4.13.md).
+- All ten packages are published at `0.4.13` under npm `beta` and `latest`; see the
+  [v0.4.13 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.13).
 
 ## 0.4.12 - 2026-11-07
 
@@ -52,7 +54,7 @@ and a local Docker backend, for ten coordinated packages.
   requires a per-version native catalog record or repack receipt; it still admits and retains the
   complete archive set before upload and verifies each publication, its provenance and registry
   signatures. The 0.4.11 records remain at the `v0.4.11` tag.
-- All ten packages are published at `0.4.12` under npm `beta` and `latest`; see the
+- At publication, all ten packages were coordinated at `0.4.12` under npm `beta` and `latest`; see the
   [v0.4.12 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.12).
 
 ## 0.4.11 - 2026-11-03

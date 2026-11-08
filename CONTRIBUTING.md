@@ -60,8 +60,8 @@ hosted CI success from its configured workflow; no hosted Docker result is recor
 original operation/cleanup failures and exact resource identities when changing lifecycle code.
 Recovery is cleanup-only, and uncertain command outcomes must never be replayed automatically.
 
-Current source is ten coordinated `0.4.13` packages with Agent Protocol V13, including history and
-both sandbox packages; npm `beta` and `latest` select published `0.4.12` for all ten names.
+Current source and the published family are ten coordinated `0.4.13` packages with Agent Protocol V13,
+including history and both sandbox packages. npm `beta` and `latest` select `0.4.13` for all ten names.
 Use the [0.4.13 upgrade guide](UPGRADING-TO-0.4.13.md) for coordinator store reporting and the
 coordinator helper rebuild, the [0.4.12 upgrade guide](UPGRADING-TO-0.4.12.md) for the Desktop
 coordinator patch and the

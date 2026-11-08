@@ -2,16 +2,15 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-Current source prepares coordinated **0.4.13**, a Docker Desktop coordinator patch: `journal_invalid`
+The published coordinated **0.4.13 release** is a Docker Desktop coordinator patch: `journal_invalid`
 reason `missing` now proves that no coordinator store exists, and partial or unopenable stores
-report `corrupt`. Read the [0.4.13 upgrade guide](UPGRADING-TO-0.4.13.md); the coordinator helper
-must be prepared again.
+report `corrupt`. npm `latest` and `beta` select `0.4.13` for all ten packages. Read the
+[v0.4.13 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.13) and
+[upgrade guide](UPGRADING-TO-0.4.13.md); the coordinator helper must be prepared again.
 
-The published coordinated **0.4.12 release** is a Docker Desktop coordinator patch: Resource Saver
-can stay on, and stopped sandboxes stay removable after an Engine restart. npm `latest` and `beta`
-select `0.4.12` for all ten packages. Read the
-[v0.4.12 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.12) and
-[upgrade guide](UPGRADING-TO-0.4.12.md). No helper source changes.
+The preceding **0.4.12 release** let Resource Saver stay on and kept stopped sandboxes removable
+after an Engine restart. Read its [release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.12) and
+[upgrade guide](UPGRADING-TO-0.4.12.md); it changed no helper source.
 
 The preceding **0.4.11 release** corrected bounded CONNECT User-Agent compatibility. Read its
 [release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.11) and
@@ -82,7 +81,7 @@ Write the host once. Adapt each agent once.
 
 All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages are coordinated at `0.4.12`; current source is `0.4.13`.
+schema assets. All ten published packages are coordinated at `0.4.13`, matching current source.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -146,21 +145,21 @@ filesystem or child-process operations or grant provider execution authority.
 
 ## Install
 
-Install the published `0.4.12` runtime:
+Install the published `0.4.13` runtime:
 
 ```sh
-pnpm add @agen-ai/agent-runtime@0.4.12
+pnpm add @agen-ai/agent-runtime@0.4.13
 ```
 
 The protocol and validation packages are installed automatically. Install them directly when you
 need their public APIs without the runtime:
 
 ```sh
-pnpm add @agen-ai/validation@0.4.12 @agen-ai/agent-protocol@0.4.12
+pnpm add @agen-ai/validation@0.4.13 @agen-ai/agent-protocol@0.4.13
 ```
 
 Keep every SDK package at the same coordinated version, including optional packages. Use the
-published `v0.4.12` checkout for published-release examples. Read
+published `v0.4.13` checkout for published-release examples. Read
 [UPGRADING-TO-0.4.13.md](UPGRADING-TO-0.4.13.md) for coordinator store reporting and the helper rebuild,
 [UPGRADING-TO-0.4.12.md](UPGRADING-TO-0.4.12.md) for the Desktop coordinator patch,
 [UPGRADING-TO-0.4.11.md](UPGRADING-TO-0.4.11.md) for CONNECT compatibility and helper rebuilding,
@@ -764,7 +763,7 @@ discovers Docker contexts, changes Desktop settings or falls back between archit
 
 Start with the complete [sandbox walkthrough](examples/sandbox/README.md) and runnable
 [`examples/sandbox/docker.ts`](examples/sandbox/docker.ts). After preparing its admitted image,
-run from the built matching candidate checkout, or `v0.4.12` when using published packages:
+run from the built matching candidate checkout, or `v0.4.13` when using published packages:
 
 ```sh
 AGENAI_SANDBOX_TEST_ENGINE=unix:///var/run/docker.sock \
