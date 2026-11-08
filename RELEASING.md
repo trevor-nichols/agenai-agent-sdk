@@ -1,11 +1,11 @@
 # Releasing
 
-The three core packages and seven optional packages form published coordinated `0.4.12`.
-npm `beta` and `latest` select `0.4.12` for all ten names; see the
-[v0.4.12 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.12).
-Current source prepares coordinated `0.4.13`, a Docker Desktop coordinator patch in which
-`journal_invalid` reason `missing` proves an absent coordinator store; read the
-[upgrade guide](UPGRADING-TO-0.4.13.md). Only the coordinator helper's sources and digest change.
+The three core packages and seven optional packages form published coordinated `0.4.13`.
+npm `beta` and `latest` select `0.4.13` for all ten names; see the
+[v0.4.13 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.13).
+It is a Docker Desktop coordinator patch in which `journal_invalid` reason `missing` proves an
+absent coordinator store; read the [upgrade guide](UPGRADING-TO-0.4.13.md). Only the coordinator
+helper's sources and digest change.
 It carries forward [0.4.10 administrative recovery](UPGRADING-TO-0.4.10.md) unchanged. Agent
 Protocol V13, neutral recovery v3, ordinary coordinator v1, backend identities and the recovery
 and egress helper sources remain unchanged.
@@ -276,7 +276,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.12
+VERSION=0.4.13
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest
