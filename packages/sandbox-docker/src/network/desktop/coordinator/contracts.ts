@@ -103,13 +103,35 @@ export interface DockerDesktopCoordinatorOptions {
   }>;
 }
 
+function failureDetail(failure: DockerDesktopCoordinatorFailure): string {
+  switch (failure.kind) {
+    case 'dirty_generation': return ` (${failure.generation})`;
+    case 'identity_conflict': return ` (${failure.scope})`;
+    case 'journal_invalid':
+      return failure.reason === 'missing' ? ' (missing): no coordinator store exists for this Engine and macOS account'
+        : failure.reason === 'corrupt' ? ' (corrupt): the coordinator store is incomplete or unreadable, and the SDK does not repair it'
+        : ` (${failure.reason})`;
+    case 'capacity_exhausted': return ` (${failure.resource})`;
+    case 'interrupted': return ` (${failure.by}, ${failure.effect})`;
+    case 'persistence_failed': return ` (${failure.boundary})`;
+    case 'authority_lost': return ` (${failure.source})`;
+    case 'busy':
+    case 'invalid_state':
+    case 'invalid_input':
+    case 'preparation_invalid':
+    case 'admission_closed':
+    case 'retained_ownership':
+      return '';
+  }
+}
+
 export class DockerDesktopCoordinatorError extends Error {
   constructor(
     readonly failure: DockerDesktopCoordinatorFailure,
     readonly owner: DockerDesktopCoordinator,
     options?: ErrorOptions,
   ) {
-    super(`Docker Desktop coordinator ${failure.kind.replaceAll('_', ' ')}.`, options);
+    super(`Docker Desktop coordinator ${failure.kind.replaceAll('_', ' ')}${failureDetail(failure)}.`, options);
     this.name = 'DockerDesktopCoordinatorError';
   }
 }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceAuthority": "AgenAI private monorepo",
-  "sourceRevision": "0cc45cc18b140601d754fa91d45748ec41af2da5",
+  "sourceRevision": "1948ddf2b5a582d85223fa136d1712fed50cd145",
   "publicRepository": "https://github.com/trevor-nichols/agenai-agent-sdk",
   "packages": [
     {
@@ -81,6 +81,7 @@
     "UPGRADING-TO-0.4.10.md",
     "UPGRADING-TO-0.4.11.md",
     "UPGRADING-TO-0.4.12.md",
+    "UPGRADING-TO-0.4.13.md",
     "UPGRADING-TO-0.4.3.md",
     "UPGRADING-TO-0.4.4.md",
     "UPGRADING-TO-0.4.5.md",
@@ -1327,6 +1328,7 @@
     "packages/sandbox-docker/tests/desktop-coordinator-reopen.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-sequence.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-settlement.test.ts",
+    "packages/sandbox-docker/tests/desktop-coordinator-store-states.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-topology-baseline.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-topology-lifecycle.test.ts",
     "packages/sandbox-docker/tests/desktop-coordinator-topology.test.ts",
@@ -1384,6 +1386,8 @@
     "packages/sandbox-docker/tests/integration/support/kernel.ts",
     "packages/sandbox-docker/tests/integration/support/policy-network.ts",
     "packages/sandbox-docker/tests/integration/uncertainty.test.ts",
+    "packages/sandbox-docker/tests/native/desktop-coordinator/diagnostic-home.c",
+    "packages/sandbox-docker/tests/native/desktop-coordinator/store-states.mjs",
     "packages/sandbox-docker/tests/native/desktop-recovery/code-cache.c",
     "packages/sandbox-docker/tests/native/desktop-recovery/code-cache.mjs",
     "packages/sandbox-docker/tests/native/desktop-recovery/log-rotation.c",

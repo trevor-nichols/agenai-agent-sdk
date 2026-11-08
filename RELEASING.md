@@ -3,10 +3,12 @@
 The three core packages and seven optional packages form published coordinated `0.4.12`.
 npm `beta` and `latest` select `0.4.12` for all ten names; see the
 [v0.4.12 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.12).
-It is a Docker Desktop coordinator patch that lets Resource Saver stay on and keeps container
-ownership across an Engine restart; read the [upgrade guide](UPGRADING-TO-0.4.12.md). It carries forward
-[0.4.10 administrative recovery](UPGRADING-TO-0.4.10.md) unchanged. Agent Protocol V13, neutral
-recovery v3, ordinary coordinator v1, backend identities and helper sources remain unchanged.
+Current source prepares coordinated `0.4.13`, a Docker Desktop coordinator patch in which
+`journal_invalid` reason `missing` proves an absent coordinator store; read the
+[upgrade guide](UPGRADING-TO-0.4.13.md). Only the coordinator helper's sources and digest change.
+It carries forward [0.4.10 administrative recovery](UPGRADING-TO-0.4.10.md) unchanged. Agent
+Protocol V13, neutral recovery v3, ordinary coordinator v1, backend identities and the recovery
+and egress helper sources remain unchanged.
 Future separately authorized releases publish the complete set in dependency order:
 
 1. `@agen-ai/validation`
@@ -26,7 +28,8 @@ The coordinated `0.4.8` release retains Agent Protocol V13 and recovery v3 from 
 registry versions and dist-tags before starting or resuming any separately authorized release.
 Source preparation and local validation do not authorize publication, public-repository push,
 tag creation, dist-tag changes or host deployment. Review
-[UPGRADING-TO-0.4.11.md](UPGRADING-TO-0.4.11.md) for the preceding CONNECT metadata release,
+[UPGRADING-TO-0.4.12.md](UPGRADING-TO-0.4.12.md) for the preceding Resource Saver release,
+[UPGRADING-TO-0.4.11.md](UPGRADING-TO-0.4.11.md) for CONNECT metadata,
 [UPGRADING-TO-0.4.10.md](UPGRADING-TO-0.4.10.md) for administrative recovery,
 [UPGRADING-TO-0.4.9.md](UPGRADING-TO-0.4.9.md) for original-owner cleanup retry,
 [UPGRADING-TO-0.4.8.md](UPGRADING-TO-0.4.8.md) for coordinator adoption,

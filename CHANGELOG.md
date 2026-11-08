@@ -5,6 +5,23 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.13 - 2026-11-08
+
+- Report the Docker Desktop coordinator's `journal_invalid` reason `missing` only when no coordinator
+  store exists for the Engine under the current macOS account. A store with only some of this Engine's
+  files, or with a store directory that cannot be opened, now reports `corrupt`; both used to report
+  `missing`. An application that records its own activation can now treat `missing` as proof that the
+  coordinator holds no record. Applications that refuse every `journal_invalid` reason need no change.
+- The coordinator helper now recognizes an absent store itself, so its source digest changes to
+  `sha256:314ce150f0f29757fabf30f4890e134110b5c3752e7544517f1f995244a506eb`: prepare the
+  coordinator helper again when upgrading. The administrative recovery helper and its source digest
+  are unchanged.
+- `DockerDesktopCoordinatorError` messages name the failure's reason, scope, source or resource, for
+  example `Docker Desktop coordinator journal invalid (missing): no coordinator store exists for this
+  Engine and macOS account.` Match on `error.failure`, not on the message.
+- Agent Protocol V13, neutral sandbox recovery v3, public types, the coordinator journal format and
+  existing backend identities are unchanged; see [UPGRADING-TO-0.4.13.md](UPGRADING-TO-0.4.13.md).
+
 ## 0.4.12 - 2026-11-07
 
 - Take the Docker Desktop coordinator's external topology baseline from the first member observation
