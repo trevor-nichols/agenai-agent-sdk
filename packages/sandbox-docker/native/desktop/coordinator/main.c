@@ -1,6 +1,7 @@
 #include "coordinator.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,12 +12,30 @@
 #error "The Desktop coordinator holder requires native Darwin arm64."
 #endif
 
+/* The recovery helper compiles authority.c from a pinned source manifest, so store absence is classified here. */
+static bool authority_absent(const struct coordinator *owner, const struct coordinator_failure *failure) {
+    if (strcmp(failure->reason, "authority_partial") == 0) {
+        const char *names[] = { owner->lock_name, owner->state_name, owner->temp_name };
+        for (size_t index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
+            struct stat value;
+            if (fstatat(owner->root_fd, names[index], &value, AT_SYMLINK_NOFOLLOW) == 0 || errno != ENOENT) return false;
+        }
+        return true;
+    }
+    if (strcmp(failure->reason, "directory_open") != 0 || failure->error != ENOENT) return false;
+    int home = open(owner->home, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (home < 0) return false;
+    close(home);
+    return true;
+}
+
 static void failure_reply(struct coordinator *owner, const struct coordinator_failure *failure) {
+    const char *reason = authority_absent(owner, failure) ? "authority_absent" : failure->reason;
     bool lost = failure->lost || !owner->claimed;
     if (lost) coordinator_close(owner);
     else owner->fenced = true;
     printf("{\"kind\":\"failure\",\"reason\":\"%s\",\"errno\":%d,\"claim\":\"%s\"}\n",
-        failure->reason, failure->error, lost ? "lost" : "held");
+        reason, failure->error, lost ? "lost" : "held");
 }
 
 static void state_identity(const struct coordinator *owner) {

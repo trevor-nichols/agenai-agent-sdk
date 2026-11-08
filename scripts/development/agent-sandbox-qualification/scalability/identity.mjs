@@ -12,7 +12,7 @@ import { boundedFile } from '../native/configuration.mjs';
 import { physicalDirectory } from './configuration.mjs';
 import { hashFile } from './manifests.mjs';
 
-export const CANDIDATE_VERSION = '0.4.12';
+export const CANDIDATE_VERSION = '0.4.13';
 
 const names = ['validation', 'agent-protocol', 'agent-runtime', 'agent-orchestration', 'agent-history',
   'acp-transport', 'provider-acp', 'acp-registry', 'sandbox', 'sandbox-docker'];

@@ -681,8 +681,8 @@ class DesktopCoordinator implements DockerDesktopCoordinator {
     if (cause instanceof DesktopCoordinatorHolderError) {
       const failure: DockerDesktopCoordinatorFailure = cause.reason === 'busy' ? { kind: 'busy' }
         : cause.reason === 'unpublished_temp' ? { kind: 'journal_invalid', reason: 'unpublished_temp' }
-        : cause.reason === 'authority_partial' || cause.reason === 'directory_open' ? { kind: 'journal_invalid', reason: 'missing' }
-        : cause.reason === 'state_frame_bound' ? { kind: 'journal_invalid', reason: 'corrupt' }
+        : cause.reason === 'authority_absent' ? { kind: 'journal_invalid', reason: 'missing' }
+        : cause.reason === 'authority_partial' || cause.reason === 'directory_open' || cause.reason === 'state_frame_bound' ? { kind: 'journal_invalid', reason: 'corrupt' }
         : cause.claim === 'lost' ? { kind: 'authority_lost', source: 'native_holder' } : fallback;
       return new DockerDesktopCoordinatorError(failure, this.facade, { cause });
     }

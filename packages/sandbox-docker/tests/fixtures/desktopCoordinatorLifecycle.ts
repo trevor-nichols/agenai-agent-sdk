@@ -36,6 +36,8 @@ export async function desktopCoordinatorLifecycleFixture(scenario: Scenario = 'n
   const failCommitPath = join(directory, 'fail-next-commit');
   const failRetirementPath = join(directory, 'fail-retirement-after-rename');
   const failWorkPath = join(directory, 'fail-work-publication');
+  const failOpeningPath = join(directory, 'fail-opening');
+  const failCheckPath = join(directory, 'fail-next-check');
   const engineKey = `sha256:${createHash('sha256').update('agenai.desktop-coordinator.engine.v1\0daemon-unit-1').digest('hex')}`;
   const initial = { format: 'agenai.docker-desktop-coordinator.v1', authorityId: 'baec56cc-5e80-4fbf-9fa1-9a39d552037e',
     engineKey, daemonId: 'daemon-unit-1', sequence: 0, previousDigest: null,
@@ -54,17 +56,28 @@ const failDiscardPath = ${JSON.stringify(failDiscardPath)};
 const failCommitPath = ${JSON.stringify(failCommitPath)};
 const failRetirementPath = ${JSON.stringify(failRetirementPath)};
 const failWorkPath = ${JSON.stringify(failWorkPath)};
+const failOpeningPath = ${JSON.stringify(failOpeningPath)};
+const failCheckPath = ${JSON.stringify(failCheckPath)};
 const identity = { stateDevice: '1', stateInode: '2' };
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const exists = async (path) => { try { await stat(path); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
+const trace = (value) => appendFile(tracePath, JSON.stringify(value) + '\n');
+const reply = (value) => new Promise((resolve, reject) => process.stdout.write(JSON.stringify(value) + '\n', (error) => error ? reject(error) : resolve()));
+// Like the native helper after a lost-claim reply, a one-shot injected failure exits without holding the store.
+async function failOnce(path) {
+  if (!await exists(path)) return;
+  const failure = JSON.parse(await readFile(path, 'utf8'));
+  await rm(path);
+  await reply({ kind: 'failure', reason: failure.reason, errno: failure.errno, claim: 'lost' });
+  process.exit(1);
+}
+await trace({ command: 'OPEN', mode: process.argv[2], pid: process.pid });
+await failOnce(failOpeningPath);
 // Like the native helper, bootstrap creates an empty state that only the first commit fills.
 const bootstrapped = scenario === 'bootstrap' && process.argv[2] === 'initialize' && !await exists(currentPath);
 if (bootstrapped) await writeFile(currentPath, '');
 let text = await readFile(currentPath, 'utf8');
 let pendingTemp = false, fenced = false, cleanup = false, commits = 0, checks = 0, closing = false;
-const trace = (value) => appendFile(tracePath, JSON.stringify(value) + '\n');
-const reply = (value) => new Promise((resolve, reject) => process.stdout.write(JSON.stringify(value) + '\n', (error) => error ? reject(error) : resolve()));
-await trace({ command: 'OPEN', mode: process.argv[2], pid: process.pid });
 if (text === '' && !bootstrapped) {
   await reply({ kind: 'failure', reason: 'state_frame_bound', errno: 70, claim: 'lost' });
   process.exit(1);
@@ -74,6 +87,7 @@ async function command(name, payload) {
   await trace({ command: name, ...(payload === undefined ? {} : { text: payload.toString('utf8') }) });
   if (name === 'READ') return reply({ kind: 'snapshot', text, digest: hash(text), ...identity, pendingTemp });
   if (name === 'CHECK') {
+    await failOnce(failCheckPath);
     if (scenario === 'paused_health' && ++checks === 1) {
       await trace({ command: 'CHECK_WAITING' });
       while (!await exists(releasePath)) await delay(5);
@@ -171,6 +185,8 @@ await trace({ command: 'EXIT' });
     catch (cause) { if (cause instanceof Error && 'code' in cause && cause.code === 'ENOENT') return []; throw cause; }
   }
   return { ...fixture, createOwner: () => createDockerDesktopCoordinator(options), events,
+    failOpening: (reason: string, errno: number) => writeFile(failOpeningPath, JSON.stringify({ reason, errno })),
+    failNextCheck: (reason: string, errno: number) => writeFile(failCheckPath, JSON.stringify({ reason, errno })),
     failNextCommit: () => writeFile(failCommitPath, ''),
     failRetirementAfterRename: (memberId: string) => writeFile(failRetirementPath, memberId),
     failWorkPublication: (scope: keyof WorkOwnership, state: 'owned' | 'joined', stage: 'before_rename' | 'after_rename') =>
