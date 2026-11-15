@@ -1,16 +1,18 @@
 # Releasing
 
-Coordinated `0.4.14` is the fourteen-package release candidate for explicit approval policies,
-owned Grok/Claude/OpenCode providers and Agent Protocol V14 token-usage telemetry. Read
-[UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md) before upgrading the complete package family.
-The preceding published `0.4.13` is the ten-package V13 release; its immutable archives and
-qualification records remain historical. Source preparation alone does not claim publication.
+Coordinated `0.4.14` is published across fourteen packages under npm `beta` and `latest`.
+It introduces explicit approval policies, owned Grok/Claude/OpenCode providers and Agent Protocol
+V14 token-usage telemetry. Read [UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md) and the
+[stable release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.14).
+The preceding `0.4.13` is the ten-package V13 release; its immutable archives and qualification
+records remain historical.
 
-The four new optional names require initial npm ownership and trusted-publisher setup before
-release. Inspect registry ownership and trust for every name; existing ten-package relationships
-do not establish the new names. Use a distinct unpublished setup stage, retain it until the real
-version and provenance pass readback, and then reject that exact setup stage. Publish the complete
-reviewed set in dependency order:
+All fourteen names have verified registry ownership and trusted publishers. The four new optional
+names completed initial setup, and their temporary unpublished stages were rejected only after
+real `0.4.14` archives and provenance passed readback. Their stage queues are empty and their
+trusted-publisher relationships remain intact. Source preparation alone does not authorize future
+publication. Future separately authorized releases inspect the existing setup, choose a new
+coordinated version and publish the complete reviewed set in dependency order:
 
 1. `@agen-ai/validation`
 2. `@agen-ai/agent-protocol`
@@ -46,7 +48,7 @@ tag creation, dist-tag changes or host deployment. Review
 [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for the V12 boundary and
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
-The ten published packages have configured npm trusted publishers for this repository's `release.yml`
+All fourteen published packages have configured npm trusted publishers for this repository's `release.yml`
 workflow with publication and staging permissions, without separate dist-tag promotion permission. GitHub Actions
 receives a short-lived npm credential through OIDC, and npm attaches provenance to workflow
 releases. The separately authorized initial setup for `@agen-ai/agent-history`, `@agen-ai/sandbox` and `@agen-ai/sandbox-docker`, including
@@ -190,8 +192,9 @@ release.
 
 `@agen-ai/agent-history`, `@agen-ai/sandbox` and `@agen-ai/sandbox-docker` were absent from those
 releases. Their separately authorized initial setup and trusted-publisher verification completed
-for `0.4.4`, and the temporary setup stages were removed. All ten package names now have the
-reviewed relationship below, permitting publication and staging without separate dist-tag promotion permission.
+for `0.4.4`, and the temporary setup stages were removed. The four owned-provider-related names
+completed their own setup and stage cleanup for `0.4.14`. All fourteen names now have the reviewed
+relationship below, permitting publication and staging without separate dist-tag promotion permission.
 Inspect each relationship before a future release; setup for one name never establishes ownership
 or trust for another. A new package still needs separately authorized setup; source preparation creates no registry stage or trust relationship.
 
@@ -209,7 +212,7 @@ retain that identity. See [npm's staging contract](https://docs.npmjs.com/cli/v1
 ## Routine release
 
 1. Obtain separate authorization for the exact release operation. Verify package setup/trust for
-   all fourteen source names, including separately authorized setup for Grok, provider tools, Claude and OpenCode. Review all package versions and
+   all fourteen names. Existing setup includes Grok, provider tools, Claude and OpenCode; do not recreate it for a version bump. Review all package versions and
    release notes in the private source repository.
 2. Export the approved SDK snapshot to this repository.
 3. Merge the projection to `main` and wait for CI.
@@ -260,7 +263,7 @@ restoration does not establish a new native qualification.
 
 Restoration verifies the artifact's repository, original tag commit, release workflow and completed
 run attempt, allowing a failed attempt that already published part of the set. It verifies GitHub's
-ZIP digest, decodes only the ten exact archives plus lockfile and export metadata into private
+ZIP digest, decodes only the fourteen exact archives plus lockfile and export metadata into private
 scratch, and compares retained metadata with the immutable tag rather than recovery `HEAD`.
 Archives are admitted before a new `release` directory is created; existing destinations are
 preserved. The helper admits ZIPs through 64 MiB and expanded contents through 512 MiB, with bounded
@@ -310,8 +313,8 @@ These commands remain a separately authorized release procedure, not a source-re
 ## Trusted publisher configuration
 
 The following trust relationship is required for every package in a future fourteen-package release.
-It is configured for the ten published names, including history and both sandbox packages.
-The new Grok, provider-tools, Claude and OpenCode names require their own separately authorized setup and verification:
+It is configured and verified for all fourteen published names, including Grok, provider-tools,
+Claude and OpenCode. Inspect the existing relationships before a future release:
 
 ```text
 Provider: GitHub Actions
@@ -370,7 +373,7 @@ npm trust github @agen-ai/acp-registry \
 ```
 
 Confirm each relationship with `npm trust list <package>`. The seven commands above and the
-three below describe the configured ten-package set. They are reference commands for separately
+three below describe the original ten-package set. The four additional names have the same reviewed relationship, verified for `0.4.14`. They are reference commands for separately
 authorized trust maintenance; do not recreate working relationships merely to prepare a release.
 If an authorized repair is needed, preserve the reviewed repository/workflow/action and verify
 that package explicitly:

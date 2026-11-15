@@ -7,7 +7,9 @@ and a local Docker backend, for ten coordinated packages.
 
 ## 0.4.14 - 2026-11-15
 
-Coordinated fourteen-package release candidate. This release advances Agent Protocol to V14;
+Coordinated fourteen-package release, published under npm `beta` and `latest`; see the
+[v0.4.14 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.14).
+This release advances Agent Protocol to V14;
 upgrade the complete package family together. Migration steps are in
 [UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md).
 

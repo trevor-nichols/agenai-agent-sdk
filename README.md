@@ -2,11 +2,11 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-The coordinated **0.4.14 release candidate** adds explicit permission policies, owned Grok,
+The published coordinated **0.4.14 release** adds explicit permission policies, owned Grok,
 Claude and OpenCode providers, and Agent Protocol **V14** token-usage telemetry across fourteen
 packages. Upgrade the complete package family together; V13 and V14 do not interoperate. Read
-[UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md) before upgrading. Registry publication and stable
-tag promotion are tracked separately from source preparation.
+[UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md) before upgrading. npm `latest` and `beta` select `0.4.14` for all fourteen packages; see the
+[stable v0.4.14 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.14).
 
 The preceding coordinated **0.4.13 release** is a Docker Desktop coordinator patch: `journal_invalid`
 reason `missing` now proves that no coordinator store exists, and partial or unopenable stores
