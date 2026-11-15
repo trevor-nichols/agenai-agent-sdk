@@ -6,7 +6,7 @@ capabilities, typed operations, safe configuration and managed-content inventori
 observations, effective harness content and package catalogs, environment observations, account-quota observations, token-usage observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
-Current source is the unpublished coordinated candidate and uses Agent Protocol V14, which adds
+Coordinated `0.4.14` uses Agent Protocol V14, which adds
 token-usage observations and removes cumulative counters from context occupancy. Published `0.4.13`
 and `0.4.7` use V13; V13 added structured final output. Published `0.4.3` is the seven-package V12 release,
 including exact request unavailability and session decisions, forms and plan reviews. Published
@@ -429,10 +429,11 @@ before delegation; a composer can use the same pure functions to preserve and ex
 ## Versioning and release
 
 Agent Protocol V14 defines the current source contract shared with `@agen-ai/agent-runtime`.
-The coordinated source candidate is unpublished; published `0.4.13` and `0.4.7` use V13. Published `0.4.3` retains V12,
+Coordinated `0.4.14` uses V14; the preceding `0.4.13` and `0.4.7` releases use V13. Published `0.4.3` retains V12,
 `0.4.1` retains V11 and `0.4.0` retains V10. Registry publication and dist-tag state are release
-metadata outside this contract. Earlier public releases remain historical. The complete candidate
-release inventory must use one coordinated source version. Optional `@agen-ai/agent-history`
+metadata outside this contract. Earlier public releases remain historical. The complete
+release inventory must use one coordinated version. See the [0.4.14 upgrade
+guide](../../UPGRADING-TO-0.4.14.md) for migration. Optional `@agen-ai/agent-history`
 browses native saved conversations independently of execution; it does not infer structured-output
 support or validated values from native transcript JSON.
 

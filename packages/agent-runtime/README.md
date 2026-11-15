@@ -9,15 +9,16 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-Current source implements unreleased Agent Protocol V14 token-usage telemetry over the published
-ten-package `0.4.13` baseline, which uses V13, with unreleased runtime approval-policy support and the optional `@agen-ai/provider-grok`,
-`@agen-ai/provider-tools`, `@agen-ai/provider-claude` and `@agen-ai/provider-opencode` packages. These additions do not change the publication record. Published `0.4.3` is the seven-package V12 release,
+Coordinated `0.4.14` implements Agent Protocol V14 token-usage telemetry and runtime approval-policy
+support, with the optional `@agen-ai/provider-grok`, `@agen-ai/provider-tools`,
+`@agen-ai/provider-claude` and `@agen-ai/provider-opencode` packages. The preceding ten-package
+`0.4.13` release uses V13. See the [0.4.14 upgrade guide](../../UPGRADING-TO-0.4.14.md). Published `0.4.3` is the seven-package V12 release,
 including tagged decision responses and exact turn request unavailability. Published `0.4.1`
 retains V11 and its qualification evidence; the earlier `0.4.0` release retains V10.
 The runtime also provides neutral session forms, plan reviews, staged native continuations,
 explicit human-wait policies and optional input during an owned execution. Provider mappings
-require their own support and qualification. The candidate ships no public native provider with
-execution-input support; the unreleased owned Claude and OpenCode constructors also leave that
+require their own support and qualification. This release ships no public native provider with
+execution-input support; the owned Claude and OpenCode constructors also leave that
 port unsupported. The separately controlled private Claude diagnostic mapping retains its own scope.
 Keep all installed SDK packages at the same version; the [0.4.2 migration
 guide](../../MIGRATING-TO-0.4.2.md) covers tagged responses, continuous request output and store
@@ -62,7 +63,7 @@ about the others.
 | `{ kind: 'provider_auto_review' }` | Select native review of eligible actions; native preapprovals, denials and residual host requests still apply. |
 | `{ kind: 'provider_bypass' }` | Select native bypass of eligible approval checks within the existing outer authority. |
 
-`provider_accept_edits` is unreleased. The source constructors in `@agen-ai/provider-claude` and
+`provider_accept_edits` is introduced in `0.4.14`. The constructors in `@agen-ai/provider-claude` and
 `@agen-ai/provider-opencode` advertise it for fresh session creation in their explicitly prepared
 Linux compositions, including the qualified Linux arm64 Docker Desktop workload. Published 0.4.13
 does not include these drivers or this policy. Grok remains limited to its three qualified policies,
@@ -519,7 +520,7 @@ The runtime offers optional provider-neutral input on a caller-started
 execution. **No public native provider ships with support for this domain.** Public ACP,
 including Grok compositions, remains unsupported. Positive native qualification belongs only to
 a separately controlled private Claude SDK `0.3.309` / Code `2.1.309` diagnostic composition on
-Linux x86_64 / Node `24.18.0`; the unreleased owned Claude constructor does not expose this input port. That evidence does
+Linux x86_64 / Node `24.18.0`; the owned Claude constructor does not expose this input port. That evidence does
 not qualify production/fleet execution, subscription authentication or billing. Other features'
 provider selections and qualification remain independent.
 
@@ -959,7 +960,7 @@ remains owned until its actual promise settles. Each later session (structured o
 resume, and branch) opens only after the previous session has closed, so a driver that admits one live
 session per instance can run the suite unchanged.
 
-Current source implements unreleased Agent Protocol V14; published `0.4.13` and `0.4.7`
+Coordinated `0.4.14` implements Agent Protocol V14; the preceding `0.4.13` and `0.4.7`
 implement V13. Published `0.4.3` is the seven-package V12 release.
 The earlier `0.4.1` release retains V11.
 The earlier `0.4.0` release retains V10.

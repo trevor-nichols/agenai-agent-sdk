@@ -1,6 +1,6 @@
 # @agen-ai/sandbox
 
-Optional, provider-neutral ownership for one sandbox and one native process. The published release is `0.4.7`; current source is the unpublished coordinated `0.4.8` candidate, which adds typed stream closure on stop and the backend recovery seam used by coordinated Docker Desktop members. It supplies policy, streaming tree, opt-in live workspace files, process and recovery contracts, shared lifecycle admission and `withSandbox`. It does not select an engine, image, provider, credentials or application authority. Candidate implementation and historical native qualification are separate facts.
+Optional, provider-neutral ownership for one sandbox and one native process in coordinated `0.4.14`. It supplies policy, streaming tree, opt-in live workspace files, process and recovery contracts, shared lifecycle admission and `withSandbox`. Typed stream closure on stop and the backend recovery seam support coordinated Docker Desktop members. It does not select an engine, image, provider, credentials or application authority. Read the [0.4.14 upgrade guide](../../UPGRADING-TO-0.4.14.md); neutral sandbox recovery remains v3, and historical native qualification retains its original artifact scope.
 
 The ordinary ESM root supports Node >=22 and has no ACP dependency. Backend implementations use the explicit `@agen-ai/sandbox/backend` seam. The optional `@agen-ai/sandbox-docker` package supplies the local Docker implementation. Backend and native-provider qualification remain specific to their recorded environments and configurations.
 

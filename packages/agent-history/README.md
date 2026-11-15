@@ -2,7 +2,7 @@
 
 Portable native conversation discovery, transcript reading, search and explicitly enabled saved-session management. History is separate from agent execution: browsing does not create a session, generate a prompt, resume a turn or answer a pending request.
 
-This package joined the coordinated release family in **0.4.4**. Current source is the unpublished ten-package **0.4.8** candidate; npm `latest` and `beta` are the published ten-package **0.4.7** set. Install every selected package from one coordinated version, using a built candidate checkout or its complete matching packed artifacts to test this candidate.
+This package joined the coordinated release family in **0.4.4**. Coordinated **0.4.14** uses Agent Protocol V14 across fourteen packages. Install every selected SDK package at the same coordinated version; see the [0.4.14 upgrade guide](../../UPGRADING-TO-0.4.14.md). Original native qualification retains its recorded source and archive identities.
 
 The root exports plain contracts, bounded parsers and `createAgentHistory` for custom adapter composition. The explicit `/zod` entrypoint exposes schemas. Root imports do not open a store, inspect a home, start a process, authenticate or access the network. No native vendor SDK is required to install or import this root.
 

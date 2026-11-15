@@ -1,10 +1,10 @@
 # @agen-ai/provider-acp
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
-Agent Client Protocol wire version 1 into the Agent Protocol V14 session API. Current source is
-an unreleased extension of published ten-package `0.4.13`, which uses V13; see
-[UPGRADING-TO-AGENT14.md](../../UPGRADING-TO-AGENT14.md). The source
-inventory also adds optional `@agen-ai/provider-grok`; its exact Grok 1.0.77 controlled composition
+Agent Client Protocol wire version 1 into the Agent Protocol V14 session API in coordinated
+`0.4.14`. The preceding ten-package `0.4.13` release uses V13; see the
+[0.4.14 upgrade guide](../../UPGRADING-TO-0.4.14.md) and
+[V14 migration](../../UPGRADING-TO-AGENT14.md). This release also adds optional `@agen-ai/provider-grok`; its exact Grok 1.0.77 controlled composition
 has separate Linux x64/native-arm64 Desktop qualification, described in the
 [handoff](../../examples/approval-policy/HANDOFF.md). Published `0.4.3` is the seven-package
 V12 release; published `0.4.1` qualification remains historical evidence for its exact V11 artifacts.
@@ -114,7 +114,7 @@ input advertisements, and the selected Grok `1.0.62` structured-output mapping, 
 and owned connections. The actual packed provider constructors use a synthetic serialized peer;
 all six retain one original turn and reader, dispatch zero native input requests, and join cleanup.
 An unsolicited input extension request receives `-32601`. This is public unsupported-boundary
-proof, separate from private controlled Claude qualification. The unreleased owned Claude and
+proof, separate from private controlled Claude qualification. The owned Claude and
 OpenCode constructors also leave execution input unsupported.
 
 ## Structured final output
