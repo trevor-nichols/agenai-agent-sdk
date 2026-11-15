@@ -33,6 +33,10 @@ const PRIVATE_DOCUMENT_PATTERNS = [
   "packages/ai/agent-history",
   "packages/ai/sandbox",
   "packages/ai/sandbox-docker",
+  "packages/ai/provider-grok",
+  "packages/ai/provider-tools",
+  "packages/ai/provider-claude",
+  "packages/ai/provider-opencode",
 ];
 
 async function readJson(relativePath) {
@@ -92,7 +96,7 @@ async function collectMarkdownFiles(directory = REPOSITORY_ROOT, relativeDirecto
 
 const rootManifest = await readJson("package.json");
 assert.equal(rootManifest.name, "agenai-agent-sdk");
-assert.equal(rootManifest.version, "0.4.13");
+assert.equal(rootManifest.version, "0.4.14");
 assert.equal(rootManifest.private, true);
 assert.equal(rootManifest.license, "MIT");
 assert.equal(rootManifest.packageManager, "pnpm@11.7.0");
@@ -149,6 +153,14 @@ const sandboxInspection = releaseWorkflow.indexOf("Inspect sandbox publication")
 const sandboxPublish = releaseWorkflow.indexOf("Publish sandbox");
 const sandboxDockerInspection = releaseWorkflow.indexOf("Inspect Docker sandbox publication");
 const sandboxDockerPublish = releaseWorkflow.indexOf("Publish Docker sandbox");
+const grokInspection = releaseWorkflow.indexOf("Inspect Grok provider publication");
+const grokPublish = releaseWorkflow.indexOf("Publish Grok provider");
+const toolsInspection = releaseWorkflow.indexOf("Inspect owned provider tools publication");
+const toolsPublish = releaseWorkflow.indexOf("Publish owned provider tools");
+const claudeInspection = releaseWorkflow.indexOf("Inspect Claude provider publication");
+const claudePublish = releaseWorkflow.indexOf("Publish Claude provider");
+const openCodeInspection = releaseWorkflow.indexOf("Inspect OpenCode provider publication");
+const openCodePublish = releaseWorkflow.indexOf("Publish OpenCode provider");
 const releaseSetVerification = releaseWorkflow.indexOf("Verify complete release artifact set");
 assert.ok(releaseSetVerification >= 0 && releaseSetVerification < validationInspection);
 const archiveRetention = releaseWorkflow.indexOf("Retain exact pre-publication artifacts");
@@ -166,18 +178,22 @@ assert.ok(registryPublish < historyInspection && historyInspection < historyPubl
 assert.ok(historyPublish < sandboxInspection && sandboxInspection < sandboxPublish);
 assert.ok(sandboxPublish < sandboxDockerInspection && sandboxDockerInspection < sandboxDockerPublish);
 const completePublicationVerification = releaseWorkflow.indexOf("Verify all package publications");
-assert.ok(sandboxDockerPublish < completePublicationVerification);
+assert.ok(sandboxDockerPublish < grokInspection && grokInspection < grokPublish);
+assert.ok(grokPublish < toolsInspection && toolsInspection < toolsPublish);
+assert.ok(toolsPublish < claudeInspection && claudeInspection < claudePublish);
+assert.ok(claudePublish < openCodeInspection && openCodeInspection < openCodePublish);
+assert.ok(openCodePublish < completePublicationVerification);
 assert.ok(completePublicationVerification < releaseWorkflow.indexOf("Verify registry signatures and provenance"));
 assert.match(releaseWorkflow, /verify-package-publication\.mjs/u);
 assert.match(releaseWorkflow, /--require-present --attempts 90 --delay-ms 10000/u);
 assert.match(releaseWorkflow, /release_ref:/u);
 assert.match(releaseWorkflow, /release_commit="\$\(git rev-parse "\$RELEASE_REF\^\{commit\}"\)"/u);
 assert.match(releaseWorkflow, /RELEASE_SHA=\$release_commit/u);
-assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 11);
+assert.equal(releaseWorkflow.match(/--release-sha "\$RELEASE_SHA"/gu)?.length, 15);
 assert.match(releaseWorkflow, /git diff --exit-code/u);
 assert.match(releaseWorkflow, /scripts\/architecture\/agent-sdk-consumers/u);
 assert.match(releaseWorkflow, /scripts\/development\/agent-sandbox-qualification/u);
-assert.equal(releaseWorkflow.match(/npm publish \.\/release\//gu)?.length, 10);
+assert.equal(releaseWorkflow.match(/npm publish \.\/release\//gu)?.length, 14);
 assert.match(releaseWorkflow, /packages\/agent-orchestration/u);
 assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/agent-orchestration pack/u);
 assert.match(releaseWorkflow, /packages\/acp-transport/u);
@@ -192,6 +208,14 @@ assert.match(releaseWorkflow, /packages\/sandbox/u);
 assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/sandbox pack/u);
 assert.match(releaseWorkflow, /packages\/sandbox-docker/u);
 assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/sandbox-docker pack/u);
+assert.match(releaseWorkflow, /packages\/provider-grok/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/provider-grok pack/u);
+assert.match(releaseWorkflow, /packages\/provider-tools/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/provider-tools pack/u);
+assert.match(releaseWorkflow, /packages\/provider-claude/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/provider-claude pack/u);
+assert.match(releaseWorkflow, /packages\/provider-opencode/u);
+assert.match(releaseWorkflow, /pnpm --filter @agen-ai\/provider-opencode pack/u);
 assert.match(releaseWorkflow, /npm audit signatures/u);
 assert.doesNotMatch(
   releaseWorkflow,

@@ -66,7 +66,7 @@ import { deferred } from "./fixtures/hostBindings/harness.js";
 const providerKey = parseAgentProviderKey("contract-fixture");
 const capabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 13,
+  protocolVersion: 14,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -83,6 +83,7 @@ const capabilities: AgentCapabilities = parseAgentCapabilities({
     usage: { kind: "unsupported" },
     compaction: { kind: "unsupported" },
   },
+  tokenUsage: { kind: "unsupported" },
   input: {
     contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
   output: {
@@ -180,7 +181,7 @@ function allowOnceResolution(requestId: ReturnType<typeof parseAgentRequestId>) 
 }
 
 function eventBase(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
-  return { protocolVersion: 13 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 14 as const, sessionId, turnId, occurredAt };
 }
 
 function retryingOutput(turnId: AgentTurnId, occurredAt: AgentIsoDateTime) {
@@ -279,7 +280,7 @@ function session(
     binding: { conversationId: "contract-conversation" as never },
     startTurn: fixtureTurn(async function* (input) {
       yield createAgentEventOutput({
-        protocolVersion: 13,
+        protocolVersion: 14,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -287,7 +288,7 @@ function session(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 13,
+        protocolVersion: 14,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -2028,7 +2029,7 @@ test("session operation observations preserve backpressure and reject turn lifec
               invokeOperation: async (operationInput) => {
                 operationInput.onProviderExecutionStarted?.();
                 await operationInput.onOutput?.(createAgentEventOutput({
-                  protocolVersion: 13,
+                  protocolVersion: 14,
                   type: "item.completed",
                   sessionId,
                   turnId: operationInput.observationTurnId,
@@ -2042,7 +2043,7 @@ test("session operation observations preserve backpressure and reject turn lifec
                 }));
                 if (turnCompletionFromOperation) {
                   await operationInput.onOutput?.(createAgentEventOutput({
-                    protocolVersion: 13, type: "turn.completed", sessionId,
+                    protocolVersion: 14, type: "turn.completed", sessionId,
                     turnId: operationInput.observationTurnId, occurredAt: "2026-10-11T00:00:00.000Z",
                     payload: { structuredOutput: { kind: "not_requested" }, outcome: "completed" },
                   }));
@@ -2855,7 +2856,7 @@ test("validated sessions reject cross-session output and malformed turn ordering
       const opened = session({
         startTurn: fixtureTurn(async function* (turnInput) {
           yield createAgentEventOutput({
-            protocolVersion: 13,
+            protocolVersion: 14,
             type: "turn.started",
             sessionId: "another-session",
             turnId: turnInput.turnId,

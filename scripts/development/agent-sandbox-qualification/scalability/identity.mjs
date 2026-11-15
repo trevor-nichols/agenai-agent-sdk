@@ -15,7 +15,7 @@ import { hashFile } from './manifests.mjs';
 export const CANDIDATE_VERSION = '0.4.13';
 
 const names = ['validation', 'agent-protocol', 'agent-runtime', 'agent-orchestration', 'agent-history',
-  'acp-transport', 'provider-acp', 'acp-registry', 'sandbox', 'sandbox-docker'];
+  'acp-transport', 'provider-acp', 'acp-registry', 'sandbox', 'sandbox-docker', 'provider-grok', 'provider-tools', 'provider-claude', 'provider-opencode'];
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 export function within(root, target) {
@@ -28,7 +28,7 @@ export async function installedIdentity(consumer) {
   const modules = join(consumer, 'node_modules');
   await physicalDirectory(modules);
   const scope = join(modules, '@agen-ai');
-  assert.deepEqual((await readdir(scope)).sort(), [...names].sort(), 'Complete coordinated ten-package installed candidate required.');
+  assert.deepEqual((await readdir(scope)).sort(), [...names].sort(), 'Complete coordinated fourteen-package installed candidate required.');
   const packages = [];
   for (const name of names) {
     const root = await realpath(join(scope, name));

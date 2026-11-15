@@ -11,7 +11,7 @@ export type AgentProtocolJsonSchemaDirection = 'input' | 'output';
 
 export interface AgentProtocolJsonSchemaArtifact {
   readonly contractId: string;
-  readonly protocolVersion: 13;
+  readonly protocolVersion: 14;
   readonly direction: AgentProtocolJsonSchemaDirection;
   readonly dialect: typeof AGENT_PROTOCOL_JSON_SCHEMA_DIALECT;
   readonly parserInvariants: readonly string[];
@@ -21,7 +21,7 @@ export interface AgentProtocolJsonSchemaArtifact {
 
 export const AGENT_OUTPUT_SCHEMA_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.output-schema",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -34,7 +34,7 @@ export const AGENT_OUTPUT_SCHEMA_JSON_SCHEMA = {
     "normalized_nullable_branches",
     "root_schema_dialect_only"
   ],
-  "sha256": "edcd872dc7630d09e9ef0b94d95ef741074f5019f4ac27bc794d7015c5b17d0a",
+  "sha256": "e19493fdd3bdcbfe2b3888b2865724ccf51f687e18be605b9a8966ca7d798687",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -304,7 +304,7 @@ export const AGENT_OUTPUT_SCHEMA_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.output-schema:v13:input",
+    "$id": "urn:agenai.agent-protocol.output-schema:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -341,13 +341,13 @@ export const AGENT_OUTPUT_SCHEMA_JSON_SCHEMA = {
 
 export const AGENT_STRUCTURED_OUTPUT_CAPABILITY_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.structured-output-capability",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [],
-  "sha256": "f9a11e2b51b03c2f9a94c955d1740e7ae03651ff4bd44b878f2a158f56912f8a",
+  "sha256": "2cb4bbbc033ae22e2342c989812b3e76aef73cf6828f2d47d19486eec876c4e0",
   "schema": {
-    "$id": "urn:agenai.agent-protocol.structured-output-capability:v13:output",
+    "$id": "urn:agenai.agent-protocol.structured-output-capability:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -424,7 +424,7 @@ export const AGENT_STRUCTURED_OUTPUT_CAPABILITY_JSON_SCHEMA = {
 
 export const AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.structured-output-request",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -437,7 +437,7 @@ export const AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA = {
     "normalized_nullable_branches",
     "root_schema_dialect_only"
   ],
-  "sha256": "772d7251e480315a3cbd333984024b9819315355b64938db96e048d291dbd361",
+  "sha256": "a45cee17fc73a049be83a6f0885cdba90584854aacdc63307600d4fc236feeee",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -707,7 +707,7 @@ export const AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.structured-output-request:v13:input",
+    "$id": "urn:agenai.agent-protocol.structured-output-request:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -759,7 +759,7 @@ export const AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA = {
 
 export const AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.structured-output-result",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -769,7 +769,7 @@ export const AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA = {
     "serialized_utf8_bytes",
     "structured_issue_utf8_bytes"
   ],
-  "sha256": "350bfa7006b0d9be830adf0e870efbf245ff606032fa14f18a9a7493d89f0e5a",
+  "sha256": "2cc458898dc6fe7900ff5454ddef05a64eb698ba060f6c886244f10d09ffcf4c",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -849,7 +849,7 @@ export const AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.structured-output-result:v13:output",
+    "$id": "urn:agenai.agent-protocol.structured-output-result:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "anyOf": [
       {
@@ -955,7 +955,7 @@ export const AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA = {
 
 export const AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.turn-completed-payload",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -968,7 +968,7 @@ export const AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA = {
     "serialized_utf8_bytes",
     "structured_issue_utf8_bytes"
   ],
-  "sha256": "c667835816ebee924d3ec2724e6c15afc9b5ee8e79961adc729d20fc9fb03730",
+  "sha256": "8276578bb6efef1797d619516fefea05433aacd4dda79e300919200ddaeabfcf",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1343,7 +1343,7 @@ export const AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.turn-completed-payload:v13:output",
+    "$id": "urn:agenai.agent-protocol.turn-completed-payload:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -1450,7 +1450,7 @@ export const AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA = {
 
 export const AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-decision-request",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -1460,7 +1460,7 @@ export const AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA = {
     "serialized_utf8_bytes",
     "unique_choice_ids"
   ],
-  "sha256": "7315fc4132887b41ee7c1960664edf40b4e9310c0f14924252a2565b94621f10",
+  "sha256": "dcd2f5ac71a9bdee68c7d392921698d095159d1323f7bff6905ade2185ec71ae",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -1585,7 +1585,7 @@ export const AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-decision-request:v13:output",
+    "$id": "urn:agenai.agent-protocol.session-decision-request:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -1673,7 +1673,7 @@ export const AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA = {
 
 export const AGENT_SESSION_DECISION_RESPONSE_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-decision-response",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -1682,9 +1682,9 @@ export const AGENT_SESSION_DECISION_RESPONSE_JSON_SCHEMA = {
     "serialized_utf8_bytes",
     "offered_choice_membership"
   ],
-  "sha256": "d001a94fe46276a868aebc0b1b216f7f06a60e9def103b4d30bd32315791ea10",
+  "sha256": "264b6a11ffa402ab762f29840537a8e7f8d3b53fe9dd4b1d905fa9d0d7884ad7",
   "schema": {
-    "$id": "urn:agenai.agent-protocol.session-decision-response:v13:input",
+    "$id": "urn:agenai.agent-protocol.session-decision-response:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -1710,7 +1710,7 @@ export const AGENT_SESSION_DECISION_RESPONSE_JSON_SCHEMA = {
 
 export const AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-form-request",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -1724,7 +1724,7 @@ export const AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA = {
     "unique_choice_values",
     "field_selection_bounds"
   ],
-  "sha256": "031aca089962dd9d7f675caf0124a59c972445021106aa43c3d6b8103fd4e980",
+  "sha256": "5bc45dab6cc711221d05fc199a0ed616f3017124f25044a923830ab979ee3228",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -2086,7 +2086,7 @@ export const AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-form-request:v13:output",
+    "$id": "urn:agenai.agent-protocol.session-form-request:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -2155,7 +2155,7 @@ export const AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA = {
 
 export const AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-form-response",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -2170,7 +2170,7 @@ export const AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA = {
     "exact_plan_revision",
     "request_kind_correlation"
   ],
-  "sha256": "b61d3ea18a4c5a25627eb89c54a427ebf89bdebb76bb3d3b9011030bad57eec9",
+  "sha256": "3e16c6745e706436d3bedcf94a5ecdc8e837761898ab8ceacb1e94ae3c5f7504",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -2326,7 +2326,7 @@ export const AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-form-response:v13:input",
+    "$id": "urn:agenai.agent-protocol.session-form-response:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -2390,7 +2390,7 @@ export const AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA = {
 
 export const AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-plan-review-request",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -2402,7 +2402,7 @@ export const AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA = {
     "unique_choice_actions",
     "plan_text_utf8_bytes"
   ],
-  "sha256": "f7820116ed4496ceee975b0077a936518fa0b0b44b08d47bba174468e433f000",
+  "sha256": "4f0a2f5bbd89cbed9f94703f0e0e6f91dd7386fae5ec813383671f4ed26f49f1",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -2467,7 +2467,7 @@ export const AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-plan-review-request:v13:output",
+    "$id": "urn:agenai.agent-protocol.session-plan-review-request:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -2583,7 +2583,7 @@ export const AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA = {
 
 export const AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-plan-review-response",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -2598,7 +2598,7 @@ export const AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA = {
     "exact_plan_revision",
     "request_kind_correlation"
   ],
-  "sha256": "37e66b623670d4a44f79ca554ee1b12d376dea9dbab3895d97051249bba13adf",
+  "sha256": "5ed79e72cea6e169cea0bc7e161fa14b82dc25bd551d5960f5447640a549cc0f",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -2624,7 +2624,7 @@ export const AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-plan-review-response:v13:input",
+    "$id": "urn:agenai.agent-protocol.session-plan-review-response:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -2703,7 +2703,7 @@ export const AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA = {
 
 export const AGENT_SESSION_REQUEST_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-request",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -2718,7 +2718,7 @@ export const AGENT_SESSION_REQUEST_JSON_SCHEMA = {
     "field_selection_bounds",
     "plan_text_utf8_bytes"
   ],
-  "sha256": "724a6ee1c4be3d07c1e6c8df0d7675a1258156d7c82fcbb502b607237cb26049",
+  "sha256": "6200018ed1e65f692eec53cec270ff98b6a3c31f32338814f537751eb768c030",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -3232,7 +3232,7 @@ export const AGENT_SESSION_REQUEST_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-request:v13:output",
+    "$id": "urn:agenai.agent-protocol.session-request:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -3463,7 +3463,7 @@ export const AGENT_SESSION_REQUEST_JSON_SCHEMA = {
 
 export const AGENT_SESSION_RESPONSE_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-response",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -3478,7 +3478,7 @@ export const AGENT_SESSION_RESPONSE_JSON_SCHEMA = {
     "exact_plan_revision",
     "request_kind_correlation"
   ],
-  "sha256": "f4570225e494cdb58643b79bfe109bc464453bce0eb92b83e86dd731c6b02179",
+  "sha256": "64ca2bea5c0ab789dc0a93658e44fc2d671065701791e628d73e7a1fa0296a48",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -3656,7 +3656,7 @@ export const AGENT_SESSION_RESPONSE_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-response:v13:input",
+    "$id": "urn:agenai.agent-protocol.session-response:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "anyOf": [
       {
@@ -3819,7 +3819,7 @@ export const AGENT_SESSION_RESPONSE_JSON_SCHEMA = {
 
 export const AGENT_ERROR_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.error",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -3827,7 +3827,7 @@ export const AGENT_ERROR_JSON_SCHEMA = {
     "quota_reset_observation_ordering",
     "serialized_failure_bytes"
   ],
-  "sha256": "4d32478de4bc4b3ed85a217e595257bf1959016444c9f214ff7c9da1e40d3505",
+  "sha256": "bea82e5bb624573bff03fc00ffe959b9d341a8f8b73d7c9e5ae4fd7a40d5e189",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -4050,7 +4050,7 @@ export const AGENT_ERROR_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.error:v13:output",
+    "$id": "urn:agenai.agent-protocol.error:v14:output",
     "$ref": "#/$defs/__schema0",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "readOnly": true
@@ -4059,7 +4059,7 @@ export const AGENT_ERROR_JSON_SCHEMA = {
 
 export const AGENT_EFFECTIVE_CONTENT_CATALOG_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.effective-content-catalog",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -4070,7 +4070,7 @@ export const AGENT_EFFECTIVE_CONTENT_CATALOG_JSON_SCHEMA = {
     "aggregate_collection_limits",
     "effective_content_semantics"
   ],
-  "sha256": "9dd0706315b7e4e93443927da841973270b90dfc1410043967c58590f425f571",
+  "sha256": "3dbde1ee34d4b7c559210ec255426bf7f2b2d3ba9352c19b1d0428d031c38de1",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -4268,7 +4268,7 @@ export const AGENT_EFFECTIVE_CONTENT_CATALOG_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.effective-content-catalog:v13:output",
+    "$id": "urn:agenai.agent-protocol.effective-content-catalog:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -4301,7 +4301,7 @@ export const AGENT_EFFECTIVE_CONTENT_CATALOG_JSON_SCHEMA = {
 
 export const AGENT_COMMAND_CATALOG_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.command-catalog",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -4311,7 +4311,7 @@ export const AGENT_COMMAND_CATALOG_JSON_SCHEMA = {
     "serialized_utf8_bytes",
     "aggregate_collection_limits"
   ],
-  "sha256": "3124c1beefb30e2c805277ffa0f0db22c4402768e13ab8ea70edeb1a8c1e0552",
+  "sha256": "a393c79516e63ace8fafd1491947dd596c71a67b2b3fc306f26a403dd1a08dbb",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -4449,7 +4449,7 @@ export const AGENT_COMMAND_CATALOG_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.command-catalog:v13:output",
+    "$id": "urn:agenai.agent-protocol.command-catalog:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -4482,7 +4482,7 @@ export const AGENT_COMMAND_CATALOG_JSON_SCHEMA = {
 
 export const AGENT_EXTENSION_CATALOG_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.extension-catalog",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -4492,7 +4492,7 @@ export const AGENT_EXTENSION_CATALOG_JSON_SCHEMA = {
     "serialized_utf8_bytes",
     "aggregate_collection_limits"
   ],
-  "sha256": "7609f83e19227b6bbb1516461bcc9628ecf29958a5b9c2d66003ecab2704b2cc",
+  "sha256": "74c7b456f282894512994fe9e5ee380c287f68883c0145b67424b5408255b035",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -4804,7 +4804,7 @@ export const AGENT_EXTENSION_CATALOG_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.extension-catalog:v13:output",
+    "$id": "urn:agenai.agent-protocol.extension-catalog:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -4837,7 +4837,7 @@ export const AGENT_EXTENSION_CATALOG_JSON_SCHEMA = {
 
 export const AGENT_ENVIRONMENT_SNAPSHOT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.environment-snapshot",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -4848,7 +4848,7 @@ export const AGENT_ENVIRONMENT_SNAPSHOT_JSON_SCHEMA = {
     "aggregate_collection_limits",
     "effective_content_semantics"
   ],
-  "sha256": "6e462b0fe4221549de04436d041569c9ad4fe32cae61db6e5f93e44413b510a7",
+  "sha256": "6bad7dc9d0523a910ea90725cae1fbb7f981f8eadf8c1064810e062f62561696",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -5782,7 +5782,7 @@ export const AGENT_ENVIRONMENT_SNAPSHOT_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.environment-snapshot:v13:output",
+    "$id": "urn:agenai.agent-protocol.environment-snapshot:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -5959,7 +5959,7 @@ export const AGENT_ENVIRONMENT_SNAPSHOT_JSON_SCHEMA = {
 
 export const AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.account-quota-snapshot",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -5970,7 +5970,7 @@ export const AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA = {
     "unique_model_ids",
     "unique_pool_window_ids"
   ],
-  "sha256": "b61cde209b8c647d8a168d09fc72739f6c7e73d06d2fca4c47a82d493a158e54",
+  "sha256": "f837a3c74897a7401f546c1077323f155e20b9bec302f9b9f180aef3605dc838",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -6359,7 +6359,7 @@ export const AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.account-quota-snapshot:v13:output",
+    "$id": "urn:agenai.agent-protocol.account-quota-snapshot:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -6532,11 +6532,11 @@ export const AGENT_ACCOUNT_QUOTA_SNAPSHOT_JSON_SCHEMA = {
 
 export const AGENT_SESSION_BINDING_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-binding",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [],
-  "sha256": "195b63f2c67803febaf5a8e9a3e2a2e009bac6451dd253e7eb1741d6b8b210b6",
+  "sha256": "183b7878c4cac16ab24998a5c0bf33ac151184a236f94138cf0d3013baf196b0",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -6546,7 +6546,7 @@ export const AGENT_SESSION_BINDING_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-binding:v13:output",
+    "$id": "urn:agenai.agent-protocol.session-binding:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -6567,14 +6567,14 @@ export const AGENT_SESSION_BINDING_JSON_SCHEMA = {
 
 export const AGENT_SESSION_CONFIGURATION_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-configuration",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "configuration_entry_count",
     "serialized_bytes"
   ],
-  "sha256": "60e74ae7e5bcb332442d9b6b6a026c36139319920a147c21d829accd4c319f26",
+  "sha256": "3444ebb547fca95b5db89b9e9ef3cdccb8c14f373c85824fb7da36c96493c1f0",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -6687,7 +6687,7 @@ export const AGENT_SESSION_CONFIGURATION_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-configuration:v13:input",
+    "$id": "urn:agenai.agent-protocol.session-configuration:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -6745,7 +6745,7 @@ export const AGENT_SESSION_CONFIGURATION_JSON_SCHEMA = {
 
 export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.session-open-input",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -6761,7 +6761,7 @@ export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
     "normalized_nullable_branches",
     "root_schema_dialect_only"
   ],
-  "sha256": "069ffe72e954991fc1a57e51070993302cd6e64af0ba2853d136da4de54c8afd",
+  "sha256": "8709acd117f2d8af511babd31b96e8533aea938266e746de5b25592f9bef16bf",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -7215,7 +7215,7 @@ export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.session-open-input:v13:input",
+    "$id": "urn:agenai.agent-protocol.session-open-input:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -7377,7 +7377,7 @@ export const AGENT_SESSION_OPEN_INPUT_JSON_SCHEMA = {
 
 export const AGENT_TURN_INPUT_CONTENT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.turn-input-content",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -7386,7 +7386,7 @@ export const AGENT_TURN_INPUT_CONTENT_JSON_SCHEMA = {
     "content_reference_limits",
     "unique_content_references"
   ],
-  "sha256": "4a5f943c44a8927b2980ad9ee65c8ca4b696b80543280f59d10d3a60d939e8c4",
+  "sha256": "f8269b1bd6aa977e78fdabf740bc8176672d70ffb1c094f9dfc475a722674bd8",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -7642,7 +7642,7 @@ export const AGENT_TURN_INPUT_CONTENT_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.turn-input-content:v13:input",
+    "$id": "urn:agenai.agent-protocol.turn-input-content:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -7662,7 +7662,7 @@ export const AGENT_TURN_INPUT_CONTENT_JSON_SCHEMA = {
 
 export const AGENT_TURN_RUN_INPUT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.turn-run-input",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -7680,7 +7680,7 @@ export const AGENT_TURN_RUN_INPUT_JSON_SCHEMA = {
     "normalized_nullable_branches",
     "root_schema_dialect_only"
   ],
-  "sha256": "0636928609dd65776c845282fa58583214e75b858e47399a9161705656892fec",
+  "sha256": "a5d76d5e4dd1042c59f70ceab8862c8d44e1ac7d9cdb59794fb18bf0f449dd8f",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -8189,7 +8189,7 @@ export const AGENT_TURN_RUN_INPUT_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.turn-run-input:v13:input",
+    "$id": "urn:agenai.agent-protocol.turn-run-input:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -8281,7 +8281,7 @@ export const AGENT_TURN_RUN_INPUT_JSON_SCHEMA = {
 
 export const AGENT_REQUEST_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.request",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -8289,7 +8289,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
     "unique_field_ids",
     "unique_choice_values"
   ],
-  "sha256": "d97e0381238eb157d09344781ff296928959c615e9c98986f95f32c85bf27684",
+  "sha256": "31e9dabe1ceeebaedec242be095ab7de7fe4902804294745b47a756ef340874c",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -8708,7 +8708,7 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.request:v13:output",
+    "$id": "urn:agenai.agent-protocol.request:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -8852,14 +8852,14 @@ export const AGENT_REQUEST_JSON_SCHEMA = {
 
 export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.request-resolution",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "request_resolution_correlation",
     "unique_choice_selections"
   ],
-  "sha256": "26d93f422abd85d68adca18fa9813454b77dbfa70ac520985bf8374de9a1fcb3",
+  "sha256": "256f953fe9072b792891056b6c357e029386f019550dbf06a5e8bd9ba08091b3",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -9009,7 +9009,7 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.request-resolution:v13:input",
+    "$id": "urn:agenai.agent-protocol.request-resolution:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "anyOf": [
       {
@@ -9127,7 +9127,7 @@ export const AGENT_REQUEST_RESOLUTION_JSON_SCHEMA = {
 
 export const AGENT_OPERATION_CATALOG_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.operation-catalog",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -9136,7 +9136,7 @@ export const AGENT_OPERATION_CATALOG_JSON_SCHEMA = {
     "unique_operation_ids",
     "unique_operation_option_ids"
   ],
-  "sha256": "fd46a37498dca680dfc86e1a0b036bda0668bae777c7a4535918ef73783c560c",
+  "sha256": "5879bb2481f01c8a13a211e87179be2c08046bad278934906756480b64ca1ee8",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -9510,7 +9510,7 @@ export const AGENT_OPERATION_CATALOG_JSON_SCHEMA = {
         "type": "array"
       }
     },
-    "$id": "urn:agenai.agent-protocol.operation-catalog:v13:output",
+    "$id": "urn:agenai.agent-protocol.operation-catalog:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -9537,7 +9537,7 @@ export const AGENT_OPERATION_CATALOG_JSON_SCHEMA = {
 
 export const AGENT_OPERATION_INVOCATION_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.operation-invocation",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -9545,7 +9545,7 @@ export const AGENT_OPERATION_INVOCATION_JSON_SCHEMA = {
     "operation_revision_correlation",
     "unique_operation_values"
   ],
-  "sha256": "546d649a458e08b93f1d23c36a7e6c7c7257a55f2ca207ed54ddfcac5c46a19d",
+  "sha256": "9ff8bb7efb691b8cff4fa87cb9e41b5bb06f37a5cd080714558ca3aba931398d",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -9678,7 +9678,7 @@ export const AGENT_OPERATION_INVOCATION_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.operation-invocation:v13:input",
+    "$id": "urn:agenai.agent-protocol.operation-invocation:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -9715,7 +9715,7 @@ export const AGENT_OPERATION_INVOCATION_JSON_SCHEMA = {
 
 export const AGENT_OPERATION_RESULT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.operation-result",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -9727,7 +9727,7 @@ export const AGENT_OPERATION_RESULT_JSON_SCHEMA = {
     "operation_result_kind_consistency",
     "unique_operation_result_references"
   ],
-  "sha256": "cce4872833c80de5b816e91d73fc3c1bc3e53fdfc64c47db1cbcb55848331515",
+  "sha256": "674409b340216af27bb4eace3ee1393bc1d0db8d3ff644794f85cad1c60293e8",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -9950,7 +9950,7 @@ export const AGENT_OPERATION_RESULT_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.operation-result:v13:output",
+    "$id": "urn:agenai.agent-protocol.operation-result:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -10007,14 +10007,14 @@ export const AGENT_OPERATION_RESULT_JSON_SCHEMA = {
 
 export const AGENT_MANAGED_CONTENT_CATALOG_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.managed-content-catalog",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "canonical_managed_content_order",
     "unique_managed_content_ids"
   ],
-  "sha256": "0118d714e7999b1940063e3f6ad66eb53b2d6aa369e17312d2564571c3d881fb",
+  "sha256": "c8d50a52372ec6227f57a7a303b1e8ae2fe1ea3e439822913e7a16846cbd7894",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -10184,7 +10184,7 @@ export const AGENT_MANAGED_CONTENT_CATALOG_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.managed-content-catalog:v13:output",
+    "$id": "urn:agenai.agent-protocol.managed-content-catalog:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -10211,7 +10211,7 @@ export const AGENT_MANAGED_CONTENT_CATALOG_JSON_SCHEMA = {
 
 export const AGENT_CONFIGURATION_CATALOG_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.configuration-catalog",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -10220,7 +10220,7 @@ export const AGENT_CONFIGURATION_CATALOG_JSON_SCHEMA = {
     "unique_configuration_field_keys",
     "unique_configuration_option_ids"
   ],
-  "sha256": "9f0643b43987566010322dd44a6e24118e8be3731e18eca77878312fafb3921a",
+  "sha256": "82046ff0b651895b028641777fa69faa502c434cf7e032b3cd7a8e7b12707e43",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -10507,7 +10507,7 @@ export const AGENT_CONFIGURATION_CATALOG_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.configuration-catalog:v13:output",
+    "$id": "urn:agenai.agent-protocol.configuration-catalog:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -10534,7 +10534,7 @@ export const AGENT_CONFIGURATION_CATALOG_JSON_SCHEMA = {
 
 export const AGENT_CONFIGURATION_SELECTION_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.configuration-selection",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -10542,7 +10542,7 @@ export const AGENT_CONFIGURATION_SELECTION_JSON_SCHEMA = {
     "configuration_field_correlation",
     "configuration_selection_bounds"
   ],
-  "sha256": "82470b99d4c30d95f6139a58aa9994e7c34f85c626165e1b3946852c4729ed7c",
+  "sha256": "ced4d51949db45c774fd97b344193e1145126589296dc5b441cb3ef1ef638464",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -10557,7 +10557,7 @@ export const AGENT_CONFIGURATION_SELECTION_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.configuration-selection:v13:input",
+    "$id": "urn:agenai.agent-protocol.configuration-selection:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -10664,7 +10664,7 @@ export const AGENT_CONFIGURATION_SELECTION_JSON_SCHEMA = {
 
 export const AGENT_INTEGRATION_CATALOG_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.integration-catalog",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -10674,7 +10674,7 @@ export const AGENT_INTEGRATION_CATALOG_JSON_SCHEMA = {
     "unique_integration_tool_ids",
     "unique_integration_resource_ids"
   ],
-  "sha256": "bdd238be258809f7638d4def539b023423da954f98143525030dd32e04057262",
+  "sha256": "116b3f13d052ad621ea67f59c9101358c2db48ff539298271ccd1ea5b01b1e81",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -10975,7 +10975,7 @@ export const AGENT_INTEGRATION_CATALOG_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.integration-catalog:v13:output",
+    "$id": "urn:agenai.agent-protocol.integration-catalog:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -11008,7 +11008,7 @@ export const AGENT_INTEGRATION_CATALOG_JSON_SCHEMA = {
 
 export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.collaboration-node",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -11020,7 +11020,7 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
     "collaboration_terminal_error_consistency",
     "collaboration_terminal_timestamp_consistency"
   ],
-  "sha256": "2e0c2797bb9cc0adfaac8d02ee51f15b73e4654ef49d141f2ef948e1d20486c2",
+  "sha256": "0512c62a7e4be0f0917a78426e93395fc5f5b7a6c615508574ab26b1692e39fa",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -11030,79 +11030,6 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
         "type": "string"
       },
       "__schema1": {
-        "const": "reported",
-        "type": "string"
-      },
-      "__schema10": {
-        "additionalProperties": false,
-        "properties": {
-          "observedAt": {
-            "$ref": "#/$defs/__schema9"
-          },
-          "poolId": {
-            "$ref": "#/$defs/__schema0"
-          },
-          "reset": {
-            "additionalProperties": false,
-            "properties": {
-              "at": {
-                "$ref": "#/$defs/__schema9"
-              },
-              "observedAt": {
-                "$ref": "#/$defs/__schema9"
-              },
-              "precision": {
-                "enum": [
-                  "reported",
-                  "estimated"
-                ],
-                "type": "string"
-              }
-            },
-            "readOnly": true,
-            "required": [
-              "at",
-              "precision",
-              "observedAt"
-            ],
-            "type": "object"
-          },
-          "sourceId": {
-            "$ref": "#/$defs/__schema0"
-          },
-          "windowId": {
-            "$ref": "#/$defs/__schema0"
-          }
-        },
-        "required": [
-          "sourceId",
-          "poolId",
-          "windowId",
-          "observedAt"
-        ],
-        "type": "object"
-      },
-      "__schema2": {
-        "$ref": "#/$defs/__schema3"
-      },
-      "__schema3": {
-        "maximum": 9007199254740991,
-        "minimum": 0,
-        "type": "integer"
-      },
-      "__schema4": {
-        "$ref": "#/$defs/__schema3"
-      },
-      "__schema5": {
-        "$ref": "#/$defs/__schema3"
-      },
-      "__schema6": {
-        "$ref": "#/$defs/__schema3"
-      },
-      "__schema7": {
-        "$ref": "#/$defs/__schema3"
-      },
-      "__schema8": {
         "additionalProperties": false,
         "properties": {
           "category": {
@@ -11199,7 +11126,7 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
                     "type": "string"
                   },
                   "notBefore": {
-                    "$ref": "#/$defs/__schema9"
+                    "$ref": "#/$defs/__schema2"
                   }
                 },
                 "readOnly": true,
@@ -11216,7 +11143,7 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
                     "type": "string"
                   },
                   "quota": {
-                    "$ref": "#/$defs/__schema10",
+                    "$ref": "#/$defs/__schema3",
                     "readOnly": true
                   }
                 },
@@ -11261,13 +11188,62 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
         ],
         "type": "object"
       },
-      "__schema9": {
+      "__schema2": {
         "format": "date-time",
         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
         "type": "string"
+      },
+      "__schema3": {
+        "additionalProperties": false,
+        "properties": {
+          "observedAt": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "poolId": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "reset": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "observedAt": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "precision": {
+                "enum": [
+                  "reported",
+                  "estimated"
+                ],
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "at",
+              "precision",
+              "observedAt"
+            ],
+            "type": "object"
+          },
+          "sourceId": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "windowId": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "required": [
+          "sourceId",
+          "poolId",
+          "windowId",
+          "observedAt"
+        ],
+        "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.collaboration-node:v13:output",
+    "$id": "urn:agenai.agent-protocol.collaboration-node:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -11281,13 +11257,13 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
         "type": "array"
       },
       "closedAt": {
-        "$ref": "#/$defs/__schema9"
+        "$ref": "#/$defs/__schema2"
       },
       "collaborationId": {
         "$ref": "#/$defs/__schema0"
       },
       "createdAt": {
-        "$ref": "#/$defs/__schema9"
+        "$ref": "#/$defs/__schema2"
       },
       "objective": {
         "maxLength": 4000,
@@ -11315,7 +11291,7 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
             "additionalProperties": false,
             "properties": {
               "error": {
-                "$ref": "#/$defs/__schema8",
+                "$ref": "#/$defs/__schema1",
                 "readOnly": true
               },
               "kind": {
@@ -11400,7 +11376,7 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
         "type": "string"
       },
       "terminalAt": {
-        "$ref": "#/$defs/__schema9"
+        "$ref": "#/$defs/__schema2"
       },
       "title": {
         "maxLength": 200,
@@ -11409,7 +11385,7 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
         "type": "string"
       },
       "updatedAt": {
-        "$ref": "#/$defs/__schema9"
+        "$ref": "#/$defs/__schema2"
       },
       "usage": {
         "oneOf": [
@@ -11430,28 +11406,21 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
           {
             "additionalProperties": false,
             "properties": {
-              "inputTokens": {
-                "$ref": "#/$defs/__schema2"
-              },
               "kind": {
-                "$ref": "#/$defs/__schema1"
+                "const": "reference",
+                "type": "string"
               },
-              "modelCalls": {
-                "$ref": "#/$defs/__schema7"
-              },
-              "outputTokens": {
-                "$ref": "#/$defs/__schema4"
-              },
-              "reasoningTokens": {
-                "$ref": "#/$defs/__schema5"
-              },
-              "totalTokens": {
-                "$ref": "#/$defs/__schema6"
+              "scopeId": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+                "type": "string"
               }
             },
             "readOnly": true,
             "required": [
-              "kind"
+              "kind",
+              "scopeId"
             ],
             "type": "object"
           }
@@ -11476,13 +11445,13 @@ export const AGENT_COLLABORATION_NODE_JSON_SCHEMA = {
 
 export const AGENT_COLLABORATION_SPAWN_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.collaboration-spawn",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "collaboration_parent_consistency"
   ],
-  "sha256": "2b870255630bc54057d1fbb673e9265a2b5d1a0a1b023dfdc11589d925fac350",
+  "sha256": "77bbad0392d1df1de55d3415649bb5dec4305ff327317a4de34e9bb6bcdeb219",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -11521,7 +11490,7 @@ export const AGENT_COLLABORATION_SPAWN_JSON_SCHEMA = {
         "type": "string"
       }
     },
-    "$id": "urn:agenai.agent-protocol.collaboration-spawn:v13:input",
+    "$id": "urn:agenai.agent-protocol.collaboration-spawn:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -11558,13 +11527,13 @@ export const AGENT_COLLABORATION_SPAWN_JSON_SCHEMA = {
 
 export const AGENT_COLLABORATION_CONTROL_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.collaboration-control",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "input",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
     "serialized_turn_input_bytes"
   ],
-  "sha256": "9d5a8bd23ef3a0317580c15e81c8f61fa130eb649d03527efb1068f600992919",
+  "sha256": "4070e0d5ab1a77028e332578ec8da3e62deb8658d99129c83a2cfd8bfe7620cb",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -11820,7 +11789,7 @@ export const AGENT_COLLABORATION_CONTROL_JSON_SCHEMA = {
         "type": "integer"
       }
     },
-    "$id": "urn:agenai.agent-protocol.collaboration-control:v13:input",
+    "$id": "urn:agenai.agent-protocol.collaboration-control:v14:input",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "anyOf": [
       {
@@ -11931,7 +11900,7 @@ export const AGENT_COLLABORATION_CONTROL_JSON_SCHEMA = {
 
 export const AGENT_GENERATED_RESOURCE_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.generated-resource",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -11943,7 +11912,7 @@ export const AGENT_GENERATED_RESOURCE_JSON_SCHEMA = {
     "generated_resource_error_consistency",
     "generated_resource_media_consistency"
   ],
-  "sha256": "f98a02d0f51a1d7c188c63ceb0aa870136da77438f342735c96dcb1b3e0f12c0",
+  "sha256": "1c2282413bdfe94d7f144bb54fca35ef01cad6df5761132d071a04a668758afd",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -12171,7 +12140,7 @@ export const AGENT_GENERATED_RESOURCE_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.generated-resource:v13:output",
+    "$id": "urn:agenai.agent-protocol.generated-resource:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -12334,9 +12303,932 @@ export const AGENT_GENERATED_RESOURCE_JSON_SCHEMA = {
   }
 } as const satisfies AgentProtocolJsonSchemaArtifact;
 
+export const AGENT_TOKEN_USAGE_OBSERVATION_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.token-usage-observation",
+  "protocolVersion": 14,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "bounded_acyclic_input",
+    "usage_canonical_reasons",
+    "usage_exact_requires_complete_coverage",
+    "usage_counter_subsets",
+    "usage_count_basis_consistency",
+    "usage_measurement_matches_view_accounting",
+    "usage_initial_epoch_cause",
+    "usage_detail_containment",
+    "usage_model_row_order_and_reconciliation"
+  ],
+  "sha256": "7aa5dee03d4487928c03f34f3024723e0be7afae5173c53a3399e2e99a114fb4",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema1": {
+        "enum": [
+          "provider_reported",
+          "observed",
+          "unsupported"
+        ],
+        "type": "string"
+      },
+      "__schema10": {
+        "const": "unsupported",
+        "type": "string"
+      },
+      "__schema11": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "model",
+                "type": "string"
+              },
+              "model": {
+                "$ref": "#/$defs/__schema12"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "model"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unknown",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "mixed",
+                "type": "string"
+              },
+              "rowCoverage": {
+                "enum": [
+                  "complete",
+                  "partial"
+                ],
+                "type": "string"
+              },
+              "rows": {
+                "items": {
+                  "$ref": "#/$defs/__schema13"
+                },
+                "maxItems": 8,
+                "readOnly": true,
+                "type": "array"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "rowCoverage",
+              "rows"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema12": {
+        "additionalProperties": false,
+        "properties": {
+          "modelId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+            "type": "string"
+          },
+          "modelProvider": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "modelId"
+        ],
+        "type": "object"
+      },
+      "__schema13": {
+        "additionalProperties": false,
+        "properties": {
+          "counters": {
+            "$ref": "#/$defs/__schema7"
+          },
+          "model": {
+            "$ref": "#/$defs/__schema12"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "model",
+          "counters"
+        ],
+        "type": "object"
+      },
+      "__schema14": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unknown",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "stable",
+                "type": "string"
+              },
+              "populationId": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "populationId"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema2": {
+        "enum": [
+          "included",
+          "excluded",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "__schema3": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
+      },
+      "__schema4": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "complete",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "partial",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "reasons": {
+                "$ref": "#/$defs/__schema5"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "reasons"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema5": {
+        "items": {
+          "$ref": "#/$defs/__schema6"
+        },
+        "maxItems": 7,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array",
+        "uniqueItems": true
+      },
+      "__schema6": {
+        "enum": [
+          "not_reported",
+          "native_result_incomplete",
+          "history_incomplete",
+          "origin_unknown",
+          "coverage_unknown",
+          "observation_interrupted",
+          "counter_discontinuity"
+        ],
+        "type": "string"
+      },
+      "__schema7": {
+        "additionalProperties": false,
+        "properties": {
+          "cacheCreationFiveMinuteInputTokens": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "cacheCreationInputTokens": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "cacheCreationOneHourInputTokens": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "cacheReadInputTokens": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "inputTokens": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "modelCalls": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "outputTokens": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "reasoningOutputTokens": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "turns": {
+            "$ref": "#/$defs/__schema8"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "inputTokens",
+          "cacheReadInputTokens",
+          "cacheCreationInputTokens",
+          "cacheCreationFiveMinuteInputTokens",
+          "cacheCreationOneHourInputTokens",
+          "outputTokens",
+          "reasoningOutputTokens",
+          "modelCalls",
+          "turns"
+        ],
+        "type": "object"
+      },
+      "__schema8": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "exact",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/__schema9"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "at_least",
+                "type": "string"
+              },
+              "reasons": {
+                "$ref": "#/$defs/__schema5"
+              },
+              "value": {
+                "$ref": "#/$defs/__schema9"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "value",
+              "reasons"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unavailable",
+                "type": "string"
+              },
+              "reasons": {
+                "anyOf": [
+                  {
+                    "maxItems": 1,
+                    "minItems": 1,
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/__schema10"
+                      }
+                    ],
+                    "readOnly": true,
+                    "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/__schema5"
+                  }
+                ]
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "reasons"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema9": {
+        "maximum": 9007199254740991,
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.token-usage-observation:v14:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "finality": {
+        "enum": [
+          "open",
+          "final"
+        ],
+        "type": "string"
+      },
+      "measurement": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attribution": {
+                "$ref": "#/$defs/__schema11"
+              },
+              "counters": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "coverage": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "kind": {
+                "const": "delta",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "coverage",
+              "counters",
+              "attribution"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "attribution": {
+                "$ref": "#/$defs/__schema11"
+              },
+              "comparison": {
+                "additionalProperties": false,
+                "properties": {
+                  "cacheCreationFiveMinuteInputTokens": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "cacheCreationInputTokens": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "cacheCreationOneHourInputTokens": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "cacheReadInputTokens": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "inputTokens": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "modelCalls": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "outputTokens": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "reasoningOutputTokens": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "turns": {
+                    "$ref": "#/$defs/__schema14"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "inputTokens",
+                  "cacheReadInputTokens",
+                  "cacheCreationInputTokens",
+                  "cacheCreationFiveMinuteInputTokens",
+                  "cacheCreationOneHourInputTokens",
+                  "outputTokens",
+                  "reasoningOutputTokens",
+                  "modelCalls",
+                  "turns"
+                ],
+                "type": "object"
+              },
+              "counters": {
+                "$ref": "#/$defs/__schema7"
+              },
+              "coverage": {
+                "$ref": "#/$defs/__schema4"
+              },
+              "epoch": {
+                "maximum": 15,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "snapshot",
+                "type": "string"
+              },
+              "origin": {
+                "additionalProperties": false,
+                "properties": {
+                  "cause": {
+                    "enum": [
+                      "initial",
+                      "native_reset",
+                      "native_new_origin"
+                    ],
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "fresh_zero",
+                      "historical",
+                      "unknown"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "kind",
+                  "cause"
+                ],
+                "type": "object"
+              },
+              "revision": {
+                "$ref": "#/$defs/__schema9"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "epoch",
+              "revision",
+              "origin",
+              "comparison",
+              "coverage",
+              "counters",
+              "attribution"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unavailable",
+                "type": "string"
+              },
+              "reasons": {
+                "$ref": "#/$defs/__schema5"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "reasons"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "observationId": {
+        "$ref": "#/$defs/__schema0"
+      },
+      "scope": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "containedIn": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "enum": [
+                  "session",
+                  "materialization"
+                ],
+                "type": "string"
+              },
+              "scopeId": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "scopeId",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "containedIn": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "turn",
+                "type": "string"
+              },
+              "scopeId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "turnId": {
+                "$ref": "#/$defs/__schema3"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "scopeId",
+              "kind",
+              "turnId"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "containedIn": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "kind": {
+                "const": "model_call",
+                "type": "string"
+              },
+              "scopeId": {
+                "$ref": "#/$defs/__schema0"
+              },
+              "turnId": {
+                "$ref": "#/$defs/__schema3"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "scopeId",
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "view": {
+        "additionalProperties": false,
+        "properties": {
+          "accounting": {
+            "enum": [
+              "delta",
+              "snapshot"
+            ],
+            "type": "string"
+          },
+          "authority": {
+            "enum": [
+              "authoritative",
+              "detail"
+            ],
+            "type": "string"
+          },
+          "countBasis": {
+            "additionalProperties": false,
+            "properties": {
+              "modelCalls": {
+                "$ref": "#/$defs/__schema1"
+              },
+              "turns": {
+                "$ref": "#/$defs/__schema1"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "modelCalls",
+              "turns"
+            ],
+            "type": "object"
+          },
+          "population": {
+            "additionalProperties": false,
+            "properties": {
+              "auxiliary": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "descendants": {
+                "$ref": "#/$defs/__schema2"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "descendants",
+              "auxiliary"
+            ],
+            "type": "object"
+          },
+          "viewId": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "viewId",
+          "authority",
+          "accounting",
+          "countBasis",
+          "population"
+        ],
+        "type": "object"
+      }
+    },
+    "readOnly": true,
+    "required": [
+      "observationId",
+      "view",
+      "scope",
+      "measurement",
+      "finality"
+    ],
+    "type": "object"
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
+export const AGENT_TOKEN_USAGE_CAPABILITY_JSON_SCHEMA = {
+  "contractId": "agenai.agent-protocol.token-usage-capability",
+  "protocolVersion": 14,
+  "direction": "output",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "parserInvariants": [
+    "canonical_token_usage_reported_counters",
+    "canonical_token_usage_attribution_kinds",
+    "unique_token_usage_view_ids",
+    "single_authoritative_token_usage_view",
+    "token_usage_count_basis_consistency"
+  ],
+  "sha256": "f681b023a88ada396ea44a88a6a51467dfb5e4312b4f02ffcffb9def3047055c",
+  "schema": {
+    "$defs": {
+      "__schema0": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "items": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "readOnly": true,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "reportedCounters": {
+            "items": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "readOnly": true,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "scopeKind": {
+            "enum": [
+              "session",
+              "materialization",
+              "turn",
+              "model_call"
+            ],
+            "type": "string"
+          },
+          "view": {
+            "additionalProperties": false,
+            "properties": {
+              "accounting": {
+                "enum": [
+                  "delta",
+                  "snapshot"
+                ],
+                "type": "string"
+              },
+              "authority": {
+                "enum": [
+                  "authoritative",
+                  "detail"
+                ],
+                "type": "string"
+              },
+              "countBasis": {
+                "additionalProperties": false,
+                "properties": {
+                  "modelCalls": {
+                    "$ref": "#/$defs/__schema1"
+                  },
+                  "turns": {
+                    "$ref": "#/$defs/__schema1"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "modelCalls",
+                  "turns"
+                ],
+                "type": "object"
+              },
+              "population": {
+                "additionalProperties": false,
+                "properties": {
+                  "auxiliary": {
+                    "$ref": "#/$defs/__schema2"
+                  },
+                  "descendants": {
+                    "$ref": "#/$defs/__schema2"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "descendants",
+                  "auxiliary"
+                ],
+                "type": "object"
+              },
+              "viewId": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "viewId",
+              "authority",
+              "accounting",
+              "countBasis",
+              "population"
+            ],
+            "type": "object"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "view",
+          "scopeKind",
+          "reportedCounters",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "__schema1": {
+        "enum": [
+          "provider_reported",
+          "observed",
+          "unsupported"
+        ],
+        "type": "string"
+      },
+      "__schema2": {
+        "enum": [
+          "included",
+          "excluded",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "__schema3": {
+        "enum": [
+          "inputTokens",
+          "cacheReadInputTokens",
+          "cacheCreationInputTokens",
+          "cacheCreationFiveMinuteInputTokens",
+          "cacheCreationOneHourInputTokens",
+          "outputTokens",
+          "reasoningOutputTokens",
+          "modelCalls",
+          "turns"
+        ],
+        "type": "string"
+      },
+      "__schema4": {
+        "enum": [
+          "model",
+          "unknown",
+          "mixed"
+        ],
+        "type": "string"
+      }
+    },
+    "$id": "urn:agenai.agent-protocol.token-usage-capability:v14:output",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "oneOf": [
+      {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "unsupported",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "supported",
+            "type": "string"
+          },
+          "views": {
+            "items": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/__schema0"
+              }
+            ],
+            "readOnly": true,
+            "type": "array"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "kind",
+          "views"
+        ],
+        "type": "object"
+      }
+    ]
+  }
+} as const satisfies AgentProtocolJsonSchemaArtifact;
+
 export const AGENT_CAPABILITIES_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.capabilities",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -12357,13 +13249,17 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
     "canonical_operation_field_kinds",
     "canonical_operation_kinds",
     "canonical_context_compaction_triggers",
-    "canonical_context_cumulative_usage_fields",
     "canonical_context_measurement_scopes",
     "image_input_pixels_bounded_by_dimensions",
     "image_input_total_bytes_admits_max_image",
-    "image_input_total_bytes_bounded_by_count"
+    "image_input_total_bytes_bounded_by_count",
+    "canonical_token_usage_reported_counters",
+    "canonical_token_usage_attribution_kinds",
+    "unique_token_usage_view_ids",
+    "single_authoritative_token_usage_view",
+    "token_usage_count_basis_consistency"
   ],
-  "sha256": "962f423b00ecf499c56435a8d14e378b01ce8e14511f465bb84deedc238ca8f7",
+  "sha256": "8b75cc3a8bbcf976347cf11b5cb836de4eabaa2e62f8f14ef9e9a546fca7b1cf",
   "schema": {
     "$defs": {
       "__schema0": {
@@ -12647,18 +13543,6 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
       },
       "__schema16": {
         "enum": [
-          "inputTokens",
-          "outputTokens",
-          "cachedReadTokens",
-          "cacheCreationTokens",
-          "reasoningTokens",
-          "modelCalls",
-          "turns"
-        ],
-        "type": "string"
-      },
-      "__schema17": {
-        "enum": [
           "automatic",
           "manual",
           "context_limit",
@@ -12667,7 +13551,159 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
+      "__schema17": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "items": {
+              "$ref": "#/$defs/__schema21"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "readOnly": true,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "reportedCounters": {
+            "items": {
+              "$ref": "#/$defs/__schema20"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "readOnly": true,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "scopeKind": {
+            "enum": [
+              "session",
+              "materialization",
+              "turn",
+              "model_call"
+            ],
+            "type": "string"
+          },
+          "view": {
+            "additionalProperties": false,
+            "properties": {
+              "accounting": {
+                "enum": [
+                  "delta",
+                  "snapshot"
+                ],
+                "type": "string"
+              },
+              "authority": {
+                "enum": [
+                  "authoritative",
+                  "detail"
+                ],
+                "type": "string"
+              },
+              "countBasis": {
+                "additionalProperties": false,
+                "properties": {
+                  "modelCalls": {
+                    "$ref": "#/$defs/__schema18"
+                  },
+                  "turns": {
+                    "$ref": "#/$defs/__schema18"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "modelCalls",
+                  "turns"
+                ],
+                "type": "object"
+              },
+              "population": {
+                "additionalProperties": false,
+                "properties": {
+                  "auxiliary": {
+                    "$ref": "#/$defs/__schema19"
+                  },
+                  "descendants": {
+                    "$ref": "#/$defs/__schema19"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "descendants",
+                  "auxiliary"
+                ],
+                "type": "object"
+              },
+              "viewId": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "viewId",
+              "authority",
+              "accounting",
+              "countBasis",
+              "population"
+            ],
+            "type": "object"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "view",
+          "scopeKind",
+          "reportedCounters",
+          "attribution"
+        ],
+        "type": "object"
+      },
       "__schema18": {
+        "enum": [
+          "provider_reported",
+          "observed",
+          "unsupported"
+        ],
+        "type": "string"
+      },
+      "__schema19": {
+        "enum": [
+          "included",
+          "excluded",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "__schema2": {
+        "const": "supported",
+        "type": "string"
+      },
+      "__schema20": {
+        "enum": [
+          "inputTokens",
+          "cacheReadInputTokens",
+          "cacheCreationInputTokens",
+          "cacheCreationFiveMinuteInputTokens",
+          "cacheCreationOneHourInputTokens",
+          "outputTokens",
+          "reasoningOutputTokens",
+          "modelCalls",
+          "turns"
+        ],
+        "type": "string"
+      },
+      "__schema21": {
+        "enum": [
+          "model",
+          "unknown",
+          "mixed"
+        ],
+        "type": "string"
+      },
+      "__schema22": {
         "enum": [
           "plan",
           "diff",
@@ -12679,7 +13715,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema19": {
+      "__schema23": {
         "enum": [
           "boolean",
           "single_select",
@@ -12688,11 +13724,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema2": {
-        "const": "supported",
-        "type": "string"
-      },
-      "__schema20": {
+      "__schema24": {
         "enum": [
           "session_control",
           "managed_content_invoke",
@@ -12703,7 +13735,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema21": {
+      "__schema25": {
         "enum": [
           "text",
           "boolean",
@@ -12713,7 +13745,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema22": {
+      "__schema26": {
         "enum": [
           "immediate",
           "request_continuation",
@@ -12721,7 +13753,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema23": {
+      "__schema27": {
         "enum": [
           "skill",
           "rule",
@@ -12730,17 +13762,27 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema24": {
+      "__schema28": {
         "enum": [
           "mcp",
           "connector"
         ],
         "type": "string"
       },
-      "__schema25": {
-        "$ref": "#/$defs/__schema26"
+      "__schema29": {
+        "$ref": "#/$defs/__schema30"
       },
-      "__schema26": {
+      "__schema3": {
+        "items": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "maxItems": 3,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array",
+        "uniqueItems": true
+      },
+      "__schema30": {
         "anyOf": [
           {
             "additionalProperties": false,
@@ -12761,7 +13803,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "domains": {
                 "items": {
-                  "$ref": "#/$defs/__schema27"
+                  "$ref": "#/$defs/__schema31"
                 },
                 "maxItems": 4,
                 "minItems": 1,
@@ -12785,7 +13827,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "domains": {
                 "items": {
-                  "$ref": "#/$defs/__schema27"
+                  "$ref": "#/$defs/__schema31"
                 },
                 "maxItems": 4,
                 "minItems": 1,
@@ -12806,7 +13848,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
           }
         ]
       },
-      "__schema27": {
+      "__schema31": {
         "enum": [
           "content",
           "commands",
@@ -12815,7 +13857,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema28": {
+      "__schema32": {
         "enum": [
           "delegate",
           "reviewer",
@@ -12824,7 +13866,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema29": {
+      "__schema33": {
         "enum": [
           "spawn",
           "steer",
@@ -12834,17 +13876,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema3": {
-        "items": {
-          "$ref": "#/$defs/__schema4"
-        },
-        "maxItems": 3,
-        "minItems": 1,
-        "readOnly": true,
-        "type": "array",
-        "uniqueItems": true
-      },
-      "__schema30": {
+      "__schema34": {
         "enum": [
           "image",
           "document",
@@ -12852,7 +13884,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         ],
         "type": "string"
       },
-      "__schema31": {
+      "__schema35": {
         "enum": [
           "device_code",
           "browser",
@@ -12909,7 +13941,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "type": "object"
       }
     },
-    "$id": "urn:agenai.agent-protocol.capabilities:v13:output",
+    "$id": "urn:agenai.agent-protocol.capabilities:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -12934,7 +13966,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "flows": {
                 "items": {
-                  "$ref": "#/$defs/__schema31"
+                  "$ref": "#/$defs/__schema35"
                 },
                 "maxItems": 3,
                 "minItems": 1,
@@ -12977,7 +14009,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "controlActions": {
                 "items": {
-                  "$ref": "#/$defs/__schema29"
+                  "$ref": "#/$defs/__schema33"
                 },
                 "maxItems": 5,
                 "minItems": 1,
@@ -13006,7 +14038,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
               },
               "roles": {
                 "items": {
-                  "$ref": "#/$defs/__schema28"
+                  "$ref": "#/$defs/__schema32"
                 },
                 "maxItems": 4,
                 "minItems": 1,
@@ -13049,7 +14081,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "fieldKinds": {
                 "items": {
-                  "$ref": "#/$defs/__schema19"
+                  "$ref": "#/$defs/__schema23"
                 },
                 "maxItems": 4,
                 "minItems": 1,
@@ -13108,7 +14140,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                   },
                   "triggers": {
                     "items": {
-                      "$ref": "#/$defs/__schema17"
+                      "$ref": "#/$defs/__schema16"
                     },
                     "maxItems": 5,
                     "minItems": 1,
@@ -13146,15 +14178,6 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
               {
                 "additionalProperties": false,
                 "properties": {
-                  "cumulativeFields": {
-                    "items": {
-                      "$ref": "#/$defs/__schema16"
-                    },
-                    "maxItems": 7,
-                    "readOnly": true,
-                    "type": "array",
-                    "uniqueItems": true
-                  },
                   "kind": {
                     "const": "supported",
                     "type": "string"
@@ -13173,8 +14196,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
                 "readOnly": true,
                 "required": [
                   "kind",
-                  "measurementScopes",
-                  "cumulativeFields"
+                  "measurementScopes"
                 ],
                 "type": "object"
               }
@@ -13192,10 +14214,10 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "additionalProperties": false,
         "properties": {
           "instance": {
-            "$ref": "#/$defs/__schema25"
+            "$ref": "#/$defs/__schema29"
           },
           "session": {
-            "$ref": "#/$defs/__schema25"
+            "$ref": "#/$defs/__schema29"
           }
         },
         "readOnly": true,
@@ -13240,7 +14262,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
               },
               "resourceKinds": {
                 "items": {
-                  "$ref": "#/$defs/__schema30"
+                  "$ref": "#/$defs/__schema34"
                 },
                 "maxItems": 3,
                 "minItems": 1,
@@ -13284,7 +14306,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "integrationKinds": {
                 "items": {
-                  "$ref": "#/$defs/__schema24"
+                  "$ref": "#/$defs/__schema28"
                 },
                 "maxItems": 2,
                 "minItems": 1,
@@ -13351,7 +14373,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "contentKinds": {
                 "items": {
-                  "$ref": "#/$defs/__schema23"
+                  "$ref": "#/$defs/__schema27"
                 },
                 "maxItems": 4,
                 "minItems": 1,
@@ -13400,7 +14422,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
             "properties": {
               "executionModes": {
                 "items": {
-                  "$ref": "#/$defs/__schema22"
+                  "$ref": "#/$defs/__schema26"
                 },
                 "maxItems": 3,
                 "minItems": 1,
@@ -13410,7 +14432,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
               },
               "fieldKinds": {
                 "items": {
-                  "$ref": "#/$defs/__schema21"
+                  "$ref": "#/$defs/__schema25"
                 },
                 "maxItems": 5,
                 "readOnly": true,
@@ -13433,7 +14455,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
               },
               "operationKinds": {
                 "items": {
-                  "$ref": "#/$defs/__schema20"
+                  "$ref": "#/$defs/__schema24"
                 },
                 "maxItems": 6,
                 "minItems": 1,
@@ -13460,7 +14482,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "properties": {
           "artifactKinds": {
             "items": {
-              "$ref": "#/$defs/__schema18"
+              "$ref": "#/$defs/__schema22"
             },
             "maxItems": 7,
             "readOnly": true,
@@ -13492,7 +14514,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
         "type": "object"
       },
       "protocolVersion": {
-        "const": 13,
+        "const": 14,
         "type": "number"
       },
       "providerKey": {
@@ -13628,6 +14650,53 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
           "branch"
         ],
         "type": "object"
+      },
+      "tokenUsage": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unsupported",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "supported",
+                "type": "string"
+              },
+              "views": {
+                "items": {
+                  "$ref": "#/$defs/__schema17"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "prefixItems": [
+                  {
+                    "$ref": "#/$defs/__schema17"
+                  }
+                ],
+                "readOnly": true,
+                "type": "array"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "views"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "turns": {
         "additionalProperties": false,
@@ -13775,6 +14844,7 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
       "turns",
       "requests",
       "context",
+      "tokenUsage",
       "input",
       "output",
       "configuration",
@@ -13793,13 +14863,13 @@ export const AGENT_CAPABILITIES_JSON_SCHEMA = {
 
 export const AGENT_ARTIFACT_DESCRIPTOR_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.artifact-descriptor",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [],
-  "sha256": "56160e8b427d553fb383b3790cd517da1fa2d48afaf9dc6c7b0900fe1f8abf4a",
+  "sha256": "4340870dfc1aab266b24b0349931b46ef72d9a0d3e6d0972672c2f32ed96bc1a",
   "schema": {
-    "$id": "urn:agenai.agent-protocol.artifact-descriptor:v13:output",
+    "$id": "urn:agenai.agent-protocol.artifact-descriptor:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "additionalProperties": false,
     "properties": {
@@ -13874,7 +14944,7 @@ export const AGENT_ARTIFACT_DESCRIPTOR_JSON_SCHEMA = {
 
 export const AGENT_EVENT_JSON_SCHEMA = {
   "contractId": "agenai.agent-protocol.event",
-  "protocolVersion": 13,
+  "protocolVersion": 14,
   "direction": "output",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "parserInvariants": [
@@ -13893,13 +14963,21 @@ export const AGENT_EVENT_JSON_SCHEMA = {
     "structured_value_node_and_depth_limits",
     "structured_value_collection_limits",
     "serialized_utf8_bytes",
-    "structured_issue_utf8_bytes"
+    "structured_issue_utf8_bytes",
+    "usage_canonical_reasons",
+    "usage_exact_requires_complete_coverage",
+    "usage_counter_subsets",
+    "usage_count_basis_consistency",
+    "usage_measurement_matches_view_accounting",
+    "usage_initial_epoch_cause",
+    "usage_detail_containment",
+    "usage_model_row_order_and_reconciliation"
   ],
-  "sha256": "4e705e89eeae9bff26e4e8bede654ea18d1be8f91025cc648be399f9fbc568db",
+  "sha256": "0eb519464336c8f8dceac14d81f3f25089bab2ca982deff32000a2fe1745a392",
   "schema": {
     "$defs": {
       "__schema0": {
-        "const": 13,
+        "const": 14,
         "type": "number"
       },
       "__schema1": {
@@ -15572,19 +16650,75 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         "type": "integer"
       },
       "__schema65": {
-        "$ref": "#/$defs/__schema63"
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+        "type": "string"
       },
       "__schema66": {
-        "$ref": "#/$defs/__schema63"
+        "enum": [
+          "provider_reported",
+          "observed",
+          "unsupported"
+        ],
+        "type": "string"
       },
       "__schema67": {
-        "$ref": "#/$defs/__schema63"
+        "enum": [
+          "included",
+          "excluded",
+          "unknown"
+        ],
+        "type": "string"
       },
       "__schema68": {
-        "$ref": "#/$defs/__schema63"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "complete",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "partial",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "reasons": {
+                "$ref": "#/$defs/__schema69"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "reasons"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "__schema69": {
-        "$ref": "#/$defs/__schema63"
+        "items": {
+          "$ref": "#/$defs/__schema70"
+        },
+        "maxItems": 7,
+        "minItems": 1,
+        "readOnly": true,
+        "type": "array",
+        "uniqueItems": true
       },
       "__schema7": {
         "anyOf": [
@@ -15597,34 +16731,289 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         ]
       },
       "__schema70": {
-        "$ref": "#/$defs/__schema63"
-      },
-      "__schema71": {
-        "$ref": "#/$defs/__schema63"
-      },
-      "__schema72": {
-        "const": "reported",
+        "enum": [
+          "not_reported",
+          "native_result_incomplete",
+          "history_incomplete",
+          "origin_unknown",
+          "coverage_unknown",
+          "observation_interrupted",
+          "counter_discontinuity"
+        ],
         "type": "string"
       },
-      "__schema73": {
-        "$ref": "#/$defs/__schema74"
+      "__schema71": {
+        "additionalProperties": false,
+        "properties": {
+          "cacheCreationFiveMinuteInputTokens": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "cacheCreationInputTokens": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "cacheCreationOneHourInputTokens": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "cacheReadInputTokens": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "inputTokens": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "modelCalls": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "outputTokens": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "reasoningOutputTokens": {
+            "$ref": "#/$defs/__schema72"
+          },
+          "turns": {
+            "$ref": "#/$defs/__schema72"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "inputTokens",
+          "cacheReadInputTokens",
+          "cacheCreationInputTokens",
+          "cacheCreationFiveMinuteInputTokens",
+          "cacheCreationOneHourInputTokens",
+          "outputTokens",
+          "reasoningOutputTokens",
+          "modelCalls",
+          "turns"
+        ],
+        "type": "object"
       },
-      "__schema74": {
+      "__schema72": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "exact",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/__schema73"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "at_least",
+                "type": "string"
+              },
+              "reasons": {
+                "$ref": "#/$defs/__schema69"
+              },
+              "value": {
+                "$ref": "#/$defs/__schema73"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "value",
+              "reasons"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unavailable",
+                "type": "string"
+              },
+              "reasons": {
+                "anyOf": [
+                  {
+                    "maxItems": 1,
+                    "minItems": 1,
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/__schema74"
+                      }
+                    ],
+                    "readOnly": true,
+                    "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/__schema69"
+                  }
+                ]
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "reasons"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "__schema73": {
         "maximum": 9007199254740991,
         "minimum": 0,
         "type": "integer"
       },
+      "__schema74": {
+        "const": "unsupported",
+        "type": "string"
+      },
       "__schema75": {
-        "$ref": "#/$defs/__schema74"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "model",
+                "type": "string"
+              },
+              "model": {
+                "$ref": "#/$defs/__schema76"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "model"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unknown",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "mixed",
+                "type": "string"
+              },
+              "rowCoverage": {
+                "enum": [
+                  "complete",
+                  "partial"
+                ],
+                "type": "string"
+              },
+              "rows": {
+                "items": {
+                  "$ref": "#/$defs/__schema77"
+                },
+                "maxItems": 8,
+                "readOnly": true,
+                "type": "array"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "rowCoverage",
+              "rows"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "__schema76": {
-        "$ref": "#/$defs/__schema74"
+        "additionalProperties": false,
+        "properties": {
+          "modelId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+            "type": "string"
+          },
+          "modelProvider": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^(?![\\s\\S]*[\\u0000-\\u001F\\u007F-\\u009F])\\S(?:[\\s\\S]*\\S)?$",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "modelId"
+        ],
+        "type": "object"
       },
       "__schema77": {
-        "$ref": "#/$defs/__schema74"
+        "additionalProperties": false,
+        "properties": {
+          "counters": {
+            "$ref": "#/$defs/__schema71"
+          },
+          "model": {
+            "$ref": "#/$defs/__schema76"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "model",
+          "counters"
+        ],
+        "type": "object"
       },
       "__schema78": {
-        "$ref": "#/$defs/__schema74"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "unknown",
+                "type": "string"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "stable",
+                "type": "string"
+              },
+              "populationId": {
+                "$ref": "#/$defs/__schema65"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "kind",
+              "populationId"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "__schema79": {
         "exclusiveMinimum": 0,
@@ -15696,7 +17085,7 @@ export const AGENT_EVENT_JSON_SCHEMA = {
         ]
       }
     },
-    "$id": "urn:agenai.agent-protocol.event:v13:output",
+    "$id": "urn:agenai.agent-protocol.event:v14:output",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "oneOf": [
       {
@@ -16652,34 +18041,6 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                 ],
                 "type": "object"
               },
-              "cumulative": {
-                "additionalProperties": false,
-                "properties": {
-                  "cacheCreationTokens": {
-                    "$ref": "#/$defs/__schema68"
-                  },
-                  "cachedReadTokens": {
-                    "$ref": "#/$defs/__schema67"
-                  },
-                  "inputTokens": {
-                    "$ref": "#/$defs/__schema65"
-                  },
-                  "modelCalls": {
-                    "$ref": "#/$defs/__schema70"
-                  },
-                  "outputTokens": {
-                    "$ref": "#/$defs/__schema66"
-                  },
-                  "reasoningTokens": {
-                    "$ref": "#/$defs/__schema69"
-                  },
-                  "turns": {
-                    "$ref": "#/$defs/__schema71"
-                  }
-                },
-                "readOnly": true,
-                "type": "object"
-              },
               "maxTokens": {
                 "$ref": "#/$defs/__schema64"
               },
@@ -16716,6 +18077,364 @@ export const AGENT_EVENT_JSON_SCHEMA = {
           },
           "type": {
             "const": "context.usage.updated",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "protocolVersion",
+          "sessionId",
+          "occurredAt",
+          "type",
+          "turnId",
+          "payload"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "occurredAt": {
+            "$ref": "#/$defs/__schema4"
+          },
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "finality": {
+                "enum": [
+                  "open",
+                  "final"
+                ],
+                "type": "string"
+              },
+              "measurement": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "attribution": {
+                        "$ref": "#/$defs/__schema75"
+                      },
+                      "counters": {
+                        "$ref": "#/$defs/__schema71"
+                      },
+                      "coverage": {
+                        "$ref": "#/$defs/__schema68"
+                      },
+                      "kind": {
+                        "const": "delta",
+                        "type": "string"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "kind",
+                      "coverage",
+                      "counters",
+                      "attribution"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "attribution": {
+                        "$ref": "#/$defs/__schema75"
+                      },
+                      "comparison": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "cacheCreationFiveMinuteInputTokens": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "cacheCreationInputTokens": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "cacheCreationOneHourInputTokens": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "cacheReadInputTokens": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "inputTokens": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "modelCalls": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "outputTokens": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "reasoningOutputTokens": {
+                            "$ref": "#/$defs/__schema78"
+                          },
+                          "turns": {
+                            "$ref": "#/$defs/__schema78"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "inputTokens",
+                          "cacheReadInputTokens",
+                          "cacheCreationInputTokens",
+                          "cacheCreationFiveMinuteInputTokens",
+                          "cacheCreationOneHourInputTokens",
+                          "outputTokens",
+                          "reasoningOutputTokens",
+                          "modelCalls",
+                          "turns"
+                        ],
+                        "type": "object"
+                      },
+                      "counters": {
+                        "$ref": "#/$defs/__schema71"
+                      },
+                      "coverage": {
+                        "$ref": "#/$defs/__schema68"
+                      },
+                      "epoch": {
+                        "maximum": 15,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "kind": {
+                        "const": "snapshot",
+                        "type": "string"
+                      },
+                      "origin": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "cause": {
+                            "enum": [
+                              "initial",
+                              "native_reset",
+                              "native_new_origin"
+                            ],
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "fresh_zero",
+                              "historical",
+                              "unknown"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "readOnly": true,
+                        "required": [
+                          "kind",
+                          "cause"
+                        ],
+                        "type": "object"
+                      },
+                      "revision": {
+                        "$ref": "#/$defs/__schema73"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "kind",
+                      "epoch",
+                      "revision",
+                      "origin",
+                      "comparison",
+                      "coverage",
+                      "counters",
+                      "attribution"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unavailable",
+                        "type": "string"
+                      },
+                      "reasons": {
+                        "$ref": "#/$defs/__schema69"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "kind",
+                      "reasons"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "observationId": {
+                "$ref": "#/$defs/__schema65"
+              },
+              "scope": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "containedIn": {
+                        "$ref": "#/$defs/__schema65"
+                      },
+                      "kind": {
+                        "enum": [
+                          "session",
+                          "materialization"
+                        ],
+                        "type": "string"
+                      },
+                      "scopeId": {
+                        "$ref": "#/$defs/__schema65"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "scopeId",
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "containedIn": {
+                        "$ref": "#/$defs/__schema65"
+                      },
+                      "kind": {
+                        "const": "turn",
+                        "type": "string"
+                      },
+                      "scopeId": {
+                        "$ref": "#/$defs/__schema65"
+                      },
+                      "turnId": {
+                        "$ref": "#/$defs/__schema1"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "scopeId",
+                      "kind",
+                      "turnId"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "containedIn": {
+                        "$ref": "#/$defs/__schema65"
+                      },
+                      "kind": {
+                        "const": "model_call",
+                        "type": "string"
+                      },
+                      "scopeId": {
+                        "$ref": "#/$defs/__schema65"
+                      },
+                      "turnId": {
+                        "$ref": "#/$defs/__schema1"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "scopeId",
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "view": {
+                "additionalProperties": false,
+                "properties": {
+                  "accounting": {
+                    "enum": [
+                      "delta",
+                      "snapshot"
+                    ],
+                    "type": "string"
+                  },
+                  "authority": {
+                    "enum": [
+                      "authoritative",
+                      "detail"
+                    ],
+                    "type": "string"
+                  },
+                  "countBasis": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "modelCalls": {
+                        "$ref": "#/$defs/__schema66"
+                      },
+                      "turns": {
+                        "$ref": "#/$defs/__schema66"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "modelCalls",
+                      "turns"
+                    ],
+                    "type": "object"
+                  },
+                  "population": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "auxiliary": {
+                        "$ref": "#/$defs/__schema67"
+                      },
+                      "descendants": {
+                        "$ref": "#/$defs/__schema67"
+                      }
+                    },
+                    "readOnly": true,
+                    "required": [
+                      "descendants",
+                      "auxiliary"
+                    ],
+                    "type": "object"
+                  },
+                  "viewId": {
+                    "$ref": "#/$defs/__schema65"
+                  }
+                },
+                "readOnly": true,
+                "required": [
+                  "viewId",
+                  "authority",
+                  "accounting",
+                  "countBasis",
+                  "population"
+                ],
+                "type": "object"
+              }
+            },
+            "readOnly": true,
+            "required": [
+              "observationId",
+              "view",
+              "scope",
+              "measurement",
+              "finality"
+            ],
+            "type": "object"
+          },
+          "protocolVersion": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "providerRefs": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "sessionId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "turnId": {
+            "$ref": "#/$defs/__schema1"
+          },
+          "type": {
+            "const": "usage.observed",
             "type": "string"
           }
         },
@@ -17104,28 +18823,18 @@ export const AGENT_EVENT_JSON_SCHEMA = {
                       {
                         "additionalProperties": false,
                         "properties": {
-                          "inputTokens": {
-                            "$ref": "#/$defs/__schema73"
-                          },
                           "kind": {
-                            "$ref": "#/$defs/__schema72"
+                            "const": "reference",
+                            "type": "string"
                           },
-                          "modelCalls": {
-                            "$ref": "#/$defs/__schema78"
-                          },
-                          "outputTokens": {
-                            "$ref": "#/$defs/__schema75"
-                          },
-                          "reasoningTokens": {
-                            "$ref": "#/$defs/__schema76"
-                          },
-                          "totalTokens": {
-                            "$ref": "#/$defs/__schema77"
+                          "scopeId": {
+                            "$ref": "#/$defs/__schema65"
                           }
                         },
                         "readOnly": true,
                         "required": [
-                          "kind"
+                          "kind",
+                          "scopeId"
                         ],
                         "type": "object"
                       }
@@ -17614,6 +19323,8 @@ export const AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY = [
   AGENT_COLLABORATION_SPAWN_JSON_SCHEMA,
   AGENT_COLLABORATION_CONTROL_JSON_SCHEMA,
   AGENT_GENERATED_RESOURCE_JSON_SCHEMA,
+  AGENT_TOKEN_USAGE_OBSERVATION_JSON_SCHEMA,
+  AGENT_TOKEN_USAGE_CAPABILITY_JSON_SCHEMA,
   AGENT_CAPABILITIES_JSON_SCHEMA,
   AGENT_ARTIFACT_DESCRIPTOR_JSON_SCHEMA,
   AGENT_EVENT_JSON_SCHEMA,

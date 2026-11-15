@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,14 +11,33 @@ import { AcpInstallationError } from '../src/node/install/errors.js';
 
 const code = (expected: string) => (error: unknown) => error instanceof AcpInstallationError && error.code === expected;
 
-test('tool execution supplies literal arguments and only the explicit environment', async () => {
+test('tool execution supplies literal arguments and only the explicit environment', async (t) => {
   const cwd = await mkdtemp(join(tmpdir(), 'acp-tool-test-'));
+  const parentOnly = { ACP_PARENT_CREDENTIAL: 'synthetic-parent-credential', ACP_PARENT_POLICY: 'synthetic-parent-policy',
+    __CF_USER_TEXT_ENCODING: 'synthetic-parent-encoding' };
+  for (const [name, value] of Object.entries(parentOnly)) {
+    const previous = process.env[name];
+    process.env[name] = value;
+    t.after(() => { if (previous === undefined) delete process.env[name]; else process.env[name] = previous; });
+  }
   try {
+    const control = spawnSync(process.execPath, ['-e', 'process.stdout.write(JSON.stringify(process.env))'],
+      { cwd, env: {}, encoding: 'utf8', timeout: 5_000, maxBuffer: 8_192 });
+    assert.equal(control.status, 0);
+    const runtimeEnvironment: unknown = JSON.parse(control.stdout);
+    assert.ok(runtimeEnvironment !== null && typeof runtimeEnvironment === 'object' && !Array.isArray(runtimeEnvironment));
+    if (process.platform === 'darwin' && '__CF_USER_TEXT_ENCODING' in runtimeEnvironment) {
+      assert.deepEqual(Object.keys(runtimeEnvironment), ['__CF_USER_TEXT_ENCODING']);
+      const encoding = runtimeEnvironment.__CF_USER_TEXT_ENCODING;
+      assert.ok(typeof encoding === 'string');
+      assert.ok(process.getuid);
+      assert.match(encoding, new RegExp(`^0x${process.getuid().toString(16)}:0x[0-9a-f]{1,8}:0x[0-9a-f]{1,8}$`, 'iu'));
+    } else assert.deepEqual(runtimeEnvironment, {});
     const arg = 'literal;$(never-execute) $HOME';
     const result = await runAcpInstallTool({ executable: process.execPath, args: ['-e', 'process.stdout.write(JSON.stringify({argv:process.argv.slice(1),env:process.env}))', arg],
       cwd, env: { ACP_FIXTURE: 'explicit' }, timeoutMs: 5_000, maxOutputBytes: 8_192 });
     assert.equal(result.exitCode, 0);
-    assert.deepEqual(JSON.parse(result.stdout), { argv: [arg], env: { ACP_FIXTURE: 'explicit' } });
+    assert.deepEqual(JSON.parse(result.stdout), { argv: [arg], env: { ...runtimeEnvironment, ACP_FIXTURE: 'explicit' } });
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 

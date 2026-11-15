@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
+import { PUBLIC_PACKAGE_POLICIES } from "./package-inventory.mjs";
 
 const execFileAsync = promisify(execFile);
 const workflow = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
@@ -17,7 +18,7 @@ async function runVerification(t, fail) {
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, "release"));
   await mkdir(path.join(root, "bin"));
-  const archives = Array.from({ length: 10 }, (_, index) => `release/package-${index}.tgz`);
+  const archives = Array.from({ length: 14 }, (_, index) => `release/package-${index}.tgz`);
   for (const archive of archives) await writeFile(path.join(root, archive), "admitted fixture");
   await writeFile(path.join(root, "bin/node"), '#!/bin/sh\nexec "$ACTUAL_NODE" "$RECORDER" "$@"\n', { mode: 0o755 });
   const recorder = path.join(root, "recorder.mjs");
@@ -63,11 +64,11 @@ async function runVerification(t, fail) {
   return { exitCode, events, archives };
 }
 
-test("publication workflow verifies all ten archives with at most three concurrent checks", async (t) => {
+test("publication workflow verifies all fourteen archives with at most three concurrent checks", async (t) => {
   const { exitCode, events, archives } = await runVerification(t, false);
   assert.equal(exitCode, 0);
   const starts = events.filter((event) => event.kind === "start");
-  assert.deepEqual(starts.map((event) => event.archive).sort(), archives);
+  assert.deepEqual(starts.map((event) => event.archive).sort(), [...archives].sort());
   for (const { archive, args } of starts) {
     assert.deepEqual(args, ["scripts/release/verify-package-publication.mjs", "--tarball", archive,
       "--npm-tag", "beta", "--release-ref", "refs/tags/v0.4.9", "--release-sha",
@@ -80,4 +81,41 @@ test("publication workflow fails a rejected batch after joining every entered ve
   assert.equal(exitCode, 1);
   assert.equal(events.filter((event) => event.kind === "start").length, 3);
   assert.equal(events.filter((event) => event.kind === "end").length, 3);
+});
+
+test("signature audit installs every admitted package at the release version", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "agenai-signature-workflow-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, "bin"));
+  await mkdir(path.join(root, "scripts/release"), { recursive: true });
+  await writeFile(path.join(root, "scripts/release/package-inventory.mjs"),
+    await readFile(new URL("./package-inventory.mjs", import.meta.url)));
+  const recorder = path.join(root, "npm.mjs");
+  await writeFile(path.join(root, "bin/npm"), '#!/bin/sh\nexec "$ACTUAL_NODE" "$RECORDER" "$@"\n', { mode: 0o755 });
+  await writeFile(recorder, `
+    import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+    const args = process.argv.slice(2);
+    if (args[0] === 'init') writeFileSync('package.json', '{}');
+    if (args[0] === 'install') {
+      const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+      const requested = args.filter(arg => arg.startsWith('@')).map(spec => {
+        const at = spec.lastIndexOf('@'); return [spec.slice(0, at), spec.slice(at + 1)];
+      });
+      appendFileSync(process.env.RECORD, JSON.stringify({ command: 'install', args,
+        dependencies: { ...manifest.dependencies, ...Object.fromEntries(requested) } }) + '\\n');
+    }
+    if (args[0] === 'audit') appendFileSync(process.env.RECORD, JSON.stringify({ command: 'audit', args }) + '\\n');
+  `);
+  const block = workflow.match(/      - name: Verify registry signatures and provenance\n[\s\S]*?        run: \|\n([\s\S]*?)(?=\n      - name:|$)/u);
+  assert.ok(block);
+  const command = block[1].split("\n").map((line) => line.slice(10)).join("\n");
+  const record = path.join(root, "events.jsonl");
+  await execFileAsync("bash", ["-c", command], { cwd: root, timeout: 10_000,
+    env: { ...process.env, PATH: `${root}/bin:${process.env.PATH}`, ACTUAL_NODE: process.execPath,
+      RECORDER: recorder, RECORD: record, RELEASE_TAG: "v0.4.13" } });
+  const [install, audit, ...extra] = (await readFile(record, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.deepEqual(install.dependencies, Object.fromEntries(PUBLIC_PACKAGE_POLICIES.map(({ name }) => [name, "0.4.13"])));
+  assert.ok(install.args.includes("--ignore-scripts"));
+  assert.deepEqual(audit, { command: "audit", args: ["audit", "signatures"] });
+  assert.deepEqual(extra, []);
 });

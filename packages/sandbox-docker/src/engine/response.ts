@@ -84,12 +84,12 @@ export class DockerResponseBody {
     return actual;
   }
 
-  async retire(): Promise<void> {
+  async retire(prefix = false): Promise<void> {
     const entered = this.pending;
     this.active = false;
-    if (!this.drained || entered) this.interrupt(this.failure ? this.failure.error : invalid('Engine response callback must drain and join its body.'));
+    if ((!this.drained && !prefix) || entered) this.interrupt(this.failure ? this.failure.error : invalid('Engine response callback must drain and join its body.'));
     await entered?.catch(() => {});
     if (this.failure) throw this.failure.error;
-    if (!this.drained || entered) throw invalid('Engine response callback did not drain and join its body.');
+    if ((!this.drained && !prefix) || entered) throw invalid('Engine response callback did not drain and join its body.');
   }
 }

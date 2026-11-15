@@ -3,6 +3,14 @@
 // ------------------------------------------------------------------------------------------------
 
 export * from "./adapterValidation.js";
+export type {
+  AgentApprovalPolicy,
+  AgentApprovalPolicyKind,
+  AgentApprovalPolicyOperation,
+  AgentApprovalPolicyDescriptor,
+  AgentApprovalPolicySupport,
+  AgentSessionApprovalPolicy,
+} from "./approvalPolicy/types.js";
 export * from "./accountQuota/index.js";
 export * from "./environment/index.js";
 export * from "./artifacts.js";
@@ -36,3 +44,4 @@ export type {
 } from "./structuredOutput/candidate.js";
 export { createAgentProviderSessionCleanupError, isAgentProviderSessionCleanupErrorFor } from "./sessionCleanup.js";
 export * from "./text.js";
+export * from "./usage/index.js";

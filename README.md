@@ -2,9 +2,15 @@
 
 A provider-neutral TypeScript contract for hosting coding agents.
 
-The published coordinated **0.4.13 release** is a Docker Desktop coordinator patch: `journal_invalid`
+The coordinated **0.4.14 release candidate** adds explicit permission policies, owned Grok,
+Claude and OpenCode providers, and Agent Protocol **V14** token-usage telemetry across fourteen
+packages. Upgrade the complete package family together; V13 and V14 do not interoperate. Read
+[UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md) before upgrading. Registry publication and stable
+tag promotion are tracked separately from source preparation.
+
+The preceding coordinated **0.4.13 release** is a Docker Desktop coordinator patch: `journal_invalid`
 reason `missing` now proves that no coordinator store exists, and partial or unopenable stores
-report `corrupt`. npm `latest` and `beta` select `0.4.13` for all ten packages. Read the
+report `corrupt`. At that publication, npm `latest` and `beta` selected `0.4.13` for all ten packages. Read the
 [v0.4.13 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.13) and
 [upgrade guide](UPGRADING-TO-0.4.13.md); the coordinator helper must be prepared again.
 
@@ -40,6 +46,62 @@ retain the original authority, caller-owned lifecycle, helper succession and exa
 > See [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for request withdrawal, typed session continuations and store compatibility.
 > See [MIGRATING-TO-0.4.1.md](MIGRATING-TO-0.4.1.md) for approval consequences and the session-lifetime interaction API,
 > and [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
+
+Release `0.4.14` adds an optional eleventh package, `@agen-ai/provider-grok`,
+and explicit runtime approval-policy contracts. The fixed
+`grok-build-1.0.77-controlled-shell-v1` composition has installed native qualification for Grok Build
+1.0.77/build 50ca579fa996, `grok-4.6`, and the existing personal access-only route on Linux x64 and
+native-arm64 Docker Desktop. The [handoff](examples/approval-policy/HANDOFF.md) records the seven
+behavioral cases per platform, exact candidate archives and limits. The handoff retains its original pre-release archive identities and finite qualification scope.
+
+Release `0.4.14` also adds two optional packages for owned-tool provider drivers:
+`@agen-ai/provider-tools`, the shared serial tool broker with contained Linux commands, and
+`@agen-ai/provider-claude`, a Claude Agent SDK `0.3.322` / Claude Code `2.1.322` driver with
+`host` and `provider_accept_edits` policies. Installed and scripted native qualification, followed by
+real Anthropic API-key qualification, passed on the recorded Linux x64 and Linux arm64 Docker
+Desktop compositions. The [accept-edits handoff](examples/accept-edits/HANDOFF.md) owns exact
+identities, evidence scope and release prerequisites.
+
+Release `0.4.14` also adds `@agen-ai/provider-opencode`, an OpenCode V2 client/runtime `2.2.7`
+driver over the same owned tools with `host` and `provider_accept_edits` policies. It routes to
+Anthropic Messages or OpenAI Responses with an explicit API key, runs a fresh private authenticated
+loopback OpenCode server per session, and requires a packaged plugin to acknowledge the exact owned
+tool inventory before any model request. Both API-key routes passed installed and real native
+qualification on those same two compositions. The complete campaign passed three feasibility and
+36 final rows with settled cleanup; actual charges remain unknown. These results qualify only the frozen compositions recorded by the handoff.
+
+Release `0.4.14` also implements Agent Protocol V14 token-usage telemetry: a `usage.observed`
+event, a required `tokenUsage` capability and `/usage` entrypoints, with no consumption counters
+left on context occupancy. Owned Claude, owned OpenCode and controlled Grok report scoped usage;
+generic ACP and the raw sandbox CLI recipes do not. See [Read token usage](#read-token-usage) and
+[UPGRADING-TO-AGENT14.md](UPGRADING-TO-AGENT14.md).
+
+There is no public Codex execution driver alongside these two. In Codex app-server `0.167.1`,
+the evaluated version, a model `exec_command` call made only of an `apply_patch` heredoc becomes the
+same file-change approval request that Codex's structured `apply_patch` tool produces. That request
+carries no command item and no origin field. `provider_accept_edits` keeps host approval for every
+command, including shell-requested edits. The evaluated approval-only mapping cannot distinguish
+those origins. Asking for every file change would remove automatic structured edits. The pinned
+source's experimental raw-event stream is a concrete alternative for pre-dispatch call-ID
+correlation, but it has not been qualified natively. Reliable provenance and containment must be
+qualified before a public Codex driver is committed. This is an unsupported delivery decision,
+not a claim that every possible Codex composition is incompatible. Later releases were not evaluated.
+Saved-conversation reading through `@agen-ai/agent-history/codex` and the private Codex app-server `0.163.0`
+diagnostic adapter are independent and unchanged.
+
+There is no public Cursor execution driver either. The original `@cursor/sdk` `1.3.1` was
+evaluated with a scripted loopback backend on Darwin arm64 and Linux x64. Its `tools` and
+`disallowedTools` options only become backend request headers. Even with a host `local.fs` file
+system and `disallowedTools: ["task", "webFetch"]`, the local runtime still started Task child runs
+and sent built-in fetches to a host loopback socket; without `local.fs` it also performed native
+writes, shell commands and outside reads. Host custom tools honored accept and decline but were not
+the only local execution path, so `provider_accept_edits` is unsupported for this version and
+configuration. Support requires a qualified composition with complete local dispatch ownership.
+These tests show a local enforcement gap, not how the real Cursor backend treats the headers, and
+they are not a claim that every Cursor composition is incompatible. Later SDK releases were not
+evaluated, and Cursor's newer Agent SDK and Cursor ACP were not substituted.
+Saved-conversation reading through `@agen-ai/agent-history/cursor` and the private Hostd Cursor SDK
+`1.0.37` runtime are independent and unchanged.
 
 ## Why this exists
 
@@ -78,10 +140,15 @@ Write the host once. Adapt each agent once.
 | `@agen-ai/agent-history` | Optional native saved-conversation catalogs, transcripts, separate metadata/content search and explicit management through qualified provider entrypoints. |
 | `@agen-ai/sandbox` | Optional neutral sandbox ownership, bounded commands, streams, files and recovery, with an explicit ACP integration entrypoint. |
 | `@agen-ai/sandbox-docker` | Optional explicitly configured local Docker backend with bounded resources and cleanup ownership. |
+| `@agen-ai/provider-grok` | Unreleased optional controlled Grok Docker composition; inert root and explicit `/docker` preparation and ownership. |
+| `@agen-ai/provider-tools` | Unreleased optional owned file, search and command tools with one serial broker; inert root and explicit `/node` workspace and owner. |
+| `@agen-ai/provider-claude` | Unreleased optional owned Claude Agent SDK driver on Linux; inert root and explicit `/node` driver constructor. |
+| `@agen-ai/provider-opencode` | Unreleased optional owned OpenCode V2 driver on Linux; inert root and explicit `/node` driver constructor. |
 
-All ten source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
+All fourteen source packages are ESM, require Node.js 22 or newer, use explicit public entrypoints, and are
 MIT licensed. Imports have no side effects. The transport also distributes upstream Apache-2.0
-schema assets. All ten published packages are coordinated at `0.4.13`, matching current source.
+schema assets. All ten published packages are coordinated at `0.4.13`; unreleased source retains that
+manifest version without claiming a new publication.
 The root requires Node >=22; the optional Cursor history constructor requires Node >=22.13.
 Native qualification retains its exact platform/runtime and archive identities.
 
@@ -306,7 +373,7 @@ rejects schemas whose minimum required value exceeds those limits. See the
 | Public `@agen-ai/provider-acp` with Grok Build 1.0.62 | Explicit `structuredOutputMapping: { mapping: 'grok-build-1.0.62-structured-output-v1' }`, stable ACP `schema-v1.23.0`, per-turn schemas. Qualified from installed `0.4.4` packages on Linux x86_64 / Node 24.18.0 with `grok-4.3`, low reasoning and xAI API-key authentication. |
 | Generic ACP, including the provider's default configuration | Unsupported. ACP metadata acceptance alone does not establish native final-output semantics. |
 | Private Codex app-server 0.163.0 | Per-turn native schemas qualified through the private diagnostic adapter; no public Codex provider constructor ships. |
-| Private Claude SDK 0.3.269 / Code 2.1.269 | One immutable schema per fresh query, qualified through the private diagnostic adapter; no public Claude provider constructor ships. |
+| Private Claude SDK 0.3.269 / Code 2.1.269 | One immutable schema per fresh query, qualified through the private diagnostic adapter; the unreleased owned Claude constructor does not support structured output. |
 | OpenCode V2 2.1.2 and Cursor SDK 1.0.40 execution adapters | Unsupported; structured requests fail before native execution. Their history support is independent. |
 
 The public Grok installed proof returned a title, a richer nested object, a different schema and
@@ -477,8 +544,8 @@ pnpm examples:session-continuations:acp
 
 The `0.4.4` release adds an optional, process-local `execution.input` port to the
 existing runtime. It adds no package or Agent Protocol/Host Protocol version change. No public
-native provider ships input support: public ACP/Grok ports remain absent or unsupported, and
-there is no public Claude execution constructor. Existing strict `turns.steer` semantics are
+native provider ships input support: public ACP/Grok ports remain absent or unsupported, as do
+the unreleased owned Claude and OpenCode constructors. Existing strict `turns.steer` semantics are
 unchanged. There is no idle input method; use ordinary `startTurn()` when idle.
 
 The [execution-input example](examples/execution-input/README.md) uses a caller-owned teaching
@@ -554,8 +621,60 @@ Current source reserves idle immediate operations against turns and native conti
 starts native quiescence before close joins pending operation output. These runtime corrections
 and the example are included in `0.4.3`. The packed-consumer gate compiles and runs
 eight synthetic scenarios using only public entrypoints. It qualifies developer flow, not a native
-provider, account or actual summary. There is no public Claude provider constructor here; Hostd's
-private Claude integration and the optional public ACP adapter have separate support contracts.
+provider, account or actual summary. The owned Claude and OpenCode drivers do not expose native
+compaction operations; Hostd's private Claude integration and the optional public ACP adapter have
+separate support contracts.
+
+## Select native approval behavior
+
+The unreleased [approval-policy example](examples/approval-policy/README.md) demonstrates optional
+`host`, `provider_auto_review` and `provider_bypass` selection, support discovery, effective policy,
+residual requests and cleanup. Omission preserves existing provider behavior. Generic ACP rejects
+explicit normalized policy selection; the separately owned Grok Docker composition supplies the
+qualified `controlled_configuration` mapping. Each Grok constructor exposes one immutable policy
+for fresh `create` and requires that exact explicit selection, including `host`; the general runtime
+omission contract is unchanged. Policy selection neither automates host authorization nor widens
+outer grants. Native preapprovals/denials and residual questions remain possible.
+
+```bash
+pnpm examples:approval-policy
+pnpm test:examples:approval-policy
+pnpm examples:approval-policy:native --help
+```
+
+The first command uses a clearly labeled credentialless fixture and checks actual owned marker
+effects. It exercises neither a native classifier nor billing. The native command requires an
+explicit configuration, prepared images and route authority, an existing personal-account login,
+and a finite authorization reservation. Native runs never enter the default test graph. See the
+[runtime contract](packages/agent-runtime/README.md#select-an-approval-policy) for selection and
+error semantics and the [qualification/release handoff](examples/approval-policy/HANDOFF.md) for
+R5 native identities, R6 source/test/documentation equivalence, incomplete Option A descriptor
+scope, route prerequisites and later provider work. The live deny rule was `['*']`, not the guide's
+git-prefix example. Native logs establish neither every-action review nor authentication-method
+readback, and reservation totals are not actual provider charges. Future Grok npm package/trusted
+publisher setup and a fourteen-package coordinated version require a separately authorized release.
+
+## Accept edits with Claude or OpenCode
+
+The unreleased [accept-edits example](examples/accept-edits/README.md) selects
+`provider_accept_edits` for one fresh Claude or OpenCode Node session after discovering support,
+confirms the effective policy, answers each residual request once for the exact action, bounds the
+turn by wall time, output and tool items, and retains the original cleanup owners until they
+settle. Eligible edits apply without a prompt; shell commands and restricted paths still ask.
+
+```bash
+pnpm test:examples:accept-edits
+pnpm examples:accept-edits --help
+```
+
+These commands need no credentials. A real run needs Linux, the pinned native executable, `bwrap`,
+the filesystem helper and a private API key file. Claude exposes an estimated session-cost limit;
+OpenCode exposes output-token and logical-step bounds. They do not cap invoices. Follow the
+[example setup](examples/accept-edits/README.md) and the
+[qualification/release handoff](examples/accept-edits/HANDOFF.md) for exact tuples, unsupported
+operations, native prerequisites, immutable policy, cleanup and source/archive correspondence.
+The fourth policy is additive for existing inputs, but exhaustive TypeScript switches over
+`AgentApprovalPolicy.kind` must handle `provider_accept_edits`.
 
 ## Handle remembered turn approvals
 
@@ -665,6 +784,47 @@ for a fresh valid answer. Local validation errors remain errors, and uncertain d
 replay. A receipt or waiting observation never completes the turn. See the
 [before/after migration example](MIGRATING-TO-0.4.md#continuous-turn-output-and-independent-answers)
 for cancellation, terminal fencing and abort-before-join cleanup.
+
+## Read token usage
+
+Unreleased Agent Protocol V14 reports provider-measured token consumption as `usage.observed`
+events on the same turn reader, separate from context occupancy. Published `0.4.13` uses V13 and
+has neither the event nor the required `tokenUsage` capability.
+
+```ts
+import { admitTokenUsageEvent, createTokenUsageLedger, summarizeTokenUsageView } from '@agen-ai/agent-runtime/usage';
+
+let ledger = createTokenUsageLedger({ sessionId });
+for await (const output of execution.outputs) {
+  if (output.kind !== 'event' || output.event.type !== 'usage.observed') continue;
+  const admission = admitTokenUsageEvent(ledger, output.event);
+  if (admission.status === 'rejected') throw new Error(admission.code);
+  ledger = admission.ledger;
+}
+const summary = summarizeTokenUsageView(ledger, viewId); // one declared view; undefined is not zero
+```
+
+Input and output totals are inclusive; cache and reasoning counters are subsets. Every counter is
+`exact`, `at_least` or `unavailable`, independently. Views overlap and are never added together;
+snapshots replace earlier revisions, and `newWork` subtracts only exact, comparable values from a
+known origin. An `open` snapshot delivered on one turn can advance on the next; only `final`
+settles a scope. Silence or a successful close is not zero. Missing native usage keeps the native
+turn outcome, while malformed, foreign or contradictory usage fails as a contract error.
+
+| Composition | Token usage |
+| --- | --- |
+| Owned Claude 0.3.322 / Code 2.1.322 | Supported; [mapping and limits](packages/provider-claude/README.md#token-usage) |
+| Owned OpenCode 2.2.7, Anthropic and OpenAI routes | Supported; [mapping and limits](packages/provider-opencode/README.md#token-usage) |
+| Controlled Grok 1.0.77 | Supported; [mapping and limits](packages/provider-acp/README.md#controlled-grok-prompt-token-usage) |
+| Generic ACP | Unsupported |
+| Raw sandbox CLI recipes for Claude, Codex, Cursor, Grok and OpenCode | Deferred: raw native output only, no `usage.observed` |
+
+The three supported constructors passed installed native qualification on Linux x64 and
+native-arm64 Docker Desktop. Deferred recipe delivery is not a claim that those native CLIs lack
+usage counters; private AgenAI host adapters do not add public Codex or Cursor drivers. Run the
+credential-free walkthrough with `pnpm examples:usage` after `pnpm build`; the
+[usage example](examples/usage/README.md) explains each of its eleven scenarios, and
+[UPGRADING-TO-AGENT14.md](UPGRADING-TO-AGENT14.md) covers migration from V13.
 
 ## Run an ACP agent
 
@@ -1184,14 +1344,14 @@ pnpm check
 ```
 
 `pnpm check` validates repository/release metadata, checks generated protocol surfaces, builds and
-typechecks all ten source packages and the examples, executes the local, registry, direct-delegation and
+typechecks all fourteen source packages and the examples, executes the local, registry, direct-delegation and
 ACP-delegation workflows, hermetic native-runner tests and package tests, then packs
 each package for a separately installed consumer proof. The packed consumer also
 executes those hermetic runner tests and verifies default and strict extension
 policies through installed providers. Nothing is published by that command.
 
 The dependency-baseline reader retains its historical seven-package `0.4.2` qualification contract.
-The current ten-package source rejects `--dependency-baseline` explicitly because a matching
+The current fourteen-package source rejects `--dependency-baseline` explicitly because a matching
 current baseline has not been qualified. It never relabels retained `0.4.2` archives or locks.
 The ordinary packed-consumer lane installs the current tarballs with installation scripts disabled
 and resolves registry dependencies normally. It additionally runs a separate history-only consumer
@@ -1218,6 +1378,10 @@ Package-specific API and lifecycle notes live in each package README:
 - [`@agen-ai/agent-history`](packages/agent-history/README.md) (optional)
 - [`@agen-ai/sandbox`](packages/sandbox/README.md) (optional)
 - [`@agen-ai/sandbox-docker`](packages/sandbox-docker/README.md) (optional)
+- [`@agen-ai/provider-grok`](packages/provider-grok/README.md) (optional, qualified unreleased source)
+- [`@agen-ai/provider-tools`](packages/provider-tools/README.md) (optional, unreleased source)
+- [`@agen-ai/provider-claude`](packages/provider-claude/README.md) (optional, unreleased source)
+- [`@agen-ai/provider-opencode`](packages/provider-opencode/README.md) (optional, unreleased source)
 
 ## Prepared changes in 0.4.0
 
@@ -1255,7 +1419,8 @@ owned loopback bridge for a supporting host. The ordinary import graph remains f
 initialization. The provider's optional negotiated `sessionMcpBinding` factory composes those tools
 with ACP sessions. See [managed delegation](#managed-delegation) for completion modes, executable
 workflows and host ownership.
-All ten source package versions advance together under the coordinated release policy. Deploying a host
+The ten published package versions advance together; a release including Grok, provider tools, Claude or OpenCode must coordinate all
+fourteen source package versions under the [release policy](RELEASING.md). Deploying a host
 or using real accounts and inference requires its own authorization
 and qualification. Package semver does not track a native vendor version. See
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) for the host lifecycle and coordinated upgrade checklist.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -19,7 +19,7 @@ test('one invocation deadline spans preflight and sequential workers while retai
     assert.match(result.stdout, /tests 1/u);
     return;
   }
-  const root = await mkdtemp(join(tmpdir(), 'native-invocation-budget-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'native-invocation-budget-')));
   await chmod(root, 0o700);
   t.after(() => rm(root, { recursive: true, force: true }));
   const worker = join(root, 'worker.mjs');

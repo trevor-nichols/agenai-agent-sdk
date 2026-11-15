@@ -23,6 +23,10 @@ test.after(() => {
   if (originalArchitecture) Object.defineProperty(process, 'arch', originalArchitecture);
 });
 
+// Bounds a stuck close during disposal. It is not a latency assertion, so it must stay far above
+// close times on contended CI runners.
+const CLEANUP_CLOSE_TIMEOUT_MS = 5_000;
+
 // Source resource owners acquire real control attachments over the independent Unix daemon.
 // Storage checkpoints hold startup before any bridge or primary exists; no native claim is made.
 interface ObserverOwner {
@@ -70,7 +74,7 @@ async function observerOwners(context: TestContext, count = 2,
     const startups = await Promise.allSettled(pending.map((member) => member.startup));
     if (coordinator) {
       const original = coordinator;
-      await attempt('coordinator', () => original.close({ timeoutMs: 100 }));
+      await attempt('coordinator', () => original.close({ timeoutMs: CLEANUP_CLOSE_TIMEOUT_MS }));
       if (original.state.kind !== 'closed') await attempt('holder', () => fixture.terminateHolder());
     }
     await attempt('fixture', () => fixture.close());

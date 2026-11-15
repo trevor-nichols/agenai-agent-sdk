@@ -234,6 +234,24 @@ Writes stage outside the guest mount on the same volume. Exclusive create and at
 
 Stop closes new live admission, aborts the native channel, removes compute and every selected helper, and joins entered callbacks/sources before stopped export. A noncooperative producer or failed cleanup retains the bounded observation's retry owner. Final whole-workspace export requests only `/workspace/work` for this layout; private stage/marker and image siblings are excluded. Destruction removes the existing volume after all owned containers are absent. Recovery is cleanup-only and never reseeds, chowns or starts a replacement helper.
 
+### Helper client over caller-owned stdio
+
+`createNodeFilesystemHelperClient` from `/node` speaks the same closed helper protocol to a helper process that the caller has already launched, verified and confined. It receives only that process's stdin and stdout plus the exact UID/GID the readiness frame must attest. It spawns nothing, reads no environment and acquires no other authority; the launcher keeps ownership of the process, its namespaces and its exit.
+
+```ts
+import { createNodeFilesystemHelperClient } from '@agen-ai/sandbox-docker/node';
+
+const client = createNodeFilesystemHelperClient({ input: helper.stdin, output: helper.stdout, user: { uid, gid } });
+await client.ready;
+const receipt = await client.writeFile(path, source, { signal, quotas: { maxBytes: 1_048_576n }, chunkBytes: 65_536, mode: 'create' });
+const closed = await client.close();
+```
+
+Per-call `chunkBytes` must be an integer from 1 through 65,536. Quotas must be nonnegative bigints.
+Invalid options are rejected before entering a helper operation and do not fail the transport.
+
+Operations are serial and bounded by the same frame limits, readiness and reply deadlines and idle heartbeat as the Docker live channel. Replies are parsed by the closed wire contract; malformed, oversized or uncorrelated frames, a missed deadline or an aborted operation fail the transport permanently. Write receipts are reported exactly as observed: a published, changed or uncertain outcome is never retried or rolled back, and callers fence later effects after anything other than a confirmed publication. `close()` is idempotent after success and returns a `failed` receipt instead of discarding a transport error. The launcher still joins the helper process after the receipt.
+
 ## Shared read-only datasets
 
 `datasets` explicitly attaches already-present Linux images outside the writable workspace. Each attachment has a unique lowercase `name`, exact local `imageDigest` and optional canonical relative `subpath`:

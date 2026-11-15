@@ -27,6 +27,7 @@ import type {
   AgentTurnCompletedPayload,
   AgentTurnState,
 } from '../turns/index.js';
+import type { AgentTokenUsageObservation } from '../usage/types.js';
 
 export const AGENT_EVENT_TYPES = [
   'turn.started',
@@ -43,6 +44,7 @@ export const AGENT_EVENT_TYPES = [
   'request.unavailable',
   'progress.updated',
   'context.usage.updated',
+  'usage.observed',
   'artifact.referenced',
   'operation.updated',
   'collaboration.updated',
@@ -56,7 +58,7 @@ export const AGENT_EVENT_TYPES = [
 export type AgentEventType = (typeof AGENT_EVENT_TYPES)[number];
 
 interface AgentEventBase<Type extends AgentEventType, Payload> {
-  readonly protocolVersion: 13;
+  readonly protocolVersion: 14;
   readonly type: Type;
   readonly sessionId: AgentSessionId;
   readonly providerRefs?: AgentProviderRefs;
@@ -172,6 +174,12 @@ export type AgentContextUsageUpdatedEvent = AgentTurnEventBase<
   AgentContextUsage
 >;
 
+/** The envelope turnId is the delivery turn, never the accounting scope. */
+export type AgentUsageObservedEvent = AgentTurnEventBase<
+  'usage.observed',
+  AgentTokenUsageObservation
+>;
+
 export type AgentArtifactReferencedEvent = AgentOptionallyTurnScopedEventBase<
   'artifact.referenced',
   Readonly<{ artifact: AgentArtifactDescriptor }>
@@ -243,6 +251,7 @@ export type AgentEvent =
   | AgentRequestUnavailableEvent
   | AgentProgressUpdatedEvent
   | AgentContextUsageUpdatedEvent
+  | AgentUsageObservedEvent
   | AgentArtifactReferencedEvent
   | AgentOperationUpdatedEvent
   | AgentCollaborationUpdatedEvent

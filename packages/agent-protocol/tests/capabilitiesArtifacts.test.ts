@@ -42,14 +42,6 @@ test('all accepted provider capability fixtures preserve truthful differences', 
   assert.deepEqual(parsed.grokBuild.context.usage, {
     kind: 'supported',
     measurementScopes: ['materialization'],
-    cumulativeFields: [
-      'inputTokens',
-      'outputTokens',
-      'cachedReadTokens',
-      'reasoningTokens',
-      'modelCalls',
-      'turns',
-    ],
   });
   assert.equal(parsed.grokBuild.requests.elicitation.kind, 'unsupported');
   assert.equal(parsed.codex.turns.steer.kind, 'supported');

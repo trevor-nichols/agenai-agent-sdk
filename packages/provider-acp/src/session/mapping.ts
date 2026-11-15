@@ -1,5 +1,6 @@
 import type { AcpJsonObject } from '@agen-ai/acp-transport';
 import {
+  AGENT_PROTOCOL_VERSION,
   parseAgentApprovalRequest,
   parseAgentItemId,
   parseAgentRequestId,
@@ -51,7 +52,7 @@ export class TurnMapping {
 
   event(type: string, payload: unknown): AgentProviderOutput {
     return createAgentEventOutput({
-      protocolVersion: 13,
+      protocolVersion: AGENT_PROTOCOL_VERSION,
       sessionId: this.context.sessionId,
       turnId: this.context.turnId,
       occurredAt: this.context.now(),

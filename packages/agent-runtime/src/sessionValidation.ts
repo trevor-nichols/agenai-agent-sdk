@@ -20,7 +20,6 @@ import {
   parseAgentTurnRunInput,
   type AgentCapabilities,
   type AgentCollaborationNode,
-  type AgentContextCumulativeUsage,
   type AgentContextMeasurementScope,
   type AgentContextUsage,
   type AgentEvent,
@@ -42,6 +41,8 @@ import {
   type AgentArtifactCandidate,
 } from "./artifacts.js";
 import { validateAgentEnvironmentObservationPort } from "./environment/validation.js";
+import type { AgentApprovalPolicy } from "./approvalPolicy/types.js";
+import { validateAgentSessionApprovalPolicy } from "./approvalPolicy/validation.js";
 import {
   validateAgentCollaborationNodeForCapabilities,
   validateAgentConfigurationCatalogForCapabilities,
@@ -52,6 +53,7 @@ import {
   validateAgentOperationResultTransition,
 } from "./interactionValidation.js";
 import {
+  AgentProviderContractError,
   AgentProviderDelegatedOperationError,
   AgentProviderSessionCleanupError,
   throwAgentProviderContractError,
@@ -95,6 +97,7 @@ import { createAgentSessionAdmission } from "./sessionAdmission.js";
 import type { SessionInteractionOwner } from "./sessionInteractions/lifetime.js";
 import type { AgentExecutionInputSupport } from "./executionInput/types.js";
 import { createExecutionInputCensus } from "./executionInput/lifetime.js";
+import { createSessionTokenUsageAccounting, type SessionTokenUsageAccounting } from "./usage/session.js";
 import {
   admitAgentStructuredOutputTurn,
   type AgentStructuredOutputBinding,
@@ -116,6 +119,7 @@ function validateSessionPorts(
   if (
     !hasExactOwnKeys(session, [
       "binding",
+      ...(Object.hasOwn(session, "approvalPolicy") ? ["approvalPolicy"] : []),
       "startTurn",
       "interruption",
       "steering",
@@ -274,10 +278,6 @@ interface AgentTurnSequenceState {
 
 interface AgentContextUsageSequenceState {
   readonly latestByScope: Map<AgentContextMeasurementScope, AgentContextUsage>;
-  readonly cumulativeByScope: Map<
-    AgentContextMeasurementScope,
-    AgentContextCumulativeUsage
-  >;
   readonly compactionReadyScopes: Set<AgentContextMeasurementScope>;
 }
 
@@ -295,6 +295,7 @@ interface AgentInteractionSequenceState {
     AgentCollaborationSpawnReservation
   >;
   readonly generatedResources: Map<string, AgentGeneratedResourceDescriptor>;
+  readonly tokenUsage: SessionTokenUsageAccounting;
 }
 
 const TERMINAL_COLLABORATION_STATUSES = new Set([
@@ -468,6 +469,7 @@ const FINAL_DIFF_TRAILING_EVENT_TYPES: readonly AgentEvent["type"][] = [
   "runtime.error",
   "runtime.warning",
   "turn.completed",
+  "usage.observed",
 ];
 
 const TERMINAL_ITEM_STATUSES = new Set<AgentItemStatus>([
@@ -595,32 +597,6 @@ function observeContextUsage(input: {
       );
     }
   }
-  const cumulative = input.usage.cumulative;
-  if (cumulative !== undefined) {
-    const previousCumulative = input.state.cumulativeByScope.get(
-      input.usage.measurementScope,
-    );
-    for (const field of Object.keys(cumulative) as Array<
-      keyof AgentContextCumulativeUsage
-    >) {
-      const value = cumulative[field];
-      const previousValue = previousCumulative?.[field];
-      if (
-        value !== undefined
-        && previousValue !== undefined
-        && value < previousValue
-      ) {
-        invalidTurnSequence(
-          input.providerKey,
-          "Provider context cumulative counters cannot decrease.",
-        );
-      }
-    }
-    input.state.cumulativeByScope.set(input.usage.measurementScope, {
-      ...previousCumulative,
-      ...cumulative,
-    });
-  }
   input.state.latestByScope.set(input.usage.measurementScope, input.usage);
   input.state.compactionReadyScopes.delete(input.usage.measurementScope);
 }
@@ -629,7 +605,6 @@ function observeContextMaterializationBoundary(
   state: AgentContextUsageSequenceState,
 ): void {
   state.latestByScope.delete("materialization");
-  state.cumulativeByScope.delete("materialization");
   state.compactionReadyScopes.delete("materialization");
 }
 
@@ -793,6 +768,7 @@ function observeTurnOutput(input: {
   if (input.output.event.type === "collaboration.updated") {
     const node = validateAgentCollaborationNodeForCapabilities({
       capabilities: input.capabilities,
+      isUsageScopeAdmitted: input.interactionState.tokenUsage.hasScope,
       candidate: input.output.event.payload.node,
       previous: input.interactionState.collaborationNodes.get(
         input.output.event.payload.node.collaborationId,
@@ -870,6 +846,9 @@ function observeTurnOutput(input: {
     requests: input.requests,
     contextUsageState: input.contextUsageState,
   });
+  if (input.output.event.type === "usage.observed") {
+    input.interactionState.tokenUsage.admit(input.output.event);
+  }
 }
 
 const SESSION_OPERATION_OBSERVATION_EVENT_TYPES = new Set<AgentEvent["type"]>([
@@ -884,6 +863,7 @@ const SESSION_OPERATION_OBSERVATION_EVENT_TYPES = new Set<AgentEvent["type"]>([
   "runtime.error",
   "runtime.retrying",
   "provider.diagnostic",
+  "usage.observed",
 ]);
 
 function observeSessionOperationOutput(input: {
@@ -1051,10 +1031,6 @@ export function createAgentSessionValidationOwner(
   const sessionAdmission = createAgentSessionAdmission<ActiveAgentTurn>(providerKey);
   const contextUsageState: AgentContextUsageSequenceState = {
     latestByScope: new Map<AgentContextMeasurementScope, AgentContextUsage>(),
-    cumulativeByScope: new Map<
-      AgentContextMeasurementScope,
-      AgentContextCumulativeUsage
-    >(),
     compactionReadyScopes: new Set<AgentContextMeasurementScope>(),
   };
   const interactionState: AgentInteractionSequenceState = {
@@ -1063,6 +1039,7 @@ export function createAgentSessionValidationOwner(
     collaborationNodes: new Map<string, AgentCollaborationNode>(),
     collaborationSpawnReservations: new Map(),
     generatedResources: new Map<string, AgentGeneratedResourceDescriptor>(),
+    tokenUsage: createSessionTokenUsageAccounting(providerKey, sessionId),
   };
   let closed = false;
   let unusable = false;
@@ -1123,6 +1100,12 @@ export function createAgentSessionValidationOwner(
       structuredOutputBound: source.kind === "caller" && source.binding !== undefined,
       pendingRequests, sessionAdmission, inFlightOperations,
       requireUsable,
+      requireEntry() {
+        if (capabilities.tokenUsage.kind === "supported") interactionState.tokenUsage.requireTurnEntry(turnId);
+      },
+      onEntered() {
+        if (capabilities.tokenUsage.kind === "supported") interactionState.tokenUsage.enterTurn(turnId);
+      },
       isTerminal: () => state.terminal,
       canRestoreRequest: (pending) => hasLiveApprovalSubject(pending.request, state),
       observe(candidate, requests) {
@@ -1199,6 +1182,7 @@ export function validateAgentProviderSession(input: {
   readonly capabilities: AgentCapabilities;
   readonly sessionId: AgentSessionId;
   readonly candidate: AgentProviderSession;
+  readonly requestedApprovalPolicy?: AgentApprovalPolicy;
   readonly expectedBinding?: AgentSessionBinding;
   readonly sourceBinding?: AgentSessionBinding;
   readonly hostBindingLease?: AgentHostBindingLease;
@@ -1246,6 +1230,11 @@ export function validateAgentProviderSession(input: {
     );
   }
   validateSessionPorts(capabilities, input.candidate);
+  const approvalPolicy = validateAgentSessionApprovalPolicy({
+    providerKey,
+    requested: input.requestedApprovalPolicy,
+    session: input.candidate,
+  });
 
   const validationOwner = input.validationOwner ?? createAgentSessionValidationOwner(capabilities, sessionId);
   validationOwner.installInputContextGuard(() => {
@@ -1272,7 +1261,24 @@ export function validateAgentProviderSession(input: {
     readonly validate: (candidate: unknown) => Result;
   }): Promise<Result> => {
     let executionStarted = false;
+    let callbacksOpen = true;
+    const callbacks = new Set<Promise<void>>();
+    let callbackFailure: { readonly cause: unknown } | undefined;
+    let capacityCleanupStarted = false;
+    const closeOnUsageCapacity = (cause: unknown): void => {
+      if (capacityCleanupStarted || !(cause instanceof AgentProviderContractError) || cause.code !== "usage_capacity_exceeded") return;
+      capacityCleanupStarted = true;
+      // Quiesce before joining callbacks; awaiting close here would join this operation itself.
+      // A failed close remains owned for explicit retry, without replacing the delegated error.
+      void closeOwned({ reason: "error" }, false).catch(() => {});
+    };
+    const requireCallbackOwner = (): void => {
+      if (!callbacksOpen) throwAgentProviderContractError(providerKey, "invalid_operation_result",
+        "Provider operation callback has already settled.");
+      requireUsable();
+    };
     const onProviderExecutionStarted = (): void => {
+      requireCallbackOwner();
       if (executionStarted) {
         throwAgentProviderContractError(
           providerKey,
@@ -1283,19 +1289,39 @@ export function validateAgentProviderSession(input: {
       input.observer?.();
       executionStarted = true;
     };
-    const onOutput = async (candidate: unknown): Promise<void> => {
-      if (!executionStarted) {
-        throwAgentProviderContractError(
-          providerKey,
-          "invalid_operation_result",
-          "Provider emitted operation output before reporting execution start.",
-        );
-      }
-      await input.observeOutput?.(candidate);
+    const onOutput = (candidate: unknown): Promise<void> => {
+      const callback = (async () => {
+        requireCallbackOwner();
+        if (!executionStarted) {
+          throwAgentProviderContractError(
+            providerKey,
+            "invalid_operation_result",
+            "Provider emitted operation output before reporting execution start.",
+          );
+        }
+        await input.observeOutput?.(candidate);
+      })();
+      callbacks.add(callback);
+      void callback.then(() => { callbacks.delete(callback); }, (cause: unknown) => {
+        callbacks.delete(callback);
+        callbackFailure ??= { cause };
+        closeOnUsageCapacity(cause);
+      });
+      return callback;
     };
     try {
       requireUsable();
-      const candidate = await input.invoke(onProviderExecutionStarted, onOutput);
+      let candidate: unknown;
+      try { candidate = await input.invoke(onProviderExecutionStarted, onOutput); }
+      catch (error) {
+        if (executionStarted) closeOnUsageCapacity(error);
+        throw error;
+      }
+      finally {
+        callbacksOpen = false;
+        await Promise.allSettled(callbacks);
+      }
+      if (callbackFailure !== undefined) throw callbackFailure.cause;
       if (!executionStarted) {
         throwAgentProviderContractError(
           providerKey,
@@ -1307,6 +1333,7 @@ export function validateAgentProviderSession(input: {
     } catch (error) {
       if (!executionStarted) throw error;
       validationOwner.fence();
+      closeOnUsageCapacity(error);
       throw new AgentProviderDelegatedOperationError(
         providerKey,
         input.operation,
@@ -1830,6 +1857,7 @@ export function validateAgentProviderSession(input: {
                 validate: (candidate) => {
                   const node = validateAgentCollaborationNodeForCapabilities({
                     capabilities,
+                    isUsageScopeAdmitted: interactionState.tokenUsage.hasScope,
                     candidate,
                   });
                   if (
@@ -1923,6 +1951,7 @@ export function validateAgentProviderSession(input: {
               validate: (candidate) => {
                 const validated = validateAgentCollaborationNodeForCapabilities({
                   capabilities,
+                  isUsageScopeAdmitted: interactionState.tokenUsage.hasScope,
                   candidate,
                   previous,
                 });
@@ -2088,6 +2117,7 @@ export function validateAgentProviderSession(input: {
 
   return Object.freeze({
     binding,
+    ...(approvalPolicy === undefined ? {} : { approvalPolicy }),
     startTurn,
     interruption,
     steering,
@@ -2216,6 +2246,7 @@ export async function openIdentityCreatingAgentProviderSession(input: {
   readonly capabilities: AgentCapabilities;
   readonly sessionId: AgentSessionId;
   readonly observer: AgentSessionBindingCreatedObserver;
+  readonly requestedApprovalPolicy?: AgentApprovalPolicy;
   readonly sourceBinding?: AgentSessionBinding;
   readonly hostBindingLease?: AgentHostBindingLease;
   readonly openingInput?: object;
@@ -2241,6 +2272,7 @@ export async function openIdentityCreatingAgentProviderSession(input: {
       capabilities: input.capabilities,
       sessionId: input.sessionId,
       candidate,
+      ...(input.requestedApprovalPolicy === undefined ? {} : { requestedApprovalPolicy: input.requestedApprovalPolicy }),
       ...(input.validationOwner === undefined ? {} : { validationOwner: input.validationOwner }),
       ...(input.sessionInteractionOwner === undefined ? {} : { sessionInteractionOwner: input.sessionInteractionOwner }),
       ...(input.hostBindingLease === undefined ? {} : { hostBindingLease: input.hostBindingLease }),

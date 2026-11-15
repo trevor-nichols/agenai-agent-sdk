@@ -7,6 +7,7 @@ import {
   agentProtocolSerializedJsonBytes,
   parseAgentError,
   parseAgentEvent,
+  safeParseAgentUsageObservedEvent,
   type AgentCapabilities,
   type AgentCollaborationId,
   type AgentContentStreamKind,
@@ -27,6 +28,8 @@ import {
 import type { AgentProviderOperationResult } from "./sessions.js";
 import type { AgentStructuredOutputBinding } from "./structuredOutput/admission.js";
 import { validateAgentStructuredOutputResult } from "./structuredOutput/validation.js";
+import { isTokenUsageObservationDeclared } from "./usage/capability.js";
+import { classifyTokenUsageEventIssues } from "./usage/ledger.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Validation Context
@@ -131,16 +134,6 @@ function isContextUsageCapabilitySupported(
   ) {
     return false;
   }
-  if (
-    event.payload.cumulative !== undefined
-    && Object.keys(event.payload.cumulative).some(
-      (field) => !capability.cumulativeFields.includes(
-        field as (typeof capability.cumulativeFields)[number],
-      ),
-    )
-  ) {
-    return false;
-  }
   return event.payload.compaction === undefined
     || capabilities.context.compaction.kind === "supported";
 }
@@ -211,6 +204,8 @@ function isEventCapabilitySupported(
         );
     case "context.usage.updated":
       return isContextUsageCapabilitySupported(capabilities, event);
+    case "usage.observed":
+      return isTokenUsageObservationDeclared(capabilities.tokenUsage, event.payload);
     case "turn.started":
     case "request.unavailable":
     case "turn.state_changed":
@@ -297,11 +292,33 @@ function assertOutputCapability(
 //                Output and Operation Results
 // ------------------------------------------------------------------------------------------------
 
+/** Usage parse failures keep their contract classification instead of a generic output error. */
+function validateProviderOutputShape(
+  candidate: AgentProviderOutput,
+  providerKey: AgentProviderKey,
+): AgentProviderOutput {
+  try {
+    return validateAgentProviderOutput(candidate);
+  } catch (error) {
+    const unchecked: unknown = candidate;
+    const event = unchecked !== null && typeof unchecked === "object" && "kind" in unchecked
+      && unchecked.kind === "event" && "event" in unchecked ? unchecked.event : undefined;
+    if (event === null || typeof event !== "object" || !("type" in event) || event.type !== "usage.observed") throw error;
+    const parsed = safeParseAgentUsageObservedEvent(event);
+    if (parsed.success) throw error;
+    return throwAgentProviderContractError(
+      providerKey,
+      classifyTokenUsageEventIssues(parsed.issues),
+      `Provider ${providerKey} emitted a token usage observation outside the Agent14 contract.`,
+    );
+  }
+}
+
 export function validateAgentProviderOutputForContext(
   candidate: AgentProviderOutput,
   context: AgentProviderOutputValidationContext,
 ): AgentProviderOutput {
-  const output = validateAgentProviderOutput(candidate);
+  const output = validateProviderOutputShape(candidate, context.providerKey);
   if (output.kind === "event" && context.sessionId !== undefined) {
     if (output.event.sessionId !== context.sessionId) {
       throwAgentProviderContractError(
@@ -396,17 +413,19 @@ export function validateAgentProviderOperationResult(
       "Only failed provider operation results must include an error.",
     );
   }
+  const outputs = candidate.outputs?.map((output) =>
+    validateAgentProviderOutputForContext(output, context),
+  );
+  if (outputs?.some((output) => output.kind === "event" && output.event.type === "usage.observed")) {
+    throwAgentProviderContractError(
+      context.providerKey,
+      "invalid_operation_result",
+      "Operation results have no observation turn; token usage waits for the next owned output path.",
+    );
+  }
   return Object.freeze({
     status: candidate.status,
-    ...(candidate.outputs === undefined
-      ? {}
-      : {
-          outputs: Object.freeze(
-            candidate.outputs.map((output) =>
-              validateAgentProviderOutputForContext(output, context),
-            ),
-          ),
-        }),
+    ...(outputs === undefined ? {} : { outputs: Object.freeze(outputs) }),
     ...(candidate.error === undefined
       ? {}
       : { error: parseAgentError(candidate.error) }),

@@ -10,6 +10,7 @@ import {
   parseAgentRequestId,
   type AgentOutputSchema,
   type AgentSessionBinding,
+  type AgentTokenUsageObservation,
   type AgentTurnCompletedPayload,
   type AgentTurnId,
 } from '@agen-ai/agent-protocol';
@@ -47,6 +48,8 @@ import type { NativeTurn, SessionMessage } from './turn.js';
 import { prepareAcpStructuredOutput } from '../structuredOutput/request.js';
 import { acpStructuredOutputCompletion } from '../structuredOutput/completion.js';
 import { scheduleTurnDeadline } from './deadline.js';
+import { controlledGrokError, ControlledGrokSessionDialect } from '../node/protocolDialect.js';
+import { ControlledGrokPromptUsage } from '../node/grokPromptUsage.js';
 
 export class SessionState {
   private readonly queue: SessionQueue<SessionMessage>;
@@ -71,9 +74,16 @@ export class SessionState {
   private readonly continuations: GrokPlanContinuations;
   private readonly descendants: GrokDescendantObservations | undefined;
   private readonly childWithdrawals: GrokChildPermissionWithdrawals | undefined;
+  private readonly protocolDialect: ControlledGrokSessionDialect | undefined;
+  private readonly promptUsage: ControlledGrokPromptUsage | undefined;
+  private readonly retiringCallbacks = new Set<Promise<void>>();
 
   constructor(private readonly input: CreateAcpProviderSessionInput) {
     this.queue = new SessionQueue(input.limits);
+    if (input.connection.protocolDialect) {
+      this.protocolDialect = new ControlledGrokSessionDialect(input.connection.protocolDialect, input.capabilities.providerKey);
+      this.promptUsage = new ControlledGrokPromptUsage(input.capabilities.providerKey, input.connection.protocolDialect.nativeSessionId);
+    }
     this.replay = new AcpHistoryReplay(input.limits);
     if (input.connection.sessionInteractions?.selectedLifecycle) {
       this.childWithdrawals = new GrokChildPermissionWithdrawals({
@@ -127,7 +137,7 @@ export class SessionState {
     this.environment = createAcpSessionEnvironment({ limits: input.limits, now: input.now, signal: input.connection.stopped });
     this.onStopped = () => this.fail(sessionError(input.connection.stopped.reason));
     this.detach = input.connection.attachSession({
-      joinCallbacks: () => this.requests.join(),
+      joinCallbacks: async () => { await this.requests.join(); await Promise.all(this.retiringCallbacks); },
       onExtensionNotification: (context) => {
         this.requireUsable();
         if (this.descendants?.admit(context, this.replay.active)) return;
@@ -148,6 +158,7 @@ export class SessionState {
     const sessionInteractions = this.input.context.interactions ? this.input.connection.sessionInteractions : undefined;
     await openAcpNativeSession(this.input, {
       replay: this.replay,
+      verifyOpening: (result: AcpJsonObject) => this.protocolDialect?.observeOpening(result),
       bind: (binding) => {
         this.binding = binding;
         this.nativeSessionId = binding.conversationId;
@@ -182,7 +193,7 @@ export class SessionState {
       configuration: this.configuration.control,
       operations: Object.freeze({ kind: 'unsupported' as const }),
       managedContent: Object.freeze({ kind: 'unsupported' as const }),
-      environment: this.environment.port,
+      environment: this.protocolDialect ? Object.freeze({ kind: 'unsupported' as const }) : this.environment.port,
       collaboration: Object.freeze({ kind: 'unsupported' as const }),
       generatedResources: Object.freeze({ kind: 'unsupported' as const }),
       close: async () => this.close(true),
@@ -200,7 +211,7 @@ export class SessionState {
     }
   }
 
-  private fail(error: Error): void {
+  private fail(error: Error, callbackSettled?: Promise<void>): void {
     if (this.failure || this.closed) return;
     this.failure = error;
     this.input.connection.sessionInteractions?.stop({ kind: 'failed', cause: error });
@@ -213,7 +224,9 @@ export class SessionState {
     this.descendants?.stop();
     this.childWithdrawals?.stop(error);
     this.clearTurnTimers();
-    void this.input.connection.close().catch((cause) => { this.cleanupFailure = cause; });
+    const close = () => this.input.connection.close().catch((cause) => { this.cleanupFailure = cause; });
+    if (callbackSettled) void callbackSettled.then(close, close);
+    else void close();
   }
 
   private admitNotification(context: AcpNotificationContext): Promise<void> | void {
@@ -223,6 +236,8 @@ export class SessionState {
     this.assertNativeSession(params);
     const update = nativeObject(params.update, 'session update');
     const kind = nativeString(update.sessionUpdate, 'session update kind');
+    try { this.protocolDialect?.observeUpdate(update); }
+    catch (cause) { this.fail(sessionError(cause)); throw cause; }
     this.replay.observe(params);
     const liveOutput = this.continuations.admitOutput(params, update, this.replay.active);
     if (SESSION_METADATA_UPDATES.has(kind)) {
@@ -261,6 +276,15 @@ export class SessionState {
     this.requireUsable();
     const params = nativeObject(context.params, `${kind} request`);
     this.assertNativeSession(params);
+    const disposition = this.protocolDialect?.requestDisposition(kind, params);
+    if (disposition?.kind === 'retire') {
+      this.retiringCallbacks.add(context.settled);
+      void context.settled.then(() => { this.retiringCallbacks.delete(context.settled); });
+      this.fail(controlledGrokError(this.input.capabilities.providerKey, disposition.code,
+        disposition.code === 'approval_policy_unavailable' ? 'The native reviewer required by the controlled Grok policy is unavailable.'
+          : 'The native callback contradicts the controlled Grok policy or lacks a qualified reviewer disposition.'), context.settled);
+      return Promise.resolve(canceledRequestReply(kind));
+    }
     if (!this.turn || this.turn.nativeSettled || this.turn.terminal) {
       throw new AcpRpcHandlerError(-32600, 'ACP interaction requests require an active native prompt.');
     }
@@ -289,6 +313,10 @@ export class SessionState {
   startTurn(input: AgentProviderStartTurnInput): AgentProviderTurnExecution {
     this.requireUsable();
     throwIfAgentOperationAborted(input.signal);
+    if (this.protocolDialect && input.parts.some((part) => part.type !== 'text' || part.text.trimStart().startsWith('/'))) {
+      throw controlledGrokError(this.input.capabilities.providerKey, 'approval_policy_configuration_forbidden',
+        'The controlled Grok dialect admits ordinary text turns without raw slash commands.');
+    }
     if (this.turn && !this.turn.sourceSettled) throw new AcpProviderSessionError('acp_turn_active', 'The ACP session already has an active or waiting turn.');
     if (input.interactionMode !== 'default') {
       throw new AcpProviderSessionError('acp_input_unsupported', 'ACP supports only the default interaction mode.');
@@ -351,7 +379,7 @@ export class SessionState {
     turn.sourceSettled = true;
   }
 
-  private completeNativeTurn(turn: NativeTurn, payload: AgentTurnCompletedPayload): void {
+  private completeNativeTurn(turn: NativeTurn, payload: AgentTurnCompletedPayload, usage?: AgentTokenUsageObservation): void {
     turn.nativeSettled = true;
     if (this.requests.size > 0) {
       this.fail(new AcpProviderSessionError('acp_terminal_with_request', 'ACP completed native work with unanswered interaction requests.'));
@@ -359,7 +387,8 @@ export class SessionState {
     }
     turn.hostInteractions.abort(new DOMException('The ACP native execution settled.', 'AbortError'));
     this.clearTurnTimers();
-    this.queue.admit({ kind: 'terminal', payload }, nativeBytes(payload), true);
+    this.queue.admit(usage ? { kind: 'terminal', payload, usage } : { kind: 'terminal', payload },
+      nativeBytes(payload) + (usage ? nativeBytes(usage) : 0), true);
     turn.settled.resolve(payload);
   }
 
@@ -378,7 +407,13 @@ export class SessionState {
       onResponseReceived: (response) => {
         const payload = acpStructuredOutputCompletion(acpTurnCompletion(response, turn.cancelReason),
           response, turn.outputSchema, this.nativeSessionId!);
-        this.completeNativeTurn(turn, payload);
+        let usage: AgentTokenUsageObservation | undefined;
+        try { usage = this.promptUsage?.observe(turn.turnId, response); }
+        catch (error) {
+          this.fail(sessionError(error));
+          return;
+        }
+        this.completeNativeTurn(turn, payload, usage);
       },
     }).then(() => undefined, (error) => {
       if (!turn.nativeSettled) this.fail(sessionError(error));
@@ -482,6 +517,10 @@ export class SessionState {
       } else {
         try {
           if (this.requests.size > 0) throw new AcpProviderSessionError('acp_terminal_with_request', 'ACP completed a prompt with unanswered interaction requests.');
+          if (message.usage) {
+            yield* this.emit(turn.mapping.event('usage.observed', message.usage));
+            if (turn.terminal) return 'terminal';
+          }
           for (const output of turn.mapping.complete(message.payload)) {
             if (turn.terminal) return 'terminal';
             yield* this.emit(output);

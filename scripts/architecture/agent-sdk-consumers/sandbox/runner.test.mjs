@@ -50,6 +50,6 @@ test("installed selection rejects an incomplete SDK set without changing the sel
   });
   assert.ifError(result.error);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /complete matching ten-package SDK set/u);
+  assert.match(result.stderr, /complete matching fourteen-package SDK set/u);
   assert.equal(await readFile(path.join(root, "consumer/package.json"), "utf8"), manifest);
 });

@@ -40,6 +40,9 @@ import {
   type AgentProviderResumeSessionInput,
   type AgentProviderBranchSessionInput,
   type AgentProviderSteerTurnInput,
+  type AgentApprovalPolicy,
+  type AgentApprovalPolicySupport,
+  type AgentSessionApprovalPolicy,
 } from "../src/index.js";
 import { generateObject, type AgentGenerateObjectInput } from "../src/generation/index.js";
 
@@ -109,6 +112,36 @@ function structuredOutputPlacement(
   ({ parts: turn.parts, output: request }) satisfies AgentTurnInputContent;
 }
 void structuredOutputPlacement;
+
+function approvalPolicyContract(
+  policy: AgentApprovalPolicy,
+  create: AgentCreateSessionInput,
+  resume: AgentResumeSessionInput,
+  branch: AgentBranchSessionInput,
+) {
+  ({ ...create, approvalPolicy: policy }) satisfies AgentCreateSessionInput;
+  ({ ...resume, approvalPolicy: policy }) satisfies AgentResumeSessionInput;
+  ({ ...branch, approvalPolicy: policy }) satisfies AgentBranchSessionInput;
+  ({ kind: "supported", policies: [{ policy: "provider_auto_review", operations: ["create"] }] }) satisfies AgentApprovalPolicySupport;
+  ({ kind: "provider_accept_edits" }) satisfies AgentApprovalPolicy;
+  ({ kind: "supported", policies: [{ policy: "provider_accept_edits", operations: ["create"] }] }) satisfies AgentApprovalPolicySupport;
+  ({ policy, verification: "controlled_configuration" }) satisfies AgentSessionApprovalPolicy;
+  // @ts-expect-error Approval policies have a closed set of modes.
+  ({ kind: "auto" }) satisfies AgentApprovalPolicy;
+  // @ts-expect-error Policy variants do not accept a contradictory bypass switch.
+  ({ kind: "host", bypass: true }) satisfies AgentApprovalPolicy;
+  // @ts-expect-error A selected policy is immutable.
+  policy.kind = "provider_bypass";
+  // @ts-expect-error Supported policy declarations require at least one policy.
+  ({ kind: "supported", policies: [] }) satisfies AgentApprovalPolicySupport;
+  // @ts-expect-error Every policy descriptor needs at least one opening operation.
+  ({ kind: "supported", policies: [{ policy: "host", operations: [] }] }) satisfies AgentApprovalPolicySupport;
+  // @ts-expect-error Unsupported policy declarations cannot carry supported policies.
+  ({ kind: "unsupported", policies: [{ policy: "host", operations: ["create"] }] }) satisfies AgentApprovalPolicySupport;
+  // @ts-expect-error A requested flag is not an effective verification basis.
+  ({ policy, verification: "requested" }) satisfies AgentSessionApprovalPolicy;
+}
+void approvalPolicyContract;
 
 const driver = defineAgentProviderDriver({
   providerKey: parseAgentProviderKey("typed-provider"),

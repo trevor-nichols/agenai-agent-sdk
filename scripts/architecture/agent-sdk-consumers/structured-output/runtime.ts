@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  AGENT_PROTOCOL_VERSION,
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
   parseAgentOutputSchema,
@@ -73,7 +74,7 @@ async function fixture(scope: "turn" | "session" | "unsupported") {
           return {
             turnId: input.turnId,
             outputs: (async function* () {
-              const envelope = { protocolVersion: 13, sessionId: context.sessionId,
+              const envelope = { protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: context.sessionId,
                 turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z" };
               yield createAgentEventOutput({ ...envelope, type: "turn.started", payload: {} });
               yield createAgentEventOutput({ ...envelope, type: "turn.completed",

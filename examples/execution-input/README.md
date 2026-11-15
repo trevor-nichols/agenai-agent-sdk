@@ -5,15 +5,15 @@ This hermetic example teaches the optional provider-neutral runtime contract usi
 It uses no native process, model, credentials, network, tools, or storage. Its JSON
 evidence is explicitly `synthetic`; success qualifies no native provider mapping.
 
-The unpublished ten-package 0.4.4 candidate ships **no public native provider with
+The published ten-package 0.4.13 release ships **no public native provider with
 execution-input support**.
 All public ACP/Grok compositions remain unsupported. The separately controlled
 private Claude SDK 0.3.309 / Code 2.1.309 diagnostic mapping has exact Linux x86_64 /
-Node 24.18.0 qualification; there is no public Claude execution constructor in this
-example or SDK package inventory. Its evidence does not qualify subscription login,
+Node 24.18.0 qualification. The unreleased owned Claude and OpenCode constructors
+also leave execution input unsupported. The diagnostic evidence does not qualify subscription login,
 production deployment or billing. The optional input domain adds no package or
 Agent Protocol V13 / Host Protocol V26 change. See the
-[candidate upgrade guide](../../UPGRADING-TO-0.4.4.md#optional-input-on-an-owned-execution).
+[0.4.4 upgrade guide](../../UPGRADING-TO-0.4.4.md#optional-input-on-an-owned-execution) for the original introduction.
 
 From the public SDK checkout, after installing and building its dependencies:
 

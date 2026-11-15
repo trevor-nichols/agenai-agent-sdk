@@ -2,6 +2,7 @@ import {
   agentProtocolSerializedJsonBytes, parseAgentOutputSchema, parseAgentSessionOpenInput, parseAgentTurnRunInput,
 } from "@agen-ai/agent-protocol";
 
+import { parseAgentApprovalPolicySelection } from "../approvalPolicy/validation.js";
 import { assertAgentSessionConfigurationSupported } from "../configurationValidation.js";
 import { throwAgentProviderContractError } from "../contractErrors.js";
 import { throwIfAgentOperationAborted } from "../foundation.js";
@@ -22,6 +23,8 @@ export function preflightGeneration<T>(input: AgentGenerateObjectInput<T>) {
   for (const key of ["output", "signal", "onProviderExecutionStarted"]) {
     if (Reflect.has(input.turn, key)) throw new TypeError(`Object generation owns turn ${key}.`);
   }
+  const { approvalPolicy: requestedApprovalPolicy, ...sessionOptions } = input.session;
+  const approvalPolicy = parseAgentApprovalPolicySelection(input.instance.capabilities.providerKey, requestedApprovalPolicy);
   if (typeof input.output?.decode !== "function") throw new TypeError("Object generation requires an output decoder.");
   if (input.onOutput !== undefined && typeof input.onOutput !== "function") throw new TypeError("Object output observer must be a function.");
   if (input.onRequest !== undefined && typeof input.onRequest !== "function") throw new TypeError("Object request handler must be a function.");
@@ -41,5 +44,7 @@ export function preflightGeneration<T>(input: AgentGenerateObjectInput<T>) {
   }
   const deadlineAt = Math.min(Date.now() + timeoutMs, turn.deadlineAt === undefined ? Infinity : Date.parse(turn.deadlineAt));
   if (deadlineAt <= Date.now()) throw new AgentGenerationError("timeout", "Object generation deadline has expired.");
-  return { schema: boundedSchema, decode: input.output.decode, capability, session: { ...input.session, configuration: session.configuration }, turn, deadlineAt };
+  return { schema: boundedSchema, decode: input.output.decode, capability,
+    session: { ...sessionOptions, configuration: session.configuration, ...(approvalPolicy === undefined ? {} : { approvalPolicy }) },
+    turn, deadlineAt };
 }

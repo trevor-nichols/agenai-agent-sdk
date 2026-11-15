@@ -21,6 +21,10 @@ import { AgentRequestPortableSchema, AgentRequestSchema } from './requests.js';
 import { AgentOperationResultPortableSchema } from './operations.js';
 import { AgentGeneratedResourceDescriptorPortableSchema } from './resources.js';
 import {
+  AgentTokenUsageObservationPortableSchema,
+  AgentTokenUsageObservationSchema,
+} from './usage.js';
+import {
   AGENT_CONTEXT_COMPACTION_STATES,
   AGENT_CONTEXT_MEASUREMENT_SCOPES,
   type AgentContextUsage,
@@ -139,28 +143,11 @@ const RuntimeRetryingPayloadSchema = z.object({
   }
 });
 
-const AgentContextCumulativeUsageSchema = z
-  .object({
-    inputTokens: NonNegativeSafeIntegerSchema.optional(),
-    outputTokens: NonNegativeSafeIntegerSchema.optional(),
-    cachedReadTokens: NonNegativeSafeIntegerSchema.optional(),
-    cacheCreationTokens: NonNegativeSafeIntegerSchema.optional(),
-    reasoningTokens: NonNegativeSafeIntegerSchema.optional(),
-    modelCalls: NonNegativeSafeIntegerSchema.optional(),
-    turns: NonNegativeSafeIntegerSchema.optional(),
-  })
-  .strict()
-  .refine((usage) => Object.keys(usage).length > 0, {
-    message: 'Cumulative context usage must contain at least one counter.',
-  })
-  .readonly();
-
 export const AgentContextUsagePortableSchema = z
   .object({
     measurementScope: z.enum(AGENT_CONTEXT_MEASUREMENT_SCOPES),
     usedTokens: NonNegativeSafeIntegerSchema,
     maxTokens: PositiveSafeIntegerSchema,
-    cumulative: AgentContextCumulativeUsageSchema.optional(),
     compaction: z
       .object({
         state: z.enum(AGENT_CONTEXT_COMPACTION_STATES),
@@ -198,7 +185,18 @@ export const AgentContextUsageSchema: z.ZodType<AgentContextUsage> =
 //                Portable Union and Authoritative Refinements
 // ------------------------------------------------------------------------------------------------
 
-function createEventSchema(completedPayload: z.ZodType<AgentTurnCompletedPayload>) {
+const UsageObservedPortableEventSchema = turnEvent(
+  'usage.observed',
+  AgentTokenUsageObservationPortableSchema,
+);
+const UsageObservedEventSchema = turnEvent('usage.observed', AgentTokenUsageObservationSchema);
+
+function createEventSchema<
+  UsageEvent extends typeof UsageObservedPortableEventSchema | typeof UsageObservedEventSchema,
+>(
+  completedPayload: z.ZodType<AgentTurnCompletedPayload>,
+  usageEvent: UsageEvent,
+) {
   return z.discriminatedUnion('type', [
     turnEvent(
       'turn.started',
@@ -259,6 +257,7 @@ function createEventSchema(completedPayload: z.ZodType<AgentTurnCompletedPayload
     ),
     turnEvent('progress.updated', ProgressUpdatedPayloadSchema),
     turnEvent('context.usage.updated', AgentContextUsagePortableSchema),
+    usageEvent,
     optionallyTurnScopedEvent(
       'artifact.referenced',
       z.object({ artifact: AgentArtifactDescriptorSchema }).strict().readonly(),
@@ -308,10 +307,16 @@ function createEventSchema(completedPayload: z.ZodType<AgentTurnCompletedPayload
   ]);
 }
 
-export const AgentEventPortableSchema = createEventSchema(AgentTurnCompletedPayloadPortableSchema);
+export const AgentEventPortableSchema = createEventSchema(
+  AgentTurnCompletedPayloadPortableSchema,
+  UsageObservedPortableEventSchema,
+);
 
 export const AgentEventSchema: z.ZodType<AgentEvent> =
-  withAcyclicProtocolInput(createEventSchema(AgentTurnCompletedPayloadSchema), {
+  withAcyclicProtocolInput(createEventSchema(
+    AgentTurnCompletedPayloadSchema,
+    UsageObservedEventSchema,
+  ), {
     maxDepth: 32,
     maxNodes: AGENT_PROTOCOL_EVENT_BYTES_LIMIT,
     maxCollectionLength: AGENT_PROTOCOL_COLLECTION_MAX_LENGTH,

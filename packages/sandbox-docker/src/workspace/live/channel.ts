@@ -6,10 +6,12 @@ import { SandboxOperationError, SandboxStateError } from '@agen-ai/sandbox';
 import type { DockerEngineAttachment } from '../../engine/client.js';
 import type { DockerSandboxFilesystemOptions } from '../../policy/options.js';
 import { DockerFrameDecoder } from '../../process/framing.js';
-import { decodeFilesystemReply, encodeFilesystemRequest, filesystemReplyLength } from './protocol.js';
+import type { FilesystemRequestPort } from './files.js';
+import { FilesystemReplyFrames } from './frames.js';
+import { encodeFilesystemRequest } from './protocol.js';
 import type { FilesystemReply, FilesystemRequest } from './protocol.js';
 
-export class FilesystemChannel {
+export class FilesystemChannel implements FilesystemRequestPort {
   readonly ready: Promise<void>;
   readonly settled: Promise<void>;
   private pending: ReturnType<typeof Promise.withResolvers<FilesystemReply>> | undefined;
@@ -22,11 +24,7 @@ export class FilesystemChannel {
   private failure: SandboxOperationError | undefined;
   private readinessStarted = false;
   private enteredReady = false;
-  private readonly header = Buffer.alloc(8);
-  private headerBytes = 0;
-  private payload: Buffer | undefined;
-  private payloadBytes = 0;
-  private replyKind = 0;
+  private readonly frames = new FilesystemReplyFrames();
 
   constructor(private readonly attachment: DockerEngineAttachment, private readonly configuration: DockerSandboxFilesystemOptions,
     private readonly onFailure: (error: SandboxOperationError) => void) {
@@ -138,35 +136,13 @@ export class FilesystemChannel {
   }
 
   private accept(bytes: Uint8Array): void {
-    let offset = 0;
-    while (offset < bytes.byteLength) {
-      if (this.closing || this.failure) return;
-      if (!this.payload) {
-        const count = Math.min(8 - this.headerBytes, bytes.byteLength - offset);
-        this.header.set(bytes.subarray(offset, offset + count), this.headerBytes);
-        this.headerBytes += count;
-        offset += count;
-        if (this.headerBytes !== 8) continue;
-        this.replyKind = this.header.readUInt32BE(0);
-        const length = this.header.readUInt32BE(4);
-        filesystemReplyLength(this.replyKind, length);
-        this.payload = Buffer.alloc(length);
-        this.payloadBytes = 0;
-        this.headerBytes = 0;
-      }
-      const count = Math.min(this.payload.length - this.payloadBytes, bytes.byteLength - offset);
-      this.payload.set(bytes.subarray(offset, offset + count), this.payloadBytes);
-      this.payloadBytes += count;
-      offset += count;
-      if (this.payloadBytes !== this.payload.length) continue;
-      const reply = decodeFilesystemReply(this.replyKind, this.payload);
-      this.payload = undefined;
+    this.frames.accept(bytes, (reply) => {
       const pending = this.pending;
       if (!pending) throw new SandboxOperationError('driver_failure', 'Filesystem helper sent an unsolicited response.');
       this.pending = undefined;
       clearTimeout(this.timer);
       pending.resolve(reply);
-    }
+    }, () => !this.closing && !this.failure);
   }
 
   private async pump(): Promise<void> {

@@ -31,6 +31,7 @@ export async function streamEngine<Value>(socketPath: string, method: 'GET' | 'H
   let result: { readonly value: Value } | undefined;
   let retirementError: unknown;
   let uploadedBytes = 0n;
+  let retiringPrefix = false;
   const request = httpRequest({ socketPath, method, path, agent: false, maxHeaderSize: 16_384,
     headers: { connection: 'close', ...(options.contentType ? { 'content-type': options.contentType } : {}) } });
   const fail = (error: unknown, origin: FailureOrigin) => {
@@ -42,6 +43,7 @@ export async function streamEngine<Value>(socketPath: string, method: 'GET' | 'H
   };
   const onAbort = () => fail(new DockerEngineTransportError('aborted', 'Engine transfer aborted.', { cause: options.signal?.reason }), 'request');
   request.on('error', (cause: Error) => {
+    if (retiringPrefix) return;
     const malformed = 'code' in cause && typeof cause.code === 'string' && cause.code.startsWith('HPE_');
     fail(new DockerEngineTransportError(malformed ? 'invalid_response' : 'connection', 'Engine transfer connection failed.', { cause }), 'request');
   });
@@ -60,8 +62,8 @@ export async function streamEngine<Value>(socketPath: string, method: 'GET' | 'H
   request.once('response', (incoming) => {
     response = incoming;
     clearTimeout(headerTimer);
-    incoming.on('error', (cause: Error) => { if (!controller.signal.aborted) fail(new DockerEngineTransportError('invalid_response', 'Engine response stream failed.', { cause }), 'request'); });
-    incoming.once('aborted', () => { if (!controller.signal.aborted) fail(new DockerEngineTransportError('invalid_response', 'Engine response was truncated.'), 'request'); });
+    incoming.on('error', (cause: Error) => { if (!controller.signal.aborted && !retiringPrefix) fail(new DockerEngineTransportError('invalid_response', 'Engine response stream failed.', { cause }), 'request'); });
+    incoming.once('aborted', () => { if (!controller.signal.aborted && !retiringPrefix) fail(new DockerEngineTransportError('invalid_response', 'Engine response was truncated.'), 'request'); });
     if (incoming.readableHighWaterMark > 65_536) fail(new DockerEngineTransportError('invalid_response', 'Engine response exceeds the bounded native buffer profile.'), 'request');
     ready.resolve(incoming);
   });
@@ -86,7 +88,8 @@ export async function streamEngine<Value>(socketPath: string, method: 'GET' | 'H
       result = { value: await consume({ statusCode: incoming.statusCode, headers: incoming.headers, rawHeaders: incoming.rawHeaders,
         body: responseBody.body, signal: controller.signal }) };
     } catch (error) { fail(error, 'callback'); }
-    try { await responseBody.retire(); } catch (error) { if (!failure) fail(error, 'retirement'); }
+    retiringPrefix = options.responseMode === 'prefix' && !failure;
+    try { await responseBody.retire(retiringPrefix); } catch (error) { if (!failure) fail(error, 'retirement'); }
     await writer;
   } catch (error) { if (!failure) fail(error, 'request'); }
   finally {

@@ -1,4 +1,5 @@
 import {
+  AGENT_PROTOCOL_VERSION,
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
   parseAgentIsoDateTime,
@@ -20,11 +21,12 @@ import { exampleGate, independentApprovalProgress, runApprovalWalkthrough, selec
 const approval: AgentApprovalCapability = { kind: 'supported', providerManagedRemembrance: true,
   modes: [{ persistence: 'once', scopeKinds: ['exact_action'] }] };
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 13, providerKey: 'example-remembered-approvals',
+  protocolVersion: AGENT_PROTOCOL_VERSION, providerKey: 'example-remembered-approvals',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
   turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
   requests: { approval, elicitation: { kind: 'unsupported' } },
   context: { usage: { kind: 'unsupported' }, compaction: { kind: 'unsupported' } },
+  tokenUsage: { kind: 'unsupported' },
   input: { text: true, images: { kind: 'unsupported' }, contentReferences: { kind: 'unsupported' } },
   output: { streaming: true, plans: false, fileChanges: 'none', artifactKinds: [] },
   configuration: { kind: 'managed' }, operations: { kind: 'unsupported' }, managedContent: { kind: 'unsupported' },
@@ -62,7 +64,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
           ],
         });
         let accepted = false;
-        const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId,
+        const base = { protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime('2026-10-14T12:00:00.000Z') };
         async function* outputs(): AsyncGenerator<AgentProviderOutput, void> {
           signal.throwIfAborted();

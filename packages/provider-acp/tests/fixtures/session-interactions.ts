@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
@@ -48,7 +48,7 @@ export async function waitFor<Value>(read: () => Value | undefined, description:
 
 export function sessionInteractionFixture(t: TestContext, scenario: string | Readonly<{ mode: string; source: URL }> = 'late', cleanup: () => void = () => {}) {
   const mode = typeof scenario === 'string' ? scenario : scenario.mode;
-  const cwd = mkdtempSync(path.join(tmpdir(), 'agenai-session-interactions-'));
+  const cwd = realpathSync(mkdtempSync(path.join(tmpdir(), 'agenai-session-interactions-')));
   const executable = path.join(cwd, 'controlled-peer.mjs');
   const log = path.join(cwd, 'events.jsonl');
   const source = readFileSync(typeof scenario === 'string' ? new URL('../node-fixtures/session-interaction-peer.mjs', import.meta.url) : scenario.source, 'utf8');

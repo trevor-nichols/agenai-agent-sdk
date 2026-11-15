@@ -88,6 +88,7 @@ export function makeBinding(options: {
 export type OpeningKind = "create" | "resume" | "branch";
 
 export async function createHarness(options: {
+  readonly capabilities?: AgentCapabilities;
   readonly support?: AgentSessionHostBindingSupport | null;
   readonly transformAdapter?: (
     adapter: AgentProviderAdapter,
@@ -103,7 +104,7 @@ export async function createHarness(options: {
     kind: OpeningKind,
   ) => AgentProviderSession;
 } = {}) {
-  const fake = createFakeAgentProvider();
+  const fake = createFakeAgentProvider(options.capabilities === undefined ? {} : { capabilities: options.capabilities });
   const contexts: AgentProviderSessionContext[] = [];
   const candidates: AgentProviderSession[] = [];
   let sequence = 0;

@@ -1,18 +1,22 @@
 # @agen-ai/provider-acp
 
 An optional provider for the AgenAI coding-agent runtime. It translates the stable
-Agent Client Protocol wire version 1 into the Agent Protocol V13 session API. Current source is
-the unpublished coordinated ten-package `0.4.8` candidate; published `0.4.7` also uses V13. Published `0.4.3` is the seven-package
+Agent Client Protocol wire version 1 into the Agent Protocol V14 session API. Current source is
+an unreleased extension of published ten-package `0.4.13`, which uses V13; see
+[UPGRADING-TO-AGENT14.md](../../UPGRADING-TO-AGENT14.md). The source
+inventory also adds optional `@agen-ai/provider-grok`; its exact Grok 1.0.77 controlled composition
+has separate Linux x64/native-arm64 Desktop qualification, described in the
+[handoff](../../examples/approval-policy/HANDOFF.md). Published `0.4.3` is the seven-package
 V12 release; published `0.4.1` qualification remains historical evidence for its exact V11 artifacts.
 The package is ESM, MIT licensed, side-effect-free on import and requires Node.js
 22 or newer. It depends only on the public transport, runtime and protocol packages;
 the core packages remain independent of ACP.
 
 The provider pins the transport's `schema-v1.23.0` stable profile. It translates
-ACP into current V13 capabilities and rejects unsupported semantics explicitly.
+ACP into current V14 capabilities and rejects unsupported semantics explicitly.
 Connection negotiation, configured host facilities, and mapping policy fix one
 capability envelope per instance; every later connection must match it.
-The [0.4.4 upgrade guide](../../UPGRADING-TO-0.4.4.md) describes the coordinated candidate.
+The [0.4.4 upgrade guide](../../UPGRADING-TO-0.4.4.md) describes that historical release.
 Optional `@agen-ai/agent-history` browsing remains independent of this execution provider; native
 transcript JSON and ACP metadata alone establish no structured-generation capability.
 
@@ -56,11 +60,12 @@ under a different policy.
 | Surface | Supported behavior and requirements |
 | --- | --- |
 | Turns and requests | Default text turns, streamed assistant/reasoning text, tool progress, cancellation and once-only exact-action permissions by default, with opt-in complete remembered-choice mappings. One execution retains the original native prompt across request waits and answers. |
+| Approval policy | Generic ACP and the protocol-only controlled dialect declare normalized selection unsupported. Only the separately admitted `@agen-ai/provider-grok/docker` upper owner advertises its fixed policy for fresh `create` and returns the effective result. |
 | Execution input | Unsupported for every public ACP/Grok composition. There is no input mapping selection or native interjection dispatch; peer labels, metadata and extension advertisements cannot enable it. |
 | Structured final output | Unsupported for generic ACP. Explicit `grok-build-1.0.62-structured-output-v1` mapping supports native turn-scoped `agenai.output-schema.v1` requests and independently validated terminal objects, within the bounds below. |
 | Resume | Exact persisted binding using advertised `session/resume`, otherwise advertised `session/load`. Load history is bounded and suppressed from new-turn output. No automatic recreation after failure. |
 | Configuration | Managed by default. Explicit `configuration: 'selectable'` maps observed boolean/select catalogs, with a session-mode fallback when config options are absent. Unknown metadata differs from observed empty metadata. |
-| Forms | Canonical boolean/single-select/multi-select forms that fit V13 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
+| Forms | Canonical boolean/single-select/multi-select forms that fit V14 constraints. An intent stage preserves decline separately from cancel, followed by answers on the same native waiter. Explicit host form facilities can handle broader native forms. |
 | Images | Inline base64 PNG/JPEG/WebP only when the peer advertises image input, within image and total turn budgets. No implicit local-file read or URL fetch. |
 | Plans | Complete replacements of observed turn plans. A mode called “plan” does not establish enforced planning behavior or approval authority. |
 | File changes | Partial structured observations from native tool diffs. Canonical paths contained by the working directory become sorted relative display paths without filesystem reads. Unfinished tools remain unknown at ordinary turn completion. No final workspace diff or Review artifact is inferred. |
@@ -69,12 +74,14 @@ under a different policy.
 | Files and terminals | Explicit host callbacks, correlated to the bound native session. Terminal support requires the complete output/wait/kill/release lifecycle; embedded terminal transcript references remain unsupported. |
 | MCP setup | Static host-approved `mcpServers` and optional owned `sessionMcpBinding` factory for creation/resume. HTTP/SSE require advertised peer support. Configuration is not observed tool exposure. |
 | Session decisions | Opt-in `grok-folder-trust-v1` on the Node constructor, with a required host execution boundary and handler registered before create. This outside-turn mapping has its own exact support and qualification scope below. |
+| Token usage | Unsupported for generic ACP: no response, notification or `_meta` field is read as consumption. Only the exact controlled Grok dialect reports one final turn-scoped delta per prompt; see [prompt token usage](#controlled-grok-prompt-token-usage). |
 
 Through-turn branching, same-turn steering, enforced plan mode, persistent
 SDK-owned tool-approval grants, context usage/compaction, account quota, effective skill/rule
 inventory, collaboration, generated resources and artifact publication remain
 unsupported. ACP usage counters can decrease without confirmed compaction and
-cannot satisfy V13's context continuity contract. Unsupported media output fails
+cannot satisfy V14's context continuity contract. Context occupancy (`usage_update`) is never
+converted into token consumption. Unsupported media output fails
 explicitly rather than disappearing from an otherwise successful transcript.
 Embedded terminal references also fail explicitly: a mutable, possibly truncated
 terminal snapshot does not provide an ordered append-only transcript. Agents can
@@ -107,7 +114,8 @@ input advertisements, and the selected Grok `1.0.62` structured-output mapping, 
 and owned connections. The actual packed provider constructors use a synthetic serialized peer;
 all six retain one original turn and reader, dispatch zero native input requests, and join cleanup.
 An unsolicited input extension request receives `-32601`. This is public unsupported-boundary
-proof, separate from private controlled Claude qualification; no public Claude execution constructor ships.
+proof, separate from private controlled Claude qualification. The unreleased owned Claude and
+OpenCode constructors also leave execution input unsupported.
 
 ## Structured final output
 
@@ -199,7 +207,7 @@ their original version-specific scope.
 
 ## Operational failures and uncertainty
 
-The provider maps supported standard `schema-v1.23.0` prompt errors into V13 `AgentError` values.
+The provider maps supported standard `schema-v1.23.0` prompt errors into V14 `AgentError` values.
 Standard `-32000` reports `authentication` with an `authenticate` user-action hint; `-32602` reports
 `invalid_request`; `-32603` reports `provider`; standard parse/request/method errors report `protocol`.
 Other remote codes remain `unknown` with unknown recovery. Mapping uses the standard error code,
@@ -379,6 +387,99 @@ The built-in launcher rejects Windows before spawning with
 `createAcpProviderDriver` with an owned connection factory backed by their own process
 supervisor, such as a Windows Job Object; the SDK does not supply a native Windows
 process-tree launcher in `0.4.0`.
+
+### Controlled Grok protocol dialect
+
+The Node-only `protocolDialect` selection
+`{ mapping: 'grok-build-1.0.77-controlled-shell-v1', instanceId, nativeSessionId, policy }`
+is a closed protocol seam for the optional owned Grok Docker composition. `policy` is
+`host`, `provider_auto_review` or `provider_bypass`; it controls callback classification.
+The dialect itself advertises no normalized approval-policy support and returns no
+effective-policy result. Actual image, launcher, authentication and sandbox admission
+belong to `@agen-ai/provider-grok/docker`.
+
+Selection fixes the Extension route, client identifier `agenai-sdk-grok`, native version
+`1.0.77`, model `grok-4.6`, cwd `/workspace/work` and one fresh UUID. It accepts one bound
+instance materialization and one fresh create, with managed configuration and the
+existing once-only permission mapping. It disables client filesystem/terminal routing
+and excludes resume, images, raw slash commands, optional host/MCP/session mappings,
+structured output and configuration mutation. Native mode or model/catalog drift
+retires the session before generic managed handling discards those observations.
+
+Auto callbacks require a qualified native blocked-review observation; failed, unknown,
+malformed or absent review metadata cancels and retires. The sole qualified missing-review
+exception is a native `grok_config` terminal confirmation, also preserved under bypass.
+Host rejects contradictory Auto metadata; bypass rejects ordinary approval callbacks.
+Preserved requests use the exact offered once-only choices and require a host response.
+There is no automatic permission selection, native replay or second output reader.
+Generic ACP behavior remains unchanged when this selection is omitted. The upper Grok constructor
+requires an explicit matching runtime selection, even for `host`; it does not reuse omission as a
+mode claim. Native qualification covers the exact installed upper composition, not a borrowed
+connection or a protocol flag. Its seven cases per platform and complementary admission/fault/Task
+scopes are recorded in the [handoff](../../examples/approval-policy/HANDOFF.md).
+
+#### Controlled Grok prompt token usage
+
+With the selection above, the instance declares one authoritative `delta` view,
+`grok-prompt-usage`, on `turn` scopes. Each SDK turn whose native prompt receives a response
+gets exactly one `final` `usage.observed` event on its original reader, after native content
+and before `turn.completed`; a turn canceled before dispatch has no native prompt and reports
+none. The sole source is the prompt response's `_meta.usage` object. `_x.ai`
+`turn_completed` notifications, sibling `_meta` scalars such as `totalTokens`, and
+`usage_update` occupancy are never added or substituted.
+
+| Native field | Counter |
+| --- | --- |
+| `inputTokens` (includes cache read and creation) | `inputTokens` |
+| `cachedReadTokens` | `cacheReadInputTokens` |
+| `cacheCreationTokens` | `cacheCreationInputTokens` |
+| `outputTokens` (includes reasoning) | `outputTokens` |
+| `reasoningTokens` | `reasoningOutputTokens` |
+| `modelCalls` | `modelCalls` (`provider_reported` basis) |
+| one per settled prompt | `turns` (`observed` basis) |
+
+Cache-creation retention splits are unsupported. Native `numTurns` is never reported as SDK
+turns. A field the peer omits is `unavailable` with `not_reported`; a real zero stays exact.
+`usageIsIncomplete` turns present values into lower bounds with partial coverage, and makes
+an empty or all-zero record unavailable with `native_result_incomplete`. `costIsPartial`
+does not change token coverage. Descendant and auxiliary population are declared `unknown`:
+pinned-source documentation says finished subagents are included and compaction/side
+model calls are excluded, but that claim is not observed native behavior.
+
+`modelUsage` keys become model rows as reported (never the selected `grok-4.6` label). One
+row is a `model` attribution, and several rows a complete `mixed` partition, only when the
+aggregate is complete and every counter is present in each row and sums exactly. Otherwise
+rows are a partial `mixed` attribution, and no rows means `unknown`. Model-only records retain
+their rows while aggregate counters stay unavailable. A present non-boolean completeness flag
+is rejected; only an omitted flag defaults to complete reporting.
+
+A response without usage keeps its outcome and reports `not_reported`. A JSON-RPC error
+response keeps its failed outcome and reports `native_result_incomplete`; its
+`error.data.promptUsage` is not parsed, because that carrier has no observed native evidence.
+A canceled prompt settles canceled with whatever its response reports. Non-integer, negative,
+unsafe, contradictory (cache above input, reasoning above output, inexact `totalTokens`,
+rows above the aggregate), foreign `_meta.sessionId`, reused `promptId`, more than eight rows,
+or over-length model keys reject the turn with an `AgentProviderContractError`
+(`usage_invalid`, `usage_scope_mismatch`, `usage_identity_conflict` or
+`usage_capacity_exceeded`) and retire the session through ordinary cleanup.
+
+Qualification scope: on 2026-11-14 the same packed archives passed a two-prompt native-live
+comparison with Grok 1.0.77 (build `50ca579fa996`) on Linux x64 (Docker Engine, Node 24.18.0) and
+native-arm64 Docker Desktop, through the controlled Docker constructor and its personal
+access-only route. Each SDK delta matched its native prompt response, including nonzero cache
+reads and reasoning. Model fingerprints matched the native keys and differed from the configured
+alias. All original cleanup owners settled. The fixed profile admits no scripted model endpoint,
+so no native-scripted row exists. Error, cancellation, missing/partial counters and mixed-model
+cases have scripted-peer coverage; they are not qualified live. Descendant and auxiliary inclusion
+remain unqualified. Model requests and output tokens were observed, not preventively capped;
+these counters make no billing claim. The public raw Grok 1.0.62 sandbox recipe emits no
+normalized usage.
+
+ACP tool updates normalize to `dynamic_tool_call`; that generic item kind does not identify a native
+tool class or mean a native dynamic-wrapper feature is enabled. Observe exact request correlation,
+exported effects and the declared composition separately. A native canceled turn can produce the
+public `canceled` interruption receipt; receipt settlement, original reader completion and cleanup
+remain separate obligations.
 
 ## Remembered tool approvals
 
@@ -596,7 +697,7 @@ other builds/platforms, browser login, native durable recovery, SDK-managed
 remembered permissions or private execution support. The earlier failed native
 ownership attempt remains unqualified.
 
-The current V13 decision descriptor omits `expiresAt` because this native mapping reports no
+The current V14 decision descriptor omits `expiresAt` because this native mapping reports no
 provider-owned expiry. The bounded host timer remains a separate policy boundary;
 `humanWait: { kind: 'until_withdrawn_or_closed' }` omits that human timer and
 rejects an explicitly supplied `limits.requestTimeoutMs`. Initialization,
@@ -1038,8 +1139,8 @@ close ends that handle's ownership. The host retains control over its process po
 Canonical forms preflight the whole schema before presenting a request. They
 support at most 16 ordinary fields and 100 choices per selection. Free-text fields,
 nested objects, numeric fields, defaults, patterns/formats, and constraints without
-a V13 representation are rejected. Native free text permits blank/whitespace values
-and measures length in Unicode code points; V13 text answers use nonblank/UTF-16
+a V14 representation are rejected. Native free text permits blank/whitespace values
+and measures length in Unicode code points; V14 text answers use nonblank/UTF-16
 bounds. The provider does not narrow those native semantics silently. Enumerated
 string values can map through opaque canonical selection IDs.
 A required multi-select must require exactly one minimum selection; an optional
@@ -1060,7 +1161,7 @@ binding grants no interaction authority. Their host callbacks receive a turn
 lifetime signal that ends on cancellation, settlement or close.
 
 Image input allows at most 16 images, 375,000 decoded bytes per image and 750,000
-decoded bytes total, subject to the stricter 1 MiB V13 turn-content bound. Declared
+decoded bytes total, subject to the stricter 1 MiB V14 turn-content bound. Declared
 media type, dimensions, base64 encoding and byte counts are validated. The provider
 does not decode pixels or publish generated bytes; hosts needing image-content
 inspection must perform it before submitting input.

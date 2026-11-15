@@ -48,8 +48,10 @@ export async function readTar(source: AsyncIterable<Uint8Array>, consume: (entry
       if (header.kind !== 'symlink' && pendingPax?.linkpath !== undefined) unsafeArchive('PAX linkpath requires a symbolic-link entry.');
       pendingPax = undefined;
       if (header.kind === 'symlink') {
-        if (options.symlinks !== 'preserve_internal') unsafeArchive('symbolic links require explicit preservation.');
-        await consume(Object.freeze({ path, kind: 'symlink', size: 0, mode: header.mode, target: symlinkTarget(target) }));
+        if (options.symlinks !== 'preserve_internal' && options.symlinks !== 'observe') unsafeArchive('symbolic links require explicit preservation or observation.');
+        if (options.symlinks === 'observe' && (!target || Buffer.byteLength(target) > 4095 || /[\u0000\p{Cc}]/u.test(target))) unsafeArchive('observed link text exceeds its bounded text contract.');
+        await consume(Object.freeze({ path, kind: 'symlink', size: 0, mode: header.mode, uid: header.uid, gid: header.gid,
+          target: options.symlinks === 'observe' ? target : symlinkTarget(target) }));
         symlinks += 1n;
       } else {
         await consumeTarEntry(reader, { ...header, kind: header.kind }, path, consume, options.chunkBytes);

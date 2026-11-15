@@ -36,7 +36,7 @@ test("schema mismatch drops optional issues when their escaped paths exceed the 
   const capabilities = structuredOutputCapabilities();
   const reference = surrogate.repeat(512);
   const candidate = createAgentEventOutput({
-    protocolVersion: 13,
+    protocolVersion: 14,
     type: "turn.completed",
     sessionId: surrogate.repeat(256),
     turnId: surrogate.repeat(256),
@@ -73,7 +73,7 @@ test("the final envelope check preserves the owned deeply frozen JSON result", (
   const capabilities = structuredOutputCapabilities();
   const nativeValue = { titles: ["Original title"] };
   const candidate = createAgentEventOutput({
-    protocolVersion: 13, type: "turn.completed", sessionId: "envelope-session", turnId: "envelope-turn",
+    protocolVersion: 14, type: "turn.completed", sessionId: "envelope-session", turnId: "envelope-turn",
     occurredAt: "2026-10-21T00:00:00.000Z",
     payload: { outcome: "completed", structuredOutput: { kind: "json", value: nativeValue } },
   });

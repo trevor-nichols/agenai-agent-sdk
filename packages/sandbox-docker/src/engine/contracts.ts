@@ -20,6 +20,8 @@ export interface DockerEngineStreamOptions {
   readonly chunkBytes: number;
   readonly connectTimeoutMs?: number;
   readonly headerTimeoutMs?: number;
+  /** Metadata-only archive reads may retire an unconsumed suffix after their callback settles. */
+  readonly responseMode?: 'complete' | 'prefix';
 }
 
 export interface DockerEngineStreamResponse {

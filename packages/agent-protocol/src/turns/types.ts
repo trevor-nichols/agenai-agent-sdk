@@ -173,15 +173,6 @@ export const AGENT_CONTEXT_MEASUREMENT_SCOPES = [
   'session',
   'materialization',
 ] as const;
-export const AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS = [
-  'inputTokens',
-  'outputTokens',
-  'cachedReadTokens',
-  'cacheCreationTokens',
-  'reasoningTokens',
-  'modelCalls',
-  'turns',
-] as const;
 export const AGENT_CONTEXT_COMPACTION_STATES = [
   'idle',
   'approaching',
@@ -200,22 +191,10 @@ export const AGENT_CONTEXT_COMPACTION_DURATION_MAX_MILLISECONDS = 3_600_000;
 
 export type AgentContextMeasurementScope =
   (typeof AGENT_CONTEXT_MEASUREMENT_SCOPES)[number];
-export type AgentContextCumulativeUsageField =
-  (typeof AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS)[number];
 export type AgentContextCompactionState =
   (typeof AGENT_CONTEXT_COMPACTION_STATES)[number];
 export type AgentContextCompactionTrigger =
   (typeof AGENT_CONTEXT_COMPACTION_TRIGGERS)[number];
-
-export interface AgentContextCumulativeUsage {
-  readonly inputTokens?: number;
-  readonly outputTokens?: number;
-  readonly cachedReadTokens?: number;
-  readonly cacheCreationTokens?: number;
-  readonly reasoningTokens?: number;
-  readonly modelCalls?: number;
-  readonly turns?: number;
-}
 
 export interface AgentContextCompactionPressure {
   readonly state: AgentContextCompactionState;
@@ -226,7 +205,6 @@ export interface AgentContextUsage {
   readonly measurementScope: AgentContextMeasurementScope;
   readonly usedTokens: number;
   readonly maxTokens: number;
-  readonly cumulative?: AgentContextCumulativeUsage;
   readonly compaction?: AgentContextCompactionPressure;
 }
 

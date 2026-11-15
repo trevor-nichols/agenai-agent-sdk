@@ -26,6 +26,7 @@ import {
   type AgentOperationResultStatus,
   type AgentProviderKey,
   type AgentGeneratedResourceStatus,
+  type AgentUsageScopeId,
 } from "@agen-ai/agent-protocol";
 
 import { throwAgentProviderContractError } from "./contractErrors.js";
@@ -229,27 +230,19 @@ const COLLABORATION_TRANSITIONS: Readonly<
   canceled: ["canceled"],
 };
 
+/** A usage reference is stable once named; it can only replace unavailable usage. */
 function collaborationUsageIsMonotonic(
   previous: AgentCollaborationNode["usage"],
   next: AgentCollaborationNode["usage"],
 ): boolean {
   if (previous.kind === "unavailable") return true;
-  if (next.kind === "unavailable") return false;
-  const fields = [
-    "inputTokens",
-    "outputTokens",
-    "reasoningTokens",
-    "totalTokens",
-    "modelCalls",
-  ] as const;
-  return fields.every((field) =>
-    previous[field] === undefined
-    || (next[field] !== undefined && next[field] >= previous[field]),
-  );
+  return next.kind === "reference" && next.scopeId === previous.scopeId;
 }
 
 export function validateAgentCollaborationNodeForCapabilities(input: {
   readonly capabilities: AgentCapabilities;
+  /** Collaboration usage may name only a scope this session's usage ledger already admitted. */
+  readonly isUsageScopeAdmitted: (scopeId: AgentUsageScopeId) => boolean;
   readonly candidate: unknown;
   readonly previous?: AgentCollaborationNode;
 }): AgentCollaborationNode {
@@ -269,6 +262,13 @@ export function validateAgentCollaborationNodeForCapabilities(input: {
       input.capabilities.providerKey,
       "output_capability_mismatch",
       "Provider returned collaboration state outside its declared capability.",
+    );
+  }
+  if (node.usage.kind === "reference" && !input.isUsageScopeAdmitted(node.usage.scopeId)) {
+    return throwAgentProviderContractError(
+      input.capabilities.providerKey,
+      "output_collaboration_mismatch",
+      "Provider collaboration usage references a scope this session has not admitted.",
     );
   }
   if (

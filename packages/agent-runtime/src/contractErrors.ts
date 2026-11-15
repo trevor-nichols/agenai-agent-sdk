@@ -40,6 +40,12 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "request_identity_limit_exceeded",
   "configuration_key_unsupported",
   "configuration_value_unsupported",
+  "approval_policy_invalid",
+  "approval_policy_unsupported",
+  "approval_policy_unavailable",
+  "approval_policy_unconfirmed",
+  "approval_policy_mismatch",
+  "approval_policy_configuration_forbidden",
   "request_pending",
   "invalid_host_binding",
   "host_binding_unsupported",
@@ -63,6 +69,12 @@ export const AGENT_PROVIDER_CONTRACT_ERROR_CODES = [
   "execution_input_identity_reused",
   "execution_input_identity_limit_exceeded",
   "execution_input_correlation_lost",
+  "usage_invalid",
+  "usage_identity_conflict",
+  "usage_scope_mismatch",
+  "usage_counter_regression",
+  "usage_sequence_invalid",
+  "usage_capacity_exceeded",
 ] as const;
 
 export type AgentProviderContractErrorCode =

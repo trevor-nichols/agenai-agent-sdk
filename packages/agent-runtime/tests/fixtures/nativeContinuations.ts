@@ -102,7 +102,7 @@ export async function continuationFixture(options: {
                   await output.promise;
                   if (signal.aborted) return;
                   if (options.outcome === "not_started") return;
-                  const envelope = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId, occurredAt: "2026-10-16T12:00:00.000Z" };
+                  const envelope = { protocolVersion: 14 as const, sessionId: context.sessionId, turnId, occurredAt: "2026-10-16T12:00:00.000Z" };
                   yield createAgentEventOutput({ ...envelope, type: "turn.started", payload: {} });
                   if (options.afterStarted) events.push("source_waiting");
                   await options.afterStarted;

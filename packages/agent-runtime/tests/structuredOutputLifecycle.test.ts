@@ -38,6 +38,7 @@ import {
 import { AgentProviderConformanceError, createFakeAgentProvider, runAgentProviderConformance, type AgentProviderConformanceScenario } from "../src/testing/index.js";
 import { deferred, hasContractCode } from "./fixtures/hostBindings/harness.js";
 import { approve, continuationFixture } from "./fixtures/nativeContinuations.js";
+import { singleLiveSession } from "./fixtures/singleLiveSession.js";
 
 const titleSchema = parseAgentOutputSchema({ type: "object", properties: { title: { type: "string", minLength: 1 } }, required: ["title"], additionalProperties: false });
 const countSchema = parseAgentOutputSchema({ type: "object", properties: { count: { type: "integer", minimum: 1 } }, required: ["count"], additionalProperties: false });
@@ -51,7 +52,7 @@ function structuredCapability(scope: "turn" | "session", limits: { maxSchemaByte
 }
 
 function event(context: AgentProviderSessionContext, input: AgentProviderStartTurnInput, type: "turn.started" | "turn.completed", payload: unknown) {
-  return createAgentEventOutput({ protocolVersion: 13, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z", type, payload });
+  return createAgentEventOutput({ protocolVersion: 14, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z", type, payload });
 }
 
 function terminal(context: AgentProviderSessionContext, input: AgentProviderStartTurnInput, structuredOutput: AgentStructuredOutputResult = { kind: "json", value: { title: "A useful title" } }) {
@@ -289,7 +290,7 @@ test("requested mode, correlation and terminal ordering reject malformed adapter
       if (scenario === "failed_json" || scenario === "canceled_json" || scenario === "expired_json") {
         const outcome = scenario === "failed_json" ? "failed" : scenario === "canceled_json" ? "canceled" : "expired";
         // Deliberately malformed external adapter data bypasses the convenience constructor.
-        yield { kind: "event", event: { protocolVersion: 13, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z", type: "turn.completed", payload: { outcome, ...(outcome === "failed" ? { error } : {}), structuredOutput: { kind: "json", value: { title: "Must not escape" } } } } } as unknown as AgentProviderOutput;
+        yield { kind: "event", event: { protocolVersion: 14, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z", type: "turn.completed", payload: { outcome, ...(outcome === "failed" ? { error } : {}), structuredOutput: { kind: "json", value: { title: "Must not escape" } } } } } as unknown as AgentProviderOutput;
         return;
       }
       yield terminal(context, input);
@@ -317,7 +318,7 @@ test("structured output retains the original pending reader and exact response r
     const acknowledgment = deferred<AgentRequestResolutionResult>();
     const f = await fixture({ resolveRequest: () => acknowledgment.promise, async *outputs(context, input) {
       yield event(context, input, "turn.started", {});
-      const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z" };
+      const base = { protocolVersion: 14 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z" };
       yield createAgentEventOutput({ ...base, type: "item.started", payload: { itemId, itemKind: "assistant_message", status: "in_progress" } });
       yield createAgentEventOutput({ ...base, type: "request.opened", payload: { request } });
       yield createAgentEventOutput({ ...base, type: "turn.state_changed", payload: { state: "waiting_for_request", requestId: request.requestId } });
@@ -353,7 +354,7 @@ test("cancellation during structured streaming or request waiting closes the ent
     const release = deferred<void>();
     const f = await fixture({ async beforeClose() { release.resolve(); }, async *outputs(context, input) {
       yield event(context, input, "turn.started", {});
-      const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z" };
+      const base = { protocolVersion: 14 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: "2026-10-21T12:00:00.000Z" };
       yield createAgentEventOutput({ ...base, type: "item.started", payload: { itemId, itemKind: "assistant_message", status: "in_progress" } });
       yield createAgentEventOutput(waitingForRequest
         ? { ...base, type: "request.opened", payload: { request } }
@@ -422,7 +423,7 @@ test("public conformance requires real supported fixtures and qualifies schema l
       if (mode === "late_terminal" && requested) yield terminal(context, input);
     } });
     const scenario: AgentProviderConformanceScenario = {
-      driver: f.driver, definition: f.fake.definition, workingDirectory: "/fixture/workspace", configuration,
+      driver: singleLiveSession(f.driver), definition: f.fake.definition, workingDirectory: "/fixture/workspace", configuration,
       createSessionId: parseAgentSessionId("conformance-create"), resumeSessionId: parseAgentSessionId("conformance-resume"),
       branchSessionId: parseAgentSessionId("conformance-branch"), abortedSessionId: parseAgentSessionId("conformance-abort"), interruptionSessionId: parseAgentSessionId("conformance-interrupt"),
       turn: { ...baseTurn, turnId: parseAgentTurnId("conformance-ordinary") }, interruptionTurn: { ...baseTurn, turnId: parseAgentTurnId("conformance-interruption") },
@@ -440,11 +441,12 @@ test("public conformance requires real supported fixtures and qualifies schema l
       await assert.rejects(runAgentProviderConformance(scenario), (failure) => mode === "late_terminal"
         ? hasContractCode("invalid_turn_sequence")(failure)
         : failure instanceof AgentProviderConformanceError && failure.check === "structured_output");
-      assert.equal(f.turns.length, mode === "missing_fixture" ? 0 : 1);
+      assert.deepEqual(f.turns.map((input) => input.turnId), mode === "missing_fixture" ? ["conformance-ordinary"] : ["conformance-ordinary", "conformance-structured-first"]);
     } else {
       const report = await runAgentProviderConformance(scenario);
       assert.deepEqual(report.checks.filter((check) => check.startsWith("structured_output")), ["structured_output", "structured_output_lifetime"]);
-      assert.deepEqual(f.turns.slice(0, 3).map((input) => input.turnId), ["conformance-structured-first", "conformance-structured-second", "conformance-plain-after"]);
+      assert.deepEqual(f.turns.map((input) => input.turnId),
+        ["conformance-ordinary", "conformance-structured-first", "conformance-structured-second", "conformance-plain-after", "conformance-interruption"]);
       assert.equal(f.fake.snapshot().instanceDisposeCount, 1);
       assert.equal(f.counts.creates, scope === "session" ? 4 : 3);
     }

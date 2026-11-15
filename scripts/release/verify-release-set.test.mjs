@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -11,10 +11,10 @@ import { inspectReleaseSet } from "./verify-release-set.mjs";
 const execFileAsync = promisify(execFile);
 const VERSION = "0.4.4";
 // The coordinated release contract is independent of the validator's package inventory.
-const PACKAGES = ["validation", "agent-protocol", "agent-runtime", "agent-orchestration", "acp-transport", "provider-acp", "acp-registry", "agent-history", "sandbox", "sandbox-docker"];
+const PACKAGES = ["validation", "agent-protocol", "agent-runtime", "agent-orchestration", "acp-transport", "provider-acp", "acp-registry", "agent-history", "sandbox", "sandbox-docker", "provider-grok", "provider-tools", "provider-claude", "provider-opencode"];
 
 async function fixture(t, archives = false) {
-  const root = await mkdtemp(path.join(os.tmpdir(), "agenai-release-set-"));
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "agenai-release-set-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(path.join(root, "package.json"), JSON.stringify({ version: VERSION }));
   const manifests = new Map();
@@ -40,7 +40,7 @@ async function fixture(t, archives = false) {
   return { root, releaseDirectory, tarball, pack, manifests };
 }
 
-test("admits the complete ten-package source and packed identities before publication", async (t) => {
+test("admits the complete fourteen-package source and packed identities before publication", async (t) => {
   const input = await fixture(t, true);
   const result = await inspectReleaseSet({ repositoryRoot: input.root, releaseDirectory: input.releaseDirectory,
     releaseRef: "refs/tags/v0.4.4" });
@@ -54,6 +54,10 @@ test("source admission rejects missing, unknown and mixed packages", async (t) =
     { name: "missing history", change: (f) => rm(path.join(f.root, "packages/agent-history"), { recursive: true }), expected: /Source package inventory mismatch; missing: agent-history/u },
     { name: "missing sandbox", change: (f) => rm(path.join(f.root, "packages/sandbox"), { recursive: true }), expected: /Source package inventory mismatch; missing: sandbox/u },
     { name: "missing Docker backend", change: (f) => rm(path.join(f.root, "packages/sandbox-docker"), { recursive: true }), expected: /Source package inventory mismatch; missing: sandbox-docker/u },
+    { name: "missing Grok provider", change: (f) => rm(path.join(f.root, "packages/provider-grok"), { recursive: true }), expected: /Source package inventory mismatch; missing: provider-grok/u },
+    { name: "missing owned tools", change: (f) => rm(path.join(f.root, "packages/provider-tools"), { recursive: true }), expected: /Source package inventory mismatch; missing: provider-tools/u },
+    { name: "missing Claude provider", change: (f) => rm(path.join(f.root, "packages/provider-claude"), { recursive: true }), expected: /Source package inventory mismatch; missing: provider-claude/u },
+    { name: "missing OpenCode provider", change: (f) => rm(path.join(f.root, "packages/provider-opencode"), { recursive: true }), expected: /Source package inventory mismatch; missing: provider-opencode/u },
     { name: "unknown", change: (f) => mkdir(path.join(f.root, "packages/unapproved")), expected: /unknown: unapproved/u },
     { name: "mixed version", change: (f) => writeFile(path.join(f.root, "packages/provider-acp/package.json"),
       JSON.stringify({ ...f.manifests.get("provider-acp"), version: "0.3.1" })), expected: /provider-acp does not match coordinated version 0\.4\.4/u },
@@ -76,6 +80,7 @@ test("archive admission rejects incomplete, unknown and mislabeled release artif
     { name: "missing history archive", change: (f) => rm(f.tarball("agent-history")), expected: /Release archive inventory mismatch; missing: agen-ai-agent-history-0\.4\.4\.tgz/u },
     { name: "missing sandbox archive", change: (f) => rm(f.tarball("sandbox")), expected: /Release archive inventory mismatch; missing: agen-ai-sandbox-0\.4\.4\.tgz/u },
     { name: "missing Docker archive", change: (f) => rm(f.tarball("sandbox-docker")), expected: /Release archive inventory mismatch; missing: agen-ai-sandbox-docker-0\.4\.4\.tgz/u },
+    { name: "missing Grok archive", change: (f) => rm(f.tarball("provider-grok")), expected: /Release archive inventory mismatch; missing: agen-ai-provider-grok-0\.4\.4\.tgz/u },
     { name: "foreign archive", change: (f) => copyFile(f.tarball("validation"), path.join(f.releaseDirectory, "unapproved.tgz")), expected: /unknown: unapproved\.tgz/u },
     { name: "empty archive", change: (f) => writeFile(f.tarball("provider-acp"), ""), expected: /Release archive is empty: agen-ai-provider-acp/u },
     { name: "mixed packed version", change: (f) => f.pack("acp-registry", { ...f.manifests.get("acp-registry"), version: "0.3.1" }), expected: /acp-registry-0\.4\.4\.tgz has a mixed version/u },
@@ -99,7 +104,7 @@ test("the workflow command admits an exact tag and rejects an incomplete source 
   }
   const command = [path.join(scripts, "verify-release-set.mjs"), "--release-ref", "refs/tags/v0.4.4"];
   const admitted = await execFileAsync(process.execPath, command);
-  assert.match(admitted.stdout, /Coordinated 0\.4\.4 release set admitted \(10 packages\)/u);
+  assert.match(admitted.stdout, /Coordinated 0\.4\.4 release set admitted \(14 packages\)/u);
   await assert.rejects(execFileAsync(process.execPath, [...command.slice(0, 2), "refs/tags/v0.3.1"]),
     (error) => /Release ref does not match the coordinated version/u.test(error.stderr));
   await rm(path.join(input.root, "packages/agent-runtime"), { recursive: true });

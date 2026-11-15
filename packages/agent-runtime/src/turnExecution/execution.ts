@@ -52,6 +52,8 @@ type ExecutionOptions = Readonly<{
   sessionAdmission: AgentSessionAdmission;
   inFlightOperations: Set<Promise<void>>;
   requireUsable: () => void;
+  requireEntry: () => void;
+  onEntered: () => void;
   isTerminal: () => boolean;
   canRestoreRequest: (pending: PendingAgentRequest) => boolean;
   observe: (output: AgentProviderOutput, requests: AgentTurnRequestAdmission) => AgentProviderOutput;
@@ -115,6 +117,10 @@ function createExecution(input: ExecutionOptions, origin:
   const currentState = (): ExecutionState => state;
   let dispatched = false;
   let observedOutput = false;
+  let entryObserved = false;
+  const observeEntry = (): void => {
+    if (!entryObserved) { input.onEntered(); entryObserved = true; }
+  };
   let resolveDisposition!: (kind: "started" | "not_started") => void;
   const disposition = new Promise<"started" | "not_started">((resolve) => { resolveDisposition = resolve; });
   let source: AsyncIterator<AgentProviderOutput> | undefined;
@@ -285,7 +291,10 @@ function createExecution(input: ExecutionOptions, origin:
       if (state.kind === "reserved") input.requireUsable();
       throwIfAgentOperationAborted(lifetime.signal);
       if (state.kind === "reserved") {
-        try { if (origin.kind === "caller") origin.input.onProviderExecutionStarted?.(); } catch (error) {
+        try {
+          input.requireEntry();
+          if (origin.kind === "caller") origin.input.onProviderExecutionStarted?.();
+        } catch (error) {
           state = { kind: "settled" };
           detachAbort();
           input.release(); complete();
@@ -298,6 +307,7 @@ function createExecution(input: ExecutionOptions, origin:
         // The observer has returned successfully; candidate entry is now owned even if it throws.
         state = { kind: "entering" };
         try {
+          observeEntry();
           const candidate = validateCandidate(origin.start({ ...turnInput, signal: lifetime.signal }));
           source = candidate.outputs[Symbol.asyncIterator]();
           throwIfAgentOperationAborted(lifetime.signal);
@@ -319,6 +329,7 @@ function createExecution(input: ExecutionOptions, origin:
       if (!result.done) {
         if (origin.kind === "native" && currentState().kind === "settled") throwAgentProviderContractError(input.providerKey, "invalid_native_continuation", "A no-work execution emitted native output.");
         observedOutput = true;
+        if (origin.kind === "native") observeEntry();
         const output = input.observe(result.value, requests);
         if (inputOwner && output.kind === "event" && output.event.type === "turn.completed") {
           inputOwner.closeAdmission();
@@ -351,7 +362,8 @@ function createExecution(input: ExecutionOptions, origin:
       return { done: true, value: undefined };
     } catch (error) {
       if (state.kind === "entered" || state.kind === "entering") stop(error instanceof Error ? error : new Error("Provider output failed.", { cause: error }));
-      if (error instanceof AgentProviderContractError && error.code === "request_identity_limit_exceeded") {
+      if (error instanceof AgentProviderContractError
+        && (error.code === "request_identity_limit_exceeded" || error.code === "usage_capacity_exceeded")) {
         void input.abandon().catch(() => {});
       }
       if (inputOwner?.failed) void input.abandon().catch(() => {});
@@ -389,9 +401,10 @@ function createExecution(input: ExecutionOptions, origin:
     suspendRequests: requests.suspend, completed, readerReady,
     admitDispatch() {
       if (state.kind !== "parked") throwAgentProviderContractError(input.providerKey, "invalid_native_continuation", "Prepared execution is no longer dispatchable.");
+      input.requireEntry();
       dispatched = true; allowDispatch();
     },
-    markStarted() { resolveDisposition("started"); },
+    markStarted() { observeEntry(); resolveDisposition("started"); },
     settleNoWork() {
       if (observedOutput) {
         throwAgentProviderContractError(input.providerKey, "invalid_native_continuation", "No-work outcome conflicts with entered output.");

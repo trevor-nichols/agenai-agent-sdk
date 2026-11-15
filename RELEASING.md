@@ -1,15 +1,16 @@
 # Releasing
 
-The three core packages and seven optional packages form published coordinated `0.4.13`.
-npm `beta` and `latest` select `0.4.13` for all ten names; see the
-[v0.4.13 release](https://github.com/trevor-nichols/agenai-agent-sdk/releases/tag/v0.4.13).
-It is a Docker Desktop coordinator patch in which `journal_invalid` reason `missing` proves an
-absent coordinator store; read the [upgrade guide](UPGRADING-TO-0.4.13.md). Only the coordinator
-helper's sources and digest change.
-It carries forward [0.4.10 administrative recovery](UPGRADING-TO-0.4.10.md) unchanged. Agent
-Protocol V13, neutral recovery v3, ordinary coordinator v1, backend identities and the recovery
-and egress helper sources remain unchanged.
-Future separately authorized releases publish the complete set in dependency order:
+Coordinated `0.4.14` is the fourteen-package release candidate for explicit approval policies,
+owned Grok/Claude/OpenCode providers and Agent Protocol V14 token-usage telemetry. Read
+[UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md) before upgrading the complete package family.
+The preceding published `0.4.13` is the ten-package V13 release; its immutable archives and
+qualification records remain historical. Source preparation alone does not claim publication.
+
+The four new optional names require initial npm ownership and trusted-publisher setup before
+release. Inspect registry ownership and trust for every name; existing ten-package relationships
+do not establish the new names. Use a distinct unpublished setup stage, retain it until the real
+version and provenance pass readback, and then reject that exact setup stage. Publish the complete
+reviewed set in dependency order:
 
 1. `@agen-ai/validation`
 2. `@agen-ai/agent-protocol`
@@ -21,6 +22,10 @@ Future separately authorized releases publish the complete set in dependency ord
 8. `@agen-ai/agent-history` (optional native catalogs, transcripts, search and explicit saved-session management)
 9. `@agen-ai/sandbox` (optional neutral sandbox lifecycle, processes, files and explicit ACP bridge)
 10. `@agen-ai/sandbox-docker` (optional local Docker execution backend)
+11. `@agen-ai/provider-grok` (optional owned controlled Grok Docker composition)
+12. `@agen-ai/provider-tools` (optional owned provider tools, serial broker and contained Linux commands)
+13. `@agen-ai/provider-claude` (optional owned Claude Agent SDK driver)
+14. `@agen-ai/provider-opencode` (optional owned OpenCode V2 driver)
 
 The coordinated `0.4.8` release retains Agent Protocol V13 and recovery v3 from `0.4.7`; coordinated Desktop owners use separate v7 backend identities. Preserve the historical seven-package
 `0.4.3`/V12 release, earlier `0.4.2`/V12,
@@ -41,7 +46,7 @@ tag creation, dist-tag changes or host deployment. Review
 [MIGRATING-TO-0.4.2.md](MIGRATING-TO-0.4.2.md) for the V12 boundary and
 [MIGRATING-TO-0.4.md](MIGRATING-TO-0.4.md) when upgrading from `0.3.1`.
 
-All ten packages have configured npm trusted publishers for this repository's `release.yml`
+The ten published packages have configured npm trusted publishers for this repository's `release.yml`
 workflow with publication and staging permissions, without separate dist-tag promotion permission. GitHub Actions
 receives a short-lived npm credential through OIDC, and npm attaches provenance to workflow
 releases. The separately authorized initial setup for `@agen-ai/agent-history`, `@agen-ai/sandbox` and `@agen-ai/sandbox-docker`, including
@@ -50,9 +55,9 @@ future trust changes, publication and dist-tag promotion retain their separate a
 
 ## Source preparation
 
-Prepare and review all ten package manifests, public exports, dependency ranges, licenses, README
+Prepare and review all fourteen source package manifests, public exports, dependency ranges, licenses, README
 files, migration notes and changelog from the same source revision. Keep the core dependency rules
-unchanged and make optional orchestration/ACP/history/sandbox dependencies explicit. The public root is private
+unchanged and make optional orchestration/ACP/history/sandbox/Grok/provider-tools/Claude/OpenCode dependencies explicit. The public root is private
 and is never published as an additional package.
 
 From a clean standalone checkout, run `pnpm check`. It validates repository and release contracts,
@@ -87,9 +92,9 @@ qualification from a local pass or package publication.
 `node scripts/release/verify-release-set.mjs` additionally admits the exact coordinated source
 inventory without publishing anything.
 
-Retain the inspected source revision, complete ten-package archive set, package versions and
+Retain the inspected source revision, complete fourteen-package archive set, package versions and
 check results for release review. The workflow checks the archive inventory and retains the exact
-ten tarballs with the source lockfile in a GitHub Actions artifact before its first publication,
+fourteen tarballs with the source lockfile in a GitHub Actions artifact before its first publication,
 rejecting missing, duplicate, foreign or mixed-version artifacts. Packing the same source twice can
 order `package.json` dependency keys differently, so identify archives by their retained hashes, not
 by a repack. Package checks and synthetic ACP examples establish source behavior; they do not
@@ -204,7 +209,7 @@ retain that identity. See [npm's staging contract](https://docs.npmjs.com/cli/v1
 ## Routine release
 
 1. Obtain separate authorization for the exact release operation. Verify package setup/trust for
-   all ten names. Review all package versions and
+   all fourteen source names, including separately authorized setup for Grok, provider tools, Claude and OpenCode. Review all package versions and
    release notes in the private source repository.
 2. Export the approved SDK snapshot to this repository.
 3. Merge the projection to `main` and wait for CI.
@@ -212,10 +217,10 @@ retain that identity. See [npm's staging contract](https://docs.npmjs.com/cli/v1
 5. Open **Actions**, choose **Publish to npm**, and run it from the version tag.
 6. Publish the reviewed set on `beta` and verify it before promoting a stable release to `latest`.
    Prerelease builds remain on `beta` or `next`.
-7. Verify all ten registry entries, their provenance, and a clean registry consumer before any
+7. Verify all fourteen registry entries, their provenance, and a clean registry consumer before any
    `latest` promotion.
 8. When separately approved, sign in with the maintainer account and move `latest` to the exact
-   verified version for all ten packages. Create the GitHub release from the same tag.
+   verified version for all fourteen packages. Create the GitHub release from the same tag.
 
 The ordinary workflow requires a version tag and rejects tags that do not match every package
 version. A branch run is admitted only through the guarded recovery path below. Before
@@ -276,7 +281,7 @@ after the immutable version and provenance pass readback; the release does not r
 dist-tag permission:
 
 ```sh
-VERSION=0.4.13
+VERSION=0.4.14
 npm dist-tag add "@agen-ai/validation@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-protocol@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-runtime@$VERSION" latest
@@ -287,6 +292,10 @@ npm dist-tag add "@agen-ai/acp-registry@$VERSION" latest
 npm dist-tag add "@agen-ai/agent-history@$VERSION" latest
 npm dist-tag add "@agen-ai/sandbox@$VERSION" latest
 npm dist-tag add "@agen-ai/sandbox-docker@$VERSION" latest
+npm dist-tag add "@agen-ai/provider-grok@$VERSION" latest
+npm dist-tag add "@agen-ai/provider-tools@$VERSION" latest
+npm dist-tag add "@agen-ai/provider-claude@$VERSION" latest
+npm dist-tag add "@agen-ai/provider-opencode@$VERSION" latest
 ```
 
 Run these commands one package at a time. Complete that command's browser authentication, wait
@@ -294,14 +303,15 @@ for its successful exit and read its tag back before starting the next package. 
 authentication links or leave concurrent maintainer challenges pending. If a challenge expires,
 read the package's current tag before generating a replacement for that package alone.
 
-Read every tag back after the ten commands. A promotion changes package resolution, not tarball
+Read every tag back after the fourteen commands. A promotion changes package resolution, not tarball
 bytes; `beta` may continue to select the same exact version. Readback must establish the intended version for both tags after promotion.
 These commands remain a separately authorized release procedure, not a source-readiness step.
 
 ## Trusted publisher configuration
 
-The following trust relationship is required for every package in the ten-package release.
-It is configured for all ten published names, including history and both sandbox packages:
+The following trust relationship is required for every package in a future fourteen-package release.
+It is configured for the ten published names, including history and both sandbox packages.
+The new Grok, provider-tools, Claude and OpenCode names require their own separately authorized setup and verification:
 
 ```text
 Provider: GitHub Actions

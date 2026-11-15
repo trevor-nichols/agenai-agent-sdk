@@ -39,6 +39,7 @@ import type { NodeAcpExecutionOwner } from './node/execution/owner.js';
 import { isNodeAcpExecutionCleanupError, NodeAcpExecutionCleanupError } from './node/execution/errors.js';
 import type { AcpPermissionMappingSelection } from './permissions/contracts.js';
 import type { AcpStructuredOutputMappingSelection } from './structuredOutput/mapping.js';
+import { controlledGrokError, GROK_CONTROLLED_CWD, type ResolvedNodeAcpProtocolDialect } from './node/protocolDialect.js';
 
 export async function createAcpProviderInstance(input: {
   readonly providerKey: AgentProviderKey;
@@ -55,6 +56,7 @@ export async function createAcpProviderInstance(input: {
   readonly structuredOutputMapping?: AcpStructuredOutputMappingSelection;
   readonly sessionMcpBinding?: AcpSessionMcpBindingOptions;
   readonly sessionInteractions?: AcpSessionInteractionSelection;
+  readonly protocolDialect?: ResolvedNodeAcpProtocolDialect;
 }): Promise<MaterializedAgentProviderInstance> {
   const lifetime = new AbortController();
   const executions = new Set<NodeAcpExecutionOwner>();
@@ -75,6 +77,7 @@ export async function createAcpProviderInstance(input: {
       permissionMapping: input.permissionMapping,
       ...(input.structuredOutputMapping ? { structuredOutputMapping: input.structuredOutputMapping } : {}),
       ...(input.sessionInteractions ? { sessionInteractions: input.sessionInteractions } : {}),
+      ...(input.protocolDialect ? { protocolDialect: input.protocolDialect } : {}),
     });
   };
   let eager: AcpInitializedConnection | undefined = await connect(lifetime.signal);
@@ -85,7 +88,7 @@ export async function createAcpProviderInstance(input: {
     assertAcpMcpSupport(input.mcpServers, negotiated);
     methods = selectedAuthenticationMethods(negotiated, input.authentication, input.host);
     capabilities = acpProviderCapabilities(input.providerKey, negotiated, input.configuration, [...methods.keys()], input.sessionInteractions,
-      input.permissionMapping, input.structuredOutputMapping);
+      input.permissionMapping, input.structuredOutputMapping, input.protocolDialect !== undefined);
   } catch (cause) {
     if (eager.execution?.cleanupFailure) throw eager.execution.retainedError(cause, eager.execution.cleanupFailure.error);
     try { await eager.close(); } catch (cleanupError) {
@@ -102,6 +105,7 @@ export async function createAcpProviderInstance(input: {
   const pending = new Set<Promise<AgentProviderSession>>();
   let disposePromise: Promise<void> | undefined;
   let disposeDeadline = 0;
+  let controlledCreateEntered = false;
   const cleanupPending = () => [...resources].some((resource) => resource.cleanupPending)
     || [...executions].some((execution) => execution.cleanupPending);
   const bindingSupported = supportsAcpSessionMcpBinding(input.sessionMcpBinding, negotiated);
@@ -152,6 +156,13 @@ export async function createAcpProviderInstance(input: {
   const open = async (context: AgentProviderCreateSessionInput | AgentProviderResumeSessionInput, resume: boolean): Promise<AgentProviderSession> => {
     throwIfAgentOperationAborted(context.signal);
     throwIfAgentOperationAborted(lifetime.signal);
+    if (input.protocolDialect) {
+      if (resume || controlledCreateEntered) throw controlledGrokError(input.providerKey, 'approval_policy_unavailable',
+        'The controlled Grok dialect admits one fresh native create.');
+      if (context.workingDirectory !== GROK_CONTROLLED_CWD || context.configuration.kind !== 'managed'
+        || context.hostBinding !== undefined || context.interactions !== undefined) throw controlledGrokError(input.providerKey,
+        'approval_policy_configuration_forbidden', 'The controlled Grok session requires its fixed cwd and managed configuration without optional bindings.');
+    }
     if ('output' in context && context.output !== undefined) throw new AgentProviderContractError(input.providerKey,
       capabilities.turns.structuredOutput.kind === 'unsupported' ? 'structured_output_unsupported' : 'structured_output_scope_mismatch',
       'ACP structured output is accepted only when starting a turn.');
@@ -178,6 +189,7 @@ export async function createAcpProviderInstance(input: {
       throw new AcpProviderConnectionError('acp_provider_session_duplicate', 'The instance already owns this session identity.');
     }
     creatingIds.add(parsed.sessionId);
+    if (input.protocolDialect) controlledCreateEntered = true;
     const signal = context.signal ? AbortSignal.any([context.signal, lifetime.signal]) : lifetime.signal;
     const operation = (async () => {
       let connection: AcpInitializedConnection | undefined;

@@ -34,6 +34,10 @@ export {
   AgentSessionIdSchema,
   AgentGeneratedResourceIdSchema,
   AgentTurnIdSchema,
+  AgentUsageObservationIdSchema,
+  AgentUsagePopulationIdSchema,
+  AgentUsageScopeIdSchema,
+  AgentUsageViewIdSchema,
 } from './foundation.js';
 export {
   AgentErrorContextSchema,
@@ -150,6 +154,14 @@ export {
 } from './capabilities.js';
 export { AgentArtifactDescriptorSchema } from './artifacts.js';
 export { AgentContextUsageSchema, AgentEventSchema } from './events.js';
+export {
+  AgentTokenCountSchema,
+  AgentTokenUsageCapabilityPortableSchema,
+  AgentTokenUsageCapabilitySchema,
+  AgentTokenUsageObservationPortableSchema,
+  AgentTokenUsageObservationSchema,
+  AgentTokenUsageViewSchema,
+} from './usage.js';
 export type { AgentProtocolSchemaTypeAssertions } from './typeEquality.generated.js';
 export * from './accountQuota.js';
 

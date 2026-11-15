@@ -6,17 +6,22 @@ import { parseSandboxRelativePath, SandboxOperationError, SandboxStateError } fr
 import type { SandboxByteSource, SandboxFileListConsumer, SandboxFileListResult, SandboxFileReadConsumer,
   SandboxFileReadResult, SandboxFileStatResult, SandboxFileWriteResult, SandboxLivePath, SandboxRelativePath } from '@agen-ai/sandbox';
 import type { SandboxDriverFileOptions, SandboxDriverFileWriteOptions, SandboxDriverFiles } from '@agen-ai/sandbox/backend';
-import { FilesystemChannel } from './channel.js';
 import { FILESYSTEM_CHUNK_BYTES } from './protocol.js';
-import type { FilesystemTerminal } from './protocol.js';
+import type { FilesystemReply, FilesystemRequest, FilesystemTerminal } from './protocol.js';
 import type { FilesystemAccess } from '../../policy/filesystem.js';
 import { entry, observation, terminal, unpublished } from './settlement.js';
+
+/** One single-flight helper exchange; interruption permanently fails the transport. */
+export interface FilesystemRequestPort {
+  request(request: FilesystemRequest, signal: AbortSignal): Promise<FilesystemReply>;
+  interrupt(cause: unknown): void;
+}
 
 export class DockerFilesystem {
   readonly files: SandboxDriverFiles;
   private busy = false;
 
-  constructor(private readonly channel: FilesystemChannel, access: FilesystemAccess,
+  constructor(private readonly channel: FilesystemRequestPort, access: FilesystemAccess,
     private readonly beforeOperation: (signal: AbortSignal) => Promise<void>) {
     const read = {
       stat: (path: SandboxLivePath, options: SandboxDriverFileOptions) => this.perform(options, () => this.stat(path, options)),

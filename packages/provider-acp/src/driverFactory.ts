@@ -11,10 +11,12 @@ import { resolveAcpMcpServers, resolveAcpSessionMcpBinding } from './mcp.js';
 import type { AcpConnectionSource } from './connection/contracts.js';
 import { resolveAcpPermissionMapping } from './permissions/selection.js';
 import { resolveAcpStructuredOutputMapping } from './structuredOutput/mapping.js';
+import { controlledGrokError, type ResolvedNodeAcpProtocolDialect } from './node/protocolDialect.js';
 
 export function createAcpProviderDriverInternal(
   options: Omit<CreateAcpProviderDriverOptions, 'createConnection'> & Readonly<{ connectionSource: AcpConnectionSource }>,
   sessionInteractions?: AcpSessionInteractionSelection,
+  protocolDialect?: ResolvedNodeAcpProtocolDialect,
 ): AgentProviderDriver {
   const providerKey = parseAgentProviderKey(options.providerKey);
   const connectionSource = options.connectionSource;
@@ -31,25 +33,34 @@ export function createAcpProviderDriverInternal(
   const permissionMapping = resolveAcpPermissionMapping(options.permissionMapping);
   const structuredOutputMapping = resolveAcpStructuredOutputMapping(options.structuredOutputMapping);
   const usedStreams = new WeakSet<object>();
+  let materialized = false;
   return defineAgentProviderDriver({
     providerKey,
-    supportsMultipleInstances: true,
+    supportsMultipleInstances: protocolDialect === undefined,
     parseConfiguration: parseAcpProviderConfiguration,
-    createInstance: ({ instanceId }) => createAcpProviderInstance({
-      providerKey,
-      instanceId,
-      connectionSource,
-      unknownExtensionPolicy,
-      limits,
-      usedStreams,
-      configuration,
-      authentication,
-      host,
-      mcpServers,
-      permissionMapping,
-      ...(structuredOutputMapping ? { structuredOutputMapping } : {}),
-      ...(sessionMcpBinding ? { sessionMcpBinding } : {}),
-      ...(sessionInteractions ? { sessionInteractions } : {}),
-    }),
+    createInstance: ({ instanceId }) => {
+      if (protocolDialect) {
+        if (instanceId !== protocolDialect.instanceId || materialized) throw controlledGrokError(providerKey,
+          'approval_policy_unavailable', 'The controlled Grok dialect admits only its original instance once.');
+        materialized = true;
+      }
+      return createAcpProviderInstance({
+        providerKey,
+        instanceId,
+        connectionSource,
+        unknownExtensionPolicy,
+        limits,
+        usedStreams,
+        configuration,
+        authentication,
+        host,
+        mcpServers,
+        permissionMapping,
+        ...(structuredOutputMapping ? { structuredOutputMapping } : {}),
+        ...(sessionMcpBinding ? { sessionMcpBinding } : {}),
+        ...(sessionInteractions ? { sessionInteractions } : {}),
+        ...(protocolDialect ? { protocolDialect } : {}),
+      });
+    },
   });
 }

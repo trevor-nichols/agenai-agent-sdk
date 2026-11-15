@@ -57,7 +57,7 @@ async function scenario(options: {
   const session = await harness.open("create");
   const context = harness.contexts[0];
   assert.ok(context);
-  const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId,
+  const base = { protocolVersion: 14 as const, sessionId: context.sessionId, turnId,
     occurredAt: parseAgentIsoDateTime("2026-10-16T00:00:00.000Z") };
   const execution = session.startTurn(turnInput);
   const iterator = execution.outputs[Symbol.asyncIterator]();

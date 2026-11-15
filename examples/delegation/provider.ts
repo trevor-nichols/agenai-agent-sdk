@@ -3,7 +3,7 @@
 // ------------------------------------------------------------------------------------------------
 
 import {
-  parseAgentConfigurationCatalog, parseAgentConfigurationSelectionFor, parseAgentIsoDateTime,
+  AGENT_PROTOCOL_VERSION, parseAgentConfigurationCatalog, parseAgentConfigurationSelectionFor, parseAgentIsoDateTime,
   type AgentConfigurationCatalog, type AgentConfigurationSelectionInput, type AgentInstanceId,
   type AgentProviderKey,
 } from '@agen-ai/agent-protocol';
@@ -114,7 +114,7 @@ export async function createExampleProvider(options: Readonly<{
             if (text.startsWith('[approve]')) { approval = session.startTurn(turn); yield* approval.outputs; return; }
             const wait = text.startsWith('[steer]') || text.startsWith('[cancel]')
               ? new Promise<void>((resolve) => { releaseActive = resolve; }) : undefined;
-            const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: turn.turnId,
+            const base = { protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: context.sessionId, turnId: turn.turnId,
               occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
             yield createAgentEventOutput({ ...base, type: 'turn.started', payload: {} });
             yield createAgentEventOutput({ ...base, type: 'item.started', payload: {

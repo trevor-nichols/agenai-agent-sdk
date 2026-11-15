@@ -113,7 +113,7 @@ test('remembered-only and combined capabilities require an explicit nonempty tot
 function capabilitiesWithApproval(approval: unknown) {
   return {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey: 'v8-contract-provider',
     sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
     turns: {
@@ -130,6 +130,7 @@ function capabilitiesWithApproval(approval: unknown) {
       usage: { kind: 'unsupported' },
       compaction: { kind: 'unsupported' },
     },
+    tokenUsage: { kind: 'unsupported' },
     input: {
       contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: 'unsupported' } },
     output: {
@@ -196,7 +197,7 @@ test('approval capability and request freeze exact bounded once semantics', () =
 
 test('context usage and compaction examples retain only bounded neutral facts', () => {
   const usage = {
-    protocolVersion: 13,
+    protocolVersion: 14,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',
@@ -205,17 +206,13 @@ test('context usage and compaction examples retain only bounded neutral facts', 
       measurementScope: 'materialization',
       usedTokens: 3_933,
       maxTokens: 500_000,
-      cumulative: {
-        inputTokens: 3_933,
-        outputTokens: 54,
-        cachedReadTokens: 512,
-        reasoningTokens: 43,
-        modelCalls: 1,
-        turns: 1,
-      },
     },
   } as const;
   assert.deepEqual(parseAgentEvent(usage), usage);
+  assert.equal(safeParseAgentEvent({
+    ...usage,
+    payload: { ...usage.payload, cumulative: { inputTokens: 3_933 } },
+  }).success, false);
 
   const compaction = {
     itemKind: 'context_compaction',
@@ -383,7 +380,7 @@ test('capability freeze rejects duplicate and noncanonical modes/scopes', () => 
 
 test('context freeze rejects impossible usage and compaction measurements', () => {
   const usageBase = {
-    protocolVersion: 13,
+    protocolVersion: 14,
     type: 'context.usage.updated',
     sessionId: 'session:1',
     turnId: 'turn:1',

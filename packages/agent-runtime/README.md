@@ -9,15 +9,16 @@ sessions; each returned session owns its binding and conversation-local operatio
 The runtime depends only on `@agen-ai/agent-protocol`. It has no concept of tenants, SaaS
 workspaces, assigned users, database rows, persistence sequence, visibility, billing, host boots,
 distributed leases, or storage policy. A host must authorize and select an instance before calling this SPI.
-Current source implements Agent Protocol V13 in the unpublished coordinated ten-package `0.4.8`
-candidate, unchanged from published `0.4.7`, including structured final output. Published `0.4.3` is the seven-package V12 release,
+Current source implements unreleased Agent Protocol V14 token-usage telemetry over the published
+ten-package `0.4.13` baseline, which uses V13, with unreleased runtime approval-policy support and the optional `@agen-ai/provider-grok`,
+`@agen-ai/provider-tools`, `@agen-ai/provider-claude` and `@agen-ai/provider-opencode` packages. These additions do not change the publication record. Published `0.4.3` is the seven-package V12 release,
 including tagged decision responses and exact turn request unavailability. Published `0.4.1`
 retains V11 and its qualification evidence; the earlier `0.4.0` release retains V10.
 The runtime also provides neutral session forms, plan reviews, staged native continuations,
 explicit human-wait policies and optional input during an owned execution. Provider mappings
 require their own support and qualification. The candidate ships no public native provider with
-execution-input support; the separately controlled private Claude diagnostic mapping does not
-introduce a public Claude constructor.
+execution-input support; the unreleased owned Claude and OpenCode constructors also leave that
+port unsupported. The separately controlled private Claude diagnostic mapping retains its own scope.
 Keep all installed SDK packages at the same version; the [0.4.2 migration
 guide](../../MIGRATING-TO-0.4.2.md) covers tagged responses, continuous request output and store
 contract changes. Generic contract proof and exact native qualification are separate boundaries.
@@ -39,6 +40,94 @@ is intentionally one coordinated tuple rather than a deployable mixed-version gr
   entrypoint; importing the ordinary runtime does not select a provider or start work.
 - `@agen-ai/agent-runtime/testing` exports the deterministic fake provider and reusable
   conformance runner.
+- `@agen-ai/agent-runtime/usage` exports the optional pure token-usage reducer:
+  `createTokenUsageLedger`, `admitTokenUsageEvent`, `summarizeTokenUsageView`,
+  `sumDisjointTokenCounts`, `createTokenUsagePendingBuffer`, their limits and result types. The
+  root entrypoint re-exports the same names.
+
+## Select an approval policy
+
+Approval policy is an optional session-opening selection, separate from filesystem/network grants,
+session interaction modes and individual approval responses. Read `instance.adapter.approvalPolicy`
+before selecting it. An absent declaration preserves older providers; `{ kind: 'unsupported' }`
+explicitly declares no normalized policy support. A supported declaration lists each policy and its
+allowed opening operations (`create`, `resume`, `branch`). Support for one operation implies nothing
+about the others.
+
+| Selection | Meaning |
+| --- | --- |
+| Omitted | Preserve the provider's existing behavior; no effective policy is asserted. |
+| `{ kind: 'host' }` | Explicitly select the provider's supported host approval behavior. |
+| `{ kind: 'provider_accept_edits' }` | Automatically permit qualified structured workspace edits while every command and other restricted action retains exact host approval. |
+| `{ kind: 'provider_auto_review' }` | Select native review of eligible actions; native preapprovals, denials and residual host requests still apply. |
+| `{ kind: 'provider_bypass' }` | Select native bypass of eligible approval checks within the existing outer authority. |
+
+`provider_accept_edits` is unreleased. The source constructors in `@agen-ai/provider-claude` and
+`@agen-ai/provider-opencode` advertise it for fresh session creation in their explicitly prepared
+Linux compositions, including the qualified Linux arm64 Docker Desktop workload. Published 0.4.13
+does not include these drivers or this policy. Grok remains limited to its three qualified policies,
+and generic ACP remains unsupported.
+An eligible edit must preserve explicit denies, asks, protected paths and filesystem containment.
+Shell-based edits remain commands, including read-only commands and shell redirects. The owned
+Claude/OpenCode mappings automatically admit ordinary file creates, exact-text updates and patches
+of at most sixteen files when every target qualifies. Delete, rename, mkdir, metadata, permission
+and link operations have no automatic file-tool mapping; an approved contained command can perform
+operations within its existing authority. Explicit denies win; explicit asks and protected paths
+retain host decisions. Multi-file publication is sequential, not atomic.
+
+This selection authorizes neither application-owned tools nor remembered grants. Policy is fixed
+for the session; invalidating native drift retires the owned provider session rather than changing
+policy. Consumers with exhaustive `AgentApprovalPolicy.kind` switches must add the new member;
+existing inputs and serialized V13/V26/recovery-v3 contracts are unchanged. The
+[installed example](../../examples/accept-edits/README.md) and
+[qualification handoff](../../examples/accept-edits/HANDOFF.md) record the working compositions,
+real API-key matrix, native prerequisites and release boundary.
+
+```ts
+import type { AgentApprovalPolicy } from '@agen-ai/agent-runtime';
+
+const approvalPolicy: AgentApprovalPolicy = { kind: 'provider_auto_review' };
+const support = instance.adapter.approvalPolicy;
+if (support?.kind !== 'supported' || !support.policies.some(
+  (entry) => entry.policy === approvalPolicy.kind && entry.operations.includes('create'),
+)) throw new Error('This instance does not support auto-review for a fresh session.');
+
+const session = await instance.adapter.createSession({ ...openingInput, approvalPolicy });
+console.log(session.approvalPolicy);
+// { policy: { kind: 'provider_auto_review' }, verification: 'controlled_configuration' }
+// The actual verification value belongs to the selected provider mapping.
+```
+
+The validated runtime rejects an unsupported explicit selection before entering the provider's
+opening method or acquiring a session host lease. It requires a matching `session.approvalPolicy`
+when selection was explicit. `verification: 'native_observation'` means the mapping observed the
+native state; `'controlled_configuration'` means its owned composition establishes that state.
+Neither value proves that every action received AI review or grants authority to host tools.
+Successful generic ACP initialization or a requested CLI flag alone establishes neither claim.
+
+`AgentProviderContractError.code` distinguishes `approval_policy_invalid`,
+`approval_policy_unsupported`, `approval_policy_unconfirmed` and `approval_policy_mismatch`.
+Mappings may also reject disallowed configuration with `approval_policy_configuration_forbidden`
+or retire a session with `approval_policy_unavailable` when native review cannot proceed.
+There is no silent fallback to another policy.
+The runtime owns cleanup of rejected returned sessions; retain existing cleanup retry ownership
+when cleanup itself fails.
+
+Continue draining the original execution's output and resolving genuine requests by their exact
+offered IDs and consequences. These policies do not automate your host's answers to approvals,
+forms or mandatory questions. `generateObject` accepts the same selection in `session.approvalPolicy`
+and can still need `onRequest`; an unhandled request remains `interaction_required`. Each provider
+must separately support structured output; the controlled Grok shell composition does not.
+
+The [credentialless walkthrough](../../examples/approval-policy/README.md) demonstrates these
+contracts with independently checked fixture effects and a generic ACP refusal control. Its
+simulated policy result is explicitly labeled. The optional owned Grok Docker composition has
+separate installed Linux x64/native-arm64 Desktop qualification for Grok Build `1.0.77` /
+`50ca579fa996` and `grok-4.6`; see the [qualification handoff](../../examples/approval-policy/HANDOFF.md).
+That constructor advertises one immutable policy for `create` only and requires an explicit matching
+selection, including `host`. Its omission refusal is a constructor restriction; it does not change
+the neutral contract's compatibility behavior. New policies require a fresh profile/image and owner.
+It returns `controlled_configuration`, not per-action review or host-tool authorization.
 
 ## Generate a typed object
 
@@ -278,8 +367,8 @@ across human requests until native terminal output, entered response/control set
 Materialization-scoped context usage remains monotonic only within one native provider process. A
 provider that replaces that process emits a `process.started` lifecycle output as the explicit
 boundary before reporting usage from the replacement. Validation then clears only the
-`materialization` occupancy, cumulative counters, and compaction allowance; logical `session`
-measurements remain continuous.
+`materialization` occupancy and compaction allowance; logical `session` measurements remain
+continuous.
 `startTurn(input)` returns `{ turnId, outputs, resolveRequest, input? }`. `outputs` preserves per-output
 backpressure and stays open during `waiting_for_request`; the consumer can call
 `execution.resolveRequest({ resolution })` as soon as it receives `request.opened`, before its next
@@ -340,10 +429,42 @@ replaying work or changes an uncertain execution outcome. Contract failures, del
 started evidence, and retained cleanup responsibilities remain separate from those failure values.
 
 When context usage is advertised, the validated session enforces the declared measurement scopes
-and cumulative fields across turns. Identical consecutive samples and decreasing cumulative
-counters are rejected. Occupancy may decrease only after a completed advertised compaction item;
-the next accepted sample consumes that allowance. Context output remains subject to the same
-per-output backpressure and terminal ordering as every other provider event.
+across turns. Identical consecutive samples are rejected. Occupancy may decrease only after a
+completed advertised compaction item; the next accepted sample consumes that allowance. Context
+output remains subject to the same per-output backpressure and terminal ordering as every other
+provider event.
+
+Token usage arrives as `usage.observed` on the existing turn `outputs` reader or an owned session
+operation's `onOutput`; there is no separate usage reader and `close()` returns no usage. The
+envelope `turnId` is the delivery turn, not the accounting scope. The validated session admits each
+observation into one ledger per session: it must match a declared view, scope kind, reported
+counters and attribution kinds, keep its identity stable on replay, and respect snapshot epochs,
+revisions and finality. It is admitted after a `final_diff` and before the terminal event, never
+after it. Configuration results carry no observation turn and reject usage. Unsupported, foreign,
+conflicting, malformed and regressing usage fails the turn with its `usage_*` contract code;
+over-bound usage reports `usage_capacity_exceeded` and abandons the session through its close
+owner. Valid `unavailable` counters never change a native success. Collaboration usage may
+reference only a scope this session has already admitted. Providers that learn usage before any
+output path exists retain it with `createTokenUsagePendingBuffer` (64 observations, 256 KiB, in
+arrival order) and drain it onto the next delivery turn; an open and close without output
+publishes nothing.
+
+Turn and model-call scope references must identify an SDK turn that entered execution in this
+session generation. Later delivery may refer to an earlier entered turn. Known new-work turn
+counts cannot exceed the entered-turn census; historical totals remain independent of that
+bound. Usage-enabled sessions retain at most 4,096 distinct entered turn IDs without eviction;
+reuse rejects as `usage_scope_mismatch`, and exhaustion rejects as `usage_capacity_exceeded`.
+Operation callbacks stop admitting output when the operation settles or session close begins.
+Operation settlement and close wait for already entered callbacks, including consumer delivery.
+
+The session's internal ledger is not exposed. A consumer that wants totals keeps its own with the
+`/usage` reducer: admit each `usage.observed` event, then call `summarizeTokenUsageView` for one
+declared view ID. `total` folds that view's scopes and keeps each counter's precision. Deltas and
+fresh-zero snapshots measure `newWork` directly; historical snapshots require an exact,
+comparable baseline before subtraction. An unknown origin leaves new work unavailable. An absent summary means
+no observation, never zero. The [usage example](../../examples/usage/README.md) runs eleven
+deterministic scenarios, and [UPGRADING-TO-AGENT14.md](../../UPGRADING-TO-AGENT14.md) covers
+migration from V13.
 
 When `capabilities.turns.steer.kind` is `supported`, the session exposes `steering.steerTurn`. Steering accepts
 the existing turn ID plus the same canonical `parts` and optional `summary` used to start a turn.
@@ -368,7 +489,7 @@ native continuations cannot overlap that reservation. Exact cached idempotent re
 before reserving another execution. Close stops admission and initiates native quiescence before
 joining entered operation work; failed cleanup retains its stopped owner for retry. This lifecycle
 correction and operation retry observations were included in published `0.4.3`, using its
-Agent Protocol V12 and operation SPI; current V13 source retains that behavior.
+Agent Protocol V12 and operation SPI; current V14 source retains that behavior.
 
 Discover the operation through `session.operations` and its offered descriptor, using an exact
 application-configured ID. Pass the descriptor revision as `expectedRevision`, its exact fields,
@@ -398,7 +519,7 @@ The runtime offers optional provider-neutral input on a caller-started
 execution. **No public native provider ships with support for this domain.** Public ACP,
 including Grok compositions, remains unsupported. Positive native qualification belongs only to
 a separately controlled private Claude SDK `0.3.309` / Code `2.1.309` diagnostic composition on
-Linux x86_64 / Node `24.18.0`; there is no public Claude execution constructor. That evidence does
+Linux x86_64 / Node `24.18.0`; the unreleased owned Claude constructor does not expose this input port. That evidence does
 not qualify production/fleet execution, subscription authentication or billing. Other features'
 provider selections and qualification remain independent.
 
@@ -502,7 +623,7 @@ quiescence before joining entered input, output and callbacks; elapsed observati
 prove they stopped. Keep the session or exact opening cleanup error and dependent instance,
 registry and host resources until cleanup succeeds. Retry joins that same cleanup owner without
 replaying input; rematerializing does not authorize an uncertain message's replay. This optional
-runtime domain adds no Agent Protocol V13 change, private wire change or persistence migration.
+runtime domain adds no Agent Protocol change, private wire change or persistence migration.
 
 ## Session-lifetime interactions
 
@@ -834,10 +955,12 @@ alone proves neither. The runner checks session controls before its main turn an
 turn-produced resources after terminal output while the session remains open. It then starts session
 close before joining its reader and actual callback tasks; failure also starts close before joins. Original
 failures and cleanup failures remain observable. A callback that ignores cancellation
-remains owned until its actual promise settles.
+remains owned until its actual promise settles. Each later session (structured output, interruption,
+resume, and branch) opens only after the previous session has closed, so a driver that admits one live
+session per instance can run the suite unchanged.
 
-The coordinated ten-package `0.4.8` source candidate implements Agent Protocol V13 and remains
-unpublished; published `0.4.7` also implements V13. Published `0.4.3` is the seven-package V12 release.
+Current source implements unreleased Agent Protocol V14; published `0.4.13` and `0.4.7`
+implement V13. Published `0.4.3` is the seven-package V12 release.
 The earlier `0.4.1` release retains V11.
 The earlier `0.4.0` release retains V10.
 The earlier public `0.3.0` and `0.3.1` releases implemented V9 and remain historical.
@@ -845,7 +968,7 @@ Keep installed packages in a release family on its coordinated version; orchestr
 history packages remain optional. History browsing owns no execution turn and does not establish
 structured-output support. Every materialized instance requires `environment` and
 `accountQuota`; every session requires `environment`. The former standalone `integrations`
-observation port is removed. The public runtime implements Agent Protocol V13 with one current
+observation port is removed. The public runtime implements Agent Protocol V14 with one current
 adapter/session surface. Package versions remain independent of private transport and product
 persistence versions.
 

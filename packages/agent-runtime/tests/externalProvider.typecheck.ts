@@ -29,6 +29,18 @@ import {
   type AgentItemSnapshot,
 } from "@agen-ai/agent-protocol";
 
+import {
+  admitTokenUsageEvent,
+  createTokenUsageLedger,
+  summarizeTokenUsageView,
+  sumDisjointTokenCounts,
+  type AgentTokenUsageViewSummary as UsageViewSummary,
+} from "@agen-ai/agent-runtime/usage";
+import type {
+  AgentTokenCount as TokenCount,
+  AgentUsageObservedEvent as UsageObservedEvent,
+} from "@agen-ai/agent-protocol/usage";
+
 const providerKey = parseAgentProviderKey("external-provider");
 
 export const externalHostBinding: AgentSessionHostBinding = {
@@ -50,7 +62,7 @@ export const externalHostBinding: AgentSessionHostBinding = {
 };
 const capabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 13,
+  protocolVersion: 14,
   providerKey,
   sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
   turns: {
@@ -71,6 +83,7 @@ const capabilities = parseAgentCapabilities({
     usage: { kind: "unsupported" },
     compaction: { kind: "unsupported" },
   },
+  tokenUsage: { kind: "unsupported" },
   input: {
     contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
   output: {
@@ -118,7 +131,7 @@ function providerSession(
     startTurn(input) {
       return { turnId: input.turnId, async resolveRequest() { return { status: "delivered" }; }, outputs: (async function* () {
       yield createAgentEventOutput({
-        protocolVersion: 13,
+        protocolVersion: 14,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -126,7 +139,7 @@ function providerSession(
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 13,
+        protocolVersion: 14,
         type: "item.completed",
         sessionId,
         turnId: input.turnId,
@@ -134,7 +147,7 @@ function providerSession(
         payload: commandItem,
       });
       yield createAgentEventOutput({
-        protocolVersion: 13,
+        protocolVersion: 14,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -264,4 +277,16 @@ export async function sendExternalExecutionInput(execution: AgentProviderTurnExe
       return exhaustive;
     }
   }
+}
+
+// ------------------------------------------------------------------------------------------------
+//                Usage Subpaths
+// ------------------------------------------------------------------------------------------------
+
+/** An external accountant composes provider counts and folds observed events through `/usage`. */
+export function summarizeExternalUsage(event: UsageObservedEvent): UsageViewSummary | undefined {
+  const admission = admitTokenUsageEvent(createTokenUsageLedger({ sessionId: event.sessionId }), event);
+  if (admission.status === "rejected") return undefined;
+  sumDisjointTokenCounts(providerKey, { kind: "exact", value: 1 }) satisfies TokenCount;
+  return summarizeTokenUsageView(admission.ledger, event.payload.view.viewId);
 }

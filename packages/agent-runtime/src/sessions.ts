@@ -39,6 +39,7 @@ import type {
   AgentEnvironmentObservationPort,
 } from "./environment/types.js";
 import type { AgentExecutionInput, AgentExecutionInputSupport } from "./executionInput/types.js";
+import type { AgentApprovalPolicy, AgentApprovalPolicySupport, AgentSessionApprovalPolicy } from "./approvalPolicy/types.js";
 
 // ------------------------------------------------------------------------------------------------
 //                Session Open Contracts
@@ -48,6 +49,7 @@ export interface AgentProviderSessionContext {
   readonly sessionId: AgentSessionId;
   readonly workingDirectory: string;
   readonly configuration: AgentSessionConfiguration;
+  readonly approvalPolicy?: AgentApprovalPolicy;
   readonly signal?: AbortSignal;
   readonly hostBinding?: AgentSessionHostBinding;
   readonly interactions?: AgentProviderSessionInteractionContext;
@@ -281,6 +283,7 @@ export type AgentGeneratedResourceAccess =
 
 export interface AgentProviderSession {
   readonly binding: AgentSessionBinding;
+  readonly approvalPolicy?: AgentSessionApprovalPolicy;
   readonly startTurn: (
     input: AgentProviderStartTurnInput,
   ) => AgentProviderTurnExecution;
@@ -344,6 +347,7 @@ export type AgentProviderAuthentication =
     }>;
 
 export interface AgentProviderAdapter {
+  readonly approvalPolicy?: AgentApprovalPolicySupport;
   readonly executionInput?: AgentExecutionInputSupport;
   readonly sessionInteractions?: AgentSessionInteractionSupport;
   readonly hostBinding?: AgentSessionHostBindingSupport;

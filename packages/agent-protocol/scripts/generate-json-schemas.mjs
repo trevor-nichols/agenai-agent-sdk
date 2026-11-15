@@ -67,6 +67,10 @@ import {
   AgentTurnInputContentSchema,
   AgentTurnRunInputPortableSchema,
 } from '../src/zod/turns.ts';
+import {
+  AgentTokenUsageCapabilityPortableSchema,
+  AgentTokenUsageObservationPortableSchema,
+} from '../src/zod/usage.ts';
 
 // ------------------------------------------------------------------------------------------------
 //                Curated Protocol Contract Matrix
@@ -98,6 +102,25 @@ const structuredResultParserInvariants = [
   'structured_value_collection_limits',
   'serialized_utf8_bytes',
   'structured_issue_utf8_bytes',
+];
+
+const tokenUsageObservationParserInvariants = [
+  'bounded_acyclic_input',
+  'usage_canonical_reasons',
+  'usage_exact_requires_complete_coverage',
+  'usage_counter_subsets',
+  'usage_count_basis_consistency',
+  'usage_measurement_matches_view_accounting',
+  'usage_initial_epoch_cause',
+  'usage_detail_containment',
+  'usage_model_row_order_and_reconciliation',
+];
+const tokenUsageCapabilityParserInvariants = [
+  'canonical_token_usage_reported_counters',
+  'canonical_token_usage_attribution_kinds',
+  'unique_token_usage_view_ids',
+  'single_authoritative_token_usage_view',
+  'token_usage_count_basis_consistency',
 ];
 
 const definitions = [
@@ -417,6 +440,20 @@ const definitions = [
     ],
   },
   {
+    exportName: 'AGENT_TOKEN_USAGE_OBSERVATION_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.token-usage-observation',
+    direction: 'output',
+    schema: AgentTokenUsageObservationPortableSchema,
+    parserInvariants: tokenUsageObservationParserInvariants,
+  },
+  {
+    exportName: 'AGENT_TOKEN_USAGE_CAPABILITY_JSON_SCHEMA',
+    contractId: 'agenai.agent-protocol.token-usage-capability',
+    direction: 'output',
+    schema: AgentTokenUsageCapabilityPortableSchema,
+    parserInvariants: tokenUsageCapabilityParserInvariants,
+  },
+  {
     exportName: 'AGENT_CAPABILITIES_JSON_SCHEMA',
     contractId: 'agenai.agent-protocol.capabilities',
     direction: 'output',
@@ -439,11 +476,11 @@ const definitions = [
       'canonical_operation_field_kinds',
       'canonical_operation_kinds',
       'canonical_context_compaction_triggers',
-      'canonical_context_cumulative_usage_fields',
       'canonical_context_measurement_scopes',
       'image_input_pixels_bounded_by_dimensions',
       'image_input_total_bytes_admits_max_image',
       'image_input_total_bytes_bounded_by_count',
+      ...tokenUsageCapabilityParserInvariants,
     ],
   },
   {
@@ -468,6 +505,7 @@ const definitions = [
       'retry_counter_ordering',
       'serialized_bytes',
       ...structuredResultParserInvariants,
+      ...tokenUsageObservationParserInvariants.filter((invariant) => invariant !== 'bounded_acyclic_input'),
     ],
   },
 ];

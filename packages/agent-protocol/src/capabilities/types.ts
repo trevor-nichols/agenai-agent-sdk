@@ -21,7 +21,6 @@ import type {
 import type { AgentGeneratedResourceKind } from '../resources/index.js';
 import type {
   AgentContextCompactionTrigger,
-  AgentContextCumulativeUsageField,
   AgentContextMeasurementScope,
   AgentImageInputMediaType,
   AgentImageInputSourceKind,
@@ -32,6 +31,7 @@ import type {
   AgentApprovalScopeKind,
   AgentElicitationFieldKind,
 } from '../requests/types.js';
+import type { AgentTokenUsageCapability } from '../usage/types.js';
 
 export const AGENT_FILE_CHANGE_MODES = [
   'none',
@@ -149,7 +149,6 @@ export type AgentContextUsageCapability =
   | Readonly<{
       kind: 'supported';
       measurementScopes: readonly AgentContextMeasurementScope[];
-      cumulativeFields: readonly AgentContextCumulativeUsageField[];
     }>;
 
 export type AgentContextCompactionCapability =
@@ -210,7 +209,7 @@ export type AgentTurnSteeringCapability =
     }>;
 
 export interface AgentCapabilities {
-  readonly protocolVersion: 13;
+  readonly protocolVersion: 14;
   readonly providerKey: AgentProviderKey;
   readonly sessions: Readonly<{
     create: true;
@@ -231,6 +230,7 @@ export interface AgentCapabilities {
     usage: AgentContextUsageCapability;
     compaction: AgentContextCompactionCapability;
   }>;
+  readonly tokenUsage: AgentTokenUsageCapability;
   readonly input: AgentOperationInputCapability;
   readonly output: Readonly<{
     streaming: boolean;

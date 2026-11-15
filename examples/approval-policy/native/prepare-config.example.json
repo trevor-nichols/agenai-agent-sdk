@@ -1,0 +1,19 @@
+{
+  "format": "agenai.approval-native-prepare.v1",
+  "provider": "grok",
+  "mapping": "grok-build-1.0.77-controlled-shell-v1",
+  "profile": {
+    "instanceId": "approval-native:one",
+    "nativeSessionId": "00000000-0000-4000-8000-000000000001",
+    "policy": "provider_auto_review",
+    "deniedBashPatterns": ["git reset --hard*"],
+    "credentialBootstrap": {
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "preparation": {
+    "directory": "/ABSOLUTE/CONTEXT/fresh",
+    "dockerProfile": "linux-x64",
+    "baseImageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}
