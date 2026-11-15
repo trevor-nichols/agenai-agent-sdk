@@ -2,7 +2,7 @@
 //                host.ts - Public registry and host composition for durable qualification
 // ------------------------------------------------------------------------------------------------
 
-import { parseAgentConfigurationRevisionId, parseAgentIsoDateTime, type AgentTurnId } from "@agen-ai/agent-protocol";
+import { AGENT_PROTOCOL_VERSION, parseAgentConfigurationRevisionId, parseAgentIsoDateTime, type AgentTurnId } from "@agen-ai/agent-protocol";
 import {
   createAgentEventOutput,
   createAgentProviderRegistry,
@@ -25,7 +25,7 @@ export const parent: DelegationParentScope = { parentId: "parent", scopeId: "qua
 export const input = { parts: [{ type: "text" as const, text: "Perform the delegated task." }] };
 
 export function eventBase(context: AgentProviderSessionContext, turnId: AgentTurnId) {
-  return { protocolVersion: 13 as const, sessionId: context.sessionId, turnId, occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
+  return { protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: context.sessionId, turnId, occurredAt: parseAgentIsoDateTime(new Date().toISOString()) };
 }
 
 export async function* completedOutputs(context: AgentProviderSessionContext, turnId: AgentTurnId, deltas = ["Durable result."]): AsyncIterable<AgentProviderOutput> {

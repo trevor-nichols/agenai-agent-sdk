@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  parseAgentCapabilities, parseAgentConfigurationRevisionId, parseAgentIsoDateTime,
+  AGENT_PROTOCOL_VERSION, parseAgentCapabilities, parseAgentConfigurationRevisionId, parseAgentIsoDateTime,
   parseAgentOperationId, parseAgentRequestFieldId, parseAgentSessionId, type AgentOperationDescriptor,
 } from '@agen-ai/agent-protocol';
 import { createAgentEventOutput, throwIfAgentOperationAborted, validateAgentProviderAdapter, type AgentProviderInvokeOperationInput } from '@agen-ai/agent-runtime';
@@ -56,7 +56,7 @@ export async function createOperationExample(scenario: Scenario, cancel: AbortCo
             throwIfAgentOperationAborted(input.signal);
           }
           if (scenario === 'effect') {
-            await input.onOutput?.(createAgentEventOutput({ protocolVersion: 13, type: 'item.completed',
+            await input.onOutput?.(createAgentEventOutput({ protocolVersion: AGENT_PROTOCOL_VERSION, type: 'item.completed',
               sessionId: context.sessionId, turnId: input.observationTurnId,
               occurredAt: parseAgentIsoDateTime('2026-10-20T12:00:00.000Z'),
               payload: { itemId: 'example:compaction', itemKind: 'context_compaction', status: 'completed',

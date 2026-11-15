@@ -16,7 +16,7 @@ export type { AgentError, AgentErrorContext } from '../failures/types.js';
 //                Protocol Version and Limits
 // ------------------------------------------------------------------------------------------------
 
-export const AGENT_PROTOCOL_VERSION = 13 as const;
+export const AGENT_PROTOCOL_VERSION = 14 as const;
 export const AGENT_PROTOCOL_ID_MAX_LENGTH = 256;
 export const AGENT_PROTOCOL_PROVIDER_REFERENCE_MAX_LENGTH = 512;
 export const AGENT_PROTOCOL_PROVIDER_KEY_MAX_LENGTH = 100;
@@ -75,6 +75,10 @@ export type AgentProviderTurnRef = AgentProtocolId<'AgentProviderTurnRef'>;
 export type AgentProviderItemRef = AgentProtocolId<'AgentProviderItemRef'>;
 export type AgentProviderRequestRef =
   AgentProtocolId<'AgentProviderRequestRef'>;
+export type AgentUsageObservationId = AgentProtocolId<'AgentUsageObservationId'>;
+export type AgentUsageViewId = AgentProtocolId<'AgentUsageViewId'>;
+export type AgentUsageScopeId = AgentProtocolId<'AgentUsageScopeId'>;
+export type AgentUsagePopulationId = AgentProtocolId<'AgentUsagePopulationId'>;
 
 export type AgentProviderKey = string & {
   readonly [agentProtocolIdBrand]: 'AgentProviderKey';

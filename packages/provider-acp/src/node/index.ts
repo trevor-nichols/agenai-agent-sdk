@@ -4,14 +4,17 @@ import type { CreateNodeAcpProviderDriverOptions } from './contracts.js';
 import { resolveNodeAcpLaunch, resolveNodeAcpSessionInteractions } from './launch.js';
 import { spawnAcpProcess } from './process.js';
 import { executionReservationSource } from './execution/owner.js';
+import { resolveNodeAcpProtocolDialect } from './protocolDialect.js';
 
 export type { NodeAcpLaunchOptions, CreateNodeAcpProviderDriverOptions } from './contracts.js';
+export type { NodeAcpProtocolDialectSelection } from './protocolDialect.js';
 export type { NodeAcpExecutionInput, NodeAcpExecutionBoundary, NodeAcpExecutionReservation } from './execution/types.js';
 export { NodeAcpExecutionCleanupError, isNodeAcpExecutionCleanupError } from './execution/errors.js';
 
 /** Uses the supplied inert execution owner, or the default owned POSIX process-group launcher. */
 export function createNodeAcpProviderDriver(options: CreateNodeAcpProviderDriverOptions): AgentProviderDriver {
   const launch = resolveNodeAcpLaunch(options.launch);
+  const protocolDialect = resolveNodeAcpProtocolDialect(options);
   const boundary = options.executionBoundary;
   if (boundary === undefined && Object.hasOwn(options, 'executionBoundary')) throw new TypeError('An explicitly supplied execution boundary must be valid.');
   const reserve = boundary === undefined ? undefined : executionReservationSource(boundary, launch);
@@ -30,5 +33,5 @@ export function createNodeAcpProviderDriver(options: CreateNodeAcpProviderDriver
     ...(options.host ? { host: options.host } : {}),
     ...(options.mcpServers ? { mcpServers: options.mcpServers } : {}),
     ...(options.sessionMcpBinding ? { sessionMcpBinding: options.sessionMcpBinding } : {}),
-  }, sessionInteractions);
+  }, sessionInteractions, protocolDialect);
 }

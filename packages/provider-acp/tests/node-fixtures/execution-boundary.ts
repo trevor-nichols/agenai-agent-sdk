@@ -10,12 +10,38 @@ export function controlledPeerExecutionBoundary(): NodeAcpExecutionBoundary {
     let stopped = false;
     let pending: Promise<void> | undefined;
     let complete = false;
+    let groupGone = false;
     const signal = (value: NodeJS.Signals | 0): boolean => {
-      if (!child?.pid) return false;
+      if (groupGone || !child?.pid) return false;
       try { process.kill(-child.pid, value); return true; }
       catch (error) {
-        if (error instanceof Error && 'code' in error && error.code === 'ESRCH') return false;
+        if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
+          groupGone = true;
+          return false;
+        }
         throw error;
+      }
+    };
+    const signalAndWait = async (initialSignal: NodeJS.Signals): Promise<boolean> => {
+      if (!child) return true;
+      let nextSignal: NodeJS.Signals | 0 = initialSignal;
+      let pendingSignalError: Error | undefined;
+      const deadline = performance.now() + input.shutdownTimeoutMs;
+      for (;;) {
+        try {
+          if (!signal(nextSignal) && closed) return true;
+        } catch (error) {
+          if (closed || !(error instanceof Error) || !('code' in error) || error.code !== 'EPERM') throw error;
+          // Darwin can deny signals before reaping; only close plus ESRCH proves cleanup.
+          pendingSignalError = error;
+        }
+        const remaining = deadline - performance.now();
+        if (remaining <= 0) {
+          if (pendingSignalError) throw pendingSignalError;
+          return false;
+        }
+        nextSignal = 0;
+        await delay(Math.min(5, remaining));
       }
     };
     return {
@@ -32,20 +58,12 @@ export function controlledPeerExecutionBoundary(): NodeAcpExecutionBoundary {
         stopped = true;
         if (complete) return Promise.resolve();
         if (!pending) {
-          child?.stdin.end();
-          signal('SIGTERM');
-          pending = (async () => {
-            const deadline = performance.now() + input.shutdownTimeoutMs;
-            while (child && (!closed || signal(0)) && performance.now() < deadline) await delay(5);
-            if (child && (!closed || signal(0))) {
-              signal('SIGKILL');
-              const killDeadline = performance.now() + input.shutdownTimeoutMs;
-              while ((!closed || signal(0)) && performance.now() < killDeadline) await delay(5);
-              if (!closed || signal(0)) throw new Error('Controlled execution did not join.');
-            }
+          pending = Promise.resolve().then(async () => {
+            child?.stdin.end();
+            if (!await signalAndWait('SIGTERM') && !await signalAndWait('SIGKILL')) throw new Error('Controlled execution did not join.');
             child?.stdin.destroy(); child?.stdout.destroy(); child?.stderr.destroy();
             complete = true;
-          })().finally(() => { pending = undefined; });
+          }).finally(() => { pending = undefined; });
         }
         return pending;
       },

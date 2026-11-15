@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, existsSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -19,7 +19,7 @@ const definition = { providerKey, instanceId: parseAgentInstanceId('node:instanc
 const posixOnly = { skip: process.platform === 'win32' };
 interface LogEntry { readonly type: string; readonly pid?: number; readonly argv?: string[]; readonly inherited?: unknown; readonly cwd?: string; readonly method?: string; readonly id?: string | number; readonly result?: unknown }
 function setup(t: TestContext, mode = 'normal', unknownExtensionPolicy?: CreateNodeAcpProviderDriverOptions['unknownExtensionPolicy'], permissionMapping?: CreateNodeAcpProviderDriverOptions['permissionMapping']) {
-  const cwd = mkdtempSync(path.join(tmpdir(), 'agenai-node-acp-'));
+  const cwd = realpathSync(mkdtempSync(path.join(tmpdir(), 'agenai-node-acp-')));
   const log = path.join(cwd, 'events.jsonl');
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const driver = createNodeAcpProviderDriver({ providerKey,

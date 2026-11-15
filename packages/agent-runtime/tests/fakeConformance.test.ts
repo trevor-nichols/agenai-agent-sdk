@@ -30,6 +30,7 @@ import {
   createFakeAgentProvider,
   runAgentProviderConformance,
 } from "../src/testing/index.js";
+import { singleLiveSession } from "./fixtures/singleLiveSession.js";
 const configuration: AgentSessionConfiguration = {
   kind: "selected",
   revision: parseAgentConfigurationRevisionId("configuration:1"),
@@ -89,7 +90,7 @@ test('conformance accepts idle environment watches and closes both subscriptions
   assert.equal(closed, 2);
 });
 
-test("the deterministic fake passes conformance with a provider retry after request waiting", async () => {
+test("the deterministic fake passes conformance one live session at a time with a provider retry after request waiting", async () => {
   const fake = createFakeAgentProvider();
   let observedRetries = 0;
   const driver: AgentProviderDriver = {
@@ -113,7 +114,7 @@ test("the deterministic fake passes conformance with a provider retry after requ
                     && output.event.payload.state === "waiting_for_request") {
                     observedRetries += 1;
                     yield createAgentEventOutput({
-                      protocolVersion: 13,
+                      protocolVersion: 14,
                       sessionId: input.sessionId,
                       turnId: turnInput.turnId,
                       occurredAt: "2026-10-11T00:00:00.000Z",
@@ -139,7 +140,7 @@ test("the deterministic fake passes conformance with a provider retry after requ
     },
   };
   const report = await runAgentProviderConformance({
-    driver,
+    driver: singleLiveSession(driver),
     definition: fake.definition,
     workingDirectory: "/host/workspaces/external-session",
     configuration,
@@ -247,8 +248,8 @@ test("the deterministic fake passes conformance with a provider retry after requ
   assert.deepEqual(snapshot.resumedSessionIds, ["external-session:resume"]);
   assert.deepEqual(snapshot.branchedSessionIds, ["external-session:branch"]);
   assert.deepEqual(snapshot.turnIds, [
-    "external-turn:interruption",
     "external-turn:1",
+    "external-turn:interruption",
   ]);
   assert.equal(snapshot.resolutions.length, 1);
   assert.deepEqual(snapshot.interruptedTurnIds, [
@@ -319,7 +320,7 @@ test("conformance verifies explicit unsupported operation discriminants", async 
     instanceId: "limited-fake-instance",
     capabilities: parseAgentCapabilities({
       environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-      protocolVersion: 13,
+      protocolVersion: 14,
       providerKey,
       sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
       turns: {
@@ -336,6 +337,7 @@ test("conformance verifies explicit unsupported operation discriminants", async 
         usage: { kind: "unsupported" },
         compaction: { kind: "unsupported" },
       },
+      tokenUsage: { kind: "unsupported" },
       input: {
         contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
       output: {
@@ -488,6 +490,44 @@ test("conformance retains the original error and failed cleanup without disposin
   assert.equal(fake.snapshot().instanceDisposeCount, 0);
   assert.equal(fake.snapshot().resolutions.length, 0);
   assert.equal(fake.snapshot().closeCounts["cleanup:create"], 1);
+});
+
+test("conformance retains an interruption failure together with that session's failed close", { timeout: 3_000 }, async () => {
+  const fake = createFakeAgentProvider({ capabilities: parseAgentCapabilities({
+    ...createFakeAgentProvider().capabilities,
+    sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
+    requests: { approval: { kind: "unsupported" }, elicitation: { kind: "unsupported" } },
+    configuration: { kind: "managed" }, operations: { kind: "unsupported" },
+    collaboration: { kind: "unsupported" }, generatedResources: { kind: "unsupported" },
+  }) });
+  const original = new Error("Native interruption failed.");
+  const cleanup = new Error("Interrupted session cleanup remains incomplete.");
+  const interruptionSessionId = parseAgentSessionId("interrupt-cleanup:interrupt");
+  const driver: AgentProviderDriver = { ...fake.driver, async materialize(definition) {
+    const instance = await fake.driver.materialize(definition);
+    return { ...instance, adapter: { ...instance.adapter, async createSession(input) {
+      const session = await instance.adapter.createSession(input);
+      if (input.sessionId !== interruptionSessionId) return session;
+      return { ...session, interruption: { kind: "supported" as const, interruptTurn: async () => { throw original; } },
+        async close(context) { await session.close(context); throw cleanup; } };
+    } } };
+  } };
+  const failures = (error: unknown): unknown[] => error instanceof AggregateError
+    ? error.errors.flatMap(failures) : [error];
+  await assert.rejects(runAgentProviderConformance({
+    driver, definition: fake.definition, workingDirectory: "/workspace",
+    configuration: { kind: "managed", revision: parseAgentConfigurationRevisionId("interrupt-cleanup:configuration") },
+    createSessionId: parseAgentSessionId("interrupt-cleanup:create"), resumeSessionId: parseAgentSessionId("interrupt-cleanup:resume"),
+    abortedSessionId: parseAgentSessionId("interrupt-cleanup:aborted"), interruptionSessionId,
+    turn: { turnId: parseAgentTurnId("interrupt-cleanup:turn"), interactionMode: "default", parts: [{ type: "text", text: "test" }] },
+    interruptionTurn: { turnId: parseAgentTurnId("interrupt-cleanup:interrupted"), interactionMode: "default", parts: [{ type: "text", text: "hold" }] },
+    resolutionFor() { throw new Error("Unexpected request."); },
+  }), (error: unknown) => {
+    const retained = failures(error);
+    return retained.includes(original) && retained.includes(cleanup);
+  });
+  assert.deepEqual(fake.snapshot().closeCounts, { "interrupt-cleanup:create": 1, "interrupt-cleanup:interrupt": 1 });
+  assert.equal(fake.snapshot().instanceDisposeCount, 1);
 });
 
 test("conformance inspects a turn-produced resource after terminal output and before session close", async () => {

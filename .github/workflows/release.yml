@@ -122,6 +122,10 @@ jobs:
               packages/agent-history \
               packages/sandbox \
               packages/sandbox-docker \
+              packages/provider-grok \
+              packages/provider-tools \
+              packages/provider-claude \
+              packages/provider-opencode \
               scripts/architecture/check-agent-sdk-external-consumer.mjs \
               scripts/architecture/check-agent-sdk-sandbox-consumer.mjs \
               scripts/development/agent-sandbox-qualification \
@@ -227,6 +231,10 @@ jobs:
           pnpm --filter @agen-ai/agent-history pack --pack-destination "$GITHUB_WORKSPACE/release"
           pnpm --filter @agen-ai/sandbox pack --pack-destination "$GITHUB_WORKSPACE/release"
           pnpm --filter @agen-ai/sandbox-docker pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/provider-grok pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/provider-tools pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/provider-claude pack --pack-destination "$GITHUB_WORKSPACE/release"
+          pnpm --filter @agen-ai/provider-opencode pack --pack-destination "$GITHUB_WORKSPACE/release"
           ls -1 release/*.tgz
 
       - name: Verify complete release artifact set
@@ -387,6 +395,62 @@ jobs:
         if: steps.sandbox_docker.outputs.action == 'publish'
         run: npm publish ./release/agen-ai-sandbox-docker-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
 
+      - name: Inspect Grok provider publication
+        id: provider_grok
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-provider-grok-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish Grok provider
+        if: steps.provider_grok.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-provider-grok-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Inspect owned provider tools publication
+        id: provider_tools
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-provider-tools-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish owned provider tools
+        if: steps.provider_tools.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-provider-tools-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Inspect Claude provider publication
+        id: provider_claude
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-provider-claude-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish Claude provider
+        if: steps.provider_claude.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-provider-claude-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
+      - name: Inspect OpenCode provider publication
+        id: provider_opencode
+        run: >-
+          node scripts/release/verify-package-publication.mjs
+          --tarball release/agen-ai-provider-opencode-${RELEASE_TAG#v}.tgz
+          --npm-tag "${{ inputs.npm_tag }}"
+          --release-ref "$RELEASE_REF"
+          --release-sha "$RELEASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish OpenCode provider
+        if: steps.provider_opencode.outputs.action == 'publish'
+        run: npm publish ./release/agen-ai-provider-opencode-${RELEASE_TAG#v}.tgz --access public --tag "${{ inputs.npm_tag }}"
+
       - name: Verify all package publications
         shell: bash
         env:
@@ -416,17 +480,13 @@ jobs:
           set -euo pipefail
           verification_root="$(mktemp -d)"
           trap 'find "$verification_root" -depth -delete' EXIT
+          node --input-type=module - "$verification_root/package.json" <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          import { PUBLIC_PACKAGE_POLICIES } from './scripts/release/package-inventory.mjs';
+          const version = process.env.RELEASE_TAG.slice(1);
+          writeFileSync(process.argv[2], JSON.stringify({ private: true,
+            dependencies: Object.fromEntries(PUBLIC_PACKAGE_POLICIES.map(({ name }) => [name, version])) }));
+          NODE
           cd "$verification_root"
-          npm init --yes >/dev/null
-          npm install --ignore-scripts --no-audit --no-fund \
-            "@agen-ai/validation@${RELEASE_TAG#v}" \
-            "@agen-ai/agent-protocol@${RELEASE_TAG#v}" \
-            "@agen-ai/agent-runtime@${RELEASE_TAG#v}" \
-            "@agen-ai/agent-orchestration@${RELEASE_TAG#v}" \
-            "@agen-ai/acp-transport@${RELEASE_TAG#v}" \
-            "@agen-ai/provider-acp@${RELEASE_TAG#v}" \
-            "@agen-ai/acp-registry@${RELEASE_TAG#v}" \
-            "@agen-ai/agent-history@${RELEASE_TAG#v}" \
-            "@agen-ai/sandbox@${RELEASE_TAG#v}" \
-            "@agen-ai/sandbox-docker@${RELEASE_TAG#v}"
+          npm install --ignore-scripts --no-audit --no-fund
           npm audit signatures

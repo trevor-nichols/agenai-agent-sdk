@@ -41,20 +41,35 @@ const supportedContext = {
   usage: {
     kind: 'supported',
     measurementScopes: ['materialization'],
-    cumulativeFields: [
-      'inputTokens',
-      'outputTokens',
-      'cachedReadTokens',
-      'reasoningTokens',
-      'modelCalls',
-      'turns',
-    ],
   },
   compaction: {
     kind: 'supported',
     triggers: ['manual'],
     sameSessionContinuation: true,
   },
+} as const;
+
+export const fixtureUsageView = {
+  viewId: 'usage-view:materialization',
+  authority: 'authoritative',
+  accounting: 'snapshot',
+  countBasis: { modelCalls: 'unsupported', turns: 'unsupported' },
+  population: { descendants: 'unknown', auxiliary: 'unknown' },
+} as const;
+
+const supportedTokenUsage = {
+  kind: 'supported',
+  views: [{
+    view: fixtureUsageView,
+    scopeKind: 'materialization',
+    reportedCounters: [
+      'inputTokens',
+      'cacheReadInputTokens',
+      'cacheCreationInputTokens',
+      'outputTokens',
+    ],
+    attribution: ['model', 'mixed'],
+  }],
 } as const;
 
 const supportedElicitation = {
@@ -132,7 +147,7 @@ const supportedNativeDomains = {
 export const providerCapabilityFixtures = {
   fixture: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey: 'fixture',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -143,6 +158,7 @@ export const providerCapabilityFixtures = {
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: supportedContext,
+    tokenUsage: supportedTokenUsage,
     input: supportedInput,
     output: {
       streaming: true,
@@ -166,7 +182,7 @@ export const providerCapabilityFixtures = {
   },
   codex: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey: 'codex',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -177,6 +193,7 @@ export const providerCapabilityFixtures = {
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
+    tokenUsage: { kind: 'unsupported' },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -191,7 +208,7 @@ export const providerCapabilityFixtures = {
   },
   claudeCode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey: 'claude_code',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -202,6 +219,7 @@ export const providerCapabilityFixtures = {
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
+    tokenUsage: { kind: 'unsupported' },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -216,7 +234,7 @@ export const providerCapabilityFixtures = {
   },
   opencode: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey: 'opencode',
     sessions: { create: true, resume: true, branch: { kind: 'through_turn' } },
     turns: {
@@ -227,6 +245,7 @@ export const providerCapabilityFixtures = {
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
+    tokenUsage: { kind: 'unsupported' },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -241,7 +260,7 @@ export const providerCapabilityFixtures = {
   },
   cursor: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey: 'cursor_acp',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -252,6 +271,7 @@ export const providerCapabilityFixtures = {
     },
     requests: { approval: onceApproval, elicitation: supportedElicitation },
     context: unsupportedContext,
+    tokenUsage: { kind: 'unsupported' },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -266,7 +286,7 @@ export const providerCapabilityFixtures = {
   },
   grokBuild: {
     environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey: 'grok_build',
     sessions: { create: true, resume: true, branch: { kind: 'unsupported' } },
     turns: {
@@ -277,6 +297,7 @@ export const providerCapabilityFixtures = {
     },
     requests: { approval: onceApproval, elicitation: { kind: 'unsupported' } },
     context: supportedContext,
+    tokenUsage: { kind: 'unsupported' },
     input: unsupportedInput,
     output: {
       streaming: true,
@@ -292,7 +313,7 @@ export const providerCapabilityFixtures = {
 } as const;
 
 const eventBase = {
-  protocolVersion: 13,
+  protocolVersion: 14,
   sessionId: 'session:external-42',
   turnId: 'turn:external-9',
   occurredAt: protocolTimestamp,
@@ -418,14 +439,47 @@ export const eventFixtureCorpus = [
       measurementScope: 'materialization',
       usedTokens: 3_933,
       maxTokens: 500_000,
-      cumulative: {
-        inputTokens: 3_933,
-        outputTokens: 54,
-        reasoningTokens: 43,
-        modelCalls: 1,
-        turns: 1,
-      },
       compaction: { state: 'idle' },
+    },
+  },
+  {
+    ...eventBase,
+    type: 'usage.observed',
+    payload: {
+      observationId: 'usage:materialization-1:result-0',
+      view: fixtureUsageView,
+      scope: { scopeId: 'usage-scope:materialization-1', kind: 'materialization' },
+      measurement: {
+        kind: 'snapshot',
+        epoch: 0,
+        revision: 0,
+        origin: { kind: 'fresh_zero', cause: 'initial' },
+        comparison: {
+          inputTokens: { kind: 'stable', populationId: 'population:input' },
+          cacheReadInputTokens: { kind: 'stable', populationId: 'population:cache-read' },
+          cacheCreationInputTokens: { kind: 'stable', populationId: 'population:cache-creation' },
+          cacheCreationFiveMinuteInputTokens: { kind: 'unknown' },
+          cacheCreationOneHourInputTokens: { kind: 'unknown' },
+          outputTokens: { kind: 'stable', populationId: 'population:output' },
+          reasoningOutputTokens: { kind: 'unknown' },
+          modelCalls: { kind: 'unknown' },
+          turns: { kind: 'unknown' },
+        },
+        coverage: { kind: 'complete' },
+        counters: {
+          inputTokens: { kind: 'exact', value: 1_110 },
+          cacheReadInputTokens: { kind: 'exact', value: 100 },
+          cacheCreationInputTokens: { kind: 'exact', value: 1_000 },
+          cacheCreationFiveMinuteInputTokens: { kind: 'unavailable', reasons: ['unsupported'] },
+          cacheCreationOneHourInputTokens: { kind: 'unavailable', reasons: ['unsupported'] },
+          outputTokens: { kind: 'exact', value: 1 },
+          reasoningOutputTokens: { kind: 'unavailable', reasons: ['unsupported'] },
+          modelCalls: { kind: 'unavailable', reasons: ['unsupported'] },
+          turns: { kind: 'unavailable', reasons: ['unsupported'] },
+        },
+        attribution: { kind: 'model', model: { modelId: 'model:scripted' } },
+      },
+      finality: 'open',
     },
   },
   {
@@ -463,13 +517,7 @@ export const eventFixtureCorpus = [
         status: 'completed',
         objective: 'Inspect the implementation.',
         progress: 'Inspection complete.',
-        usage: {
-          kind: 'reported',
-          inputTokens: 120,
-          outputTokens: 40,
-          totalTokens: 160,
-          modelCalls: 1,
-        },
+        usage: { kind: 'reference', scopeId: 'usage-scope:materialization-1' },
         outcome: { kind: 'completed' },
         createdAt: protocolTimestamp,
         updatedAt: protocolTimestamp,

@@ -10,7 +10,7 @@ import {
   parseAgentSessionResponse, parseAgentSessionFormChoiceId, parseAgentSessionPlanRevision,
 } from "@agen-ai/agent-protocol";
 import type {
-  AgentProviderSessionContext, AgentRequestResolutionResult, AgentSessionInteraction,
+  AgentApprovalPolicy, AgentProviderSessionContext, AgentRequestResolutionResult, AgentSessionInteraction,
   AgentSessionInteractionContext, AgentSessionInteractionSupport,
 } from "../src/index.js";
 import { createHarness, deferred, hasContractCode, makeBinding, type OpeningKind } from "./fixtures/hostBindings/harness.js";
@@ -57,14 +57,23 @@ test("direct session forms and plan reviews deliver exact offered actions withou
   ] as const;
   for (const entry of cases) await t.test(`${entry.response.kind}/${entry.response.action}`, async () => {
     let starts = 0;
-    const fixture = await scenario({ support: directSupport, openingOffer: false, transformSession(session) {
+    const approvalPolicy: AgentApprovalPolicy | undefined = entry.response.kind === "form" && entry.response.action === "cancel"
+      ? { kind: "provider_bypass" } : undefined;
+    const fixture = await scenario({ support: directSupport, openingOffer: false,
+      ...(approvalPolicy === undefined ? {} : { approvalPolicy }), transformSession(session) {
       return { ...session, startTurn(input) { starts += 1; return session.startTurn(input); } };
     } });
     t.after(() => fixture.dispose());
     let handle: AgentSessionInteraction | undefined;
-    const session = await fixture.open("create", undefined, { interactions: { onRequest(value) { handle = value; } } });
+    const session = await fixture.open("create", undefined, {
+      ...(approvalPolicy === undefined ? {} : { approvalPolicy }),
+      interactions: { onRequest(value) { handle = value; } },
+    });
+    assert.deepEqual(session.approvalPolicy, approvalPolicy === undefined ? undefined
+      : { policy: { kind: "provider_bypass" }, verification: "native_observation" });
     const candidate = fixture.offer(fixture.contexts[0]!, { request: entry.response.kind === "form" ? form : review });
     assert.ok(handle);
+    assert.deepEqual(handle.request, candidate.handle.request);
     const response = parseAgentSessionResponse(entry.response);
     if (response.kind === "form" && response.action === "cancel") {
       await assert.rejects(handle.respond({ ...response, choiceId: parseAgentSessionFormChoiceId("send") }),

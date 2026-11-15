@@ -12,6 +12,11 @@ export { prepareDockerSandboxEgressHelpers } from './prepareHelpers.js';
 export type { DockerEgressHelperPreparation, DockerEgressHelperPreparationOptions } from './prepareHelpers.js';
 export { prepareDockerSandboxFilesystemHelper } from './prepareFilesystem.js';
 export type { DockerFilesystemHelperPreparation, DockerFilesystemHelperPreparationOptions } from './prepareFilesystem.js';
+export { createNodeFilesystemHelperClient } from './filesystemHelper/client.js';
+export type {
+  NodeFilesystemHelperClient, NodeFilesystemHelperClientLimits, NodeFilesystemHelperClientOptions, NodeFilesystemHelperCloseReceipt,
+  NodeFilesystemHelperFileOptions, NodeFilesystemHelperInput, NodeFilesystemHelperOutput, NodeFilesystemHelperWriteOptions,
+} from './filesystemHelper/contracts.js';
 export { prepareDockerDesktopHostNetworkObserver, prepareDockerDesktopVmRouteObserver } from './prepareDesktopObservers.js';
 export type {
   DockerDesktopHostObserverPreparation, DockerDesktopHostObserverPreparationOptions,
@@ -33,3 +38,8 @@ export { prepareDockerDesktopRecoveryHelper } from './desktopRecovery/preparatio
 export type {
   DockerDesktopRecoveryPreparation, DockerDesktopRecoveryPreparationOptions,
 } from './desktopRecovery/preparation.js';
+export { inspectDockerImageFiles, DockerImageInspectionError } from './imageInspection.js';
+export type {
+  DockerImageFileSelection, DockerImageFileObservation, DockerImageInspection, DockerImageInspectionOptions,
+  DockerImageInspectionLimits, DockerImageInspectionCleanup, DockerImageInspectionCleanupIdentity,
+} from './imageInspection.js';

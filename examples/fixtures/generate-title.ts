@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { parseAgentCapabilities } from '@agen-ai/agent-protocol';
+import { AGENT_PROTOCOL_VERSION, parseAgentCapabilities } from '@agen-ai/agent-protocol';
 import { createAgentEventOutput, createAgentProviderRegistry, type AgentProviderDriver } from '@agen-ai/agent-runtime';
 import { createFakeAgentProvider } from '@agen-ai/agent-runtime/testing';
 import { AgentGenerationCleanupError } from '@agen-ai/agent-runtime/generation';
@@ -22,7 +22,7 @@ const driver: AgentProviderDriver = { ...fake.driver, async materialize(definiti
     const session = await instance.adapter.createSession(context);
     return { ...session, startTurn(turn) {
       starts += 1;
-      const base = { protocolVersion: 13, sessionId: context.sessionId, turnId: turn.turnId, occurredAt: '2026-10-21T12:00:00.000Z' };
+      const base = { protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: context.sessionId, turnId: turn.turnId, occurredAt: '2026-10-21T12:00:00.000Z' };
       return { turnId: turn.turnId, outputs: (async function* () {
         yield createAgentEventOutput({ ...base, type: 'turn.started', payload: {} });
         yield createAgentEventOutput({ ...base, type: 'turn.completed', payload: {

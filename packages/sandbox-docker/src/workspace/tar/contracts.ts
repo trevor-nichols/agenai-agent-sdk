@@ -22,6 +22,8 @@ export interface TarHeader {
   readonly kind: 'file' | 'directory' | 'symlink' | 'pax';
   readonly size: number;
   readonly mode: number;
+  readonly uid: number;
+  readonly gid: number;
   readonly target: string;
 }
 
@@ -35,7 +37,7 @@ export interface TarOptions {
   readonly chunkBytes: number;
   readonly maxArchiveBytes?: bigint;
   readonly limitCode: 'input_limit' | 'output_limit';
-  readonly symlinks?: 'reject' | 'preserve_internal';
+  readonly symlinks?: 'reject' | 'preserve_internal' | 'observe';
 }
 
 export type TarSummary = SandboxTransferSummary;

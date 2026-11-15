@@ -90,13 +90,13 @@ test("restores all original archive bytes from a failed publication attempt and 
   const input = await fixture(t);
   const receipt = await restoreReleaseArtifact(input.options);
   const filenames = await readdir(path.join(input.root, "original"));
-  assert.equal(filenames.length, 10);
+  assert.equal(filenames.length, 14);
   assert.deepEqual((await readdir(path.join(input.root, "release"))).sort(), filenames.sort());
   for (const name of filenames) assert.deepEqual(await readFile(path.join(input.root, "release", name)), await readFile(path.join(input.root, "original", name)));
   assert.equal(receipt.originalWorkflowRun.conclusion, "failure");
   assert.equal(receipt.originalWorkflowRun.attempt, 2);
   assert.equal(receipt.originalArtifact.id, expected.artifactId);
-  assert.equal(receipt.archives.length, 10);
+  assert.equal(receipt.archives.length, 14);
   assert.deepEqual(JSON.parse(await readFile(path.join(input.root, "release-artifact-receipt.json"))), receipt);
   await assert.rejects(restoreReleaseArtifact(input.options), /destination already exists/u);
   for (const name of filenames) assert.deepEqual(await readFile(path.join(input.root, "release", name)), await readFile(path.join(input.root, "original", name)));

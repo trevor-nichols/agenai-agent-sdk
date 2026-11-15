@@ -52,7 +52,7 @@ const configuration = {
 
 const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
   environment: { instance: { kind: "unsupported" as const }, session: { kind: "unsupported" as const } },
-  protocolVersion: 13,
+  protocolVersion: 14,
   providerKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -69,6 +69,7 @@ const baseCapabilities: AgentCapabilities = parseAgentCapabilities({
     usage: { kind: "unsupported" },
     compaction: { kind: "unsupported" },
   },
+  tokenUsage: { kind: "unsupported" },
   input: {
     contentReferences: { kind: "unsupported" as const }, text: true, images: { kind: "unsupported" } },
   output: {
@@ -112,7 +113,6 @@ const contextCapabilities = parseAgentCapabilities({
     usage: {
       kind: "supported",
       measurementScopes: ["session", "materialization"],
-      cumulativeFields: ["inputTokens", "turns"],
     },
     compaction: {
       kind: "supported",
@@ -165,7 +165,7 @@ function event<TType extends AgentEvent["type"]>(
   payload: Extract<AgentEvent, { readonly type: TType }>["payload"],
 ) {
   return createAgentEventOutput({
-    protocolVersion: 13,
+    protocolVersion: 14,
     sessionId,
     turnId,
     occurredAt,
@@ -897,17 +897,11 @@ test("preserves the in-progress watermark through unknown item updates", async (
 //                Context Usage and Compaction State
 // ------------------------------------------------------------------------------------------------
 
-function contextUsage(
-  turnId: AgentTurnId,
-  usedTokens: number,
-  inputTokens: number,
-  turns: number,
-) {
+function contextUsage(turnId: AgentTurnId, usedTokens: number) {
   return event(turnId, "context.usage.updated", {
     measurementScope: "materialization",
     usedTokens,
     maxTokens: 100,
-    cumulative: { inputTokens, turns },
   });
 }
 
@@ -930,7 +924,7 @@ test("accepts monotonic usage and one post-compaction occupancy decrease", async
         runs += 1;
         yield event(activeTurnId, "turn.started", {});
         if (activeTurnId === turnId) {
-          yield contextUsage(activeTurnId, 90, 100, 1);
+          yield contextUsage(activeTurnId, 90);
           yield event(activeTurnId, "item.completed", {
             itemId: parseAgentItemId("item:v8-compaction"),
             itemKind: "context_compaction",
@@ -943,9 +937,9 @@ test("accepts monotonic usage and one post-compaction occupancy decrease", async
               summaryPreview: "Earlier context was compacted.",
             },
           });
-          yield contextUsage(activeTurnId, 40, 100, 1);
+          yield contextUsage(activeTurnId, 40);
         } else {
-          yield contextUsage(activeTurnId, 50, 120, 2);
+          yield contextUsage(activeTurnId, 50);
         }
         yield event(activeTurnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
       }),
@@ -982,10 +976,6 @@ test("resets only materialization usage at an observed process boundary", async 
             measurementScope,
             usedTokens: firstMaterialization ? 80 : 20,
             maxTokens: 100,
-            cumulative: {
-              inputTokens: firstMaterialization ? 100 : 10,
-              turns: 1,
-            },
           });
           yield event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" });
         }),
@@ -1080,52 +1070,22 @@ test("rejects duplicate, regressing, and post-terminal context samples", async (
     {
       name: "duplicate sample",
       outputs: (turnId) => {
-        const usage = contextUsage(turnId, 50, 100, 1);
+        const usage = contextUsage(turnId, 50);
         return [usage, usage];
       },
     },
     {
-      name: "cumulative regression",
-      outputs: (turnId) => [
-        contextUsage(turnId, 50, 100, 1),
-        contextUsage(turnId, 60, 99, 2),
-      ],
-    },
-    {
-      name: "cumulative regression after omitted field",
-      outputs: (turnId) => [
-        event(turnId, "context.usage.updated", {
-          measurementScope: "materialization",
-          usedTokens: 50,
-          maxTokens: 100,
-          cumulative: { inputTokens: 100 },
-        }),
-        event(turnId, "context.usage.updated", {
-          measurementScope: "materialization",
-          usedTokens: 60,
-          maxTokens: 100,
-          cumulative: { turns: 2 },
-        }),
-        event(turnId, "context.usage.updated", {
-          measurementScope: "materialization",
-          usedTokens: 70,
-          maxTokens: 100,
-          cumulative: { inputTokens: 99 },
-        }),
-      ],
-    },
-    {
       name: "occupancy regression without compaction",
       outputs: (turnId) => [
-        contextUsage(turnId, 90, 100, 1),
-        contextUsage(turnId, 40, 100, 1),
+        contextUsage(turnId, 90),
+        contextUsage(turnId, 40),
       ],
     },
     {
       name: "sample after terminal",
       outputs: (turnId) => [
         event(turnId, "turn.completed", { structuredOutput: { kind: "not_requested" }, outcome: "completed" }),
-        contextUsage(turnId, 50, 100, 1),
+        contextUsage(turnId, 50),
       ],
     },
   ];
@@ -1162,7 +1122,6 @@ test("refuses context facts outside the advertised capability", async () => {
       usage: {
         kind: "supported",
         measurementScopes: ["session"],
-        cumulativeFields: ["turns"],
       },
       compaction: { kind: "unsupported" },
     },
@@ -1172,13 +1131,6 @@ test("refuses context facts outside the advertised capability", async () => {
       measurementScope: "materialization",
       usedTokens: 10,
       maxTokens: 100,
-      cumulative: { turns: 1 },
-    }),
-    event(parseAgentTurnId("turn:v8-wrong-counter"), "context.usage.updated", {
-      measurementScope: "session",
-      usedTokens: 10,
-      maxTokens: 100,
-      cumulative: { inputTokens: 10 },
     }),
     event(parseAgentTurnId("turn:v8-unadvertised-compaction"), "context.usage.updated", {
       measurementScope: "session",

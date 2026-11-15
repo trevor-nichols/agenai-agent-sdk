@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { AgentProtocolValidationError } from '@agen-ai/agent-protocol';
+import { AGENT_PROTOCOL_VERSION, AgentProtocolValidationError } from '@agen-ai/agent-protocol';
 import { assertQualifiedNativeMode, parseNativeDiscoveryReport, parseNativeMappingProof, parseNativeModeReport } from '../evidence.js';
 import { parseNativeCandidate, parseNativeSelection, type NativeCandidate } from '../contracts.js';
 import { SDK_PACKAGE_NAMES } from '../identity.js';
@@ -97,9 +97,10 @@ function discoveryFixture() {
   const unsupported = { kind: 'unsupported' };
   return { version: 1, outcome: 'qualified', failedGates: [], noPrompt: true, elapsedMs: 100, modelAcknowledged: true, reasoningAcknowledged: true,
     configurationStarts: 2, cleanup: { ...cleanup(), bridgesAcquired: 0, bridgesReleased: 0 }, configuration: selection(),
-    capabilities: { protocolVersion: 13, providerKey: 'native-proof', sessions: { create: true, resume: false, branch: unsupported },
+    capabilities: { protocolVersion: AGENT_PROTOCOL_VERSION, providerKey: 'native-proof', sessions: { create: true, resume: false, branch: unsupported },
       turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: true, steer: unsupported }, requests: { approval: unsupported, elicitation: unsupported },
-      context: { usage: unsupported, compaction: unsupported }, input: { text: true, images: unsupported, contentReferences: unsupported },
+      context: { usage: unsupported, compaction: unsupported }, tokenUsage: unsupported,
+      input: { text: true, images: unsupported, contentReferences: unsupported },
       output: { streaming: true, plans: false, fileChanges: 'none', artifactKinds: [] }, configuration: { kind: 'selectable', fieldKinds: ['single_select'], maxFields: 2 },
       operations: unsupported, managedContent: unsupported, integrations: unsupported, environment: { instance: unsupported, session: unsupported },
       collaboration: unsupported, generatedResources: unsupported, authentication: unsupported, versionReporting: true } };

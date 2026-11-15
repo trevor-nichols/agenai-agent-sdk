@@ -24,6 +24,7 @@ import { awaitHost } from '../host/lifecycle.js';
 import type { AcpPermissionMappingSelection } from '../permissions/contracts.js';
 import type { AcpStructuredOutputMappingSelection } from '../structuredOutput/mapping.js';
 import { GROK_PLAN_REVIEW_METHOD, GROK_QUEUE_METHOD, GROK_SESSION_NOTIFICATION_METHOD } from '../sessionInteractions/grokPlanReview.js';
+import { assertControlledGrokInitialization, GROK_CONTROLLED_CLIENT, type ResolvedNodeAcpProtocolDialect } from '../node/protocolDialect.js';
 
 export async function initializeAcpConnection(input: {
   readonly source: AcpConnectionAcquisition;
@@ -37,6 +38,7 @@ export async function initializeAcpConnection(input: {
   readonly sessionInteractions?: AcpSessionInteractionSelection;
   readonly permissionMapping?: AcpPermissionMappingSelection;
   readonly structuredOutputMapping?: AcpStructuredOutputMappingSelection;
+  readonly protocolDialect?: ResolvedNodeAcpProtocolDialect;
 }): Promise<AcpInitializedConnection> {
   throwIfAgentOperationAborted(input.context.signal);
   const initialization = new AbortController();
@@ -194,7 +196,7 @@ export async function initializeAcpConnection(input: {
     });
     const response = await createAcpStandardSessionOperations(client).initialize({
       protocolVersion: 1,
-      clientCapabilities: {
+      clientCapabilities: input.protocolDialect ? {} : {
         ...(input.sessionInteractions?.mapping === 'grok-folder-trust-v1' ? { _meta: GROK_FOLDER_TRUST_CAPABILITY_META } : {}),
         fs: { readTextFile: !!host.readTextFile, writeTextFile: !!host.writeTextFile },
         terminal: !!host.createTerminal,
@@ -202,13 +204,15 @@ export async function initializeAcpConnection(input: {
         elicitation: { form: {}, ...(host.url ? { url: {} } : {}) },
         ...(input.configuration === 'selectable' ? { session: { configOptions: { boolean: {} } } } : {}),
       },
-      clientInfo: { name: '@agen-ai/provider-acp', version: '0.4.2' },
+      clientInfo: { name: input.protocolDialect ? GROK_CONTROLLED_CLIENT : '@agen-ai/provider-acp', version: input.protocolDialect ? '0.4.13' : '0.4.2' },
+      ...(input.protocolDialect ? { _meta: { clientType: 'extension', clientIdentifier: GROK_CONTROLLED_CLIENT, mcpApps: false } } : {}),
     }, {
       timeoutMs: input.limits.initializationTimeoutMs,
       signal: initialization.signal,
     });
     if (stopped.signal.aborted) throw stopped.signal.reason;
     const negotiated = readNegotiatedAgent(response, input.permissionMapping, input.sessionInteractions, input.structuredOutputMapping);
+    if (input.protocolDialect) assertControlledGrokInitialization(input.protocolDialect.providerKey, response);
     initialization.signal.removeEventListener('abort', onAbort);
     return Object.freeze({
       client,
@@ -216,6 +220,7 @@ export async function initializeAcpConnection(input: {
       stopped: stopped.signal,
       ...(execution ? { execution } : {}),
       ...(sessionInteractions ? { sessionInteractions } : {}),
+      ...(input.protocolDialect ? { protocolDialect: input.protocolDialect } : {}),
       bindSession: (binding: AcpBoundSession) => router.bindSession(binding),
       ...(host.form || host.url ? { hostElicitation: (context: import('@agen-ai/acp-transport').AcpReverseRequestContext,
         observeCallback?: (work: Promise<void>) => void) => router.sessionElicitation(context, observeCallback) } : {}),

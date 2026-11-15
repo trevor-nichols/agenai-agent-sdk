@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SDK_NAMES = ["acp-registry", "acp-transport", "agent-history", "agent-orchestration", "agent-protocol", "agent-runtime",
-  "provider-acp", "sandbox", "sandbox-docker", "validation"].map((name) => `@agen-ai/${name}`);
+  "provider-acp", "provider-claude", "provider-grok", "provider-opencode", "provider-tools", "sandbox", "sandbox-docker", "validation"].map((name) => `@agen-ai/${name}`);
 
 function parseSandboxConsumerArguments(argv) {
   assert(argv.length === 0 || (argv.length === 2 && argv[0] === "--consumer" && path.isAbsolute(argv[1] ?? "")),
@@ -32,7 +32,7 @@ async function assertInstalledSandboxConsumer(root) {
   assert(root !== ROOT && !root.startsWith(`${ROOT}${path.sep}`), "Packed consumer must live outside source authority");
   const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
   const declared = Object.keys(manifest.dependencies ?? {}).filter((name) => name.startsWith("@agen-ai/")).sort();
-  assert.deepEqual(declared, SDK_NAMES, "Packed consumer requires exactly the complete matching ten-package SDK set");
+  assert.deepEqual(declared, SDK_NAMES, "Packed consumer requires exactly the complete matching fourteen-package SDK set");
   const require = createRequire(path.join(root, "package.json"));
   const packages = [];
   for (const name of SDK_NAMES) {
@@ -41,7 +41,7 @@ async function assertInstalledSandboxConsumer(root) {
     assert(file.startsWith(`${root}${path.sep}`), `${name} must resolve within the independent consumer`);
     const installed = JSON.parse(await readFile(file, "utf8"));
     assert.equal(installed.name, name);
-    assert.equal(installed.version, "0.4.13", `${name} must match the coordinated 0.4.13 candidate`);
+    assert.equal(installed.version, "0.4.14", `${name} must match the coordinated 0.4.14 candidate`);
     packages.push({ name, version: installed.version });
   }
   const installedNames = (await readdir(path.join(root, "node_modules/@agen-ai"))).map((name) => `@agen-ai/${name}`).sort();

@@ -189,7 +189,7 @@ test("uncertain session answers fence future mutation while the entered output r
   const fixture = await scenario({ openingOffer: false, cleanup: () => continueOutput.resolve(), transformSession(session, context) {
     return { ...session, startTurn(input) {
       starts += 1;
-      const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: parseAgentIsoDateTime("2026-10-13T00:00:00.000Z") };
+      const base = { protocolVersion: 14 as const, sessionId: context.sessionId, turnId: input.turnId, occurredAt: parseAgentIsoDateTime("2026-10-13T00:00:00.000Z") };
       const itemId = parseAgentItemId("decision-output");
       return { turnId: input.turnId, async resolveRequest() { throw new Error("This turn has no turn-scoped requests."); }, outputs: (async function* () {
         yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });
@@ -713,7 +713,7 @@ test("retired opening request identities cannot be reused by a later turn in the
   const fixture = await scenario({ transformSession(session, context) {
     return { ...session, startTurn(input) {
       return { turnId: input.turnId, outputs: { async *[Symbol.asyncIterator]() {
-        const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId,
+        const base = { protocolVersion: 14 as const, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime("2026-10-16T00:00:00.000Z") };
         const itemId = parseAgentItemId("reused-request-item");
         yield createAgentEventOutput({ ...base, type: "turn.started", payload: {} });

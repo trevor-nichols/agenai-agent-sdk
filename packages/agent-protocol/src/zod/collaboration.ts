@@ -15,7 +15,6 @@ import {
   AGENT_COLLABORATION_STATUSES,
   AGENT_COLLABORATION_STOP_REASONS,
   AGENT_COLLABORATION_TITLE_MAX_LENGTH,
-  AGENT_COLLABORATION_USAGE_FIELDS,
   type AgentCollaborationControlInput,
   type AgentCollaborationNode,
   type AgentCollaborationSpawnInput,
@@ -25,6 +24,7 @@ import {
   AgentCollaborationIdSchema,
   AgentGeneratedResourceIdSchema,
   AgentIsoDateTimeSchema,
+  AgentUsageScopeIdSchema,
   createAgentCanonicalNonBlankStringSchema,
 } from './foundation.js';
 import { AgentTurnInputContentSchema } from './turns.js';
@@ -38,11 +38,6 @@ const TitleSchema = createAgentCanonicalNonBlankStringSchema(
 const ProgressSchema = createAgentCanonicalNonBlankStringSchema(
   AGENT_COLLABORATION_PROGRESS_MAX_LENGTH,
 );
-const NonNegativeSafeIntegerSchema = z
-  .number()
-  .int()
-  .nonnegative()
-  .max(Number.MAX_SAFE_INTEGER);
 const CollaborationStopReasonSchema = z.enum(AGENT_COLLABORATION_STOP_REASONS);
 const AgentCollaborationOutcomeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('completed') }).strict().readonly(),
@@ -58,21 +53,8 @@ const AgentCollaborationOutcomeSchema = z.discriminatedUnion('kind', [
 const AgentCollaborationUsageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('unavailable') }).strict().readonly(),
   z
-    .object({
-      kind: z.literal('reported'),
-      inputTokens: NonNegativeSafeIntegerSchema.optional(),
-      outputTokens: NonNegativeSafeIntegerSchema.optional(),
-      reasoningTokens: NonNegativeSafeIntegerSchema.optional(),
-      totalTokens: NonNegativeSafeIntegerSchema.optional(),
-      modelCalls: NonNegativeSafeIntegerSchema.optional(),
-    })
+    .object({ kind: z.literal('reference'), scopeId: AgentUsageScopeIdSchema })
     .strict()
-    .refine(
-      (usage) => AGENT_COLLABORATION_USAGE_FIELDS.some(
-        (field) => usage[field] !== undefined,
-      ),
-      { message: 'Reported collaboration usage must include at least one counter.' },
-    )
     .readonly(),
 ]);
 const artifactIds = z.array(AgentArtifactIdSchema)

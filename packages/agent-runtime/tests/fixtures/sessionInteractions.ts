@@ -9,7 +9,7 @@ import {
 } from "@agen-ai/agent-protocol";
 import type {
   AgentProviderCreateSessionInput, AgentProviderDirectSessionInteraction, AgentProviderSession,
-  AgentProviderSessionContext, AgentSessionInteractionSupport, AgentSessionInteractionTerminal,
+  AgentApprovalPolicy, AgentProviderSessionContext, AgentSessionInteractionSupport, AgentSessionInteractionTerminal,
 } from "../../src/index.js";
 import { createHarness, deferred, type OpeningKind } from "./hostBindings/harness.js";
 
@@ -106,6 +106,7 @@ function acceptedResponse(response: AgentSessionResponse): AgentSessionAcceptedR
 }
 
 export async function scenario(options: {
+  approvalPolicy?: AgentApprovalPolicy;
   openingOffer?: boolean;
   openingOfferOptions?: Parameters<typeof nativeOffer>[1];
   publication?: Promise<void>;
@@ -129,7 +130,10 @@ export async function scenario(options: {
   };
   const harness = await createHarness({
     transformAdapter(adapter) {
-      const prepared = { ...adapter, ...(options.support === null ? {} : { sessionInteractions: options.support ?? supported }) };
+      const prepared = { ...adapter, ...(options.support === null ? {} : { sessionInteractions: options.support ?? supported }),
+        ...(options.approvalPolicy === undefined ? {} : { approvalPolicy: { kind: "supported" as const,
+          policies: [{ policy: options.approvalPolicy.kind, operations: ["create"] as const }] as const } }),
+      };
       const open = adapter.createSession.bind(adapter);
       if (!options.publication) return { ...prepared, createSession: open };
       return { ...prepared, async createSession(input: AgentProviderCreateSessionInput) {
@@ -144,14 +148,18 @@ export async function scenario(options: {
     },
     transformSession(session, context) {
       const transformed = options.transformSession?.(session, context) ?? session;
-      return { ...transformed, async close(input) {
-        closes += 1;
-        events.push("native_close_started");
-        nativeCloseEntered.resolve();
-        await Promise.all(offers.filter((candidate) => candidate.context === context).map((candidate) => candidate.stop()));
-        await transformed.close(input);
-        events.push("native_closed");
-      } };
+      return { ...transformed,
+        ...(options.approvalPolicy === undefined ? {} : { approvalPolicy: {
+          policy: options.approvalPolicy, verification: "native_observation" as const,
+        } }),
+        async close(input) {
+          closes += 1;
+          events.push("native_close_started");
+          nativeCloseEntered.resolve();
+          await Promise.all(offers.filter((candidate) => candidate.context === context).map((candidate) => candidate.stop()));
+          await transformed.close(input);
+          events.push("native_closed");
+        } };
     },
   });
   return {

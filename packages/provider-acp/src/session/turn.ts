@@ -1,5 +1,5 @@
 import type { AcpJsonObject } from '@agen-ai/acp-transport';
-import type { AgentOutputSchema, AgentRequestId, AgentTurnCompletedPayload, AgentTurnId } from '@agen-ai/agent-protocol';
+import type { AgentOutputSchema, AgentRequestId, AgentTokenUsageObservation, AgentTurnCompletedPayload, AgentTurnId } from '@agen-ai/agent-protocol';
 import type { TurnMapping } from './mapping.js';
 import type { deferred } from './queue.js';
 import type { PendingSessionRequest } from './requests/pending.js';
@@ -8,7 +8,7 @@ export type SessionMessage =
   | Readonly<{ kind: 'update'; params: AcpJsonObject }>
   | Readonly<{ kind: 'request'; request: PendingSessionRequest }>
   | Readonly<{ kind: 'unavailable'; request: PendingSessionRequest; requestId: AgentRequestId }>
-  | Readonly<{ kind: 'terminal'; payload: AgentTurnCompletedPayload }>;
+  | Readonly<{ kind: 'terminal'; payload: AgentTurnCompletedPayload; usage?: AgentTokenUsageObservation }>;
 
 export interface NativeTurn {
   readonly turnId: AgentTurnId;

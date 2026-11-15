@@ -27,6 +27,7 @@ import { validateAgentExecutionInputSupport } from "./executionInput/validation.
 import { createSessionInteractionOwner } from "./sessionInteractions/lifetime.js";
 import { validateSessionInteractionSupport, validateNativeContinuationSupport } from "./sessionInteractions/validation.js";
 import { admitAgentStructuredOutputOpening } from "./structuredOutput/admission.js";
+import { admitAgentApprovalPolicy, validateAgentApprovalPolicySupport } from "./approvalPolicy/validation.js";
 import {
   validateAgentProviderOperationResult,
   validateAgentProviderOutputForContext,
@@ -138,6 +139,17 @@ export function validateAgentProviderAdapter(
   }
 
   const declaredResumption = adapter.resumption;
+  let approvalPolicy: ReturnType<typeof validateAgentApprovalPolicySupport>;
+  try {
+    approvalPolicy = validateAgentApprovalPolicySupport(adapter.approvalPolicy, [
+      "create",
+      ...(adapter.resumption.kind === "supported" ? ["resume" as const] : []),
+      ...(adapter.branching.kind === "through_turn" ? ["branch" as const] : []),
+    ]);
+  } catch {
+    return throwAgentProviderContractError(capabilities.providerKey, "invalid_adapter",
+      "Provider declared invalid approval-policy support.");
+  }
   const sessionInteractions = validateSessionInteractionSupport(capabilities, adapter);
   const nativeContinuations = validateNativeContinuationSupport(capabilities, adapter, sessionInteractions);
   let executionInput: ReturnType<typeof validateAgentExecutionInputSupport>;
@@ -165,77 +177,85 @@ export function validateAgentProviderAdapter(
           resumeSession: async (
             resumeInput: AgentResumeSessionInput,
             invocation: OpeningInvocation = {},
-          ) => withAgentSessionHostBinding({
-            providerKey: capabilities.providerKey,
-            binding: resumeInput.hostBinding,
-            openingInput: resumeInput,
-            support: hostBinding,
-            open: async (lease) => {
-              throwIfAgentOperationAborted(resumeInput.signal);
-              if (Reflect.has(resumeInput, "output")) {
-                throwAgentProviderContractError(capabilities.providerKey, "structured_output_unsupported",
-                  "Structured-output requests are unsupported when resuming a session.");
-              }
-              const parsed = parseAgentSessionOpenInput({
-                operation: "resume",
-                sessionId: resumeInput.sessionId,
-                binding: resumeInput.binding,
-                configuration: resumeInput.configuration,
-              });
-              if (parsed.operation !== "resume") {
-                throw new TypeError("Expected a resume session input.");
-              }
-              assertAgentSessionConfigurationSupported(
-                capabilities,
-                parsed.configuration,
-              );
-              const workingDirectory = parseWorkingDirectory(
-                resumeInput.workingDirectory,
-              );
-              const binding = parsed.binding;
-              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId, undefined, executionInput);
-              const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
-                sessionId: parsed.sessionId, operation: "resume", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
-                ...(resumeInput.nativeContinuations === undefined ? {} : { continuations: resumeInput.nativeContinuations }),
-                ...(resumeInput.interactions === undefined ? {} : { context: resumeInput.interactions }),
-                ...(resumeInput.signal === undefined ? {} : { signal: resumeInput.signal }) });
-              if (interactions) invocation.owner = interactions;
-              interactions?.bind();
-              const candidate = await invokeAgentSessionOpening({
-                providerKey: capabilities.providerKey, openingInput: resumeInput, lease,
-                ...(interactions === undefined ? {} : { interactions }),
-                open: (context) => declaredResumption.resumeSession(context),
-                candidateInput: {
-                  sessionId: parsed.sessionId,
-                  workingDirectory,
-                  binding,
-                  configuration: parsed.configuration,
-                  ...(lease === undefined ? {} : { hostBinding: lease.binding }),
-                  ...(interactions === undefined ? {} : { interactions: interactions.facade }),
-                  ...((interactions?.openingSignal ?? resumeInput.signal) === undefined
-                    ? {}
-                    : { signal: interactions?.openingSignal ?? resumeInput.signal }),
-                },
-              });
-              try {
-                const session = validateAgentProviderSession({
-                  capabilities,
-                  validationOwner,
-                  sessionId: parsed.sessionId,
-                  candidate,
-                  expectedBinding: binding,
-                  ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
-                  ...(lease === undefined ? {} : { hostBindingLease: lease }),
+          ) => {
+            const selectedApprovalPolicy = admitAgentApprovalPolicy({
+              providerKey: capabilities.providerKey, selection: resumeInput.approvalPolicy,
+              support: approvalPolicy, operation: "resume",
+            });
+            return withAgentSessionHostBinding({
+              providerKey: capabilities.providerKey,
+              binding: resumeInput.hostBinding,
+              openingInput: resumeInput,
+              support: hostBinding,
+              open: async (lease) => {
+                throwIfAgentOperationAborted(resumeInput.signal);
+                if (Reflect.has(resumeInput, "output")) {
+                  throwAgentProviderContractError(capabilities.providerKey, "structured_output_unsupported",
+                    "Structured-output requests are unsupported when resuming a session.");
+                }
+                const parsed = parseAgentSessionOpenInput({
+                  operation: "resume",
+                  sessionId: resumeInput.sessionId,
+                  binding: resumeInput.binding,
+                  configuration: resumeInput.configuration,
                 });
-                interactions?.adopt();
-                return session;
-              } catch (error) {
-                return closeRejectedAgentProviderSession(candidate, error,
-                  lease === undefined ? undefined : { providerKey: capabilities.providerKey, lease },
-                  { providerKey: capabilities.providerKey, input: resumeInput }, interactions);
-              }
-            },
-          }),
+                if (parsed.operation !== "resume") {
+                  throw new TypeError("Expected a resume session input.");
+                }
+                assertAgentSessionConfigurationSupported(
+                  capabilities,
+                  parsed.configuration,
+                );
+                const workingDirectory = parseWorkingDirectory(
+                  resumeInput.workingDirectory,
+                );
+                const binding = parsed.binding;
+                const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId, undefined, executionInput);
+                const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
+                  sessionId: parsed.sessionId, operation: "resume", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
+                  ...(resumeInput.nativeContinuations === undefined ? {} : { continuations: resumeInput.nativeContinuations }),
+                  ...(resumeInput.interactions === undefined ? {} : { context: resumeInput.interactions }),
+                  ...(resumeInput.signal === undefined ? {} : { signal: resumeInput.signal }) });
+                if (interactions) invocation.owner = interactions;
+                interactions?.bind();
+                const candidate = await invokeAgentSessionOpening({
+                  providerKey: capabilities.providerKey, openingInput: resumeInput, lease,
+                  ...(interactions === undefined ? {} : { interactions }),
+                  open: (context) => declaredResumption.resumeSession(context),
+                  candidateInput: {
+                    sessionId: parsed.sessionId,
+                    workingDirectory,
+                    binding,
+                    configuration: parsed.configuration,
+                    ...(selectedApprovalPolicy === undefined ? {} : { approvalPolicy: selectedApprovalPolicy }),
+                    ...(lease === undefined ? {} : { hostBinding: lease.binding }),
+                    ...(interactions === undefined ? {} : { interactions: interactions.facade }),
+                    ...((interactions?.openingSignal ?? resumeInput.signal) === undefined
+                      ? {}
+                      : { signal: interactions?.openingSignal ?? resumeInput.signal }),
+                  },
+                });
+                try {
+                  const session = validateAgentProviderSession({
+                    capabilities,
+                  validationOwner,
+                    sessionId: parsed.sessionId,
+                    candidate,
+                    expectedBinding: binding,
+                    ...(selectedApprovalPolicy === undefined ? {} : { requestedApprovalPolicy: selectedApprovalPolicy }),
+                    ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
+                    ...(lease === undefined ? {} : { hostBindingLease: lease }),
+                  });
+                  interactions?.adopt();
+                  return session;
+                } catch (error) {
+                  return closeRejectedAgentProviderSession(candidate, error,
+                    lease === undefined ? undefined : { providerKey: capabilities.providerKey, lease },
+                    { providerKey: capabilities.providerKey, input: resumeInput }, interactions);
+                }
+              },
+            });
+          },
         });
 
   const declaredBranching = adapter.branching;
@@ -247,71 +267,79 @@ export function validateAgentProviderAdapter(
           branchSession: async (
             branchInput: AgentBranchSessionInput,
             invocation: OpeningInvocation = {},
-          ) => withAgentSessionHostBinding({
-            providerKey: capabilities.providerKey,
-            binding: branchInput.hostBinding,
-            openingInput: branchInput,
-            support: hostBinding,
-            open: async (lease) => {
-              throwIfAgentOperationAborted(branchInput.signal);
-              if (Reflect.has(branchInput, "output")) {
-                throwAgentProviderContractError(capabilities.providerKey, "structured_output_unsupported",
-                  "Structured-output requests are unsupported when branching a session.");
-              }
-              const parsed = parseAgentSessionOpenInput({
-                operation: "branch",
-                sessionId: branchInput.sessionId,
-                source: branchInput.source,
-                configuration: branchInput.configuration,
-              });
-              if (parsed.operation !== "branch") {
-                throw new TypeError("Expected a branch session input.");
-              }
-              assertAgentSessionConfigurationSupported(
-                capabilities,
-                parsed.configuration,
-              );
-              const workingDirectory = parseWorkingDirectory(
-                branchInput.workingDirectory,
-              );
-              const sourceBinding = parsed.source.binding;
-              const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId, undefined, executionInput);
-              const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
-                sessionId: parsed.sessionId, operation: "branch", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
-                ...(branchInput.nativeContinuations === undefined ? {} : { continuations: branchInput.nativeContinuations }),
-                ...(branchInput.interactions === undefined ? {} : { context: branchInput.interactions }),
-                ...(branchInput.signal === undefined ? {} : { signal: branchInput.signal }) });
-              if (interactions) invocation.owner = interactions;
-              return openIdentityCreatingAgentProviderSession({
-                capabilities,
+          ) => {
+            const selectedApprovalPolicy = admitAgentApprovalPolicy({
+              providerKey: capabilities.providerKey, selection: branchInput.approvalPolicy,
+              support: approvalPolicy, operation: "branch",
+            });
+            return withAgentSessionHostBinding({
+              providerKey: capabilities.providerKey,
+              binding: branchInput.hostBinding,
+              openingInput: branchInput,
+              support: hostBinding,
+              open: async (lease) => {
+                throwIfAgentOperationAborted(branchInput.signal);
+                if (Reflect.has(branchInput, "output")) {
+                  throwAgentProviderContractError(capabilities.providerKey, "structured_output_unsupported",
+                    "Structured-output requests are unsupported when branching a session.");
+                }
+                const parsed = parseAgentSessionOpenInput({
+                  operation: "branch",
+                  sessionId: branchInput.sessionId,
+                  source: branchInput.source,
+                  configuration: branchInput.configuration,
+                });
+                if (parsed.operation !== "branch") {
+                  throw new TypeError("Expected a branch session input.");
+                }
+                assertAgentSessionConfigurationSupported(
+                  capabilities,
+                  parsed.configuration,
+                );
+                const workingDirectory = parseWorkingDirectory(
+                  branchInput.workingDirectory,
+                );
+                const sourceBinding = parsed.source.binding;
+                const validationOwner = createAgentSessionValidationOwner(capabilities, parsed.sessionId, undefined, executionInput);
+                const interactions = createSessionInteractionOwner({ providerKey: capabilities.providerKey,
+                  sessionId: parsed.sessionId, operation: "branch", support: sessionInteractions, nativeSupport: nativeContinuations, validationOwner,
+                  ...(branchInput.nativeContinuations === undefined ? {} : { continuations: branchInput.nativeContinuations }),
+                  ...(branchInput.interactions === undefined ? {} : { context: branchInput.interactions }),
+                  ...(branchInput.signal === undefined ? {} : { signal: branchInput.signal }) });
+                if (interactions) invocation.owner = interactions;
+                return openIdentityCreatingAgentProviderSession({
+                  capabilities,
                   validationOwner,
-                sessionId: parsed.sessionId,
-                observer: branchInput.onBindingCreated,
-                sourceBinding,
-                openingInput: branchInput,
-                ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
-                ...(lease === undefined ? {} : { hostBindingLease: lease }),
-                open: (observer) =>
-                  invokeAgentSessionOpening({
-                    providerKey: capabilities.providerKey, openingInput: branchInput, lease,
-                    ...(interactions === undefined ? {} : { interactions }),
-                    open: (context) => declaredBranching.branchSession(context),
-                    candidateInput: {
-                      sessionId: parsed.sessionId,
-                      workingDirectory,
-                      source: parsed.source,
-                      configuration: parsed.configuration,
-                      onBindingCreated: observer,
-                      ...(lease === undefined ? {} : { hostBinding: lease.binding }),
-                      ...(interactions === undefined ? {} : { interactions: interactions.facade }),
-                      ...((interactions?.openingSignal ?? branchInput.signal) === undefined
-                        ? {}
-                        : { signal: interactions?.openingSignal ?? branchInput.signal }),
-                    },
-                  }),
-              });
-            },
-          }),
+                  sessionId: parsed.sessionId,
+                  observer: branchInput.onBindingCreated,
+                  sourceBinding,
+                  openingInput: branchInput,
+                  ...(selectedApprovalPolicy === undefined ? {} : { requestedApprovalPolicy: selectedApprovalPolicy }),
+                  ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
+                  ...(lease === undefined ? {} : { hostBindingLease: lease }),
+                  open: (observer) =>
+                    invokeAgentSessionOpening({
+                      providerKey: capabilities.providerKey, openingInput: branchInput, lease,
+                      ...(interactions === undefined ? {} : { interactions }),
+                      open: (context) => declaredBranching.branchSession(context),
+                      candidateInput: {
+                        sessionId: parsed.sessionId,
+                        workingDirectory,
+                        source: parsed.source,
+                        configuration: parsed.configuration,
+                        ...(selectedApprovalPolicy === undefined ? {} : { approvalPolicy: selectedApprovalPolicy }),
+                        onBindingCreated: observer,
+                        ...(lease === undefined ? {} : { hostBinding: lease.binding }),
+                        ...(interactions === undefined ? {} : { interactions: interactions.facade }),
+                        ...((interactions?.openingSignal ?? branchInput.signal) === undefined
+                          ? {}
+                          : { signal: interactions?.openingSignal ?? branchInput.signal }),
+                      },
+                    }),
+                });
+              },
+            });
+          },
         });
 
   const declaredAuthentication = adapter.authentication;
@@ -410,7 +438,12 @@ export function validateAgentProviderAdapter(
           },
         });
 
-  const createSession = async (createInput: AgentCreateSessionInput, invocation: OpeningInvocation = {}) => withAgentSessionHostBinding({
+  const createSession = async (createInput: AgentCreateSessionInput, invocation: OpeningInvocation = {}) => {
+    const selectedApprovalPolicy = admitAgentApprovalPolicy({
+      providerKey: capabilities.providerKey, selection: createInput.approvalPolicy,
+      support: approvalPolicy, operation: "create",
+    });
+    return withAgentSessionHostBinding({
       providerKey: capabilities.providerKey,
       binding: createInput.hostBinding,
       openingInput: createInput,
@@ -448,6 +481,7 @@ export function validateAgentProviderAdapter(
           sessionId: parsed.sessionId,
           observer: createInput.onBindingCreated,
           openingInput: createInput,
+          ...(selectedApprovalPolicy === undefined ? {} : { requestedApprovalPolicy: selectedApprovalPolicy }),
           ...(interactions === undefined ? {} : { sessionInteractionOwner: interactions }),
           ...(lease === undefined ? {} : { hostBindingLease: lease }),
           open: (observer) =>
@@ -459,6 +493,7 @@ export function validateAgentProviderAdapter(
                 sessionId: parsed.sessionId,
                 workingDirectory,
                 configuration: parsed.configuration,
+                ...(selectedApprovalPolicy === undefined ? {} : { approvalPolicy: selectedApprovalPolicy }),
                 ...(structuredOutputBinding === undefined ? {} : { output: structuredOutputBinding.request }),
                 onBindingCreated: observer,
                 ...(lease === undefined ? {} : { hostBinding: lease.binding }),
@@ -471,8 +506,10 @@ export function validateAgentProviderAdapter(
         });
       },
     });
+  };
 
   const openingAdapter: AgentValidatedProviderAdapter = Object.freeze({
+    ...(approvalPolicy === undefined ? {} : { approvalPolicy }),
     ...(executionInput === undefined ? {} : { executionInput }),
     hostBinding,
     sessionInteractions,

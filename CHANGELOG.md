@@ -5,6 +5,47 @@ All notable changes to the coordinated AgenAI Agent SDK package set are recorded
 transport, ACP provider and ACP registry). Release `0.4.4` adds optional history, neutral sandbox contracts
 and a local Docker backend, for ten coordinated packages.
 
+## 0.4.14 - 2026-11-15
+
+Coordinated fourteen-package release candidate. This release advances Agent Protocol to V14;
+upgrade the complete package family together. Migration steps are in
+[UPGRADING-TO-0.4.14.md](UPGRADING-TO-0.4.14.md).
+
+- Add runtime approval-policy discovery and explicit session-opening selection for `host`,
+  `provider_auto_review`, `provider_bypass` and `provider_accept_edits`, with per-composition support
+  and effective-policy confirmation. Generic ACP rejects explicit normalized selections.
+- Add optional `@agen-ai/provider-grok` with the controlled Grok Build 1.0.77 Docker composition
+  and separately qualified host, native auto-review and bypass policies.
+- Add optional `@agen-ai/provider-tools`, `@agen-ai/provider-claude` and `@agen-ai/provider-opencode`.
+  The owned Claude and OpenCode drivers support `host` and `provider_accept_edits`: eligible
+  structured workspace edits may proceed automatically; every shell command still requires approval.
+  Codex and Cursor execution drivers remain unsupported. See the portable
+  [approval-policy](examples/approval-policy/HANDOFF.md) and [accept-edits](examples/accept-edits/HANDOFF.md)
+  qualification records for exact native tuples and limits.
+
+- **Breaking:** advance Agent Protocol to **V14**. Add the `usage.observed` event and the required
+  `capabilities.tokenUsage` declaration. Remove `cumulative` counters from `context.usage.updated`
+  and `cumulativeFields` from its capability; occupancy no longer carries consumption. Replace
+  collaboration `reported` counters with `{ kind: 'reference', scopeId }`. The live parser rejects
+  V13 values; decode stored V13 history with its original decoder.
+- Add `@agen-ai/agent-protocol/usage`: inclusive input/output counters with cache and reasoning
+  subsets, per-counter `exact`/`at_least`/`unavailable` precision with closed reasons, views,
+  scopes, snapshot epochs and revisions, origins, per-counter comparison identity, model
+  attribution and finality.
+- Add `@agen-ai/agent-runtime/usage`: the optional pure ledger (`createTokenUsageLedger`,
+  `admitTokenUsageEvent`, `summarizeTokenUsageView`), `sumDisjointTokenCounts` and
+  `createTokenUsagePendingBuffer`. Summaries subtract snapshots only from exact, comparable values
+  with a known origin, and never add overlapping views.
+- Runtime sessions validate usage on the existing turn reader and operation `onOutput` only. Add
+  six `usage_*` contract error codes; invalid usage uses the existing cleanup owner, while
+  unavailable usage keeps the native turn outcome.
+- Owned Claude, owned OpenCode (Anthropic and OpenAI) and controlled Grok 1.0.77 report usage,
+  qualified on Linux x64 and native-arm64 Docker Desktop. Generic ACP declares usage unsupported.
+  Normalized usage for the raw Claude, Codex, Cursor, Grok and OpenCode sandbox CLI recipes is
+  deferred.
+- Add the credential-free [usage example](examples/usage/README.md) and `pnpm examples:usage`,
+  now part of `pnpm test:examples`.
+
 ## 0.4.13 - 2026-11-08
 
 - Report the Docker Desktop coordinator's `journal_invalid` reason `missing` only when no coordinator

@@ -3,6 +3,7 @@
 // ------------------------------------------------------------------------------------------------
 
 import {
+  AGENT_PROTOCOL_VERSION,
   parseAgentCapabilities,
   parseAgentConfigurationRevisionId,
   parseAgentIsoDateTime,
@@ -43,7 +44,7 @@ const answerText = 'Archive';
 
 // This provider is a deterministic teaching fixture. It performs no native or network operation.
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 13,
+  protocolVersion: AGENT_PROTOCOL_VERSION,
   providerKey: 'example-live-request',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
   turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
@@ -52,6 +53,7 @@ const capabilities = parseAgentCapabilities({
     elicitation: { kind: 'supported', fieldKinds: ['text'], maxFields: 1, sensitiveFields: false },
   },
   context: { usage: { kind: 'unsupported' }, compaction: { kind: 'unsupported' } },
+  tokenUsage: { kind: 'unsupported' },
   input: { text: true, images: { kind: 'unsupported' }, contentReferences: { kind: 'unsupported' } },
   output: { streaming: true, plans: false, fileChanges: 'none', artifactKinds: [] },
   configuration: { kind: 'managed' },
@@ -94,7 +96,7 @@ const adapter = validateAgentProviderAdapter(capabilities, {
         const requestA = makeRequest('live-request:A');
         const request = makeRequest('live-request:B');
         let accepted = false;
-        const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId,
+        const base = { protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: context.sessionId, turnId: input.turnId,
           occurredAt: parseAgentIsoDateTime('2026-10-12T12:00:00.000Z') };
         async function* outputs(): AsyncGenerator<AgentProviderOutput, void> {
           signal.throwIfAborted();

@@ -53,7 +53,7 @@ export async function consumeTarEntry(reader: TarReader, header: TarHeader & { r
     return iterator;
   } };
   let callbackFailure: { readonly error: unknown } | undefined;
-  try { await consume(Object.freeze({ path, kind: header.kind, size: header.size, mode: header.mode, body })); }
+  try { await consume(Object.freeze({ path, kind: header.kind, size: header.size, mode: header.mode, uid: header.uid, gid: header.gid, body })); }
   catch (error) { callbackFailure = { error }; }
   const enteredPull = pending;
   active = false;

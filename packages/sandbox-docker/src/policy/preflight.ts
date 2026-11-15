@@ -88,6 +88,10 @@ export function verifyDaemon(api: DockerApi, config: DockerSandboxConfig, signal
     ...(config.egressAuthority?.kind === 'local_docker_desktop' ? { expectedDesktopId: config.egressAuthority.identity.engine.id } : {}) }, signal);
 }
 
+export function verifyImageInspectionDaemon(api: DockerApi, profile: DockerSandboxProfile, signal?: AbortSignal): Promise<string> {
+  return verifySelectedDaemon(api, { profile, datasets: false }, signal);
+}
+
 export function verifyDesktopCoordinatorDaemon(api: DockerApi, identity: DockerDesktopRouteAuthorityIdentity, signal?: AbortSignal): Promise<string> {
   return verifySelectedDaemon(api, { profile: identity.profile, datasets: false, expectedDesktopId: identity.engine.id }, signal);
 }

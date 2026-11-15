@@ -55,50 +55,17 @@ import {
 import { AGENT_GENERATED_RESOURCE_KINDS } from '../resources/types.js';
 import {
   AGENT_CONTEXT_COMPACTION_TRIGGERS,
-  AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS,
   AGENT_CONTEXT_MEASUREMENT_SCOPES,
   AGENT_IMAGE_INPUT_MEDIA_TYPES,
   AGENT_IMAGE_INPUT_SOURCE_KINDS,
   AGENT_TURN_INTERACTION_MODES,
 } from '../turns/types.js';
+import { addCanonicalListIssues } from './canonicalLists.js';
+import {
+  AgentTokenUsageCapabilityPortableSchema,
+  AgentTokenUsageCapabilitySchema,
+} from './usage.js';
 import { AgentProviderKeySchema } from './foundation.js';
-
-function addCanonicalListIssues(
-  input: {
-    readonly values: readonly string[];
-    readonly canonicalOrder?: readonly string[];
-    readonly path: readonly (string | number)[];
-    readonly label: string;
-  },
-  context: z.RefinementCtx,
-): void {
-  const seen = new Set<string>();
-  let previousOrder = -1;
-  input.values.forEach((value, index) => {
-    if (seen.has(value)) {
-      context.addIssue({
-        code: 'custom',
-        path: [...input.path, index],
-        message: `${input.label} must be unique.`,
-      });
-    }
-    seen.add(value);
-
-    const order = input.canonicalOrder
-      ? input.canonicalOrder.indexOf(value)
-      : index === 0 || input.values[index - 1]! < value
-        ? index
-        : previousOrder;
-    if (index > 0 && order <= previousOrder) {
-      context.addIssue({
-        code: 'custom',
-        path: [...input.path, index],
-        message: `${input.label} must use canonical order.`,
-      });
-    }
-    previousOrder = order;
-  });
-}
 
 const PositiveSafeIntegerSchema = z
   .number()
@@ -166,11 +133,6 @@ const AgentContextUsageCapabilitySchema = z.discriminatedUnion('kind', [
         .array(z.enum(AGENT_CONTEXT_MEASUREMENT_SCOPES))
         .min(1)
         .max(AGENT_CONTEXT_MEASUREMENT_SCOPES.length)
-        .meta({ uniqueItems: true })
-        .readonly(),
-      cumulativeFields: z
-        .array(z.enum(AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS))
-        .max(AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS.length)
         .meta({ uniqueItems: true })
         .readonly(),
     })
@@ -488,6 +450,7 @@ export const AgentCapabilitiesPortableSchema = z
       })
       .strict()
       .readonly(),
+    tokenUsage: AgentTokenUsageCapabilityPortableSchema,
     input: AgentOperationInputCapabilitySchema,
     output: z
       .object({
@@ -548,6 +511,13 @@ export const AgentCapabilitiesPortableSchema = z
 
 export const AgentCapabilitiesSchema: z.ZodType<AgentCapabilities> =
   AgentCapabilitiesPortableSchema.superRefine((capabilities, context) => {
+    const tokenUsage = AgentTokenUsageCapabilitySchema.safeParse(capabilities.tokenUsage);
+    if (!tokenUsage.success) {
+      for (const issue of tokenUsage.error.issues) {
+        context.addIssue({ ...issue, path: ['tokenUsage', ...issue.path] });
+      }
+    }
+
     addCanonicalListIssues(
       {
         values: capabilities.turns.interactionModes,
@@ -565,15 +535,6 @@ export const AgentCapabilitiesSchema: z.ZodType<AgentCapabilities> =
           canonicalOrder: AGENT_CONTEXT_MEASUREMENT_SCOPES,
           path: ['context', 'usage', 'measurementScopes'],
           label: 'Context measurement scopes',
-        },
-        context,
-      );
-      addCanonicalListIssues(
-        {
-          values: capabilities.context.usage.cumulativeFields,
-          canonicalOrder: AGENT_CONTEXT_CUMULATIVE_USAGE_FIELDS,
-          path: ['context', 'usage', 'cumulativeFields'],
-          label: 'Context cumulative usage fields',
         },
         context,
       );

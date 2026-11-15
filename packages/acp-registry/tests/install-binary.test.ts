@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { watch } from 'node:fs';
-import { lstat, readFile, readlink, readdir, stat } from 'node:fs/promises';
+import { lstat, open, readFile, readlink, readdir, stat, type FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 import { extractArchive, inspectArchive } from '../src/node/install/binary/archive.js';
@@ -170,11 +169,20 @@ test('bzip2 and ZIP decoders enforce their independent decompressed-byte limits'
 });
 
 for (const [name, format] of [['valid.tar.gz', 'tar.gz'], ['valid.tar.bz2', 'tar.bz2'], ['valid.zip', 'zip']] as const) {
-  test(`cancellation during actual ${format} extraction releases decoder and file waiters`, async () => {
+  test(`cancellation during actual ${format} extraction releases decoder and file waiters`, async (t) => {
     await withArchive(await readFile(fixturePath(name)), async (artifactPath, root) => {
       const controller = new AbortController();
-      let admitted = false;
-      const watcher = watch(join(root, 'payload'), () => { admitted = true; controller.abort(); });
+      const probe = await open(artifactPath, 'r');
+      const prototype: FileHandle = Object.getPrototypeOf(probe);
+      const write: (this: FileHandle, buffer: Uint8Array, offset?: number | null, length?: number | null, position?: number | null) => Promise<{ bytesWritten: number; buffer: Uint8Array }> = prototype.write;
+      await probe.close();
+      let written: FileHandle | undefined;
+      const intercepted = t.mock.method(prototype, 'write', async function (this: FileHandle, buffer: Uint8Array, offset?: number | null, length?: number | null, position?: number | null) {
+        const result = await write.call(this, buffer, offset, length, position);
+        // Abort before the extractor resumes from its first real payload write.
+        if (!written) { written = this; controller.abort(); }
+        return result;
+      });
       let deadline: ReturnType<typeof setTimeout> | undefined;
       try {
         const extraction = extractArchive({ artifactPath, payloadRoot: join(root, 'payload'), format, limits: binaryLimits, signal: controller.signal });
@@ -182,8 +190,11 @@ for (const [name, format] of [['valid.tar.gz', 'tar.gz'], ['valid.tar.bz2', 'tar
           deadline = setTimeout(() => reject(new Error('Archive cancellation left pending waiters.')), 2000);
         })]);
         await assert.rejects(bounded, installationError('aborted'));
-        assert.equal(admitted, true);
-      } finally { watcher.close(); if (deadline) clearTimeout(deadline); }
+        assert.ok(written);
+        await assert.rejects(written.stat(), { code: 'EBADF' });
+        assert.equal(await readFile(join(root, 'payload/bin/agent'), 'utf8'), "#!/bin/sh\nprintf 'fixture\\n'\n");
+        await assert.rejects(lstat(join(root, 'payload/share/info')), { code: 'ENOENT' });
+      } finally { intercepted.mock.restore(); if (deadline) clearTimeout(deadline); }
     });
   });
 }

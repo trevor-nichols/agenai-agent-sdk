@@ -1,0 +1,29 @@
+{
+  "format": "agenai.accept-edits-example.v1",
+  "provider": "claude",
+  "route": "anthropic",
+  "model": "REPLACE-with-the-full-model-id",
+  "policy": "provider_accept_edits",
+  "native": {
+    "executablePath": "/REPLACE/absolute/path/to/claude",
+    "bubblewrapPath": "/REPLACE/absolute/path/to/bwrap",
+    "filesystemHelperPath": "/REPLACE/absolute/path/to/agenai-sandbox-files"
+  },
+  "workspace": {
+    "storeDirectory": "/REPLACE/absolute/private/store",
+    "stateParentDirectory": "/REPLACE/absolute/private/state-parent"
+  },
+  "restrictions": { "askEdit": ["docs/**"], "denyRead": ["secrets/**"] },
+  "credential": { "kind": "api_key_file", "path": "/REPLACE/absolute/private/api-key" },
+  "prompt": "Create notes.txt containing the word ready, then run exactly: wc -l notes.txt",
+  "approvals": { "kind": "exact", "commands": ["wc -l notes.txt"], "edits": [], "reads": [] },
+  "limits": {
+    "runMs": 300000,
+    "settleMs": 60000,
+    "maxOutputEvents": 2000,
+    "maxOutputBytes": 4194304,
+    "maxToolItems": 8,
+    "cleanupAttempts": 2
+  },
+  "nativeLimits": { "provider": "claude", "maxBudgetUsdPerSession": 1 }
+}

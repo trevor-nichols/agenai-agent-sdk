@@ -1,0 +1,131 @@
+{
+  "format": "agenai.approval-native-run.v1",
+  "provider": "grok",
+  "mapping": "grok-build-1.0.77-controlled-shell-v1",
+  "runId": "run-one",
+  "profile": {
+    "instanceId": "approval-native:one",
+    "nativeSessionId": "00000000-0000-4000-8000-000000000001",
+    "policy": "provider_auto_review",
+    "deniedBashPatterns": ["git reset --hard*"],
+    "credentialBootstrap": {
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "backend": {
+    "profile": "linux-x64",
+    "endpoint": "unix:///ABSOLUTE/engine.sock",
+    "imageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "namespace": "approval-native",
+    "spillDirectory": "/ABSOLUTE/SPILL/private",
+    "user": {
+      "uid": 1000,
+      "gid": 1000
+    },
+    "egress": {
+      "imageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "protocol": "agenai.sandbox.egress-connect.v1",
+      "user": {
+        "uid": 1000,
+        "gid": 1000
+      },
+      "broker": {
+        "resources": {
+          "cpus": 0.1,
+          "memoryBytes": 67108864,
+          "pids": 16
+        },
+        "temporaryBytes": 8388608
+      },
+      "relay": {
+        "resources": {
+          "cpus": 0.1,
+          "memoryBytes": 67108864,
+          "pids": 16
+        },
+        "temporaryBytes": 8388608
+      },
+      "routeAuthority": {
+        "kind": "local_linux_same_host",
+        "stability": "caller_owned_quiescence",
+        "ipExecutable": {
+          "path": "/ABSOLUTE/PREPARED/ip",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "pollIntervalMs": 1000,
+        "commandTimeoutMs": 1000,
+        "maxOutputBytes": 1048576
+      },
+      "control": {
+        "heartbeatMs": 1000,
+        "leaseTimeoutMs": 20000
+      }
+    }
+  },
+  "workload": {
+    "resources": {
+      "cpus": 2,
+      "memoryBytes": 4294967296,
+      "pids": 256
+    },
+    "temporaryStorage": {
+      "homeBytes": 134217728,
+      "tempBytes": 134217728
+    },
+    "execution": {
+      "kind": "deadline",
+      "timeoutMs": 120000
+    },
+    "deadlines": {
+      "startupMs": 60000,
+      "cleanupMs": 30000
+    },
+    "transfers": {
+      "chunkBytes": 65536,
+      "metadataBatchBytes": 65536,
+      "metadataMergeFanIn": 8
+    },
+    "streams": {
+      "maxStdinBytes": 2097152,
+      "maxOutputBytes": 16777216,
+      "maxBufferedInputBytes": 8388608,
+      "maxBufferedOutputBytes": 8388608,
+      "highWaterMarkBytes": 65536
+    }
+  },
+  "credential": {
+    "kind": "auth_json",
+    "path": "/ABSOLUTE/ACCOUNT/auth.json"
+  },
+  "workspace": {
+    "importDirectory": "/ABSOLUTE/INPUT/workspace",
+    "exportDirectory": "/ABSOLUTE/OUTPUT/workspace",
+    "transferTimeoutMs": 30000,
+    "quotas": {
+      "maxFiles": 1000,
+      "maxFileBytes": 16777216,
+      "maxTotalBytes": 67108864,
+      "maxArchiveBytes": 83886080,
+      "maxPaths": 2000
+    }
+  },
+  "prompt": "Write result.txt in the workspace with the text 'controlled native example'. Use the terminal tool for that single file.",
+  "residual": {
+    "kind": "cancel"
+  },
+  "limits": {
+    "runMs": 120000,
+    "maxOutputEvents": 4096,
+    "maxOutputBytes": 16777216,
+    "maxToolActions": 4,
+    "cleanupAttempts": 3
+  },
+  "reservation": {
+    "ledgerDirectory": "/ABSOLUTE/LEDGER/campaign",
+    "campaignId": "native-campaign",
+    "currency": "USD",
+    "maximumCents": 1000,
+    "amountCents": 100
+  },
+  "artifactsDirectory": "/ABSOLUTE/ARTIFACTS/run-one"
+}

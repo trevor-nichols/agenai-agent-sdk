@@ -35,6 +35,9 @@ import { assertAcpExecutionInputUnsupported, assertExecutionInputExample } from 
 import { runNeutralSandboxConsumer } from "./agent-sdk-consumers/sandbox/proof.mjs";
 import { runPortableSandboxConsumer, runSandboxPlatformCheck } from "./agent-sdk-consumers/sandbox/platform-proof.mjs";
 import { copyPublicExampleSources } from "./agent-sdk-consumers/sandbox/example-sources.mjs";
+import { runAcceptEditsExample } from "./agent-sdk-consumers/accept-edits/proof.mjs";
+import { runApprovalPolicyExamples } from "./agent-sdk-consumers/approval-policy/proof.mjs";
+import { runUsageExample } from "./agent-sdk-consumers/usage/proof.mjs";
 
 // ------------------------------------------------------------------------------------------------
 //                Release Policy
@@ -99,22 +102,22 @@ const PACKAGES = [
     name: "@agen-ai/agent-protocol",
     root: "packages/agent-protocol",
     directory: "packages/agent-protocol",
-    dependencies: { "@agen-ai/validation": "^0.4.13", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.14", zod: "4.4.3" },
   },
   {
     name: "@agen-ai/agent-runtime",
     root: "packages/agent-runtime",
     directory: "packages/agent-runtime",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.13" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.14" },
   },
   {
     name: "@agen-ai/agent-orchestration",
     root: "packages/agent-orchestration",
     directory: "packages/agent-orchestration",
     dependencies: {
-      "@agen-ai/agent-runtime": "^0.4.13",
-      "@agen-ai/agent-protocol": "^0.4.13",
-      "@agen-ai/validation": "^0.4.13",
+      "@agen-ai/agent-runtime": "^0.4.14",
+      "@agen-ai/agent-protocol": "^0.4.14",
+      "@agen-ai/validation": "^0.4.14",
       zod: "4.4.3",
       "@modelcontextprotocol/sdk": "1.29.0",
     },
@@ -137,16 +140,16 @@ const PACKAGES = [
     root: "packages/provider-acp",
     directory: "packages/provider-acp",
     dependencies: {
-      "@agen-ai/acp-transport": "^0.4.13",
-      "@agen-ai/agent-runtime": "^0.4.13",
-      "@agen-ai/agent-protocol": "^0.4.13",
+      "@agen-ai/acp-transport": "^0.4.14",
+      "@agen-ai/agent-runtime": "^0.4.14",
+      "@agen-ai/agent-protocol": "^0.4.14",
     },
   },
   {
     name: "@agen-ai/acp-registry",
     root: "packages/acp-registry",
     directory: "packages/acp-registry",
-    dependencies: { "@agen-ai/validation": "^0.4.13", zod: "4.4.3",
+    dependencies: { "@agen-ai/validation": "^0.4.14", zod: "4.4.3",
       "@openpgp/unbzip2-stream": "2.1.0", "buffer-crc32": "1.0.0", "tar-stream": "3.2.2", yauzl: "3.4.0" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
@@ -158,7 +161,7 @@ const PACKAGES = [
     name: "@agen-ai/agent-history",
     root: "packages/agent-history",
     directory: "packages/agent-history",
-    dependencies: { "@agen-ai/agent-protocol": "^0.4.13", "@agen-ai/validation": "^0.4.13", zod: "4.4.3" },
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.14", "@agen-ai/validation": "^0.4.14", zod: "4.4.3" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./zod": { types: "./dist/zod.d.ts", import: "./dist/zod.js" },
@@ -176,7 +179,7 @@ const PACKAGES = [
     root: "packages/sandbox",
     directory: "packages/sandbox",
     assets: ["native/credentials/bootstrap.c", "native/credentials/protocol.h"],
-    dependencies: { "@agen-ai/validation": "^0.4.13", zod: "4.4.3" },
+    dependencies: { "@agen-ai/validation": "^0.4.14", zod: "4.4.3" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./backend": { types: "./dist/backend/index.d.ts", import: "./dist/backend/index.js" },
@@ -195,11 +198,76 @@ const PACKAGES = [
       ...["coordinator.h", "main.c", "authority.c", "storage.c"].map((file) => `native/desktop/coordinator/${file}`),
       ...["recovery.h", "main.c", "wire.c", "profile.h", "code.c", "processes.c", "endpoint.c", "files.c", "evidence.c", "observation.c"]
         .map((file) => `native/desktop/recovery/${file}`)],
-    dependencies: { "@agen-ai/sandbox": "^0.4.13", "@agen-ai/validation": "^0.4.13", zod: "4.4.3" },
+    dependencies: { "@agen-ai/sandbox": "^0.4.14", "@agen-ai/validation": "^0.4.14", zod: "4.4.3" },
     exports: {
       ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
       "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
       "./package.json": "./package.json",
+    },
+  },
+  {
+    name: "@agen-ai/provider-grok",
+    root: "packages/provider-grok",
+    directory: "packages/provider-grok",
+    dependencies: {
+      "@agen-ai/agent-protocol": "^0.4.14",
+      "@agen-ai/agent-runtime": "^0.4.14",
+      "@agen-ai/provider-acp": "^0.4.14",
+      "@agen-ai/sandbox": "^0.4.14",
+      "@agen-ai/sandbox-docker": "^0.4.14",
+    },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./docker": { types: "./dist/docker/index.d.ts", import: "./dist/docker/index.js" },
+      "./package.json": "./package.json",
+    },
+  },
+  {
+    name: "@agen-ai/provider-tools",
+    root: "packages/provider-tools",
+    directory: "packages/provider-tools",
+    dependencies: { "@agen-ai/agent-protocol": "^0.4.14", "@agen-ai/sandbox": "^0.4.14", "@agen-ai/sandbox-docker": "^0.4.14", zod: "4.4.3" },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./package.json": "./package.json",
+      "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
+    },
+  },
+  {
+    name: "@agen-ai/provider-claude",
+    root: "packages/provider-claude",
+    directory: "packages/provider-claude",
+    dependencies: {
+      "@agen-ai/agent-protocol": "^0.4.14",
+      "@agen-ai/agent-runtime": "^0.4.14",
+      "@agen-ai/provider-tools": "^0.4.14",
+      "@anthropic-ai/claude-agent-sdk": "0.3.322",
+      "@anthropic-ai/sdk": "0.113.0",
+      "@modelcontextprotocol/sdk": "1.29.0",
+      zod: "4.4.3",
+    },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./package.json": "./package.json",
+      "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
+    },
+  },
+  {
+    name: "@agen-ai/provider-opencode",
+    root: "packages/provider-opencode",
+    directory: "packages/provider-opencode",
+    dependencies: {
+      "@agen-ai/agent-protocol": "^0.4.14",
+      "@agen-ai/agent-runtime": "^0.4.14",
+      "@agen-ai/provider-tools": "^0.4.14",
+      "@opencode/client": "2.2.7",
+      "eventsource-parser": "3.1.1",
+      zod: "4.4.3",
+    },
+    exports: {
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+      "./package.json": "./package.json",
+      "./node": { types: "./dist/node/index.d.ts", import: "./dist/node/index.js" },
     },
   },
 ];
@@ -316,7 +384,7 @@ async function collectFiles(root) {
 
 function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.equal(manifest.name, definition.name);
-  assert.equal(manifest.version, "0.4.13");
+  assert.equal(manifest.version, "0.4.14");
   assert.equal(manifest.private, false);
   assert.equal(manifest.type, "module");
   assert.equal(manifest.sideEffects, false);
@@ -334,18 +402,18 @@ function inspectPackedManifest(definition, manifest, archiveFiles) {
   assert.deepEqual(manifest.dependencies ?? {}, definition.dependencies);
   if (definition.exports) assert.deepEqual(manifest.exports, definition.exports);
   if (definition.name === "@agen-ai/sandbox") {
-    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/provider-acp": "^0.4.13" });
+    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/provider-acp": "^0.4.14" });
     assert.deepEqual(manifest.peerDependenciesMeta, { "@agen-ai/provider-acp": { optional: true } });
   }
   if (definition.name === "@agen-ai/agent-history") {
-    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/acp-transport": "^0.4.13", "@anthropic-ai/claude-agent-sdk": "0.3.306", "@cursor/sdk": "1.0.40", "@opencode/client": "2.1.2" });
+    assert.deepEqual(manifest.peerDependencies, { "@agen-ai/acp-transport": "^0.4.14", "@anthropic-ai/claude-agent-sdk": "0.3.306", "@cursor/sdk": "1.0.40", "@opencode/client": "2.1.2" });
     assert.deepEqual(manifest.peerDependenciesMeta, { "@agen-ai/acp-transport": { optional: true }, "@anthropic-ai/claude-agent-sdk": { optional: true }, "@cursor/sdk": { optional: true }, "@opencode/client": { optional: true } });
     assert.equal(manifest.devDependencies?.["@anthropic-ai/claude-agent-sdk"], "0.3.306");
     assert.equal(manifest.devDependencies?.["@openai/codex"], "0.163.0");
     assert.equal(manifest.devDependencies?.["@cursor/sdk"], "1.0.40");
     assert.equal(manifest.devDependencies?.["@opencode/client"], "2.1.2");
     assert.equal(manifest.devDependencies?.["@opencode/cli"], "2.1.2");
-    assert.equal(manifest.devDependencies?.["@agen-ai/acp-transport"], "^0.4.13");
+    assert.equal(manifest.devDependencies?.["@agen-ai/acp-transport"], "^0.4.14");
     assert.equal(manifest.devDependencies?.["@xai-official/grok"], "1.0.62");
     for (const section of ["optionalDependencies", "bundledDependencies"]) {
       assert.deepEqual(manifest[section] ?? {}, {}, `History ${section} is outside the qualified core graph`);
@@ -481,6 +549,36 @@ import { createRequire } from "node:module";
 import { PassThrough, Writable } from "node:stream";
 import { runAcpProviderConsumer } from "./provider.js";
 import { runStructuredOutputRuntimeConsumer } from "./structured-output/runtime.js";
+import { GROK_DOCKER_APPROVAL_MAPPING, GROK_DOCKER_PROVIDER_KEY } from "@agen-ai/provider-grok";
+import { prepareGrokDockerApprovalProfile, prepareGrokDockerProvider,
+  type GrokDockerProviderOptions } from "@agen-ai/provider-grok/docker";
+import { createNodeFilesystemHelperClient, inspectDockerImageFiles, type DockerImageInspectionOptions } from "@agen-ai/sandbox-docker/node";
+import { CLAUDE_AGENT_SDK_VERSION, CLAUDE_CODE_VERSION, CLAUDE_PROVIDER_KEY, type NodeClaudeProviderOptions } from "@agen-ai/provider-claude";
+import { createNodeClaudeProviderDriver } from "@agen-ai/provider-claude/node";
+import { OPENCODE_PROVIDER_KEY, OPENCODE_VERSION, type NodeOpenCodeProviderOptions } from "@agen-ai/provider-opencode";
+import { createNodeOpenCodeProviderDriver, NodeOpenCodeNativeFailure } from "@agen-ai/provider-opencode/node";
+import { NODE_PROVIDER_TOOL_NAMES, NodeProviderToolsError } from "@agen-ai/provider-tools";
+import { prepareNodeProviderWorkspace } from "@agen-ai/provider-tools/node";
+
+// Packed public exports must load with their declaration graph; native qualification is separate.
+const grokProvider: (options: GrokDockerProviderOptions) => ReturnType<typeof prepareGrokDockerProvider> = prepareGrokDockerProvider;
+const imageInspection: (options: DockerImageInspectionOptions) => ReturnType<typeof inspectDockerImageFiles> = inspectDockerImageFiles;
+const claudeDriver: (options: NodeClaudeProviderOptions) => ReturnType<typeof createNodeClaudeProviderDriver> = createNodeClaudeProviderDriver;
+assert.equal(GROK_DOCKER_APPROVAL_MAPPING, "grok-build-1.0.77-controlled-shell-v1");
+assert.equal(GROK_DOCKER_PROVIDER_KEY, "grok");
+assert.equal(typeof prepareGrokDockerApprovalProfile, "function");
+assert.equal(typeof grokProvider, "function");
+assert.equal(typeof imageInspection, "function");
+assert.deepEqual([CLAUDE_PROVIDER_KEY, CLAUDE_AGENT_SDK_VERSION, CLAUDE_CODE_VERSION], ["claude", "0.3.322", "2.1.322"]);
+assert.deepEqual(NODE_PROVIDER_TOOL_NAMES, ["read", "glob", "grep", "write", "edit", "patch", "bash"]);
+assert.equal(typeof claudeDriver, "function");
+const openCodeDriver: (options: NodeOpenCodeProviderOptions) => ReturnType<typeof createNodeOpenCodeProviderDriver> = createNodeOpenCodeProviderDriver;
+assert.deepEqual([OPENCODE_PROVIDER_KEY, OPENCODE_VERSION], ["opencode", "2.2.7"]);
+assert.equal(typeof openCodeDriver, "function");
+assert.ok(NodeOpenCodeNativeFailure.prototype instanceof Error);
+assert.equal(typeof prepareNodeProviderWorkspace, "function");
+assert.equal(typeof createNodeFilesystemHelperClient, "function");
+assert.ok(NodeProviderToolsError.prototype instanceof Error);
 
 import {
   ACP_TRANSPORT_PACKAGE_NAME,
@@ -496,6 +594,7 @@ import { createAcpStandardSessionOperations, type AcpUnknownExtensionPolicy as C
 import { normalizeValidationIssues } from "@agen-ai/validation";
 import { normalizeZodValidationError } from "@agen-ai/validation/zod";
 import {
+  AGENT_PROTOCOL_VERSION,
   parseAgentCollaborationId,
   parseAgentConfigurationRevisionId,
   parseAgentEnvironmentId,
@@ -582,7 +681,7 @@ import { z } from "zod/v4";
 
 const require = createRequire(import.meta.url);
 const protocolManifest = require("@agen-ai/agent-protocol/package.json") as { version: string };
-assert.equal(protocolManifest.version, "0.4.13");
+assert.equal(protocolManifest.version, "0.4.14");
 
 const titleOutputSchema = parseAgentOutputSchema({
   type: "object", additionalProperties: false,
@@ -606,9 +705,10 @@ const packedFailure: AgentError = {
 assert.deepEqual(parseAgentError(JSON.parse(JSON.stringify(packedFailure))), packedFailure);
 assert.deepEqual(AgentErrorSchema.parse(packedFailure), packedFailure);
 assert.equal(safeParseAgentError({ code: "legacy", message: "Legacy failure.", retryable: false }).success, false);
-assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 13);
+assert.equal(AGENT_PROTOCOL_VERSION, 14);
+assert.equal(AGENT_ERROR_JSON_SCHEMA.protocolVersion, 14);
 const packedRetry: AgentRuntimeRetryingEvent = {
-  protocolVersion: 13, sessionId: parseAgentSessionId("packed-retry-session"),
+  protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: parseAgentSessionId("packed-retry-session"),
   turnId: parseAgentTurnId("packed-retry-turn"), occurredAt: parseAgentIsoDateTime("2026-10-11T12:00:00.000Z"),
   type: "runtime.retrying", payload: { owner: "provider", error: packedFailure, attempt: 1, maxAttempts: 2, delayMs: 0 },
 };
@@ -912,7 +1012,7 @@ assert.equal(typeof parseAgentSessionBinding, "function");
 assert.equal(typeof parseAgentTurnRunInput, "function");
 assert.equal(typeof parseAgentRequest, "function");
 assert.equal(typeof parseAgentArtifactDescriptor, "function");
-assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 13);
+assert.equal(AGENT_EVENT_JSON_SCHEMA.protocolVersion, 14);
 assert.ok(AGENT_PROVIDER_CONTRACT_ERROR_CODES.includes("invalid_session"));
 
 const normalized = normalizeValidationIssues(
@@ -958,7 +1058,7 @@ assert.equal(localFileInput.parts[0]?.type, "image");
 
 const steeringProviderKey = parseAgentProviderKey("packed-steering-provider");
 const steeringCapabilities = parseAgentCapabilities({
-  protocolVersion: 13,
+  protocolVersion: AGENT_PROTOCOL_VERSION,
   providerKey: steeringProviderKey,
   sessions: { create: true, resume: false, branch: { kind: "unsupported" } },
   turns: {
@@ -978,6 +1078,7 @@ const steeringCapabilities = parseAgentCapabilities({
     usage: { kind: "unsupported" },
     compaction: { kind: "unsupported" },
   },
+  tokenUsage: { kind: "unsupported" },
   input: { text: true, images: { kind: "unsupported" }, contentReferences: { kind: "unsupported" } },
   output: {
     streaming: false,
@@ -1006,7 +1107,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
     outputs: (async function* () {
       packedRunCount += 1;
       yield createAgentEventOutput({
-        protocolVersion: 13,
+        protocolVersion: AGENT_PROTOCOL_VERSION,
         type: "turn.started",
         sessionId,
         turnId: input.turnId,
@@ -1014,7 +1115,7 @@ const packedSession = (sessionId = parseAgentSessionId("packed-steering-session"
         payload: {},
       });
       yield createAgentEventOutput({
-        protocolVersion: 13,
+        protocolVersion: AGENT_PROTOCOL_VERSION,
         type: "turn.completed",
         sessionId,
         turnId: input.turnId,
@@ -1051,7 +1152,7 @@ const decision: AgentSessionDecisionRequest = parseAgentSessionDecisionRequest({
     consequence: { kind: "decline", configuration: "remains_gated" } }],
 });
 assert.deepEqual(AgentSessionDecisionRequestSchema.parse(decision), decision);
-assert.equal(AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA.protocolVersion, 13);
+assert.equal(AGENT_SESSION_DECISION_REQUEST_JSON_SCHEMA.protocolVersion, 14);
 assert.throws(() => parseAgentSessionDecisionResponseFor(decision, { kind: "decision", choiceId: "unoffered" }));
 // The installed portable graph includes forms and exact plan snapshots independently of runtime support.
 const packedForm = parseAgentSessionFormRequest({
@@ -1081,14 +1182,14 @@ const packedReviewResponse = parseAgentSessionResponseFor(packedReview, {
 assert.deepEqual(AgentSessionRequestSchema.parse(packedReview), packedReview);
 assert.deepEqual(AgentSessionResponseSchema.parse(packedReviewResponse), packedReviewResponse);
 assert.throws(() => parseAgentSessionResponseFor(packedReview, { ...packedReviewResponse, revision: "revision:2" }));
-assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 40);
+assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 42);
 for (const artifact of [AGENT_SESSION_FORM_REQUEST_JSON_SCHEMA, AGENT_SESSION_FORM_RESPONSE_JSON_SCHEMA,
   AGENT_SESSION_PLAN_REVIEW_REQUEST_JSON_SCHEMA, AGENT_SESSION_PLAN_REVIEW_RESPONSE_JSON_SCHEMA,
   AGENT_SESSION_REQUEST_JSON_SCHEMA, AGENT_SESSION_RESPONSE_JSON_SCHEMA,
   AGENT_OUTPUT_SCHEMA_JSON_SCHEMA, AGENT_STRUCTURED_OUTPUT_CAPABILITY_JSON_SCHEMA,
   AGENT_STRUCTURED_OUTPUT_REQUEST_JSON_SCHEMA, AGENT_STRUCTURED_OUTPUT_RESULT_JSON_SCHEMA,
   AGENT_TURN_COMPLETED_PAYLOAD_JSON_SCHEMA]) {
-  assert.equal(artifact.protocolVersion, 13);
+  assert.equal(artifact.protocolVersion, 14);
   assert.ok(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.includes(artifact));
 }
 // Installed declarations must keep producer authority separate from application handlers.
@@ -1382,7 +1483,7 @@ const limited = createFakeAgentProvider({
   providerKey: limitedProviderKey,
   instanceId: "limited-external-instance",
   capabilities: parseAgentCapabilities({
-    protocolVersion: 13,
+    protocolVersion: AGENT_PROTOCOL_VERSION,
     providerKey: limitedProviderKey,
     sessions: { create: true, resume: true, branch: { kind: "unsupported" } },
     turns: {
@@ -1399,6 +1500,7 @@ const limited = createFakeAgentProvider({
       usage: { kind: "unsupported" },
       compaction: { kind: "unsupported" },
     },
+    tokenUsage: { kind: "unsupported" },
     input: { text: true, images: { kind: "unsupported" }, contentReferences: { kind: "unsupported" } },
     output: {
       streaming: false,
@@ -1447,7 +1549,7 @@ assert.ok(limitedReport.checks.includes("branch_session"));
 assert.ok(limitedReport.checks.includes("interruption"));
 
 const event = parseAgentEvent({
-  protocolVersion: 13,
+  protocolVersion: AGENT_PROTOCOL_VERSION,
   type: "turn.started",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -1469,7 +1571,7 @@ const commandItem: AgentItemSnapshot = {
   },
 };
 const itemEvent = parseAgentEvent({
-  protocolVersion: 13,
+  protocolVersion: AGENT_PROTOCOL_VERSION,
   type: "item.completed",
   sessionId: parseAgentSessionId("round-trip-session"),
   turnId: parseAgentTurnId("round-trip-turn"),
@@ -2599,7 +2701,7 @@ assert.equal(native.name, '@xai-official/grok-linux-x64');
 assert.equal(native.version, '1.0.62');
 assert.equal(wrapper.optionalDependencies['@xai-official/grok-linux-x64'], '1.0.62');
 const transport = require('@agen-ai/acp-transport/package.json');
-assert.equal(transport.version, '0.4.13');
+assert.equal(transport.version, '0.4.14');
 process.stdout.write(JSON.stringify({wrapperVersion:wrapper.version,platformVersion:native.version,transportVersion:transport.version,lifecycleScripts:false}));
 `], { cwd: consumerRoot });
   const runtime = JSON.parse(identity.stdout);
@@ -2659,6 +2761,7 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   const generationExamples = await exampleIdentities(consumerRoot, CORE_GENERATION_FILES);
   await copyPublicExampleSources(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "execution-input"),
     path.join(consumerRoot, "examples/execution-input"));
+  await copyPublicExampleSources(path.join(REPO_ROOT, PUBLIC_EXAMPLES_ROOT, "usage"), path.join(consumerRoot, "examples/usage"));
   const executionInputExamples = await exampleIdentities(consumerRoot,
     (await collectFiles(path.join(consumerRoot, "examples/execution-input")))
       .map((file) => path.relative(path.join(consumerRoot, "examples"), file).split(path.sep).join("/")));
@@ -2747,6 +2850,7 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
     { scenario: "opening-cleanup", openings: 1, callbacks: 1, answers: 0, nativeCloses: 1, hostReleases: 1, turns: 0, cleanup: "joined" },
   ]);
   process.stdout.write(core.stdout);
+  const usageExample = await runUsageExample({ repoRoot: REPO_ROOT, consumerRoot, run });
   const executionInputProofFiles = await Promise.all([["core.mjs", "execution-input.mjs"],
     ["offline-guard.mjs", "execution-input-offline-guard.mjs"]].map(async ([source, destination]) => ({
     path: `${EXECUTION_INPUT_CONSUMER_ROOT}/${source}`,
@@ -2755,7 +2859,7 @@ async function runCoreConsumer(tempRoot, artifacts, dependencyBaseline) {
   executionInputProofFiles.push({ path: `${EXECUTION_INPUT_CONSUMER_ROOT}/reports.mjs`,
     sha256: createHash("sha256").update(await readFile(path.join(REPO_ROOT, EXECUTION_INPUT_CONSUMER_ROOT, "reports.mjs"))).digest("hex") });
   return { exampleSha256, rememberedExampleSha256, continuationExamples, operationExamples, generationExamples,
-    executionInputExamples, executionInputProofFiles, packages: coreNames, dependencyEvidence };
+    executionInputExamples, executionInputProofFiles, usageExample, packages: coreNames, dependencyEvidence };
 }
 
 async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
@@ -2864,6 +2968,8 @@ async function runConsumer(tempRoot, artifacts, dependencyBaseline) {
   });
   await run("pnpm", ["exec", "tsc", "--project", "examples/tsconfig.json", "--noEmit"], { cwd: consumerRoot });
   await run("pnpm", ["exec", "tsc", "--project", "tsconfig.sandbox.json"], { cwd: consumerRoot });
+  const approvalPolicyExamples = await runApprovalPolicyExamples({ repoRoot: REPO_ROOT, consumerRoot, run });
+  const acceptEditsExample = await runAcceptEditsExample({ repoRoot: REPO_ROOT, consumerRoot, run });
   const sandboxLifecycle = await run(process.execPath,
     ["--import", "./examples-offline-guard.mjs", "--import", "tsx", "sandbox-session-lifecycle.ts"], { cwd: consumerRoot, timeoutMs: 30_000 });
   const sandboxLifecycleReport = JSON.parse(sandboxLifecycle.stdout.trim());
@@ -3072,7 +3178,7 @@ assert.throws(() => createAcpSchemaValidator("stable", ${JSON.stringify(profile)
   })));
   executionInputAcpProofFiles.push({ path: `${EXECUTION_INPUT_CONSUMER_ROOT}/reports.mjs`,
     sha256: createHash("sha256").update(await readFile(path.join(REPO_ROOT, EXECUTION_INPUT_CONSUMER_ROOT, "reports.mjs"))).digest("hex") });
-  return { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence, executionInputAcpProofFiles, sandboxPlatformReport };
+  return { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence, executionInputAcpProofFiles, sandboxPlatformReport, approvalPolicyExamples, acceptEditsExample };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -3117,12 +3223,12 @@ async function main() {
       && !baselineRoot.startsWith(`${outputRoot}${path.sep}`), "Output and dependency baseline must not overlap");
     assert.equal(await realpath(baselineRoot), baselineRoot, "Dependency baseline root must be an existing physical directory");
     assert.equal(PACKAGES.length, 7,
-      "--dependency-baseline is historical seven-package 0.4.2 qualification; the current ten-package source needs a separately qualified baseline");
+      "--dependency-baseline is historical seven-package 0.4.2 qualification; the current fourteen-package source needs a separately qualified baseline");
   }
   const dependencyBaseline = baselineRoot ? await readDependencyBaseline(baselineRoot, PACKAGES.map(({ name }) => name)) : undefined;
   let tempRoot;
   if (outputRoot === undefined) {
-    tempRoot = await mkdtemp(path.join(tmpdir(), "agenai-agent-sdk-consumer-"));
+    tempRoot = await realpath(await mkdtemp(path.join(tmpdir(), "agenai-agent-sdk-consumer-")));
   } else {
     const parent = path.dirname(outputRoot);
     assert.equal(await realpath(parent), parent, "output parent must be an existing physical directory");
@@ -3163,7 +3269,7 @@ async function main() {
       return;
     }
     const { liveExampleSha256, rememberedAcpExampleSha256, continuationAcpFiles, dependencyEvidence,
-      executionInputAcpProofFiles, sandboxPlatformReport } = await runConsumer(tempRoot, artifacts, dependencyBaseline);
+      executionInputAcpProofFiles, sandboxPlatformReport, approvalPolicyExamples, acceptEditsExample } = await runConsumer(tempRoot, artifacts, dependencyBaseline);
     const coreConsumer = await runCoreConsumer(tempRoot, artifacts, dependencyBaseline);
     const historyConsumer = await runHistoryConsumer(tempRoot, artifacts);
     const claudeHistoryConsumer = await runClaudeHistoryConsumer(tempRoot, artifacts);
@@ -3180,6 +3286,8 @@ async function main() {
       proof: "agent-sdk-packed-artifact-identities",
       sandboxConsumer,
       sandboxPlatformConsumer: sandboxPlatformReport,
+      approvalPolicyExamples,
+      acceptEditsExample,
       historyConsumer,
       claudeHistoryConsumer,
       codexHistoryConsumer,
@@ -3197,6 +3305,7 @@ async function main() {
       executionInputAcpProof: { files: executionInputAcpProofFiles, scope: "actual packed ACP constructors with a synthetic serialized peer",
         profiles: ["generic-acp", "grok-labels-and-adverts", "grok-1.0.62-structured-output"], ownership: ["borrowed", "owned"] },
       sessionContinuationExample: { files: coreConsumer.continuationExamples, installedSdkPackages: coreConsumer.packages },
+      usageExample: { ...coreConsumer.usageExample, installedSdkPackages: coreConsumer.packages },
       sessionContinuationAcpExample: { files: continuationAcpFiles },
       lifecycleExample: { path: "examples/lifecycle-interactions.ts", sha256: coreConsumer.exampleSha256, installedSdkPackages: coreConsumer.packages },
       rememberedExample: { path: "examples/remembered-approvals.ts", sha256: coreConsumer.rememberedExampleSha256,

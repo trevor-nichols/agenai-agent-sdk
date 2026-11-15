@@ -40,6 +40,7 @@ import type {
   AgentProviderInstanceDefinition,
 } from "../providerDriver.js";
 import type { AgentProviderOutput } from "../outputs.js";
+import type { AgentApprovalPolicy } from "../approvalPolicy/types.js";
 import type {
   AgentProviderOperationResult,
   AgentProviderStartTurnInput,
@@ -57,6 +58,8 @@ export interface AgentProviderConformanceScenario {
   readonly definition: AgentProviderInstanceDefinition;
   readonly workingDirectory: string;
   readonly configuration: AgentSessionConfiguration;
+  /** Optional explicit policy for the primary create; other scenarios retain their own opening contracts. */
+  readonly approvalPolicy?: AgentApprovalPolicy;
   readonly configurationSelection?: AgentConfigurationSelectionInput;
   readonly operationInvocation?: AgentOperationInvocation;
   readonly collaborationSpawn?: AgentCollaborationSpawnInput;
@@ -303,27 +306,39 @@ async function requireStructuredRejection(operation: () => unknown, code: "struc
   requireCheck(rejected, "structured_output", "Unsupported structured output was admitted.");
 }
 
-async function checkStructuredOutput(input: {
-  readonly adapter: AgentValidatedProviderAdapter;
-  readonly capability: AgentStructuredOutputCapability;
-  readonly plainSession: AgentProviderSession;
-  readonly scenario: AgentProviderConformanceScenario;
-}): Promise<readonly string[]> {
-  const { adapter, capability, scenario } = input;
+function structuredOutputRequest(scenario: AgentProviderConformanceScenario) {
   const schema: AgentOutputSchema = scenario.structuredOutput?.schema ?? {
     type: "object", properties: { title: { type: "string" } }, required: ["title"], additionalProperties: false,
   };
-  const request = { kind: "json_schema" as const, schema };
-  if (capability.kind === "unsupported") {
-    await requireStructuredRejection(async () => {
-      const unexpected = await adapter.createSession({ sessionId: scenario.abortedSessionId,
-        workingDirectory: scenario.workingDirectory, configuration: scenario.configuration,
-        onBindingCreated() {}, output: request });
-      await unexpected.close({ reason: "contract_rejected" });
-    }, "structured_output_unsupported");
-    await requireStructuredRejection(() => input.plainSession.startTurn({ ...scenario.turn, output: request }), "structured_output_unsupported");
-    return ["structured_output_unsupported"];
-  }
+  return { kind: "json_schema" as const, schema };
+}
+
+/** Both rejections precede provider opening and turn admission, so the live session is not joined by another. */
+async function checkUnsupportedStructuredOutput(input: {
+  readonly adapter: AgentValidatedProviderAdapter;
+  readonly session: AgentProviderSession;
+  readonly scenario: AgentProviderConformanceScenario;
+}): Promise<readonly string[]> {
+  const { adapter, scenario } = input;
+  const request = structuredOutputRequest(scenario);
+  await requireStructuredRejection(async () => {
+    const unexpected = await adapter.createSession({ sessionId: scenario.abortedSessionId,
+      workingDirectory: scenario.workingDirectory, configuration: scenario.configuration,
+      onBindingCreated() {}, output: request });
+    await unexpected.close({ reason: "contract_rejected" });
+  }, "structured_output_unsupported");
+  await requireStructuredRejection(() => input.session.startTurn({ ...scenario.turn, output: request }), "structured_output_unsupported");
+  return ["structured_output_unsupported"];
+}
+
+async function checkSupportedStructuredOutput(input: {
+  readonly adapter: AgentValidatedProviderAdapter;
+  readonly capability: Extract<AgentStructuredOutputCapability, { kind: "supported" }>;
+  readonly scenario: AgentProviderConformanceScenario;
+}): Promise<readonly string[]> {
+  const { adapter, capability, scenario } = input;
+  const request = structuredOutputRequest(scenario);
+  const schema = request.schema;
   const fixture = scenario.structuredOutput;
   requireCheck(fixture !== undefined, "structured_output", "Supported structured output requires two schema/result fixtures and an ordinary turn.");
   let bound: AgentProviderSession | undefined;
@@ -366,6 +381,62 @@ async function checkStructuredOutput(input: {
     const failures = settled.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
     if (failures.length > 0) throw new AggregateError(failure ? [failure.error, ...failures] : failures,
       "Structured conformance cleanup failed.", failure ? { cause: failure.error } : undefined);
+  }
+}
+
+async function checkInterruption(
+  adapter: AgentValidatedProviderAdapter,
+  scenario: AgentProviderConformanceScenario,
+): Promise<void> {
+  let interruptedBindingCount = 0;
+  const interrupted = await adapter.createSession({
+    sessionId: scenario.interruptionSessionId,
+    workingDirectory: scenario.workingDirectory,
+    configuration: scenario.configuration,
+    onBindingCreated: () => {
+      interruptedBindingCount += 1;
+    },
+  });
+  let liveTurn: StartedAgentProviderTurn | null = null;
+  let failure: Readonly<{ error: unknown }> | undefined;
+  try {
+    requireCheck(
+      interruptedBindingCount === 1 &&
+        interrupted.interruption.kind === "supported",
+      "interruption",
+      "Interruption capability did not open a conforming session handler.",
+    );
+    liveTurn = await advanceToStartedTurn(
+      interrupted,
+      scenario.interruptionTurn,
+    );
+    if (interrupted.interruption.kind !== "supported") {
+      throw new AgentProviderConformanceError(
+        "interruption",
+        "Interruption capability has no handler.",
+      );
+    }
+    const result = await interrupted.interruption.interruptTurn({
+      turnId: scenario.interruptionTurn.turnId,
+      reason: "user_requested",
+    });
+    requireOperationStatus(
+      result,
+      ["accepted", "completed", "canceled"],
+      "interruption",
+      "Live turn interruption did not succeed.",
+    );
+    const { outputs } = await collectRemainingOutputs(liveTurn);
+    requireCheck(semanticEvents(outputs).some((event) => event.type === "turn.completed"),
+      "interruption", "Interrupted turn did not produce native terminal output.");
+  } catch (error) {
+    failure = { error };
+    throw error;
+  } finally {
+    const settled = await Promise.allSettled([interrupted.close({ reason: "other" }), liveTurn?.iterator.return?.()]);
+    const failures = settled.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+    if (failures.length > 0) throw new AggregateError(failure ? [failure.error, ...failures] : failures,
+      "Interruption conformance cleanup failed.", failure ? { cause: failure.error } : undefined);
   }
 }
 
@@ -513,6 +584,7 @@ export async function runAgentProviderConformance(
       sessionId: scenario.createSessionId,
       workingDirectory: scenario.workingDirectory,
       configuration: scenario.configuration,
+      ...(scenario.approvalPolicy === undefined ? {} : { approvalPolicy: scenario.approvalPolicy }),
       onBindingCreated: () => {
         createdBindingCount += 1;
       },
@@ -524,6 +596,11 @@ export async function runAgentProviderConformance(
       "Create session did not report exactly one binding.",
     );
     checks.push("create_session", "binding_callback");
+    if (scenario.approvalPolicy !== undefined) {
+      requireCheck(isDeepStrictEqual(created.approvalPolicy?.policy, scenario.approvalPolicy),
+        "approval_policy", "Provider did not establish the selected approval policy.");
+      checks.push("approval_policy");
+    }
 
     if (instance.capabilities.environment.session.kind === "unsupported") {
       requireCheck(
@@ -562,8 +639,13 @@ export async function runAgentProviderConformance(
     }
     checks.push("environment_session");
 
-    checks.push(...await checkStructuredOutput({ adapter: instance.adapter,
-      capability: instance.capabilities.turns.structuredOutput, plainSession: created, scenario }));
+    // Checks that open their own sessions run after the primary session closes, so an instance that admits
+    // one live session can be qualified. The report keeps each check at its established position.
+    const structuredOutput = instance.capabilities.turns.structuredOutput;
+    const structuredChecksIndex = checks.length;
+    if (structuredOutput.kind === "unsupported") {
+      checks.push(...await checkUnsupportedStructuredOutput({ adapter: instance.adapter, session: created, scenario }));
+    }
 
     const aborted = new AbortController();
     aborted.abort(new DOMException("Conformance abort.", "AbortError"));
@@ -587,59 +669,13 @@ export async function runAgentProviderConformance(
 
     const turnChecksIndex = checks.length;
 
-    if (instance.capabilities.turns.interrupt) {
-      let interruptedBindingCount = 0;
-      const interrupted = await instance.adapter.createSession({
-        sessionId: scenario.interruptionSessionId,
-        workingDirectory: scenario.workingDirectory,
-        configuration: scenario.configuration,
-        onBindingCreated: () => {
-          interruptedBindingCount += 1;
-        },
-      });
-      requireCheck(
-        interruptedBindingCount === 1 &&
-          interrupted.interruption.kind === "supported",
-        "interruption",
-        "Interruption capability did not open a conforming session handler.",
-      );
-      let liveTurn: StartedAgentProviderTurn | null = null;
-      try {
-        liveTurn = await advanceToStartedTurn(
-          interrupted,
-          scenario.interruptionTurn,
-        );
-        if (interrupted.interruption.kind !== "supported") {
-          throw new AgentProviderConformanceError(
-            "interruption",
-            "Interruption capability has no handler.",
-          );
-        }
-        const result = await interrupted.interruption.interruptTurn({
-          turnId: scenario.interruptionTurn.turnId,
-          reason: "user_requested",
-        });
-        requireOperationStatus(
-          result,
-          ["accepted", "completed", "canceled"],
-          "interruption",
-          "Live turn interruption did not succeed.",
-        );
-        const { outputs } = await collectRemainingOutputs(liveTurn);
-        requireCheck(semanticEvents(outputs).some((event) => event.type === "turn.completed"),
-          "interruption", "Interrupted turn did not produce native terminal output.");
-      } finally {
-        const closing = interrupted.close({ reason: "other" });
-        await Promise.all([closing, liveTurn?.iterator.return?.()]);
-      }
-    } else {
+    if (!instance.capabilities.turns.interrupt) {
       requireCheck(
         created.interruption.kind === "unsupported",
         "interruption",
         "Unsupported interruption exposed a handler.",
       );
     }
-    checks.push("interruption");
 
     if (instance.capabilities.configuration.kind === "selectable") {
       requireCheck(
@@ -884,6 +920,13 @@ export async function runAgentProviderConformance(
     await created.close({ reason: "idle" });
     await created.close({ reason: "idle" });
     checks.push("idempotent_session_close");
+
+    const structuredChecks = structuredOutput.kind === "supported"
+      ? await checkSupportedStructuredOutput({ adapter: instance.adapter, capability: structuredOutput, scenario })
+      : [];
+    if (instance.capabilities.turns.interrupt) await checkInterruption(instance.adapter, scenario);
+    checks.splice(turnChecksIndex + turnChecks.length, 0, "interruption");
+    checks.splice(structuredChecksIndex, 0, ...structuredChecks);
 
     if (instance.capabilities.sessions.resume) {
       requireCheck(

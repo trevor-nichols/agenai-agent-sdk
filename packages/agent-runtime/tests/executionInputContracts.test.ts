@@ -111,7 +111,7 @@ test("execution entry admits matching ports and rejects undeclared, missing, mal
     if (scenario.valid) {
       const first = await iterator.next();
       assert.equal(first.done, false);
-      assert.deepEqual(first.value, { kind: "event", event: { protocolVersion: 13, type: "turn.started",
+      assert.deepEqual(first.value, { kind: "event", event: { protocolVersion: 14, type: "turn.started",
         sessionId: "input-contract", turnId: "execution:one", occurredAt: "2026-08-04T00:00:00.000Z",
         payload: { message: "Fake provider turn started." } } });
     } else await assert.rejects(iterator.next(), contractFailure("capability_port_mismatch"));

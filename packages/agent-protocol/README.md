@@ -3,11 +3,12 @@
 `@agen-ai/agent-protocol` is the provider-neutral data contract for coding-agent runtimes. It
 defines opaque identifiers, sessions, turns, approval and elicitation requests, technical
 capabilities, typed operations, safe configuration and managed-content inventories, integration
-observations, effective harness content and package catalogs, environment observations, account-quota observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
+observations, effective harness content and package catalogs, environment observations, account-quota observations, token-usage observations, operational failures and recovery hints, collaboration lifecycles, generated resources, portable
 artifact descriptors, and provider-observed events. The package does not define a transport or
 execution runtime.
-Current source is the unpublished coordinated ten-package `0.4.8` candidate and uses Agent
-Protocol V13, unchanged from published `0.4.7`; V13 added structured final output. Published `0.4.3` is the seven-package V12 release,
+Coordinated `0.4.14` uses Agent Protocol V14, which adds
+token-usage observations and removes cumulative counters from context occupancy. Published `0.4.13`
+and `0.4.7` use V13; V13 added structured final output. Published `0.4.3` is the seven-package V12 release,
 including exact request unavailability and session decisions, forms and plan reviews. Published
 `0.4.1` retains V11; `0.4.0` retains V10. Source versioning does not establish registry publication.
 Keep all installed SDK packages at one coordinated version. The [0.4.2 migration
@@ -41,7 +42,7 @@ carry no fabricated windows or hints.
 - `@agen-ai/agent-protocol` exports the complete plain API.
 - `/sessions`, `/session-interactions`, `/turns`, `/requests`, `/events`, `/capabilities`, `/artifacts`, `/operations`,
   `/configuration`, `/managed-content`, `/integrations`, `/collaboration`, `/resources`, and
-  `/account-quota`, `/effective-content`, `/commands`, `/extensions`, `/environment`, and
+  `/account-quota`, `/effective-content`, `/commands`, `/extensions`, `/environment`, `/usage`, and
   `/structured-output` are focused plain entrypoints.
 - `/zod` is the only entrypoint that exposes Zod schemas and the `zodOutput` authoring adapter.
 - `/json-schema` exposes deterministic draft 2020-12 schema artifacts.
@@ -60,7 +61,7 @@ import {
 } from '@agen-ai/agent-protocol';
 
 const event: AgentEvent = parseAgentEvent({
-  protocolVersion: 13,
+  protocolVersion: 14,
   type: 'content.delta',
   sessionId: parseAgentSessionId('external-session:42'),
   turnId: parseAgentTurnId('external-turn:9'),
@@ -75,7 +76,7 @@ const event: AgentEvent = parseAgentEvent({
 const roundTripped = parseAgentEvent(JSON.parse(JSON.stringify(event)));
 ```
 
-Serialized values carry `protocolVersion: 13`; TypeScript API names remain unsuffixed. Unknown
+Serialized values carry `protocolVersion: 14`; TypeScript API names remain unsuffixed. Unknown
 fields and unsupported protocol versions are rejected.
 
 Item snapshots are a closed union keyed by `itemKind`. Common identity and lifecycle fields are
@@ -106,9 +107,21 @@ deny-and-remember, and explicit cancellation distinct. Show the remembered optio
 and unknown duration/applicability without converting observed provider behavior into a session,
 workspace, path-pattern, or permanent grant.
 
-`context.usage.updated` reports
-bounded occupancy and optional monotonic cumulative counters for an advertised session or
-materialization measurement scope.
+`context.usage.updated` reports bounded occupancy for an advertised session or materialization
+measurement scope; it carries no consumption counters. `usage.observed` reports token consumption
+as an `AgentTokenUsageObservation`: a declared view, a `session`, `materialization`, `turn`, or
+`model_call` accounting scope, a delta or snapshot measurement whose nine counters are each exact,
+a lower bound, or unavailable with closed reasons, and `open` or `final` finality. The envelope
+`turnId` names the delivery turn, not the accounting scope. Capabilities declare `tokenUsage` as
+unsupported or as at most four views, each bound to one scope kind, its reported counters, and its
+attribution kinds. Collaboration nodes report usage as `unavailable` or as a reference to an
+accounting scope; they never carry their own counters.
+
+Input and output counters are inclusive; cache and reasoning counters are subsets of them. A
+counter's precision is independent of field support and population, so an `at_least` subset
+cannot produce an exact residual. Views overlap and must not be added together. The
+[usage example](../../examples/usage/README.md) runs eleven deterministic scenarios, and
+[UPGRADING-TO-AGENT14.md](../../UPGRADING-TO-AGENT14.md) maps the removed V13 counters.
 
 Capabilities state technical possibility only. Dynamic operations, configuration fields, managed
 content, and integrations are separate bounded, revisioned catalogs; capability declarations do
@@ -123,7 +136,8 @@ extension or metadata bag.
 
 ## Structured final output
 
-V13 defines a provider-neutral output request, finite JSON Schema profile, and terminal result.
+Since V13, the protocol defines a provider-neutral output request, finite JSON Schema profile, and
+terminal result.
 Use [`generateObject`](../agent-runtime/README.md#generate-a-typed-object) from
 `@agen-ai/agent-runtime/generation` to own a fresh generation session, or use the lower-level
 session/turn API when the application owns that lifecycle. Successful generation establishes that
@@ -414,20 +428,21 @@ before delegation; a composer can use the same pure functions to preserve and ex
 
 ## Versioning and release
 
-Agent Protocol V13 defines the current source contract shared with `@agen-ai/agent-runtime`.
-The coordinated ten-package `0.4.8` candidate is unpublished; published `0.4.7` also uses V13. Published `0.4.3` retains V12,
+Agent Protocol V14 defines the current source contract shared with `@agen-ai/agent-runtime`.
+Coordinated `0.4.14` uses V14; the preceding `0.4.13` and `0.4.7` releases use V13. Published `0.4.3` retains V12,
 `0.4.1` retains V11 and `0.4.0` retains V10. Registry publication and dist-tag state are release
-metadata outside this contract. Earlier public releases remain historical. The complete candidate
-release inventory must use one coordinated source version. Optional `@agen-ai/agent-history`
+metadata outside this contract. Earlier public releases remain historical. The complete
+release inventory must use one coordinated version. See the [0.4.14 upgrade
+guide](../../UPGRADING-TO-0.4.14.md) for migration. Optional `@agen-ai/agent-history`
 browses native saved conversations independently of execution; it does not infer structured-output
 support or validated values from native transcript JSON.
 
-Protocol V13 is independent of private transport and product persistence versions and replaces
-V12 at live boundaries. There is one current parser. V12 and older serialized data require the
-historical owner's frozen decoder and are rejected by the live V13 parser where versioned.
+Protocol V14 is independent of private transport and product persistence versions and replaces
+V13 at live boundaries. There is one current parser. V13 and older serialized data require the
+historical owner's frozen decoder and are rejected by the live V14 parser where versioned.
 The environment and account-quota namespaces each retain their own schema version 1.
 
-The repository release proof builds and packs the exact ten-package release set, rejects
+The repository release proof builds and packs the exact fourteen-package source set, rejects
 workspace-only or private references, then typechecks and runs a consumer outside the monorepo.
 
 From the public repository root, run `pnpm check` to execute the same packed-consumer proof.

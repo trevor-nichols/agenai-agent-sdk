@@ -52,13 +52,15 @@ export function parseHeader(block: Uint8Array): TarHeader {
   const name = field(block, 0, 100);
   const path = prefix ? `${prefix}/${name}` : name;
   const mode = octal(block, 100, 8);
+  const uid = octal(block, 108, 8);
+  const gid = octal(block, 116, 8);
   const size = octal(block, 124, 12);
-  for (const [offset, length] of [[108, 8], [116, 8], [136, 12], [329, 8], [337, 8]]) octal(block, offset, length);
+  for (const [offset, length] of [[136, 12], [329, 8], [337, 8]]) octal(block, offset, length);
   field(block, 265, 32);
   field(block, 297, 32);
   if (mode > 0o7777 || size > MAX_OCTAL_SIZE || block.subarray(500).some((byte) => byte !== 0)) unsafeArchive('unsupported numeric or extension metadata.');
   if ((kind === 'directory' || kind === 'symlink') && size !== 0) unsafeArchive('directory and symbolic-link entries cannot carry payload.');
-  return { path, kind, mode, size, target };
+  return { path, kind, mode, uid, gid, size, target };
 }
 
 function putOctal(header: Buffer, offset: number, length: number, value: number): void {

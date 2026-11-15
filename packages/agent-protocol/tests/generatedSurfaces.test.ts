@@ -94,6 +94,7 @@ test('package exports are explicit and complete', () => {
     './sessions',
     './structured-output',
     './turns',
+    './usage',
     './zod',
   ]);
   assert.equal(
@@ -103,12 +104,12 @@ test('package exports are explicit and complete', () => {
 });
 
 test('JSON Schema artifacts have stable identity, hashes, and draft 2020-12 shape', () => {
-  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 40);
+  assert.equal(AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY.length, 42);
   const identities = new Set<string>();
   for (const artifact of AGENT_PROTOCOL_JSON_SCHEMA_REGISTRY) {
     assert.equal(artifact.dialect, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
     assert.equal(artifact.schema.$schema, AGENT_PROTOCOL_JSON_SCHEMA_DIALECT);
-    assert.equal(artifact.protocolVersion, 13);
+    assert.equal(artifact.protocolVersion, 14);
     assert.match(artifact.sha256, /^[a-f0-9]{64}$/u);
     assert.equal(
       artifact.sha256,
@@ -709,11 +710,15 @@ test('capability JSON Schema publishes collection uniqueness and residual parser
     'canonical_operation_field_kinds',
     'canonical_operation_kinds',
     'canonical_context_compaction_triggers',
-    'canonical_context_cumulative_usage_fields',
     'canonical_context_measurement_scopes',
     'image_input_pixels_bounded_by_dimensions',
     'image_input_total_bytes_admits_max_image',
     'image_input_total_bytes_bounded_by_count',
+    'canonical_token_usage_reported_counters',
+    'canonical_token_usage_attribution_kinds',
+    'unique_token_usage_view_ids',
+    'single_authoritative_token_usage_view',
+    'token_usage_count_basis_consistency',
   ]);
   const validate = new Ajv2020({
     allErrors: true,
@@ -858,6 +863,14 @@ test('event JSON Schema declares residual semantic parser invariants', () => {
     'structured_value_collection_limits',
     'serialized_utf8_bytes',
     'structured_issue_utf8_bytes',
+    'usage_canonical_reasons',
+    'usage_exact_requires_complete_coverage',
+    'usage_counter_subsets',
+    'usage_count_basis_consistency',
+    'usage_measurement_matches_view_accounting',
+    'usage_initial_epoch_cause',
+    'usage_detail_containment',
+    'usage_model_row_order_and_reconciliation',
   ]);
 
   const validate = new Ajv2020({
@@ -866,7 +879,7 @@ test('event JSON Schema declares residual semantic parser invariants', () => {
     validateFormats: false,
   }).compile(artifact.schema);
   const eventWithPayload = (payload: unknown) => ({
-    protocolVersion: 13,
+    protocolVersion: 14,
     type: 'item.completed',
     sessionId: 'session:1',
     turnId: 'turn:1',

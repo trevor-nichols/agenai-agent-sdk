@@ -142,7 +142,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
     },
   } as const;
   return parseAgentCapabilities({
-    protocolVersion: 13,
+    protocolVersion: 14,
     providerKey,
     sessions: { create: true, resume: true, branch: { kind: "through_turn" } },
     turns: {
@@ -173,6 +173,7 @@ function defaultCapabilities(providerKey: AgentProviderKey): AgentCapabilities {
       usage: { kind: "unsupported" },
       compaction: { kind: "unsupported" },
     },
+    tokenUsage: { kind: "unsupported" },
     input,
     output: {
       streaming: true,
@@ -273,7 +274,7 @@ function eventBase(
   turnId: AgentTurnId,
   occurredAt: AgentIsoDateTime,
 ) {
-  return { protocolVersion: 13 as const, sessionId, turnId, occurredAt };
+  return { protocolVersion: 14 as const, sessionId, turnId, occurredAt };
 }
 
 function fakeEnvironmentSnapshot(

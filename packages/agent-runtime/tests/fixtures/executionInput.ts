@@ -93,7 +93,7 @@ export function nativeInputTurn(
       };
     },
   };
-  const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: input.turnId,
+  const base = { protocolVersion: 14 as const, sessionId: context.sessionId, turnId: input.turnId,
     occurredAt: parseAgentIsoDateTime("2026-10-23T12:00:00.000Z") };
   const emit = (event: AgentEvent) => controller.enqueue(createAgentEventOutput(event));
   const execution: AgentProviderTurnExecution = {

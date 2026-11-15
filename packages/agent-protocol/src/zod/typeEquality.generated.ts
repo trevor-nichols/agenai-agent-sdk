@@ -27,6 +27,7 @@ import type { AgentSessionDecisionChoice, AgentSessionDecisionConsequence, Agent
 import type { AgentSessionBinding, AgentSessionConfiguration, AgentSessionOpenInput } from '../sessions/types.js';
 import type { AgentOutputSchema, AgentStructuredOutputCapability, AgentStructuredOutputNonJsonResult, AgentStructuredOutputRequest, AgentStructuredOutputResult } from '../structuredOutput/types.js';
 import type { AgentContentReferenceInputPart, AgentItemSnapshot, AgentTurnCompletedPayload, AgentTurnInputContent, AgentTurnInterruptionInput, AgentTurnRunInput } from '../turns/types.js';
+import type { AgentTokenCount, AgentTokenUsageCapability, AgentTokenUsageObservation, AgentTokenUsageView } from '../usage/types.js';
 import { AgentAccountQuotaResetSchema, AgentAccountQuotaSnapshotSchema, AgentAccountQuotaWindowSchema } from './accountQuota.js';
 import { AgentArtifactDescriptorSchema } from './artifacts.js';
 import { AgentApprovalCapabilitySchema, AgentCapabilitiesSchema } from './capabilities.js';
@@ -48,6 +49,7 @@ import { AgentSessionDecisionChoiceSchema, AgentSessionDecisionConsequenceSchema
 import { AgentSessionBindingSchema, AgentSessionConfigurationSchema, AgentSessionOpenInputSchema } from './sessions.js';
 import { AgentOutputSchemaSchema, AgentStructuredOutputCapabilitySchema, AgentStructuredOutputNonJsonResultSchema, AgentStructuredOutputRequestSchema, AgentStructuredOutputResultSchema } from './structuredOutput.js';
 import { AgentContentReferenceInputPartSchema, AgentItemSnapshotSchema, AgentTurnCompletedPayloadSchema, AgentTurnInputContentSchema, AgentTurnInterruptionInputSchema, AgentTurnRunInputSchema } from './turns.js';
+import { AgentTokenCountSchema, AgentTokenUsageCapabilitySchema, AgentTokenUsageObservationSchema, AgentTokenUsageViewSchema } from './usage.js';
 
 type Extends<Left, Right> = [Left] extends [Right] ? true : false;
 type Assert<Value extends true> = Value;
@@ -185,6 +187,14 @@ export type AgentProtocolSchemaTypeAssertions = readonly [
   Assert<Extends<AgentCollaborationControlInput, z.output<typeof AgentCollaborationControlInputSchema>>>,
   Assert<Extends<z.output<typeof AgentGeneratedResourceDescriptorSchema>, AgentGeneratedResourceDescriptor>>,
   Assert<Extends<AgentGeneratedResourceDescriptor, z.output<typeof AgentGeneratedResourceDescriptorSchema>>>,
+  Assert<Extends<z.output<typeof AgentTokenCountSchema>, AgentTokenCount>>,
+  Assert<Extends<AgentTokenCount, z.output<typeof AgentTokenCountSchema>>>,
+  Assert<Extends<z.output<typeof AgentTokenUsageViewSchema>, AgentTokenUsageView>>,
+  Assert<Extends<AgentTokenUsageView, z.output<typeof AgentTokenUsageViewSchema>>>,
+  Assert<Extends<z.output<typeof AgentTokenUsageObservationSchema>, AgentTokenUsageObservation>>,
+  Assert<Extends<AgentTokenUsageObservation, z.output<typeof AgentTokenUsageObservationSchema>>>,
+  Assert<Extends<z.output<typeof AgentTokenUsageCapabilitySchema>, AgentTokenUsageCapability>>,
+  Assert<Extends<AgentTokenUsageCapability, z.output<typeof AgentTokenUsageCapabilitySchema>>>,
   Assert<Extends<z.output<typeof AgentCapabilitiesSchema>, AgentCapabilities>>,
   Assert<Extends<AgentCapabilities, z.output<typeof AgentCapabilitiesSchema>>>,
   Assert<Extends<z.output<typeof AgentArtifactDescriptorSchema>, AgentArtifactDescriptor>>,

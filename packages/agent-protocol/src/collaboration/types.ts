@@ -8,6 +8,7 @@ import type {
   AgentError,
   AgentGeneratedResourceId,
   AgentIsoDateTime,
+  AgentUsageScopeId,
 } from '../foundation/index.js';
 import type { AgentTurnInputContent } from '../turns/index.js';
 
@@ -45,13 +46,6 @@ export const AGENT_COLLABORATION_STOP_REASONS = [
   'superseded',
   'other',
 ] as const;
-export const AGENT_COLLABORATION_USAGE_FIELDS = [
-  'inputTokens',
-  'outputTokens',
-  'reasoningTokens',
-  'totalTokens',
-  'modelCalls',
-] as const;
 export const AGENT_COLLABORATION_TITLE_MAX_LENGTH = 200;
 export const AGENT_COLLABORATION_OBJECTIVE_MAX_LENGTH = 4_000;
 export const AGENT_COLLABORATION_PROGRESS_MAX_LENGTH = 2_000;
@@ -73,8 +67,6 @@ export type AgentCollaborationOutcomeKind =
   (typeof AGENT_COLLABORATION_OUTCOMES)[number];
 export type AgentCollaborationStopReason =
   (typeof AGENT_COLLABORATION_STOP_REASONS)[number];
-export type AgentCollaborationUsageField =
-  (typeof AGENT_COLLABORATION_USAGE_FIELDS)[number];
 
 export type AgentCollaborationOutcome =
   | Readonly<{ kind: 'completed' }>
@@ -84,16 +76,10 @@ export type AgentCollaborationOutcome =
       reason: AgentCollaborationStopReason;
     }>;
 
+/** A reference names a usage scope admitted earlier in the same session; it carries no counters. */
 export type AgentCollaborationUsage =
   | Readonly<{ kind: 'unavailable' }>
-  | Readonly<{
-      kind: 'reported';
-      inputTokens?: number;
-      outputTokens?: number;
-      reasoningTokens?: number;
-      totalTokens?: number;
-      modelCalls?: number;
-    }>;
+  | Readonly<{ kind: 'reference'; scopeId: AgentUsageScopeId }>;
 
 export interface AgentCollaborationNode {
   readonly collaborationId: AgentCollaborationId;

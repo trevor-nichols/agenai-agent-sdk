@@ -22,6 +22,7 @@ export * from '../configuration/index.js';
 export * from '../integrations/index.js';
 export * from '../collaboration/index.js';
 export * from '../resources/index.js';
+export * from '../usage/index.js';
 export * from '../capabilities/index.js';
 export * from '../artifacts/index.js';
 export * from '../events/index.js';

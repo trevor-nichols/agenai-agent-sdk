@@ -133,7 +133,7 @@ test('public conformance keeps its original ACP reader active through asynchrono
   assert.equal(turnEvents.flatMap((event) => event.type === 'content.delta' ? [event.payload.delta] : []).join(''),
     'A is still unanswered.B is still producing output.');
   assert.equal(aTaskSettled, true);
-  assert.deepEqual(observed.readerTurnIds, ['conformance:held', 'conformance:turn']);
+  assert.deepEqual(observed.readerTurnIds, ['conformance:turn', 'conformance:held']);
   assert.deepEqual(peers[0]!.frames.filter((frame) => !frame.method && frame.result !== undefined).map((frame) => frame.id), ['B']);
   assert.deepEqual(peers[0]!.frames.filter((frame) => frame.id === 'A').map((frame) => frame.error?.code), [-32800]);
   assert.equal(peers[0]!.frames.filter((frame) => frame.method === 'session/prompt').length, 1);

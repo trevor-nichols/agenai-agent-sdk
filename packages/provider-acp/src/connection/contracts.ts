@@ -11,6 +11,7 @@ import type { AcpBoundSession } from '../host/router.js';
 import type { SessionInteractionBroker } from '../sessionInteractions/broker.js';
 import type { AcpConnectionFactory } from '../contracts.js';
 import type { NodeAcpExecutionOwner } from '../node/execution/owner.js';
+import type { NodeAcpProtocolDialectSelection } from '../node/protocolDialect.js';
 
 export type AcpConnectionSource =
   | Readonly<{ kind: 'factory'; create: AcpConnectionFactory }>
@@ -43,6 +44,7 @@ export interface AcpInitializedConnection {
   readonly stopped: AbortSignal;
   readonly execution?: NodeAcpExecutionOwner;
   readonly sessionInteractions?: SessionInteractionBroker;
+  readonly protocolDialect?: NodeAcpProtocolDialectSelection;
   readonly attachSession: (ingress: AcpSessionIngress) => () => void;
   readonly bindSession: (binding: AcpBoundSession) => void;
   readonly requestWithScope: (method: string, params: AcpJsonValue, scope: AcpHostInteractionScope, options?: AcpRequestOptions) => Promise<AcpJsonValue>;

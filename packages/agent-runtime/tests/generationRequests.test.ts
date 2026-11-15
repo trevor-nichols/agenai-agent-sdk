@@ -3,11 +3,41 @@ import { setImmediate, setTimeout } from "node:timers/promises";
 import test from "node:test";
 import { parseAgentIsoDateTime, type AgentRequestResolution, type AgentTurnCompletedPayload } from "@agen-ai/agent-protocol";
 import { AgentGenerationError, generateObject } from "../src/generation/index.js";
-import type { AgentRequestResolutionResult } from "../src/index.js";
+import type { AgentApprovalPolicy, AgentRequestResolutionResult } from "../src/index.js";
 import { answer, approval, deferred, event, generationFixture, itemId, terminal } from "./fixtures/generation/harness.js";
 
 async function flush() { await setImmediate(); }
 const failure = { category: "permission" as const, code: "answer_refused", message: "Native answer delivery failed.", recovery: { kind: "none" as const } };
+
+test("generation captures its approval policy before deferred opening and still delivers exact host answers", async () => {
+  const request = approval();
+  const delivered = deferred<void>();
+  const handled: string[] = [];
+  const selection: { kind: AgentApprovalPolicy["kind"] } = { kind: "provider_accept_edits" };
+  const f = await generationFixture({
+    approvalPolicy: { kind: "provider_accept_edits" },
+    async resolveRequest() { delivered.resolve(); return { status: "delivered" }; },
+    async *outputs(context, turn, closed) {
+      yield event(context, turn, "turn.started", {});
+      yield event(context, turn, "item.started", { itemId, itemKind: "assistant_message", status: "in_progress" });
+      yield event(context, turn, "request.opened", { request });
+      await Promise.race([delivered.promise, closed]);
+      yield event(context, turn, "item.completed", { itemId, itemKind: "assistant_message", status: "completed" });
+      yield terminal(context, turn);
+    },
+  });
+  try {
+    const pending = generateObject({ ...f.input, session: { ...f.input.session, approvalPolicy: selection },
+      onRequest(opened) { handled.push(opened.requestId); return answer(opened); },
+    });
+    selection.kind = "provider_bypass";
+    assert.deepEqual((await pending).value, { title: "A useful title" });
+    assert.deepEqual(f.contexts.map((context) => context.approvalPolicy), [{ kind: "provider_accept_edits" }]);
+    assert.deepEqual(handled, [request.requestId]);
+    assert.deepEqual(f.resolutions.map((input) => input.resolution), [answer(request)]);
+    assert.deepEqual([f.turns.length, f.counts.readers, f.counts.settledReaders, f.counts.closes, f.disposed()], [1, 1, 1, 1, 0]);
+  } finally { await f.registry.dispose(); }
+});
 
 test("generation delivers answers for unexpired requests within and beyond its lifetime", async (t) => {
   for (const expiryMs of [2_000, 30 * 24 * 60 * 60 * 1_000]) await t.test(`${expiryMs} ms provider expiry`, async () => {
@@ -79,18 +109,27 @@ test("provider expiry before the generation deadline aborts its handler and disc
   await f.registry.dispose();
 });
 
-test("a missing generation request handler fails without approval while owning interruption and the original reader to close", async () => {
-  const request = approval();
-  const f = await generationFixture({ async *outputs(context, turn, closed) {
-    yield event(context, turn, "turn.started", {});
-    yield event(context, turn, "item.started", { itemId, itemKind: "assistant_message", status: "in_progress" });
-    yield event(context, turn, "request.opened", { request });
-    await closed;
-    yield terminal(context, turn, { outcome: "canceled", structuredOutput: { kind: "unavailable", reason: "incomplete" } });
-  } });
-  await assert.rejects(generateObject(f.input), (error) => error instanceof AgentGenerationError && error.code === "interaction_required");
-  assert.deepEqual([f.turns.length, f.counts.readers, f.counts.settledReaders, f.counts.interrupts, f.counts.closes, f.resolutions.length, f.disposed()], [1, 1, 1, 1, 1, 0, 0]);
-  await f.registry.dispose();
+test("a missing generation request handler fails without approval while owning interruption and the original reader to close", async (t) => {
+  const policies: readonly (AgentApprovalPolicy | undefined)[] = [
+    undefined, { kind: "provider_auto_review" }, { kind: "provider_bypass" }, { kind: "provider_accept_edits" },
+  ];
+  for (const approvalPolicy of policies) await t.test(approvalPolicy?.kind ?? "omitted", async () => {
+    const request = approval();
+    const f = await generationFixture({ ...(approvalPolicy === undefined ? {} : { approvalPolicy }), async *outputs(context, turn, closed) {
+      yield event(context, turn, "turn.started", {});
+      yield event(context, turn, "item.started", { itemId, itemKind: "assistant_message", status: "in_progress" });
+      yield event(context, turn, "request.opened", { request });
+      await closed;
+      yield terminal(context, turn, { outcome: "canceled", structuredOutput: { kind: "unavailable", reason: "incomplete" } });
+    } });
+    try {
+      await assert.rejects(generateObject({ ...f.input,
+        session: { ...f.input.session, ...(approvalPolicy === undefined ? {} : { approvalPolicy }) },
+      }), (error) => error instanceof AgentGenerationError && error.code === "interaction_required");
+      assert.deepEqual(f.contexts.map((context) => context.approvalPolicy), [approvalPolicy]);
+      assert.deepEqual([f.turns.length, f.counts.readers, f.counts.settledReaders, f.counts.interrupts, f.counts.closes, f.resolutions.length, f.disposed()], [1, 1, 1, 1, 1, 0, 0]);
+    } finally { await f.registry.dispose(); }
+  });
 });
 
 test("withdrawn generation handlers are aborted, their late answers discarded, and another request succeeds while output keeps flowing", async () => {

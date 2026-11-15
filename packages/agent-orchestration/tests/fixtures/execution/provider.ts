@@ -2,7 +2,7 @@
 //                provider.ts - Observable local augmentation of the existing runtime fake
 // ------------------------------------------------------------------------------------------------
 
-import { parseAgentIsoDateTime, type AgentTurnId } from "@agen-ai/agent-protocol";
+import { AGENT_PROTOCOL_VERSION, parseAgentIsoDateTime, type AgentTurnId } from "@agen-ai/agent-protocol";
 import {
   createAgentEventOutput,
   type AgentProviderAdapter,
@@ -28,7 +28,7 @@ export function deferred<Value>() {
 
 export function eventBase(context: AgentProviderSessionContext, turnId: AgentTurnId) {
   return {
-    protocolVersion: 13 as const,
+    protocolVersion: AGENT_PROTOCOL_VERSION,
     sessionId: context.sessionId,
     turnId,
     occurredAt: parseAgentIsoDateTime("2026-10-10T12:00:00.000Z"),

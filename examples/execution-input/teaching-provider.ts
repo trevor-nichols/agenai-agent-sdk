@@ -1,6 +1,6 @@
 import { setImmediate } from 'node:timers/promises';
 import {
-  parseAgentCapabilities, parseAgentInstanceId, parseAgentProviderConversationId,
+  AGENT_PROTOCOL_VERSION, parseAgentCapabilities, parseAgentInstanceId, parseAgentProviderConversationId,
 } from '@agen-ai/agent-protocol';
 import {
   createAgentEventOutput, createAgentProviderReadiness, validateAgentProviderAdapter,
@@ -14,11 +14,12 @@ export type Scenario = 'accepted-consumed' | 'accepted-unconfirmed' | 'native-re
   | 'delivery-uncertain' | 'unsupported';
 
 const capabilities = parseAgentCapabilities({
-  protocolVersion: 13, providerKey: 'example-execution-input',
+  protocolVersion: AGENT_PROTOCOL_VERSION, providerKey: 'example-execution-input',
   sessions: { create: true, resume: false, branch: { kind: 'unsupported' } },
   turns: { structuredOutput: { kind: 'unsupported' }, interactionModes: ['default'], interrupt: false, steer: { kind: 'unsupported' } },
   requests: { approval: { kind: 'unsupported' }, elicitation: { kind: 'unsupported' } },
   context: { usage: { kind: 'unsupported' }, compaction: { kind: 'unsupported' } },
+  tokenUsage: { kind: 'unsupported' },
   input: { text: true, images: { kind: 'unsupported' }, contentReferences: { kind: 'unsupported' } },
   output: { streaming: true, plans: false, fileChanges: 'none', artifactKinds: [] },
   configuration: { kind: 'managed' }, operations: { kind: 'unsupported' },
@@ -61,7 +62,7 @@ export function createTeachingProvider(scenario: Scenario) {
         collaboration: { kind: 'unsupported' }, generatedResources: { kind: 'unsupported' },
         startTurn(turn) {
           statistics.starts += 1;
-          const base = { protocolVersion: 13 as const, sessionId: context.sessionId, turnId: turn.turnId,
+          const base = { protocolVersion: AGENT_PROTOCOL_VERSION, sessionId: context.sessionId, turnId: turn.turnId,
             occurredAt: '2026-10-23T12:00:00.000Z' };
           return {
             turnId: turn.turnId,

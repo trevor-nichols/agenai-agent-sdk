@@ -46,7 +46,12 @@ import {
   type AgentSessionId,
   type AgentGeneratedResourceId,
   type AgentTurnId,
+  type AgentUsageObservationId,
+  type AgentUsagePopulationId,
+  type AgentUsageScopeId,
+  type AgentUsageViewId,
 } from '../foundation/types.js';
+import { AGENT_TOKEN_USAGE_LIMITS } from '../usage/types.js';
 
 // ------------------------------------------------------------------------------------------------
 //                Canonical Strings and IDs
@@ -153,6 +158,19 @@ export const AgentProviderItemRefSchema =
   opaqueStringSchema<AgentProviderItemRef>(ProviderReferenceSchema);
 export const AgentProviderRequestRefSchema =
   opaqueStringSchema<AgentProviderRequestRef>(ProviderReferenceSchema);
+
+export const AgentUsageIdentifierValueSchema = createAgentCanonicalOpaqueStringSchema(
+  AGENT_TOKEN_USAGE_LIMITS.identifierLength,
+  'Usage identities must be canonical and contain no control or surrounding whitespace.',
+);
+export const AgentUsageObservationIdSchema =
+  opaqueStringSchema<AgentUsageObservationId>(AgentUsageIdentifierValueSchema);
+export const AgentUsageViewIdSchema =
+  opaqueStringSchema<AgentUsageViewId>(AgentUsageIdentifierValueSchema);
+export const AgentUsageScopeIdSchema =
+  opaqueStringSchema<AgentUsageScopeId>(AgentUsageIdentifierValueSchema);
+export const AgentUsagePopulationIdSchema =
+  opaqueStringSchema<AgentUsagePopulationId>(AgentUsageIdentifierValueSchema);
 
 export const AgentProviderKeySchema = opaqueStringSchema<AgentProviderKey>(
   z

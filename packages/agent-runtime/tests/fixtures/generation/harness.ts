@@ -16,6 +16,7 @@ import {
 import {
   createAgentEventOutput,
   createAgentProviderRegistry,
+  type AgentApprovalPolicy,
   type AgentProviderCreateSessionInput,
   type AgentProviderDriver,
   type AgentProviderOutput,
@@ -55,7 +56,7 @@ export function answer(request: AgentRequest): AgentRequestResolution {
   return { requestKind: "approval", requestId: request.requestId, disposition: "selected", optionId };
 }
 export function event(context: AgentProviderCreateSessionInput, turn: AgentProviderStartTurnInput, type: string, payload: unknown): AgentProviderOutput {
-  return createAgentEventOutput({ protocolVersion: 13, sessionId: context.sessionId, turnId: turn.turnId,
+  return createAgentEventOutput({ protocolVersion: 14, sessionId: context.sessionId, turnId: turn.turnId,
     occurredAt: "2026-10-21T12:00:00.000Z", type, payload });
 }
 export function terminal(context: AgentProviderCreateSessionInput, turn: AgentProviderStartTurnInput,
@@ -64,6 +65,7 @@ export function terminal(context: AgentProviderCreateSessionInput, turn: AgentPr
 }
 
 export async function generationFixture(options: {
+  readonly approvalPolicy?: AgentApprovalPolicy;
   readonly scope?: "turn" | "session" | "unsupported";
   readonly maxSchemaBytes?: number;
   readonly beforeOpen?: (context: AgentProviderCreateSessionInput) => Promise<void>;
@@ -91,12 +93,20 @@ export async function generationFixture(options: {
   const closed = deferred<void>();
   const driver: AgentProviderDriver = { ...fake.driver, async materialize(definition) {
     const instance = await fake.driver.materialize(definition);
-    return { ...instance, adapter: { ...instance.adapter, async createSession(context) {
+    return { ...instance, adapter: { ...instance.adapter,
+      ...(options.approvalPolicy === undefined ? {} : { approvalPolicy: {
+        kind: "supported" as const,
+        policies: [{ policy: options.approvalPolicy.kind, operations: ["create"] as const }] as const,
+      } }),
+      async createSession(context) {
       counts.opens += 1; contexts.push(context); opened.resolve();
       await options.beforeOpen?.(context);
       const { signal: _signal, ...withoutSignal } = context;
       const native = await instance.adapter.createSession(options.ignoreOpeningAbort ? withoutSignal : context);
       return { ...native,
+        ...(options.approvalPolicy === undefined ? {} : { approvalPolicy: {
+          policy: options.approvalPolicy, verification: "native_observation" as const,
+        } }),
         startTurn(turn) {
           turns.push(turn); started.resolve();
           return { turnId: turn.turnId,

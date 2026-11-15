@@ -41,6 +41,7 @@ export async function openAcpNativeSession(input: CreateAcpProviderSessionInput,
   readonly replay: AcpHistoryReplay;
   readonly bind: (binding: AgentSessionBinding) => void;
   readonly observeSetup: (result: AcpJsonObject) => void;
+  readonly verifyOpening?: (result: AcpJsonObject) => void;
   readonly completeOpeningResponse?: () => void;
 }): Promise<void> {
   const client = acpSessionControlClient(input);
@@ -51,7 +52,9 @@ export async function openAcpNativeSession(input: CreateAcpProviderSessionInput,
     hooks.bind(resumed.binding);
     hooks.replay.active = resumed.method === 'session/load';
   }
-  const params = { cwd: input.context.workingDirectory, mcpServers: [...input.mcpServers ?? []] };
+  const params = { cwd: input.context.workingDirectory, mcpServers: [...input.mcpServers ?? []],
+    ...(input.connection.protocolDialect ? { _meta: { sessionId: input.connection.protocolDialect.nativeSessionId,
+      clientFsRead: false, clientFsWrite: false, clientTerminal: false } } : {}) };
   const options = {
     ...(input.context.signal === undefined ? {} : { signal: input.context.signal }),
     timeoutMs: input.limits.initializationTimeoutMs,
@@ -60,6 +63,7 @@ export async function openAcpNativeSession(input: CreateAcpProviderSessionInput,
       hooks.replay.active = false;
       if (response.kind === 'error') return;
       const result = nativeObject(response.result, 'session setup response');
+      hooks.verifyOpening?.(result);
       if (!resumed) {
         const binding = parseAgentSessionBinding({ conversationId: parseAgentProviderConversationId(nativeString(result.sessionId, 'session identity')) });
         hooks.bind(binding);
