@@ -109,7 +109,7 @@ scope, identity or origin, so summing them with V14 usage would double count.
 
 ## Provider coverage
 
-| Composition | Token usage in this candidate |
+| Composition | Token usage in 0.4.14 |
 | --- | --- |
 | Generic ACP (`@agen-ai/provider-acp`) | Unsupported. Occupancy and cost updates are not consumption. |
 | Owned Claude 0.3.322 / Code 2.1.322 (`@agen-ai/provider-claude`) | Supported; see its [README](packages/provider-claude/README.md#token-usage). |

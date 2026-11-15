@@ -5,7 +5,7 @@ This hermetic example teaches the optional provider-neutral runtime contract usi
 It uses no native process, model, credentials, network, tools, or storage. Its JSON
 evidence is explicitly `synthetic`; success qualifies no native provider mapping.
 
-The published ten-package 0.4.13 release ships **no public native provider with
+The published fourteen-package 0.4.14 release ships **no public native provider with
 execution-input support**.
 All public ACP/Grok compositions remain unsupported. The separately controlled
 private Claude SDK 0.3.309 / Code 2.1.309 diagnostic mapping has exact Linux x86_64 /
