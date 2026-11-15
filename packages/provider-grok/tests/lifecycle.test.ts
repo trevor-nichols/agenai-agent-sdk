@@ -103,6 +103,7 @@ test('outer disposal joins entered opening and rejects a late reply after pipe r
 test('outer disposal synchronously fences an existing session before physical stop settles', { timeout: 10000 }, async (t) => {
   const f = await lifecycleFixture(t, 'turn-fence');
   const session = await f.create(await f.materialize());
+  await f.waitFor('session/new');
   f.controls.stopHold = gate();
   const disposing = pending(f.provider.dispose());
   assert.throws(() => session.startTurn(turn), /no longer admits/u);
