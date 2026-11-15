@@ -17,18 +17,26 @@ registerHooks({
 const { openNodeProviderToolOwner } = await import('../src/node/owner.js');
 
 const HELPER_PID = FAKE_PID + 1;
+const MISMATCHED_USER = { uid: process.geteuid!() + 1, gid: process.getegid!() + 1 };
 
 async function fixture(t: test.TestContext, script: LauncherScript, states: Map<number, ProcState>) {
   fakeProc(t, states);
   const root = await realpath(await mkdtemp(`${tmpdir()}/provider-tools-owner-`));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  let owner: Awaited<ReturnType<typeof openNodeProviderToolOwner>> | undefined;
+  t.after(async () => {
+    for (const pid of states.keys()) states.set(pid, 'gone');
+    try { await owner?.dispose(); } finally { await rm(root, { recursive: true, force: true }); }
+  });
   const workspace = await prepareNodeProviderWorkspace({ directory: `${root}/store` });
   const stateParentDirectory = `${root}/state`;
   await mkdir(stateParentDirectory, { mode: 0o700 });
   const launcher = await fakeLauncher(t, script);
   const path = launcher.executable.path;
-  const open = () => openNodeProviderToolOwner({ workspace, stateParentDirectory, bubblewrapPath: path, filesystemHelperPath: path },
-    { path, sha256: { 'linux-x64': 'test-launcher', 'linux-arm64': 'test-launcher' }, maxBytes: 1_048_576 });
+  const open = async () => {
+    owner = await openNodeProviderToolOwner({ workspace, stateParentDirectory, bubblewrapPath: path, filesystemHelperPath: path },
+      { path, sha256: { 'linux-x64': 'test-launcher', 'linux-arm64': 'test-launcher' }, maxBytes: 1_048_576 });
+    return owner;
+  };
   const leased = () => prepareNodeProviderWorkspace({ directory: workspace.storeDirectory }).then(() => false, (error: { code?: string }) => {
     if (error.code === 'workspace_leased') return true;
     throw error;
@@ -58,7 +66,7 @@ test('ordinary materialization, sequential sessions and repeated disposal leave 
 
 for (const [name, script, states] of [
   ['an unreadable preflight namespace', { info: report(FAKE_PID) }, [[FAKE_PID, 'unreadable']]],
-  ['a probe helper whose readiness fails and whose namespace survives', { info: report(FAKE_PID), helperInfo: report(HELPER_PID), ready: { uid: 1001, gid: 1001 } },
+  ['a probe helper whose readiness fails and whose namespace survives', { info: report(FAKE_PID), helperInfo: report(HELPER_PID), ready: MISMATCHED_USER },
     [[FAKE_PID, 'gone'], [HELPER_PID, 'running']]],
 ] as const) {
   test(`materialization retains ${name} with the lease and state until the original retry confirms it`, { timeout: 30_000 }, async (t) => {
@@ -85,7 +93,7 @@ test('a session helper that cannot be joined blocks reuse and disposal until its
   const owned = await fixture(t, { info: report(FAKE_PID), helperInfo: report(HELPER_PID) }, observed);
   const owner = await owned.open();
   const failing = async (pid: number) => {
-    await owned.launcher.script({ info: report(FAKE_PID), helperInfo: report(pid), ready: { uid: 1001, gid: 1001 } });
+    await owned.launcher.script({ info: report(FAKE_PID), helperInfo: report(pid), ready: MISMATCHED_USER });
     observed.set(pid, 'running');
     return failure(owner.openSession({ editApproval: 'automatic' }));
   };
